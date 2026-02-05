@@ -34,7 +34,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: pinkcar/alphasignal-backend
+          images: pincar/alphasignal-backend
 
       - name: Build and push backend Docker image
         uses: docker/build-push-action@v5
@@ -77,7 +77,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: pinkcar/alphasignal-web
+          images: pincar/alphasignal-web
 
       - name: Build and push frontend Docker image
         uses: docker/build-push-action@v5
