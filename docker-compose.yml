@@ -28,7 +28,7 @@ services:
 
   # 1. Background Worker
   worker:
-    image: pinkcar/alphasignal-backend:latest
+    image: pincar/alphasignal-backend:latest
     container_name: alphasignal_worker
     command: python run.py
     volumes:
@@ -53,7 +53,7 @@ services:
 
   # 1.5 Funds Automation Worker
   funds_worker:
-    image: pinkcar/alphasignal-backend:latest
+    image: pincar/alphasignal-backend:latest
     container_name: alphasignal_funds_worker
     command: python run_funds.py
     volumes:
@@ -77,7 +77,7 @@ services:
 
   # 2. API Server (SSE)
   api:
-    image: pinkcar/alphasignal-backend:latest
+    image: pincar/alphasignal-backend:latest
     container_name: alphasignal_api
     command: python sse_server.py
     ports:
@@ -103,7 +103,7 @@ services:
 
   # 3. Frontend (Next.js)
   web:
-    image: pinkcar/alphasignal-web:latest
+    image: pincar/alphasignal-web:latest
     container_name: alphasignal_web
     ports:
       - "3000:3000"
