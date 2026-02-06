@@ -48,12 +48,12 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
   };
 
   const RangeSelector = (
-    <div className="flex bg-slate-100 dark:bg-slate-900/50 rounded-lg p-0.5 border border-slate-200 dark:border-slate-800/50">
+    <div className="flex bg-slate-100 dark:bg-slate-900/50 rounded-lg p-0.5 border border-slate-200 dark:border-slate-800/50 overflow-x-auto max-w-[180px] md:max-w-none no-scrollbar">
       {RANGES.map((r) => (
         <button
           key={r.label}
           onClick={() => handleRangeClick(r.range, r.interval, r.label)}
-          className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 ${activeLabel === r.label
+          className={`flex-shrink-0 px-2 md:px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 ${activeLabel === r.label
             ? 'bg-blue-600 dark:bg-emerald-500/20 text-white dark:text-emerald-400 shadow-sm border border-blue-700 dark:border-emerald-500/20'
             : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white dark:hover:bg-slate-800/50'
             }`}
@@ -74,7 +74,7 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
             <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded"></div>
             <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded"></div>
           </div>
-          <div className="text-slate-400 dark:text-slate-600 text-xs">Loading market data...</div>
+          <div className="text-slate-400 dark:text-slate-600 text-xs">{t('loadingData')}</div>
         </div>
 
         {/* Skeleton: Chart area with candlestick-like bars */}
@@ -150,13 +150,13 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
   ];
 
   return (
-    <Card className="p-0 border-slate-200 dark:border-slate-800" title={t('title')} action={RangeSelector}>
+    <Card className="h-[350px] md:h-[450px] p-0 border-slate-200 dark:border-slate-800" title={t('title')} action={RangeSelector}>
       <Plot
         data={traces}
         layout={{
           autosize: true,
-          height: 450,
-          margin: { l: 50, r: 20, t: 30, b: 40 },
+          // height: 450, // Removed to allow responsive parent control
+          margin: { l: 40, r: 10, t: 30, b: 40 }, // Tighter margins for mobile
           plot_bgcolor: 'transparent',
           paper_bgcolor: 'transparent',
           font: { color: isDark ? '#94a3b8' : '#475569', family: 'monospace' },

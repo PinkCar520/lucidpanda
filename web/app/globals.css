@@ -6,7 +6,7 @@
   --foreground: #0f172a;
   --card-bg: #ffffff;
   --card-border: #e2e8f0;
-  
+
   /* Liquid Glass Variables */
   --lg-glass: #bbbbbc;
   --lg-light: #fff;
@@ -72,6 +72,18 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #475569;
+}
+
+/* 隐藏滚动条但保留功能 */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Liquid Glass Toolbar */

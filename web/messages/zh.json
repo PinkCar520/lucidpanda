@@ -12,14 +12,17 @@
     "filterAll": "全部",
     "filterEssential": "高分 8+",
     "filterBearish": "利空",
-    "liveFeedLabel": "实时情报流"
+    "liveFeedLabel": "实时情报流",
+    "dataVisualization": "数据分析",
+    "noIntelligence": "没有找到符合条件的情报"
   },
   "Table": {
     "title": "战术策略矩阵",
     "time": "时间",
     "context": "事件背景",
     "strategy": "AI 策略",
-    "goldRef": "金价参考"
+    "goldRef": "金价参考",
+    "noData": "暂无数据"
   },
   "Sentiment": {
     "hawkish": "鹰派",
@@ -43,14 +46,15 @@
     "vix": "恐慌指数 (VIX)"
   },
   "Chart": {
-    "title": "价格走势 vs 情绪事件",
+    "title": "价格行为与情绪因子分析",
     "intraday": "分时",
     "day": "日K",
     "week": "周K",
     "month": "月K",
     "quarter": "季K",
     "year": "年K",
-    "all": "All"
+    "all": "All",
+    "loadingData": "正在加载行情数据..."
   },
   "Backtest": {
     "bearishSignals": "利空信号 (评分 8+)",

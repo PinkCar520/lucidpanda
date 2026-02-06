@@ -12,14 +12,17 @@
     "filterAll": "All",
     "filterEssential": "Score 8+",
     "filterBearish": "Bearish",
-    "liveFeedLabel": "LIVE FEED"
+    "liveFeedLabel": "LIVE FEED",
+    "dataVisualization": "Analysis",
+    "noIntelligence": "No intelligence found"
   },
   "Table": {
     "title": "TACTICAL STRATEGY MATRIX",
     "time": "TIME",
     "context": "EVENT CONTEXT",
     "strategy": "AI STRATEGY",
-    "goldRef": "GOLD REF"
+    "goldRef": "GOLD REF",
+    "noData": "No Data Available"
   },
   "Sentiment": {
     "hawkish": "HAWKISH",
@@ -43,14 +46,15 @@
     "vix": "VOLATILITY (VIX)"
   },
   "Chart": {
-    "title": "Price Action vs. Sentiment Events",
+    "title": "Price Action & Sentiment Factor Analysis",
     "intraday": "Intraday",
     "day": "1D",
     "week": "1W",
     "month": "1M",
     "quarter": "3M",
     "year": "1Y",
-    "all": "All"
+    "all": "All",
+    "loadingData": "Loading market data..."
   },
   "Backtest": {
     "bearishSignals": "Bearish Signals (Score 8+)",

@@ -346,11 +346,11 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
       <header className="flex flex-col md:flex-row justify-between items-start gap-4 mb-2">
         {/* Left: Brand Identity */}
         <div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400 flex items-center gap-3">
-            <span className="text-4xl">🍍</span>
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400 flex items-center gap-2 md:gap-3">
+            <span className="text-3xl md:text-4xl">🍍</span>
             {t('title')}
           </h1>
-          <p className="text-slate-500 font-mono text-xs mt-1 uppercase tracking-widest pl-14">
+          <p className="text-slate-500 font-mono text-[10px] md:text-xs mt-1 uppercase tracking-widest pl-11 md:pl-14">
             {t('subtitle')}
           </p>
         </div>
@@ -377,23 +377,30 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         <div className="flex lg:hidden w-full bg-slate-100 dark:bg-slate-900/50 rounded-lg p-1 mb-3 border border-slate-200 dark:border-slate-800/50">
           <button
             onClick={() => setActiveTab('feed')}
-            className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'feed'
+            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 relative ${activeTab === 'feed'
               ? 'bg-blue-600 dark:bg-emerald-500 text-white shadow-lg'
               : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
               }`}
           >
-            <Radio className="w-3.5 h-3.5" />
-            {t('liveFeedLabel')}
+            <div className="flex items-center gap-1.5">
+              <Radio className="w-3.5 h-3.5" />
+              <span>{t('liveFeedLabel')}</span>
+              {globalHighUrgency > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[9px] font-black leading-none">
+                  {globalHighUrgency}
+                </span>
+              )}
+            </div>
           </button>
           <button
             onClick={() => setActiveTab('charts')}
-            className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'charts'
+            className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'charts'
               ? 'bg-blue-600 dark:bg-emerald-500 text-white shadow-lg'
               : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
               }`}
           >
             <Zap className="w-3.5 h-3.5" />
-            {t('dataVisualization') || 'Data Analysis'}
+            {t('dataVisualization')}
           </button>
         </div>
 
@@ -509,7 +516,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
             {/* Empty State */}
             {filteredLiveIntelligence.length === 0 && (
               <div className="flex flex-col items-center justify-center py-10 text-slate-500">
-                <p className="text-sm">No intelligence found</p>
+                <p className="text-sm">{t('noIntelligence')}</p>
               </div>
             )}
           </div>
@@ -530,13 +537,13 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           {/* Strategy Matrix (Integrated into Right Column) */}
           <Card title={tTable('title')} className="min-h-[300px]" id="tactical-matrix">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[600px] md:min-w-0">
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-[10px] uppercase tracking-wider">
-                    <th className="p-4 font-semibold">{tTable('time')}</th>
-                    <th className="p-4 font-semibold w-[40%]">{tTable('context')}</th>
-                    <th className="p-4 font-semibold w-[30%]">{tTable('strategy')}</th>
-                    <th className="p-4 font-semibold text-right">{tTable('goldRef')}</th>
+                    <th className="p-2 md:p-4 font-semibold whitespace-nowrap">{tTable('time')}</th>
+                    <th className="p-2 md:p-4 font-semibold w-[40%]">{tTable('context')}</th>
+                    <th className="p-2 md:p-4 font-semibold w-[30%]">{tTable('strategy')}</th>
+                    <th className="p-2 md:p-4 font-semibold text-right whitespace-nowrap">{tTable('goldRef')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-sm">
@@ -549,13 +556,13 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   ) : tableIntelligence.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-8 text-center text-slate-500">
-                        暂无数据
+                        {tTable('noData')}
                       </td>
                     </tr>
                   ) : (
                     tableIntelligence.map((item: Intelligence) => (
                       <tr key={item.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                        <td className="p-4 font-mono text-slate-400 dark:text-slate-500 text-xs whitespace-nowrap">
+                        <td className="p-2 md:p-4 font-mono text-slate-400 dark:text-slate-500 text-[10px] md:text-xs whitespace-nowrap">
                           {(() => {
                             const date = new Date(item.timestamp);
                             const year = date.getUTCFullYear();
@@ -564,16 +571,22 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                             const hours = String(date.getUTCHours()).padStart(2, '0');
                             const minutes = String(date.getUTCMinutes()).padStart(2, '0');
                             const seconds = String(date.getUTCSeconds()).padStart(2, '0');
-                            return `${year}/${month}/${day} ${hours}:${minutes}:${seconds} (UTC)`;
+                            // Mobile: Compact Date, Desktop: Full
+                            return (
+                              <>
+                                <span className="md:hidden">{month}/{day} {hours}:{minutes}</span>
+                                <span className="hidden md:inline">{year}/{month}/{day} {hours}:{minutes}:{seconds} (UTC)</span>
+                              </>
+                            );
                           })()}
                         </td>
-                        <td className="p-4 text-slate-700 dark:text-slate-300">
+                        <td className="p-2 md:p-4 text-slate-700 dark:text-slate-300 text-xs md:text-sm">
                           {getLocalizedText(item.summary, locale)}
                         </td>
-                        <td className="p-4 text-blue-600 dark:text-emerald-400 font-mono text-xs">
+                        <td className="p-2 md:p-4 text-blue-600 dark:text-emerald-400 font-mono text-xs">
                           {getLocalizedText(item.actionable_advice, locale)}
                         </td>
-                        <td className="p-4 text-right font-mono text-slate-500 dark:text-slate-400">
+                        <td className="p-2 md:p-4 text-right font-mono text-slate-500 dark:text-slate-400 text-xs">
                           ${item.gold_price_snapshot?.toFixed(1) || '-'}
                         </td>
                       </tr>
