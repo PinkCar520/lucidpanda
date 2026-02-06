@@ -146,6 +146,7 @@
     "sizeIsWeight": "Size = Weight",
     "colorIsImpact": "Color = Contr. to Return",
     "currentlyViewing": "CURRENTLY VIEWING",
-    "dataVisualization": "Data Analysis"
+    "dataVisualization": "Data Analysis",
+    "loading": "Calculating real-time NAV..."
   }
 }
