@@ -132,12 +132,12 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
                                     {t('avgDrop')}
                                 </p>
                                 <div className="flex items-baseline gap-1">
-                                    <span className={`text-3xl font-mono font-black ${stats.avgDrop > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                                    <span className={`text-3xl font-mono font-black ${stats.avgDrop > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400'}`}>
                                         {stats.avgDrop > 0 ? '↓' : ''} {Math.abs(stats.avgDrop).toFixed(2)}%
                                     </span>
                                 </div>
                             </div>
-                            <TrendingDown className={`w-5 h-5 ${stats.avgDrop > 0 ? 'text-rose-500/30 dark:text-rose-500/50' : 'text-slate-300 dark:text-slate-700'}`} />
+                            <TrendingDown className={`w-5 h-5 ${stats.avgDrop > 0 ? 'text-emerald-500/30 dark:text-emerald-500/50' : 'text-slate-300 dark:text-slate-700'}`} />
                         </div>
 
                         {/* Stat 4: Hygiene Score */}

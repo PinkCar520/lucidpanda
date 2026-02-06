@@ -2,8 +2,8 @@
 
 import { useLocale } from 'next-intl';
 import { usePathname, useRouter } from '@/i18n/navigation';
-import { ChangeEvent, useTransition } from 'react';
-import { Globe, Check } from 'lucide-react';
+import { useTransition, useState, useRef, useEffect } from 'react';
+import { Globe, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { locales, localeNames } from '@/i18n/config';
 
 export default function LanguageSwitcher() {
@@ -11,37 +11,69 @@ export default function LanguageSwitcher() {
     const router = useRouter();
     const pathname = usePathname();
     const [isPending, startTransition] = useTransition();
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
 
-    const onSelectChange = (e: ChangeEvent<HTMLSelectElement>) => {
-        const nextLocale = e.target.value;
+    const handleLocaleChange = (nextLocale: string) => {
+        setIsOpen(false);
         startTransition(() => {
             router.replace(pathname, { locale: nextLocale });
         });
     };
 
+    // Close on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const currentName = localeNames[locale as keyof typeof localeNames];
+
     return (
-        <div className="relative group">
-            <div className="flex items-center gap-2 bg-slate-900 border border-slate-700/50 rounded-lg px-3 py-1.5 hover:border-emerald-500/50 transition-colors">
-                <Globe className="w-3 h-3 text-emerald-500" />
-                <select
-                    defaultValue={locale}
-                    disabled={isPending}
-                    onChange={onSelectChange}
-                    className="bg-transparent text-xs text-slate-300 font-mono focus:outline-none appearance-none cursor-pointer pr-4"
-                    style={{
-                        backgroundImage: "none"
-                    }}
-                >
-                    {locales.map((cur) => (
-                        <option key={cur} value={cur} className="bg-slate-900 text-slate-300">
-                            {localeNames[cur as keyof typeof localeNames]}
-                        </option>
-                    ))}
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-500">
-                    ▼
+        <div className="relative" ref={containerRef}>
+            {/* Trigger Button - Adaptive Light/Dark Mode */}
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className={`flex items-center gap-2 bg-white dark:bg-[#0f172a] hover:bg-slate-50 dark:hover:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-full px-4 py-2 transition-all duration-200 group shadow-sm ${isOpen ? 'ring-2 ring-blue-500/20 border-blue-500/50' : ''}`}
+            >
+                <Globe className="w-4 h-4 text-blue-600 dark:text-blue-500 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">{currentName}</span>
+                {isOpen ? (
+                    <ChevronUp className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                ) : (
+                    <ChevronDown className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                )}
+            </button>
+
+            {/* Dropdown Menu */}
+            {isOpen && (
+                <div className="absolute bottom-full right-0 mb-2 w-40 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-right z-[60]">
+                    <div className="p-1 flex flex-col gap-1">
+                        {locales.map((cur) => (
+                            <button
+                                key={cur}
+                                onClick={() => handleLocaleChange(cur)}
+                                disabled={isPending}
+                                className={`flex items-center justify-between w-full px-3 py-2 text-xs font-bold rounded-lg transition-colors ${locale === cur
+                                    ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                                    }`}
+                            >
+                                <span className="flex items-center gap-2">
+                                    {/* Optional: Add flag icons later if needed */}
+                                    {localeNames[cur as keyof typeof localeNames]}
+                                </span>
+                                {locale === cur && <Check className="w-3 h-3" />}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

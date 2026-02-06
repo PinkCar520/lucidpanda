@@ -5,6 +5,28 @@ import React, { useEffect, useRef, memo } from 'react';
 function TradingViewMiniCharts() {
     const container = useRef<HTMLDivElement>(null);
 
+    const [theme, setTheme] = React.useState<'light' | 'dark'>('dark');
+
+    useEffect(() => {
+        // Initial Theme Check
+        const isDark = document.documentElement.classList.contains('dark');
+        setTheme(isDark ? 'dark' : 'light');
+
+        // Observer for Theme Changes
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'class') {
+                    const newIsDark = document.documentElement.classList.contains('dark');
+                    setTheme(newIsDark ? 'dark' : 'light');
+                }
+            });
+        });
+
+        observer.observe(document.documentElement, { attributes: true });
+
+        return () => observer.disconnect();
+    }, []);
+
     useEffect(() => {
         if (!container.current) return;
 
@@ -38,7 +60,7 @@ function TradingViewMiniCharts() {
                     "proName": "CAPITALCOM:VIX"
                 }
             ],
-            "colorTheme": "dark",
+            "colorTheme": theme,
             "isTransparent": true,
             "showSymbolLogo": true,
             "locale": "en"
@@ -49,7 +71,7 @@ function TradingViewMiniCharts() {
         container.current.appendChild(widgetContainer);
         container.current.appendChild(script);
 
-    }, []);
+    }, [theme]);
 
     return (
         <div className="tradingview-widget-container w-full" ref={container}>

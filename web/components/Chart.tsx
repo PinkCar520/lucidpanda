@@ -35,7 +35,7 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
       setIsDark(document.documentElement.classList.contains('dark'));
     };
     checkTheme();
-    
+
     // Observer for theme changes
     const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
@@ -114,8 +114,10 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
 
       // increasing: { line: { color: '#10B981', width: 1 }, fillcolor: '#10B981' },
       // decreasing: { line: { color: '#F43F5E', width: 1 }, fillcolor: '#F43F5E' },
-      increasing: { line: { color: '#34d399' } },
-      decreasing: { line: { color: '#fb7185' } },
+      // increasing: { line: { color: '#EF4444' } }, // Red (Up)
+      // decreasing: { line: { color: '#10B981' } }, // Green (Down)
+      increasing: { line: { color: '#EF4444' } },
+      decreasing: { line: { color: '#10B981' } },
 
       type: 'candlestick',
       xaxis: 'x',
@@ -130,7 +132,7 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
       mode: 'markers',
       type: 'scatter',
       name: 'Bullish Signal',
-      marker: { symbol: 'triangle-up', size: 10, color: '#10B981' }, // Emerald 500
+      marker: { symbol: 'triangle-up', size: 10, color: '#EF4444' }, // Red 500 (Up)
       hoverinfo: 'text',
       text: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => `${i.summary} (Score: ${i.urgency_score})`),
     },
@@ -141,7 +143,7 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
       mode: 'markers',
       type: 'scatter',
       name: 'Bearish Signal',
-      marker: { symbol: 'triangle-down', size: 10, color: '#F43F5E' }, // Rose 500
+      marker: { symbol: 'triangle-down', size: 10, color: '#10B981' }, // Emerald 500 (Down)
       hoverinfo: 'text',
       text: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => `${i.summary} (Score: ${i.urgency_score})`),
     }
@@ -159,19 +161,27 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
           paper_bgcolor: 'transparent',
           font: { color: isDark ? '#94a3b8' : '#475569', family: 'monospace' },
           xaxis: {
-            gridcolor: isDark ? '#1e293b' : '#f1f5f9',
+            gridcolor: isDark ? '#1e293b' : '#f1f5f9', // slate-800 : slate-100
+            linecolor: isDark ? '#334155' : '#e2e8f0', // slate-700 : slate-200 (Subtle)
+            showline: true, // Distinct axis line
+            zeroline: false, // Remove heavy zero line
+            tickcolor: isDark ? '#334155' : '#e2e8f0',
             rangeslider: { visible: false },
             type: 'date',
             tickformat: activeLabel === 'intraday' ? '%H:%M' : '%Y-%m-%d'
           },
           yaxis: {
             gridcolor: isDark ? '#1e293b' : '#f1f5f9',
+            linecolor: isDark ? '#334155' : '#e2e8f0',
+            showline: true,
+            zeroline: false,
+            tickcolor: isDark ? '#334155' : '#e2e8f0',
             side: 'right'
           },
           showlegend: !(/iPhone|Android/.test(typeof navigator !== 'undefined' ? navigator.userAgent : '')), // Hide legend on mobile to save space
-          legend: { 
-            x: 0, 
-            y: 1, 
+          legend: {
+            x: 0,
+            y: 1,
             font: { color: isDark ? '#94a3b8' : '#475569' },
             bgcolor: 'rgba(0,0,0,0)'
           },

@@ -303,13 +303,13 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   }, []);
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-[#020617]">
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#020617]">
       <div className="flex flex-col items-center gap-6">
         <div className="relative">
-          <div className="w-16 h-16 border-4 border-slate-800 rounded-full"></div>
-          <div className="w-16 h-16 border-4 border-emerald-500 rounded-full border-t-transparent animate-spin absolute top-0 left-0"></div>
+          <div className="w-16 h-16 border-4 border-slate-200 dark:border-slate-800 rounded-full"></div>
+          <div className="w-16 h-16 border-4 border-blue-600 dark:border-emerald-500 rounded-full border-t-transparent animate-spin absolute top-0 left-0"></div>
         </div>
-        <p className="text-slate-400 font-mono text-sm tracking-widest animate-pulse">{t('loading')}</p>
+        <p className="text-slate-500 dark:text-slate-400 font-mono text-sm tracking-widest animate-pulse">{t('loading')}</p>
       </div>
     </div>
   );
@@ -317,7 +317,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   // const highUrgencyCount = liveIntelligence.filter(i => i.urgency_score >= 8).length; // 不再实时计算，使用全局状态
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-8 font-sans">
+    <div className="min-h-screen p-4 md:p-6 lg:p-8 font-sans bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300">
 
       {/* Error Alert */}
       {error && (
@@ -346,7 +346,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
       <header className="flex flex-col md:flex-row justify-between items-start gap-4 mb-2">
         {/* Left: Brand Identity */}
         <div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400 flex items-center gap-3">
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400 flex items-center gap-3">
             <span className="text-4xl">🍍</span>
             {t('title')}
           </h1>
@@ -358,10 +358,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         {/* Right: Utilities */}
         <div className="flex items-center gap-4">
           <div className="hidden lg:block mr-4 flex-1 max-w-4xl">
-            <AINarrativeTicker 
-              items={liveIntelligence} 
-              locale={locale} 
-              getLocalizedText={getLocalizedText} 
+            <AINarrativeTicker
+              items={liveIntelligence}
+              locale={locale}
+              getLocalizedText={getLocalizedText}
             />
           </div>
 
@@ -433,7 +433,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           }`}>
 
           {/* Sidebar Header: Search & Filter */}
-          <div className="flex flex-col gap-3 mb-2 bg-[#020617] z-10 pb-2 border-b border-slate-800/50 flex-shrink-0">
+          <div className="flex flex-col gap-3 mb-2 bg-white dark:bg-[#020617] z-10 pb-2 border-b border-slate-200 dark:border-slate-800/50 flex-shrink-0">
 
             {/* Search Bar */}
             <div className="relative">
@@ -443,7 +443,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                 placeholder={t('searchPlaceholder') || "Search intelligence..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md py-2 pl-9 pr-8 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 dark:focus:border-emerald-500/50 transition-colors shadow-sm dark:shadow-none"
+                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md py-2 pl-9 pr-8 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 dark:focus:border-emerald-500/50 transition-colors shadow-sm dark:shadow-none"
               />
               {searchQuery && (
                 <button
@@ -488,7 +488,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
             <div className="flex items-center justify-between mt-1">
               <h2 className="text-[10px] font-mono text-slate-500 flex items-center gap-1">
-                <Radio className="w-3 h-3 text-emerald-500" /> {t('liveFeedLabel')}
+                <Radio className="w-3 h-3 text-blue-500 dark:text-emerald-500" /> {t('liveFeedLabel')}
               </h2>
               <Badge variant="neutral" className="text-[10px] h-5">{filteredLiveIntelligence.length} / {liveIntelligence.length}</Badge>
             </div>
