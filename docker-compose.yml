@@ -32,7 +32,6 @@ services:
     container_name: alphasignal_worker
     command: python run.py
     volumes:
-      - .:/app
       - ./logs:/app/logs
     env_file:
       - .env
@@ -57,7 +56,6 @@ services:
     container_name: alphasignal_funds_worker
     command: python run_funds.py
     volumes:
-      - .:/app
       - ./logs:/app/logs
     env_file:
       - .env
@@ -83,7 +81,6 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - .:/app
       - ./logs:/app/logs
     env_file:
       - .env

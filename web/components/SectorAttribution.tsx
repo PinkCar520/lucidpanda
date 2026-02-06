@@ -126,9 +126,17 @@ export function SectorAttribution({ data }: Props) {
   }, [selectedSectorData]);
 
   return (
-    <div className="mt-6 relative h-[420px] w-full select-none">
+    <div className="mt-6 relative min-h-[420px] lg:h-[420px] w-full select-none">
+      {/* Backdrop for mobile drawer */}
+      {selectedSector && (
+        <div
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] lg:hidden transition-opacity duration-300"
+          onClick={() => setSelectedSector(null)}
+        />
+      )}
+
       {/* Header / Legend Area */}
-      <div className="flex items-center justify-between mb-4 px-1">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-1 gap-3">
         <div className="flex flex-col">
           <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
             {t('performanceAttribution')}
@@ -140,23 +148,18 @@ export function SectorAttribution({ data }: Props) {
         <div className="flex items-center gap-4 text-[11px] font-medium text-slate-500">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-sm bg-emerald-500"></div>
-            <span>Drag</span>
+            <span>Detract</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-sm bg-rose-500"></div>
-            <span>Boost</span>
+            <span>Contribute</span>
           </div>
         </div>
       </div>
 
       {/* Treemap Container */}
-      <div className={`relative w-full h-[360px] rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-white transition-all duration-300 ${selectedSector ? 'mr-[320px] pr-[320px]' : ''}`}>
-        {/* 
-                    Note: pr-[320px] on container doesn't automatically resize Plotly chart unless responsive.
-                    Better approach: Keep chart 100% width, but cover it or squeeze it.
-                    Since Plotly resize can be jumpy, let's use a Grid or Flex.
-                 */}
-        <div className={`w-full h-full transition-all duration-300 ${selectedSector ? 'w-[calc(100%-310px)]' : 'w-full'}`}>
+      <div className={`relative w-full h-[360px] rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-white transition-all duration-300 ${selectedSector ? 'lg:mr-[320px] lg:pr-[320px]' : ''}`}>
+        <div className={`w-full h-full transition-all duration-300 ${selectedSector ? 'lg:w-[calc(100%-310px)]' : 'w-full'}`}>
           {chartData.length > 0 && (
             <Plot
               data={chartData}
@@ -191,12 +194,15 @@ export function SectorAttribution({ data }: Props) {
         </div>
       </div>
 
-      {/* Drill-down Drawer (Slide-over) */}
+      {/* Drill-down Drawer / Slide-over */}
       <div
-        className={`absolute top-[52px] bottom-0 right-0 w-[300px] glass-panel border border-slate-200/60 shadow-xl z-20 transition-transform duration-300 transform ${selectedSector ? 'translate-x-0' : 'translate-x-[110%]'} rounded-xl overflow-hidden flex flex-col bg-white/90 backdrop-blur-md`}
+        className={`fixed inset-x-0 bottom-0 lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 w-full lg:w-[300px] h-[70vh] lg:h-full glass-panel border-t lg:border-t-0 lg:border-l border-slate-200/60 shadow-2xl z-[70] transition-transform duration-300 ease-out transform ${selectedSector ? 'translate-y-0 lg:translate-x-0' : 'translate-y-full lg:translate-y-0 lg:translate-x-[110%]'} rounded-t-2xl lg:rounded-t-none lg:rounded-xl overflow-hidden flex flex-col bg-white/95 backdrop-blur-md`}
       >
         {selectedSector && selectedSectorData && (
           <>
+            {/* Drawer Drag Handle (Mobile only) */}
+            <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1 lg:hidden" />
+            
             {/* Drawer Header */}
             <div className="p-4 border-b border-slate-100 flex justify-between items-start bg-white/50">
               <div>

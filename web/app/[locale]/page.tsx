@@ -41,6 +41,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const [chartConfig, setChartConfig] = useState({ range: '1mo', interval: '60m' });
+  const [activeTab, setActiveTab] = useState<'feed' | 'charts'>('feed');
 
   // SSE callbacks - memoized to prevent infinite reconnection loop
   const handleSSEMessage = useCallback((newItems: Intelligence[]) => {
@@ -369,10 +370,34 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
       {/* 2. Sticky Toolbar (Tactical Cockpit: Alerts + Regime + Mini Charts) */}
       <div className="sticky top-0 z-50 bg-[#020617]/95 backdrop-blur-md border-b border-slate-800/50 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 py-2 mb-6 shadow-2xl shadow-black/50">
+        {/* Mobile Tab Switcher */}
+        <div className="flex lg:hidden w-full bg-slate-900/50 rounded-lg p-1 mb-3 border border-slate-800/50">
+          <button
+            onClick={() => setActiveTab('feed')}
+            className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'feed'
+              ? 'bg-emerald-500 text-white shadow-lg'
+              : 'text-slate-500 hover:text-slate-300'
+              }`}
+          >
+            <Radio className="w-3.5 h-3.5" />
+            {t('liveFeedLabel')}
+          </button>
+          <button
+            onClick={() => setActiveTab('charts')}
+            className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'charts'
+              ? 'bg-emerald-500 text-white shadow-lg'
+              : 'text-slate-500 hover:text-slate-300'
+              }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            {t('dataVisualization') || 'Data Analysis'}
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[84px] lg:h-[72px]">
 
           {/* Left (col-span-3): System State (Regime + Risk + Alerts) */}
-          <div className="lg:col-span-3 h-full">
+          <div className="hidden lg:block lg:col-span-3 h-full">
             <div className="h-full flex items-stretch gap-2">
 
               {/* 1. Alert Counter (Enhanced) */}
@@ -400,7 +425,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
         {/* Left: Intelligence Stream (Sticky Sidebar) */}
         {/* Adjusted top offset (~130px) because the Sticky Header (Widgets) is ~100px. */}
-        <div className="lg:col-span-3 lg:sticky lg:top-[130px] flex flex-col gap-4 h-[calc(100vh-140px)] overflow-hidden pr-2">
+        <div className={`lg:col-span-3 lg:sticky lg:top-[130px] flex flex-col gap-4 h-[calc(100vh-140px)] overflow-hidden pr-2 ${activeTab === 'feed' ? 'flex' : 'hidden lg:flex'
+          }`}>
 
           {/* Sidebar Header: Search & Filter */}
           <div className="flex flex-col gap-3 mb-2 bg-[#020617] z-10 pb-2 border-b border-slate-800/50 flex-shrink-0">
@@ -487,7 +513,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         </div>
 
         {/* Right: Visualization & Data */}
-        <div className="lg:col-span-9 flex flex-col gap-6">
+        <div className={`lg:col-span-9 flex flex-col gap-6 ${activeTab === 'charts' ? 'flex' : 'hidden lg:flex'
+          }`}>
           <Chart
             marketData={marketData}
             intelligence={liveIntelligence}

@@ -1,0 +1,40 @@
+# This file is for LOCAL DEVELOPMENT only.
+# It is automatically merged with docker-compose.yml by Docker Compose.
+# It enables local builds and hot-reloading.
+
+services:
+  # Build backend services from local source
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+
+  funds_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+
+  # Build frontend from local source
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    # If you need hot reload for Next.js inside Docker, uncomment below:
+    # volumes:
+    #   - ./web:/app
+    #   - /app/node_modules
+    #   - /app/.next
