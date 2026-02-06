@@ -76,23 +76,20 @@ export function SectorAttribution({ data }: Props) {
         colors: colors,
         center: 0,
         // Refined colorscale using standard Tailwind colors:
-        // Emerald-500: #10b981 (Negative)
-        // Slate-50: #f8fafc (Neutral)
-        // Rose-500: #f43f5e (Positive)
         colorscale: [
-          [0, '#10b981'],
-          [0.5, '#f8fafc'],
-          [1, '#f43f5e']
+          [0, '#10b981'],   // Emerald-500: #10b981 (Negative/Down)
+          [0.5, '#f8fafc'], // Slate-50: #f8fafc (Neutral)
+          [1, '#ef4444']    // Red-500: #ef4444 (Positive/Up - Adjusted to match system Red)
         ],
         cmid: 0,
         cmin: -maxAbsImpact,
         cmax: maxAbsImpact,
-        line: { width: 1, color: '#f1f5f9' }, // slate-100 for cleaner separation
+        line: { width: 1, color: '#f1f5f9' },
         pad: { t: 0, l: 0, r: 0, b: 0 }
       },
       texttemplate: "<span style='font-size:14px;font-weight:700'>%{label}</span><br><span style='font-size:12px;opacity:0.8'>%{customdata.weight:.2f}%</span>",
       hovertemplate: `
-                <div style='border-radius:8px; background:white; padding:8px;'>
+                <div style='border-radius:8px; background:white; padding:8px; color:#0f172a;'>
                     <b style='font-size:14px; color:#334155'>%{label}</b><br>
                     <span style='color:#64748b'>Weight:</span> <b>%{value:.2f}%</b><br>
                     <span style='color:#64748b'>Impact:</span> <b>%{color:+.2f}%</b>
@@ -100,7 +97,9 @@ export function SectorAttribution({ data }: Props) {
                 <extra></extra>
             `,
       branchvalues: 'total',
-      // Use system-ui font stack
+      // Using adaptive color for text based on theme via React state or just generic contrast? Plotly doesn't support CSS vars well in data. 
+      // We'll set a default dark grey which looks okay-ish or we need to reload on theme change like in Chart.tsx.
+      // For now, let's stick to a robust slate-800 equivalent.
       textfont: { family: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', color: '#1e293b' },
       tiling: { packing: 'squarify', pad: 2 }
     }]);
@@ -135,30 +134,30 @@ export function SectorAttribution({ data }: Props) {
         />
       )}
 
-      {/* Header / Legend Area */}
+      {/* Header / Legend Area - Stacked for mobile */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 px-1 gap-3">
         <div className="flex flex-col">
-          <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
             {t('performanceAttribution')}
           </h3>
-          <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5">
             {t('sizeIsWeight')} • {t('colorIsImpact')}
           </span>
         </div>
-        <div className="flex items-center gap-4 text-[11px] font-medium text-slate-500">
+        <div className="flex items-center gap-4 text-[11px] font-medium text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-sm bg-emerald-500"></div>
             <span>Detract</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-rose-500"></div>
+            <div className="w-3 h-3 rounded-sm bg-red-500"></div>
             <span>Contribute</span>
           </div>
         </div>
       </div>
 
       {/* Treemap Container */}
-      <div className={`relative w-full h-[360px] rounded-xl overflow-hidden border border-slate-100 shadow-sm bg-white transition-all duration-300 ${selectedSector ? 'lg:mr-[320px] lg:pr-[320px]' : ''}`}>
+      <div className={`relative w-full h-[360px] md:h-[400px] rounded-xl overflow-hidden border border-slate-100 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900/30 transition-all duration-300 ${selectedSector ? 'lg:mr-[320px] lg:pr-[320px]' : ''}`}>
         <div className={`w-full h-full transition-all duration-300 ${selectedSector ? 'lg:w-[calc(100%-310px)]' : 'w-full'}`}>
           {chartData.length > 0 && (
             <Plot
@@ -196,29 +195,29 @@ export function SectorAttribution({ data }: Props) {
 
       {/* Drill-down Drawer / Slide-over */}
       <div
-        className={`fixed inset-x-0 bottom-0 lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 w-full lg:w-[300px] h-[70vh] lg:h-full glass-panel border-t lg:border-t-0 lg:border-l border-slate-200/60 shadow-2xl z-[70] transition-transform duration-300 ease-out transform ${selectedSector ? 'translate-y-0 lg:translate-x-0' : 'translate-y-full lg:translate-y-0 lg:translate-x-[110%]'} rounded-t-2xl lg:rounded-t-none lg:rounded-xl overflow-hidden flex flex-col bg-white/95 backdrop-blur-md`}
+        className={`fixed inset-x-0 bottom-0 lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 w-full lg:w-[300px] h-[70vh] lg:h-full glass-panel border-t lg:border-t-0 lg:border-l border-slate-200/60 dark:border-slate-800/60 shadow-2xl z-[70] transition-transform duration-300 ease-out transform ${selectedSector ? 'translate-y-0 lg:translate-x-0' : 'translate-y-full lg:translate-y-0 lg:translate-x-[110%]'} rounded-t-2xl lg:rounded-t-none lg:rounded-xl overflow-hidden flex flex-col bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur-md`}
       >
         {selectedSector && selectedSectorData && (
           <>
             {/* Drawer Drag Handle (Mobile only) */}
-            <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mt-3 mb-1 lg:hidden" />
-            
+            <div className="w-12 h-1 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mt-3 mb-1 lg:hidden" />
+
             {/* Drawer Header */}
-            <div className="p-4 border-b border-slate-100 flex justify-between items-start bg-white/50">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start bg-white/50 dark:bg-slate-900/50">
               <div>
-                <h4 className="font-bold text-lg text-slate-800 leading-tight tracking-tight">{selectedSector}</h4>
+                <h4 className="font-bold text-lg text-slate-800 dark:text-slate-200 leading-tight tracking-tight">{selectedSector}</h4>
                 <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-[10px] font-mono font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] font-mono font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                     Weight: {selectedSectorData.weight.toFixed(2)}%
                   </span>
-                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${selectedSectorData.impact >= 0 ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                  <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${selectedSectorData.impact >= 0 ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'}`}>
                     Impact: {selectedSectorData.impact > 0 ? '+' : ''}{selectedSectorData.impact.toFixed(2)}%
                   </span>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedSector(null)}
-                className="p-1.5 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -230,17 +229,17 @@ export function SectorAttribution({ data }: Props) {
               {sortedSubItems.contributors.length > 0 && (
                 <div>
                   <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5 pl-1">
-                    <TrendingUp className="w-3 h-3 text-rose-500" />
+                    <TrendingUp className="w-3 h-3 text-red-500" />
                     <span>Top Contributors</span>
                   </h5>
                   <div className="space-y-1.5">
                     {sortedSubItems.contributors.map(item => (
-                      <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-100 shadow-sm hover:border-slate-200 transition-colors">
+                      <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-colors">
                         <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-bold text-slate-700 truncate pr-2">{item.name}</span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate pr-2">{item.name}</span>
                           <span className="text-[9px] text-slate-400 font-mono">W: {item.weight.toFixed(2)}%</span>
                         </div>
-                        <span className="text-xs font-bold font-mono text-rose-600 shrink-0">+{item.impact.toFixed(3)}%</span>
+                        <span className="text-xs font-bold font-mono text-red-600 dark:text-red-400 shrink-0">+{item.impact.toFixed(3)}%</span>
                       </div>
                     ))}
                   </div>
@@ -256,12 +255,12 @@ export function SectorAttribution({ data }: Props) {
                   </h5>
                   <div className="space-y-1.5">
                     {sortedSubItems.detractors.map(item => (
-                      <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-100 shadow-sm hover:border-slate-200 transition-colors">
+                      <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-colors">
                         <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-bold text-slate-700 truncate pr-2">{item.name}</span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate pr-2">{item.name}</span>
                           <span className="text-[9px] text-slate-400 font-mono">W: {item.weight.toFixed(2)}%</span>
                         </div>
-                        <span className="text-xs font-bold font-mono text-emerald-600 shrink-0">{item.impact.toFixed(3)}%</span>
+                        <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 shrink-0">{item.impact.toFixed(3)}%</span>
                       </div>
                     ))}
                   </div>
