@@ -408,7 +408,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     };
 
     return (
-        <div className="min-h-screen flex flex-col p-4 md:p-6 lg:p-8 font-sans bg-white text-slate-900">
+        <div className="min-h-screen flex flex-col p-4 md:p-6 lg:p-8 font-sans bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300">
             <header className="mb-4 lg:mb-8 shrink-0 flex justify-between items-start">
                 <div>
                     <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400 flex items-center gap-3">
@@ -430,23 +430,23 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                     {/* Mobile Fund Switcher / Current Indicator */}
                     <div 
                         onClick={() => setIsWatchlistOpen(!isWatchlistOpen)}
-                        className="flex lg:hidden items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer active:bg-slate-100 transition-colors"
+                        className="flex lg:hidden items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer active:bg-slate-100 dark:active:bg-slate-800 transition-colors"
                     >
                         <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{t('currentlyViewing') || 'CURRENTLY VIEWING'}</span>
-                            <span className="font-bold text-slate-800 flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">{t('currentlyViewing') || 'CURRENTLY VIEWING'}</span>
+                            <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                                 {valuation?.fund_name || selectedFund || t('selectFund')}
-                                <Search className="w-3.5 h-3.5 text-blue-500" />
+                                <Search className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
                             </span>
                         </div>
                         <div className="flex items-center gap-2">
                             {valuation && (
-                                <span className={`text-lg font-black font-mono ${valuation.estimated_growth >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                <span className={`text-lg font-black font-mono ${valuation.estimated_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                                     {valuation.estimated_growth > 0 ? '+' : ''}{valuation.estimated_growth.toFixed(2)}%
                                 </span>
                             )}
-                            <div className={`p-1.5 rounded-full bg-white border border-slate-200 shadow-sm transition-transform duration-300 ${isWatchlistOpen ? 'rotate-180' : ''}`}>
-                                <ArrowDown className="w-4 h-4 text-slate-400" />
+                            <div className={`p-1.5 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm transition-transform duration-300 ${isWatchlistOpen ? 'rotate-180' : ''}`}>
+                                <ArrowDown className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                             </div>
                         </div>
                     </div>
@@ -540,8 +540,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                 setIsWatchlistOpen(false);
                                             }}
                                             className={`group flex items-center justify-between p-3 rounded-md transition-all cursor-pointer ${selectedFund === item.code
-                                                ? 'bg-blue-50 border border-blue-200 text-blue-700'
-                                                : 'bg-white border border-transparent hover:bg-slate-50 text-slate-900'
+                                                ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400'
+                                                : 'bg-white dark:bg-transparent border border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-900 dark:text-slate-200'
                                                 }`}
                                         >
                                             <div className="flex flex-col overflow-hidden flex-1">
@@ -608,13 +608,13 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                         <div className="flex flex-col gap-6">
                             {/* Main KPI Card */}
                             <div className="flex flex-col md:grid md:grid-cols-3 gap-4">
-                                <Card className="md:col-span-2 relative overflow-hidden bg-white">
+                                <Card className="md:col-span-2 relative overflow-hidden bg-white dark:bg-slate-900/40">
                                     <div className="flex flex-col h-full justify-between z-10 relative">
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <h2 className="text-xs font-mono text-slate-500 uppercase tracking-widest">{t('estimatedGrowth')}</h2>
+                                                <h2 className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('estimatedGrowth')}</h2>
                                                 <div className="text-4xl lg:text-5xl font-black mt-2 tracking-tighter flex items-center gap-2">
-                                                    <span className={valuation.estimated_growth >= 0 ? "text-rose-600" : "text-emerald-600"}>
+                                                    <span className={valuation.estimated_growth >= 0 ? "text-rose-600 dark:text-rose-500" : "text-emerald-600 dark:text-emerald-500"}>
                                                         {valuation.estimated_growth > 0 ? "+" : ""}{valuation.estimated_growth.toFixed(2)}%
                                                     </span>
                                                 </div>
@@ -623,17 +623,17 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                 <button
                                                     onClick={handleManualRefresh}
                                                     disabled={loading || refreshing}
-                                                    className="p-2 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     title={t('refreshData')}
                                                 >
-                                                    <RefreshCw className={`w-4 h-4 text-slate-400 transition-transform ${refreshing ? 'animate-spin' : ''}`} />
+                                                    <RefreshCw className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform ${refreshing ? 'animate-spin' : ''}`} />
                                                 </button>
                                                 <Badge variant={valuation.estimated_growth >= 0 ? 'bullish' : 'bearish'}>
                                                     {t('live')}
                                                 </Badge>
                                             </div>
                                         </div>
-                                        <div className="mt-4 text-[10px] lg:text-xs text-slate-500 font-mono">
+                                        <div className="mt-4 text-[10px] lg:text-xs text-slate-500 dark:text-slate-400 font-mono">
                                             {t('basedOn', { count: valuation.components.length, weight: valuation.total_weight.toFixed(1) })}
                                             <br />
                                             {t('lastUpdated', { time: lastUpdated ? lastUpdated.toLocaleTimeString() : '' })}
@@ -650,18 +650,18 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                 </Card>
 
                                 <Card>
-                                    <h2 className="text-sm font-mono text-slate-500 uppercase tracking-widest mb-4">{t('topDrivers')}</h2>
+                                    <h2 className="text-sm font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">{t('topDrivers')}</h2>
                                     <div className="flex flex-col gap-2">
                                         {valuation.components
                                             .sort((a: ComponentStock, b: ComponentStock) => Math.abs(b.impact) - Math.abs(a.impact))
                                             .slice(0, 3)
                                             .map((comp: ComponentStock) => (
-                                                <div key={comp.code} className="flex justify-between items-center text-xs border-b border-slate-100 pb-2 last:border-0 hover:bg-slate-50 p-1 rounded">
+                                                <div key={comp.code} className="flex justify-between items-center text-xs border-b border-slate-100 dark:border-slate-800/50 pb-2 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 rounded">
                                                     <div className="flex gap-2">
-                                                        <span className="font-mono text-slate-500">{comp.code}</span>
-                                                        <span className="text-slate-700 truncate max-w-[100px] font-medium">{comp.name}</span>
+                                                        <span className="font-mono text-slate-500 dark:text-slate-600">{comp.code}</span>
+                                                        <span className="text-slate-700 dark:text-slate-300 truncate max-w-[100px] font-medium">{comp.name}</span>
                                                     </div>
-                                                    <span className={`font-mono font-bold ${comp.impact >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                    <span className={`font-mono font-bold ${comp.impact >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                                                         {comp.impact > 0 ? "+" : ""}{comp.impact.toFixed(3)}%
                                                     </span>
                                                 </div>
@@ -676,19 +676,19 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                     <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
                                         <button
                                             onClick={() => setActiveTab('attribution')}
-                                            className={`whitespace-nowrap pb-2 px-1 text-sm font-bold transition-all border-b-2 ${activeTab === 'attribution' ? 'border-blue-600 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                                            className={`whitespace-nowrap pb-2 px-1 text-sm font-bold transition-all border-b-2 ${activeTab === 'attribution' ? 'border-blue-600 dark:border-blue-500 text-slate-900 dark:text-slate-100' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                                         >
                                             {t('attribution')}
                                         </button>
                                         <button
                                             onClick={() => setActiveTab('sector')}
-                                            className={`whitespace-nowrap pb-2 px-1 text-sm font-bold transition-all border-b-2 ${activeTab === 'sector' ? 'border-blue-600 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                                            className={`whitespace-nowrap pb-2 px-1 text-sm font-bold transition-all border-b-2 ${activeTab === 'sector' ? 'border-blue-600 dark:border-blue-500 text-slate-900 dark:text-slate-100' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                                         >
                                             {t('sectorAttribution')}
                                         </button>
                                         <button
                                             onClick={() => setActiveTab('history')}
-                                            className={`whitespace-nowrap pb-2 px-1 text-sm font-bold transition-all border-b-2 ${activeTab === 'history' ? 'border-blue-600 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                                            className={`whitespace-nowrap pb-2 px-1 text-sm font-bold transition-all border-b-2 ${activeTab === 'history' ? 'border-blue-600 dark:border-blue-500 text-slate-900 dark:text-slate-100' : 'border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
                                         >
                                             {t('valuationReview')}
                                         </button>
@@ -700,8 +700,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                                 <div className="w-full overflow-x-auto">
                                                                     {activeTab === 'attribution' && (
                                                                         <div className="flex flex-col">
-                                                                            <table className="w-full text-left border-collapse text-sm">                                                <thead className="sticky top-0 bg-white z-10">
-                                                    <tr className="border-b border-slate-200 text-slate-500 text-[10px] uppercase tracking-wider shadow-sm bg-slate-50/80 backdrop-blur">
+                                                                            <table className="w-full text-left border-collapse text-sm">                                                <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                                                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider shadow-sm bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur">
                                                         <th className="p-3">{t('tableStock')}</th>
                                                         <th className="p-3 text-right hidden sm:table-cell">{t('tablePrice')}</th>
                                                         <th className="p-3 text-right">{t('tableChange')}</th>
@@ -709,28 +709,28 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                         <th className="p-3 text-right">{t('tableImpact')}</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-slate-100">
+                                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                                                     {valuation.components
                                                         .slice()
                                                         .sort((a: ComponentStock, b: ComponentStock) => b.weight - a.weight)
                                                         .map((comp: ComponentStock) => (
-                                                            <tr key={comp.code} className="group hover:bg-slate-50 transition-colors">
+                                                            <tr key={comp.code} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                                                 <td className="p-3">
                                                                     <div className="flex flex-col">
-                                                                        <span className="font-bold text-slate-800 text-xs sm:text-sm">{comp.name}</span>
-                                                                        <span className="text-[9px] sm:text-[10px] font-mono text-slate-500">{comp.code}</span>
+                                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">{comp.name}</span>
+                                                                        <span className="text-[9px] sm:text-[10px] font-mono text-slate-500 dark:text-slate-500">{comp.code}</span>
                                                                     </div>
                                                                 </td>
-                                                                <td className="p-3 text-right font-mono text-slate-600 hidden sm:table-cell">
+                                                                <td className="p-3 text-right font-mono text-slate-600 dark:text-slate-400 hidden sm:table-cell">
                                                                     {comp.price.toFixed(2)}
                                                                 </td>
-                                                                <td className={`p-3 text-right font-mono font-bold ${comp.change_pct >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                                <td className={`p-3 text-right font-mono font-bold ${comp.change_pct >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                                                                     {comp.change_pct > 0 ? "+" : ""}{comp.change_pct.toFixed(2)}%
                                                                 </td>
-                                                                <td className="p-3 text-right font-mono text-slate-500 hidden sm:table-cell">
+                                                                <td className="p-3 text-right font-mono text-slate-500 dark:text-slate-500 hidden sm:table-cell">
                                                                     {comp.weight.toFixed(2)}%
                                                                 </td>
-                                                                <td className={`p-3 text-right font-mono font-bold ${comp.impact >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                                <td className={`p-3 text-right font-mono font-bold ${comp.impact >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                                                                     {comp.impact > 0 ? "+" : ""}{comp.impact.toFixed(3)}%
                                                                 </td>
                                                             </tr>
@@ -752,12 +752,12 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                         <div className="flex flex-col">
                                             {historyLoading ? (
                                                 <div className="flex-1 flex items-center justify-center py-12">
-                                                    <RefreshCw className="w-6 h-6 animate-spin text-slate-300" />
+                                                    <RefreshCw className="w-6 h-6 animate-spin text-slate-300 dark:text-slate-700" />
                                                 </div>
                                             ) : history.length > 0 ? (
                                                 <table className="w-full text-left border-collapse text-sm">
-                                                    <thead className="sticky top-0 bg-white z-10">
-                                                        <tr className="border-b border-slate-200 text-slate-500 text-[10px] uppercase tracking-wider shadow-sm bg-slate-50/80 backdrop-blur">
+                                                    <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                                                        <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider shadow-sm bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur">
                                                             <th className="p-3">{t('tableDate')}</th>
                                                             <th className="p-3 text-right">{t('tableEst')}</th>
                                                             <th className="p-3 text-right hidden sm:table-cell">{t('tableOfficial')}</th>
@@ -765,24 +765,24 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                             <th className="p-3 text-center">状态</th>
                                                         </tr>
                                                     </thead>
-                                                    <tbody className="divide-y divide-slate-100">
+                                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                                                         {history.map((h, i) => (
-                                                            <tr key={i} className="hover:bg-slate-50 transition-colors">
-                                                                <td className="p-3 font-mono text-slate-600 text-xs">{h.trade_date}</td>
-                                                                <td className={`p-3 text-right font-mono font-bold ${h.frozen_est_growth >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                                <td className="p-3 font-mono text-slate-600 dark:text-slate-400 text-xs">{h.trade_date}</td>
+                                                                <td className={`p-3 text-right font-mono font-bold ${h.frozen_est_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                                                                     {h.frozen_est_growth > 0 ? "+" : ""}{Number(h.frozen_est_growth).toFixed(2)}%
                                                                 </td>
-                                                                <td className={`p-3 text-right font-mono font-bold hidden sm:table-cell ${h.official_growth >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                                <td className={`p-3 text-right font-mono font-bold hidden sm:table-cell ${h.official_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                                                                     {h.official_growth > 0 ? "+" : ""}{Number(h.official_growth).toFixed(2)}%
                                                                 </td>
-                                                                <td className="p-3 text-right font-mono text-slate-500">
+                                                                <td className="p-3 text-right font-mono text-slate-500 dark:text-slate-500">
                                                                     {h.deviation > 0 ? "+" : ""}{Number(h.deviation).toFixed(2)}%
                                                                 </td>
                                                                 <td className="p-3 text-center">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${h.tracking_status === 'S' ? 'bg-emerald-100 text-emerald-700' :
-                                                                        h.tracking_status === 'A' ? 'bg-blue-100 text-blue-700' :
-                                                                            h.tracking_status === 'B' ? 'bg-amber-100 text-amber-700' :
-                                                                                'bg-rose-100 text-rose-700'
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${h.tracking_status === 'S' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                                                                        h.tracking_status === 'A' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                                                                            h.tracking_status === 'B' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
+                                                                                'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
                                                                         }`}>
                                                                         {t(`accuracy${h.tracking_status}`)}
                                                                     </span>
@@ -792,8 +792,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                     </tbody>
                                                 </table>
                                             ) : (
-                                                <div className="flex-1 flex flex-col items-center justify-center py-12 text-slate-400">
-                                                    <div className="bg-slate-50 p-4 rounded-full mb-4">
+                                                <div className="flex-1 flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-600">
+                                                    <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-full mb-4">
                                                         <Anchor className="w-8 h-8 opacity-20" />
                                                     </div>
                                                     <p className="text-sm font-medium">{t('noHistoryTitle')}</p>
