@@ -540,7 +540,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                   {loading ? (
                     <tr>
                       <td colSpan={4} className="p-8 text-center text-slate-500">
-                        加载中...
+                        {t('loading')}
                       </td>
                     </tr>
                   ) : tableIntelligence.length === 0 ? (

@@ -144,6 +144,8 @@
     "performanceAttribution": "Performance Attribution",
     "portfolio": "Portfolio",
     "sizeIsWeight": "Size = Weight",
-    "colorIsImpact": "Color = Contr. to Return"
+    "colorIsImpact": "Color = Contr. to Return",
+    "currentlyViewing": "CURRENTLY VIEWING",
+    "dataVisualization": "Data Analysis"
   }
 }

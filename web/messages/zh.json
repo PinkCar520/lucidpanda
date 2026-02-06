@@ -144,6 +144,8 @@
     "performanceAttribution": "业绩归因",
     "portfolio": "投资组合",
     "sizeIsWeight": "面积 = 持仓占比",
-    "colorIsImpact": "颜色 = 拉动点数"
+    "colorIsImpact": "颜色 = 拉动点数",
+    "currentlyViewing": "当前查看",
+    "dataVisualization": "数据分析"
   }
 }
