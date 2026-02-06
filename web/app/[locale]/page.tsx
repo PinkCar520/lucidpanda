@@ -366,7 +366,6 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           </div>
 
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             <SystemStatus isConnected={isConnected} />
           </div>
         </div>
@@ -586,7 +585,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
             {/* 分页器 */}
             {!loading && totalPages > 1 && (
-              <div className="mt-6 pt-4 border-t border-slate-800">
+              <div className="mt-6">
                 <Paginator
                   currentPage={currentPage}
                   totalPages={totalPages}
