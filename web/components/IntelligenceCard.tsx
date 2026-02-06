@@ -30,7 +30,7 @@ const IntelligenceCard = memo(function IntelligenceCard({
     // Time Decay Logic (Quant Standard)
     const timeDiff = Date.now() - new Date(item.timestamp).getTime();
     const hoursOld = timeDiff / (1000 * 60 * 60);
-    
+
     let decayClass = 'opacity-100';
     if (hoursOld > 12) {
         decayClass = 'opacity-50 grayscale-[0.5]'; // Old news: dim & desaturate
@@ -47,7 +47,7 @@ const IntelligenceCard = memo(function IntelligenceCard({
     return (
         <div style={style} className={`transition-opacity duration-500 ${decayClass}`}>
             <Card
-                className="flex-shrink-0 group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors border-l-4 border-l-transparent hover:border-l-blue-500 dark:hover:border-l-emerald-500 h-[calc(100%-12px)] mb-3 overflow-hidden"
+                className="flex-shrink-0 group hover:bg-white dark:hover:bg-slate-800/40 transition-all duration-200 border border-slate-100 dark:border-slate-800 hover:border-[#165dfc] dark:hover:border-[#165dfc] hover:shadow-md dark:hover:shadow-none h-[calc(100%-12px)] mb-3 overflow-hidden relative"
             >
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex gap-2">
