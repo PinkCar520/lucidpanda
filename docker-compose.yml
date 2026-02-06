@@ -9,9 +9,14 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-alphasignal_core}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432" # Exposed for local debugging/migration
+    # ports:
+    #   - "5432:5432" # Disabled in production for security
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U alphasignal -d alphasignal_core" ]
       interval: 5s
@@ -22,13 +27,16 @@ services:
   redis:
     image: redis:7-alpine
     container_name: alphasignal_redis
-    ports:
-      - "6379:6379"
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
 
   # 1. Background Worker
   worker:
-    image: pincar/alphasignal-backend:latest
+    image: pincar/alphasignal-backend:${IMAGE_TAG:-latest}
     container_name: alphasignal_worker
     command: python run.py
     volumes:
@@ -38,21 +46,19 @@ services:
     environment:
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
-      - POSTGRES_USER=${POSTGRES_USER:-alphasignal}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
-      - POSTGRES_DB=${POSTGRES_DB:-alphasignal_core}
-      - HF_ENDPOINT=https://hf-mirror.com
-      - HTTP_PROXY=http://host.docker.internal:7890
-      - HTTPS_PROXY=http://host.docker.internal:7890
-      - ALL_PROXY=socks5://host.docker.internal:7890
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
 
   # 1.5 Funds Automation Worker
   funds_worker:
-    image: pincar/alphasignal-backend:latest
+    image: pincar/alphasignal-backend:${IMAGE_TAG:-latest}
     container_name: alphasignal_funds_worker
     command: python run_funds.py
     volumes:
@@ -62,20 +68,20 @@ services:
     environment:
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
-      - POSTGRES_USER=${POSTGRES_USER:-alphasignal}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
-      - POSTGRES_DB=${POSTGRES_DB:-alphasignal_core}
       - TZ=Asia/Shanghai
-      - HTTP_PROXY=http://host.docker.internal:7890
-      - HTTPS_PROXY=http://host.docker.internal:7890
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
 
   # 2. API Server (SSE)
   api:
-    image: pincar/alphasignal-backend:latest
+    image: pincar/alphasignal-backend:${IMAGE_TAG:-latest}
     container_name: alphasignal_api
     command: python sse_server.py
     ports:
@@ -87,9 +93,6 @@ services:
     environment:
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
-      - POSTGRES_USER=${POSTGRES_USER:-alphasignal}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
-      - POSTGRES_DB=${POSTGRES_DB:-alphasignal_core}
       - HOST=0.0.0.0
       - PORT=8001
       - REDIS_URL=redis://redis:6379/0
@@ -97,27 +100,42 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/intelligence?limit=1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # 3. Frontend (Next.js)
   web:
-    image: pincar/alphasignal-web:latest
+    image: pincar/alphasignal-web:${IMAGE_TAG:-latest}
     container_name: alphasignal_web
     ports:
       - "3000:3000"
     env_file:
       - .env
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8001/api
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8001/api}
       - API_INTERNAL_URL=http://api:8001
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
-      - POSTGRES_USER=${POSTGRES_USER:-alphasignal}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
-      - POSTGRES_DB=${POSTGRES_DB:-alphasignal_core}
     restart: unless-stopped
     depends_on:
-      - api
-      - db
+      api:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
 
 volumes:
   postgres_data:

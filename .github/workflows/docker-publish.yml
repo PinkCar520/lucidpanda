@@ -3,40 +3,68 @@ name: Build and Push Docker Images
 on:
   push:
     branches:
-      - main  # Or your primary branch, e.g., master
+      - main
+    paths:
+      - 'src/**'
+      - 'Dockerfile.backend'
+      - 'requirements.txt'
+      - '.github/workflows/docker-publish.yml'
+      - 'web/**'
 
 jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      sha_short: ${{ steps.vars.outputs.sha_short }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set short SHA
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
   build-and-push-backend:
     name: Build and Push Backend Image
+    needs: prep
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      
+      # Only run if backend files changed
+      - name: Check for backend changes
+        id: check_backend
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'src/**'
+              - 'Dockerfile.backend'
+              - 'requirements.txt'
 
       - name: Log in to Docker Hub
+        if: steps.check_backend.outputs.backend == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Set up Docker Buildx with containerd
-        uses: docker/setup-buildx-action@v2
-        with:
-          use-containerd: true  # Explicitly enable containerd driver
-
-      - name: Check Docker version
-        run: docker --version  # Check Docker version
-
-      - name: Check Buildx version
-        run: docker buildx version  # Check Buildx version
+      - name: Set up Docker Buildx
+        if: steps.check_backend.outputs.backend == 'true'
+        uses: docker/setup-buildx-action@v3
 
       - name: Extract metadata (tags, labels) for Docker
+        if: steps.check_backend.outputs.backend == 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: pincar/alphasignal-backend
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.prep.outputs.sha_short }}
 
       - name: Build and push backend Docker image
+        if: steps.check_backend.outputs.backend == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -46,40 +74,46 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            BUILDKIT_DEBUG=1  # Enable debug to view detailed logs
 
   build-and-push-frontend:
     name: Build and Push Frontend Image
+    needs: prep
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Check for frontend changes
+        id: check_frontend
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'web/**'
+
       - name: Log in to Docker Hub
+        if: steps.check_frontend.outputs.frontend == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Set up Docker Buildx with containerd
-        uses: docker/setup-buildx-action@v2
-        with:
-          use-containerd: true  # Explicitly enable containerd driver
-
-      - name: Check Docker version
-        run: docker --version  # Check Docker version
-
-      - name: Check Buildx version
-        run: docker buildx version  # Check Buildx version
+      - name: Set up Docker Buildx
+        if: steps.check_frontend.outputs.frontend == 'true'
+        uses: docker/setup-buildx-action@v3
 
       - name: Extract metadata (tags, labels) for Docker
+        if: steps.check_frontend.outputs.frontend == 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: pincar/alphasignal-web
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ needs.prep.outputs.sha_short }}
 
       - name: Build and push frontend Docker image
+        if: steps.check_frontend.outputs.frontend == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./web
@@ -89,5 +123,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            BUILDKIT_DEBUG=1  # Enable debug to view detailed logs
