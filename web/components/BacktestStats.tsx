@@ -50,7 +50,7 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
     }, [stats]);
 
     if (!stats) return (
-        <div className="mb-6 p-4 border border-dashed border-slate-800 rounded-lg text-center text-slate-500 text-xs">
+        <div className="mb-6 p-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg text-center text-slate-400 dark:text-slate-500 text-xs transition-colors">
             {t('waiting')}
         </div>
     );
@@ -60,25 +60,25 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
             {/* Header with Toggle */}
             <div className="flex items-center justify-between px-1">
                 <div className="flex flex-col">
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-emerald-500" />
+                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-blue-600 dark:text-emerald-500" />
                         {t('title')}
                     </h3>
                     <div className="flex gap-3 mt-1">
-                        <span className="text-[8px] text-slate-600 font-bold uppercase tracking-tighter opacity-70">{t('scenarioA')}</span>
-                        <span className="text-[8px] text-slate-600 font-bold uppercase tracking-tighter opacity-70">{t('scenarioB')}</span>
+                        <span className="text-[8px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter opacity-70">{t('scenarioA')}</span>
+                        <span className="text-[8px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter opacity-70">{t('scenarioB')}</span>
                     </div>
                 </div>
-                <div className="flex items-center bg-slate-900/80 border border-slate-800 rounded-lg p-1">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
                     <button
                         onClick={() => setWindow('1h')}
-                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '1h' ? 'bg-emerald-500/20 text-emerald-400 shadow-lg shadow-emerald-500/10' : 'text-slate-600 hover:text-slate-400'}`}
+                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '1h' ? 'bg-white dark:bg-emerald-500/20 text-blue-600 dark:text-emerald-400 shadow-sm dark:shadow-emerald-500/10' : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
                     >
                         {t('window1h')}
                     </button>
                     <button
                         onClick={() => setWindow('24h')}
-                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '24h' ? 'bg-cyan-500/20 text-cyan-400 shadow-lg shadow-cyan-500/10' : 'text-slate-600 hover:text-slate-400'}`}
+                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '24h' ? 'bg-white dark:bg-cyan-500/20 text-blue-600 dark:text-cyan-400 shadow-sm dark:shadow-cyan-500/10' : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
                     >
                         {t('window24h')}
                     </button>
@@ -86,73 +86,73 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
             </div>
 
             {stats.count === 0 ? (
-                <div className="p-4 border border-dashed border-slate-800 rounded-lg text-center text-slate-500 text-xs">
+                <div className="p-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg text-center text-slate-400 dark:text-slate-500 text-xs">
                     {t('noData')}
                 </div>
             ) : (
                 <div className="flex flex-col gap-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Stat 1: Signal Count */}
-                        <div className="bg-slate-900/40 border border-slate-800/50 rounded-lg p-4 flex items-center justify-between">
+                        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-lg p-4 flex items-center justify-between shadow-sm dark:shadow-none">
                             <div>
                                 <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">{t('bearishSignals')}</p>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-3xl font-mono text-white font-black">{stats.count}</span>
-                                    <span className="text-sm text-slate-500">{t('events')}</span>
+                                    <span className="text-3xl font-mono text-slate-900 dark:text-white font-black">{stats.count}</span>
+                                    <span className="text-sm text-slate-400 dark:text-slate-500">{t('events')}</span>
                                 </div>
                             </div>
-                            <CheckCircle2 className="w-5 h-5 text-slate-700" />
+                            <CheckCircle2 className="w-5 h-5 text-slate-300 dark:text-slate-700" />
                         </div>
 
                         {/* Stat 2: Adjusted Accuracy */}
-                        <div className="bg-slate-900/40 border border-emerald-500/20 rounded-lg p-4 flex items-center justify-between relative overflow-hidden">
+                        <div className="bg-slate-50 dark:bg-slate-900/40 border border-blue-100 dark:border-emerald-500/20 rounded-lg p-4 flex items-center justify-between relative overflow-hidden shadow-sm dark:shadow-none">
                             <div className="absolute top-0 right-0 p-1">
-                                <span className="bg-emerald-500/20 text-emerald-400 text-[7px] px-1 rounded font-black uppercase">{t('adjusted')}</span>
+                                <span className="bg-blue-100 dark:bg-emerald-500/20 text-blue-600 dark:text-emerald-400 text-[7px] px-1 rounded font-black uppercase">{t('adjusted')}</span>
                             </div>
                             <div>
                                 <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">
-                                    <span className="text-emerald-500/80 mr-1">{t('window' + window)}</span>
+                                    <span className="text-blue-600 dark:text-emerald-500/80 mr-1">{t('window' + window)}</span>
                                     {t('adjAccuracy')}
                                 </p>
                                 <div className="flex items-baseline gap-1">
-                                    <span className={`text-3xl font-mono font-black ${stats.adjWinRate && stats.adjWinRate > 50 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                                    <span className={`text-3xl font-mono font-black ${stats.adjWinRate && stats.adjWinRate > 50 ? 'text-blue-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'}`}>
                                         {stats.adjWinRate?.toFixed(0)}%
                                     </span>
-                                    <span className="text-xs text-slate-600 line-through decoration-slate-700">({stats.winRate.toFixed(0)}%)</span>
+                                    <span className="text-xs text-slate-400 dark:text-slate-600 line-through decoration-slate-200 dark:decoration-slate-700">({stats.winRate.toFixed(0)}%)</span>
                                 </div>
                             </div>
-                            <TrendingUp className={`w-5 h-5 ${stats.adjWinRate && stats.adjWinRate > 50 ? 'text-emerald-500/50' : 'text-slate-700'}`} />
+                            <TrendingUp className={`w-5 h-5 ${stats.adjWinRate && stats.adjWinRate > 50 ? 'text-blue-500/30 dark:text-emerald-500/50' : 'text-slate-300 dark:text-slate-700'}`} />
                         </div>
 
                         {/* Stat 3: Avg Drop */}
-                        <div className="bg-slate-900/40 border border-slate-800/50 rounded-lg p-4 flex items-center justify-between">
+                        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-lg p-4 flex items-center justify-between shadow-sm dark:shadow-none">
                             <div>
                                 <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">
-                                    <span className="text-rose-500/80 mr-1">{t('window' + window)}</span>
+                                    <span className="text-rose-600 dark:text-rose-500/80 mr-1">{t('window' + window)}</span>
                                     {t('avgDrop')}
                                 </p>
                                 <div className="flex items-baseline gap-1">
-                                    <span className={`text-3xl font-mono font-black ${stats.avgDrop > 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                    <span className={`text-3xl font-mono font-black ${stats.avgDrop > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
                                         {stats.avgDrop > 0 ? '↓' : ''} {Math.abs(stats.avgDrop).toFixed(2)}%
                                     </span>
                                 </div>
                             </div>
-                            <TrendingDown className={`w-5 h-5 ${stats.avgDrop > 0 ? 'text-rose-500/50' : 'text-slate-700'}`} />
+                            <TrendingDown className={`w-5 h-5 ${stats.avgDrop > 0 ? 'text-rose-500/30 dark:text-rose-500/50' : 'text-slate-300 dark:text-slate-700'}`} />
                         </div>
 
                         {/* Stat 4: Hygiene Score */}
-                        <div className="bg-slate-900/40 border border-slate-800/50 rounded-lg p-4">
-                            <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-2 underline decoration-slate-700 underline-offset-4">{t('marketHygiene')}</p>
+                        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-lg p-4 shadow-sm dark:shadow-none">
+                            <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-2 underline decoration-slate-200 dark:decoration-slate-700 underline-offset-4">{t('marketHygiene')}</p>
                             <div className="space-y-1">
                                 <div className="flex justify-between items-center text-[10px]">
-                                    <span className="text-slate-600 font-bold uppercase tracking-tighter">{t('density')}</span>
-                                    <span className={`font-mono font-bold ${stats.hygiene && stats.hygiene.avgClustering > 2 ? 'text-amber-400' : 'text-slate-400'}`}>
+                                    <span className="text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{t('density')}</span>
+                                    <span className={`font-mono font-bold ${stats.hygiene && stats.hygiene.avgClustering > 2 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400'}`}>
                                         {stats.hygiene?.avgClustering.toFixed(1)}
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center text-[10px]">
-                                    <span className="text-slate-600 font-bold uppercase tracking-tighter">{t('exhaustion')}</span>
-                                    <span className={`font-mono font-bold ${stats.hygiene && stats.hygiene.avgExhaustion > 4 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                    <span className="text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{t('exhaustion')}</span>
+                                    <span className={`font-mono font-bold ${stats.hygiene && stats.hygiene.avgExhaustion > 4 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
                                         {stats.hygiene?.avgExhaustion.toFixed(1)}
                                     </span>
                                 </div>
@@ -164,28 +164,28 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {/* Correlation Card */}
                         {stats.correlation && (
-                            <div className="bg-slate-950/50 border border-slate-800/30 rounded-lg p-3">
-                                <h4 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
+                            <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
+                                <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-cyan-600"></span>
                                     {t('dxySensitivity')}
                                 </h4>
                                 <div className="space-y-4">
                                     <div className="flex flex-col gap-2">
                                         <div className="flex justify-between items-center px-1">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase">{t('strongUsd')}</span>
-                                            <span className="text-[10px] font-mono text-emerald-500 font-bold">{stats.correlation['DXY_STRONG']?.winRate.toFixed(0)}% {t('win')}</span>
+                                            <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-500 font-bold">{stats.correlation['DXY_STRONG']?.winRate.toFixed(0)}% {t('win')}</span>
                                         </div>
-                                        <div className="h-1 bg-slate-900 rounded-full overflow-hidden">
+                                        <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
                                             <div className="h-full bg-emerald-500/50" style={{ width: `${stats.correlation['DXY_STRONG']?.winRate || 0}%` }}></div>
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-2 opacity-60">
                                         <div className="flex justify-between items-center px-1">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase">{t('weakUsd')}</span>
-                                            <span className="text-[10px] font-mono text-slate-400 font-bold">{stats.correlation['DXY_WEAK']?.winRate.toFixed(0)}% {t('win')}</span>
+                                            <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold">{stats.correlation['DXY_WEAK']?.winRate.toFixed(0)}% {t('win')}</span>
                                         </div>
-                                        <div className="h-1 bg-slate-900 rounded-full overflow-hidden">
-                                            <div className="h-full bg-slate-700" style={{ width: `${stats.correlation['DXY_WEAK']?.winRate || 0}%` }}></div>
+                                        <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
+                                            <div className="h-full bg-slate-400 dark:bg-slate-700" style={{ width: `${stats.correlation['DXY_WEAK']?.winRate || 0}%` }}></div>
                                         </div>
                                     </div>
                                 </div>
@@ -194,8 +194,8 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
 
                         {/* Positioning Card */}
                         {stats.positioning && (
-                            <div className="bg-slate-950/50 border border-slate-800/30 rounded-lg p-3">
-                                <h4 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                            <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
+                                <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
                                     {t('positioningCot')}
                                 </h4>
@@ -203,23 +203,23 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
                                     <div className="flex flex-col gap-2">
                                         <div className="flex justify-between items-center px-1">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase">{t('overcrowdedLong')}</span>
-                                            <span className="text-[10px] font-mono text-amber-500 font-bold">{stats.positioning['OVERCROWDED_LONG']?.winRate.toFixed(0) || 0}% {t('win')}</span>
+                                            <span className="text-[10px] font-mono text-amber-600 dark:text-amber-500 font-bold">{stats.positioning['OVERCROWDED_LONG']?.winRate.toFixed(0) || 0}% {t('win')}</span>
                                         </div>
-                                        <div className="h-1 bg-slate-900 rounded-full overflow-hidden">
+                                        <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
                                             <div className="h-full bg-amber-500/50" style={{ width: `${stats.positioning['OVERCROWDED_LONG']?.winRate || 0}%` }}></div>
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-2">
                                         <div className="flex justify-between items-center px-1">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase">{t('neutralRange')}</span>
-                                            <span className="text-[10px] font-mono text-slate-400 font-bold">
+                                            <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold">
                                                 {(((stats.positioning['NEUTRAL_POSITION']?.winRate || 0) * (stats.positioning['NEUTRAL_POSITION']?.count || 0) +
                                                     (stats.positioning['OVERCROWDED_SHORT']?.winRate || 0) * (stats.positioning['OVERCROWDED_SHORT']?.count || 0)) /
                                                     Math.max(1, (stats.positioning['NEUTRAL_POSITION']?.count || 0) + (stats.positioning['OVERCROWDED_SHORT']?.count || 0))).toFixed(0)}% {t('win')}
                                             </span>
                                         </div>
-                                        <div className="h-1 bg-slate-900 rounded-full overflow-hidden">
-                                            <div className="h-full bg-slate-700" style={{ width: '50%' }}></div>
+                                        <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
+                                            <div className="h-full bg-slate-400 dark:bg-slate-700" style={{ width: '50%' }}></div>
                                         </div>
                                     </div>
                                 </div>
@@ -228,8 +228,8 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
 
                         {/* Volatility Card */}
                         {stats.volatility && (
-                            <div className="bg-slate-950/50 border border-slate-800/30 rounded-lg p-3">
-                                <h4 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                            <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
+                                <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
                                     {t('volatilityRegime')}
                                 </h4>
@@ -237,19 +237,19 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
                                     <div className="flex flex-col gap-2">
                                         <div className="flex justify-between items-center px-1">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase">{t('highVol')}</span>
-                                            <span className="text-[10px] font-mono text-rose-500 font-bold">{stats.volatility['HIGH_VOL']?.winRate.toFixed(0) || 0}% {t('win')}</span>
+                                            <span className="text-[10px] font-mono text-rose-600 dark:text-rose-500 font-bold">{stats.volatility['HIGH_VOL']?.winRate.toFixed(0) || 0}% {t('win')}</span>
                                         </div>
-                                        <div className="h-1 bg-slate-900 rounded-full overflow-hidden">
+                                        <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
                                             <div className="h-full bg-rose-500/50" style={{ width: `${stats.volatility['HIGH_VOL']?.winRate || 0}%` }}></div>
                                         </div>
                                     </div>
                                     <div className="flex flex-col gap-2">
                                         <div className="flex justify-between items-center px-1">
                                             <span className="text-[10px] font-bold text-slate-500 uppercase">{t('lowVol')}</span>
-                                            <span className="text-[10px] font-mono text-slate-400 font-bold">{stats.volatility['LOW_VOL']?.winRate.toFixed(0) || 0}% {t('win')}</span>
+                                            <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold">{stats.volatility['LOW_VOL']?.winRate.toFixed(0) || 0}% {t('win')}</span>
                                         </div>
-                                        <div className="h-1 bg-slate-900 rounded-full overflow-hidden">
-                                            <div className="h-full bg-slate-700" style={{ width: `${stats.volatility['LOW_VOL']?.winRate || 0}%` }}></div>
+                                        <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
+                                            <div className="h-full bg-slate-400 dark:bg-slate-700" style={{ width: `${stats.volatility['LOW_VOL']?.winRate || 0}%` }}></div>
                                         </div>
                                     </div>
                                 </div>
@@ -259,9 +259,9 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
 
                     {/* Session Performance Breakdown */}
                     {stats.sessionStats && stats.sessionStats.length > 0 && (
-                        <div className="bg-slate-950/50 border border-slate-800/30 rounded-lg p-3">
-                            <h4 className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                        <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
+                            <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-600"></span>
                                 {t('sessionBreakdown')}
                             </h4>
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -270,18 +270,18 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
                                     const isBest = bestSession?.session === sessionName;
 
                                     return (
-                                        <div key={sessionName} className={`p-2 rounded border ${isBest ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-slate-900/20 border-slate-800/50'}`}>
+                                        <div key={sessionName} className={`p-2 rounded border ${isBest ? 'bg-emerald-50 dark:bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20 shadow-sm' : 'bg-white dark:bg-slate-900/20 border-slate-100 dark:border-slate-800/50'}`}>
                                             <div className="flex justify-between items-start mb-1">
-                                                <span className={`text-[10px] font-black tracking-tighter ${isBest ? 'text-emerald-400' : 'text-slate-500'}`}>
+                                                <span className={`text-[10px] font-black tracking-tighter ${isBest ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
                                                     {t(`sessions.${sessionName}`)}
                                                 </span>
-                                                {isBest && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 rounded uppercase font-bold">{t('best')}</span>}
+                                                {isBest && <span className="text-[9px] bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-1 rounded uppercase font-bold">{t('best')}</span>}
                                             </div>
                                             <div className="flex items-baseline gap-2">
-                                                <span className={`text-base font-mono font-bold ${s ? 'text-white' : 'text-slate-700'}`}>
+                                                <span className={`text-base font-mono font-bold ${s ? 'text-slate-900 dark:text-white' : 'text-slate-300 dark:text-slate-700'}`}>
                                                     {s ? `${s.winRate.toFixed(0)}%` : '-%'}
                                                 </span>
-                                                <span className="text-[10px] text-slate-600 font-mono">
+                                                <span className="text-[10px] text-slate-400 dark:text-slate-600 font-mono">
                                                     n={s?.count || 0}
                                                 </span>
                                             </div>

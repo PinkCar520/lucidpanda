@@ -408,14 +408,19 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
 
     return (
         <div className="min-h-screen flex flex-col p-4 md:p-6 lg:p-8 font-sans bg-white text-slate-900">
-            <header className="mb-4 lg:mb-8 shrink-0">
-                <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400 flex items-center gap-3">
-                    <span>💎</span>
-                    {t('title')}
-                </h1>
-                <p className="text-slate-500 font-mono text-[10px] lg:text-xs mt-1 uppercase tracking-widest pl-10 lg:pl-12">
-                    {t('subtitle')}
-                </p>
+            <header className="mb-4 lg:mb-8 shrink-0 flex justify-between items-start">
+                <div>
+                    <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400 flex items-center gap-3">
+                        <span>💎</span>
+                        {t('title')}
+                    </h1>
+                    <p className="text-slate-500 font-mono text-[10px] lg:text-xs mt-1 uppercase tracking-widest pl-10 lg:pl-12">
+                        {t('subtitle')}
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <ThemeToggle />
+                </div>
             </header>
 
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 flex-1">

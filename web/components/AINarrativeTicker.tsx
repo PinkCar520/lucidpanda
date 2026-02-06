@@ -76,18 +76,18 @@ export default function AINarrativeTicker({
         };
     
         return (
-            <div className="flex items-center gap-3 bg-slate-900/30 px-3 py-1.5 rounded-full border border-slate-800/50 relative overflow-hidden">
-                <div className="flex items-center gap-1.5 shrink-0 z-20 pr-2 bg-gradient-to-r from-[#0b101e] via-[#0b101e] to-transparent">
-                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-widest whitespace-nowrap">{t('title')}</span>
+            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/30 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800/50 relative overflow-hidden">
+                <div className="flex items-center gap-1.5 shrink-0 z-20 pr-2 bg-gradient-to-r from-slate-50 via-slate-50 to-transparent dark:from-[#0b101e] dark:via-[#0b101e] dark:to-transparent">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-500 dark:text-cyan-400" />
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-cyan-500 uppercase tracking-widest whitespace-nowrap">{t('title')}</span>
                 </div>
     
-                <div className="h-3 w-px bg-slate-800 shrink-0 z-20"></div>
+                <div className="h-3 w-px bg-slate-200 dark:bg-slate-800 shrink-0 z-20"></div>
     
                 <div className="w-[300px] lg:w-[500px] overflow-hidden relative ticker-wrapper">
                     {/* Gradient Masks */}
-                    <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#020617] to-transparent z-10 pointer-events-none"></div>
-                    <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#020617] to-transparent z-10 pointer-events-none"></div>
+                    <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-slate-50 dark:from-[#020617] to-transparent z-10 pointer-events-none"></div>
+                    <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-50 dark:from-[#020617] to-transparent z-10 pointer-events-none"></div>
     
                     <div className="flex whitespace-nowrap animate-ticker">
                         {/* Duplicate list for seamless loop */}
@@ -96,10 +96,10 @@ export default function AINarrativeTicker({
                                 {/* Dynamic Indicator Dot */}
                                 <div className={`w-2 h-2 rounded-full mr-3 shrink-0 ${getDotClass(item.urgency, item.sentiment)}`} />
                                 
-                                <span className="text-sm font-mono text-slate-300">
+                                <span className="text-sm font-mono text-slate-600 dark:text-slate-300">
                                     {item.text}
                                 </span>
-                                <span className="ml-10 text-slate-600 text-[10px]">•</span>
+                                <span className="ml-10 text-slate-300 dark:text-slate-600 text-[10px]">•</span>
                             </div>
                         ))}
                     </div>

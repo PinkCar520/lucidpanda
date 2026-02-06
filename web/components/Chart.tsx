@@ -27,6 +27,20 @@ const RANGES = [
 export default function Chart({ marketData, intelligence, onRangeChange }: ChartProps) {
   const t = useTranslations('Chart');
   const [activeLabel, setActiveLabel] = useState('day');
+  const [isDark, setIsDark] = useState(false);
+
+  // Sync with document theme class
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    };
+    checkTheme();
+    
+    // Observer for theme changes
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   const handleRangeClick = (range: string, interval: string, label: string) => {
     setActiveLabel(label);
@@ -34,14 +48,14 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
   };
 
   const RangeSelector = (
-    <div className="flex bg-slate-900/50 rounded-lg p-0.5 border border-slate-800/50">
+    <div className="flex bg-slate-100 dark:bg-slate-900/50 rounded-lg p-0.5 border border-slate-200 dark:border-slate-800/50">
       {RANGES.map((r) => (
         <button
           key={r.label}
           onClick={() => handleRangeClick(r.range, r.interval, r.label)}
           className={`px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 ${activeLabel === r.label
-            ? 'bg-emerald-500/20 text-emerald-400 shadow-sm border border-emerald-500/20'
-            : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+            ? 'bg-blue-600 dark:bg-emerald-500/20 text-white dark:text-emerald-400 shadow-sm border border-blue-700 dark:border-emerald-500/20'
+            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white dark:hover:bg-slate-800/50'
             }`}
         >
           {t(r.label)}
@@ -51,16 +65,16 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
   );
 
   if (!marketData || !marketData.quotes) return (
-    <Card className="h-[450px] p-0 border-slate-800" title={t('title')} action={RangeSelector}>
+    <Card className="h-[450px] p-0 border-slate-200 dark:border-slate-800" title={t('title')} action={RangeSelector}>
       <div className="h-full flex flex-col justify-between p-6 animate-pulse">
         {/* Skeleton: Y-axis labels */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex flex-col gap-3">
-            <div className="h-3 w-16 bg-slate-800 rounded"></div>
-            <div className="h-3 w-16 bg-slate-800 rounded"></div>
-            <div className="h-3 w-16 bg-slate-800 rounded"></div>
+            <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded"></div>
+            <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded"></div>
+            <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded"></div>
           </div>
-          <div className="text-slate-600 text-xs">Loading market data...</div>
+          <div className="text-slate-400 dark:text-slate-600 text-xs">Loading market data...</div>
         </div>
 
         {/* Skeleton: Chart area with candlestick-like bars */}
@@ -68,7 +82,7 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
           {[...Array(20)].map((_, i) => (
             <div
               key={i}
-              className="bg-slate-800/50 rounded-sm"
+              className="bg-slate-200/50 dark:bg-slate-800/50 rounded-sm"
               style={{
                 height: `${Math.random() * 60 + 20}%`,
                 width: '3%',
@@ -81,7 +95,7 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
         {/* Skeleton: X-axis labels */}
         <div className="flex justify-between mt-4 px-4">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-3 w-20 bg-slate-800 rounded"></div>
+            <div key={i} className="h-3 w-20 bg-slate-200 dark:bg-slate-800 rounded"></div>
           ))}
         </div>
       </div>
@@ -134,7 +148,7 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
   ];
 
   return (
-    <Card className="p-0 border-slate-800" title={t('title')} action={RangeSelector}>
+    <Card className="p-0 border-slate-200 dark:border-slate-800" title={t('title')} action={RangeSelector}>
       <Plot
         data={traces}
         layout={{
@@ -143,24 +157,29 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
           margin: { l: 50, r: 20, t: 30, b: 40 },
           plot_bgcolor: 'transparent',
           paper_bgcolor: 'transparent',
-          font: { color: '#94a3b8', family: 'monospace' },
+          font: { color: isDark ? '#94a3b8' : '#475569', family: 'monospace' },
           xaxis: {
-            gridcolor: '#1e293b',
+            gridcolor: isDark ? '#1e293b' : '#f1f5f9',
             rangeslider: { visible: false },
             type: 'date',
             tickformat: activeLabel === 'intraday' ? '%H:%M' : '%Y-%m-%d'
           },
           yaxis: {
-            gridcolor: '#1e293b',
+            gridcolor: isDark ? '#1e293b' : '#f1f5f9',
             side: 'right'
           },
-          showlegend: true,
-          legend: { x: 0, y: 1 },
+          showlegend: !(/iPhone|Android/.test(typeof navigator !== 'undefined' ? navigator.userAgent : '')), // Hide legend on mobile to save space
+          legend: { 
+            x: 0, 
+            y: 1, 
+            font: { color: isDark ? '#94a3b8' : '#475569' },
+            bgcolor: 'rgba(0,0,0,0)'
+          },
           hovermode: 'x unified',
           hoverlabel: {
-            bgcolor: '#0f172a',
-            bordercolor: '#334155',
-            font: { color: '#e2e8f0' }
+            bgcolor: isDark ? '#0f172a' : '#ffffff',
+            bordercolor: isDark ? '#334155' : '#e2e8f0',
+            font: { color: isDark ? '#e2e8f0' : '#0f172a' }
           }
         }}
         useResizeHandler={true}

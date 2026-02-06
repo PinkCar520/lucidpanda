@@ -47,7 +47,7 @@ const IntelligenceCard = memo(function IntelligenceCard({
     return (
         <div style={style} className={`transition-opacity duration-500 ${decayClass}`}>
             <Card
-                className="flex-shrink-0 group hover:bg-slate-800/40 transition-colors border-l-4 border-l-transparent hover:border-l-emerald-500 h-[calc(100%-12px)] mb-3 overflow-hidden"
+                className="flex-shrink-0 group hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors border-l-4 border-l-transparent hover:border-l-blue-500 dark:hover:border-l-emerald-500 h-[calc(100%-12px)] mb-3 overflow-hidden"
             >
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex gap-2">
@@ -58,25 +58,25 @@ const IntelligenceCard = memo(function IntelligenceCard({
                             {getLocalizedText(item.sentiment, locale)}
                         </Badge>
                     </div>
-                    <span className="text-slate-600 text-[10px] font-mono">
+                    <span className="text-slate-400 dark:text-slate-600 text-[10px] font-mono">
                         {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} (UTC)
                     </span>
                 </div>
 
-                <h3 className="text-sm font-medium text-slate-200 mb-2 leading-relaxed group-hover:text-white transition-colors line-clamp-2">
+                <h3 className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-2 leading-relaxed group-hover:text-blue-600 dark:group-hover:text-white transition-colors line-clamp-2">
                     {getLocalizedText(item.summary, locale)}
                 </h3>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800/50">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800/50">
                     <div className="flex items-center gap-2">
                         <Zap className="w-3 h-3 text-yellow-500" />
-                        <span className="text-xs text-slate-400 truncate max-w-[150px]">{item.author}</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[150px]">{item.author}</span>
                     </div>
                     <a
                         href={item.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-emerald-500 text-xs flex items-center gap-1 hover:text-emerald-300 transition-colors"
+                        className="text-blue-600 dark:text-emerald-500 text-xs flex items-center gap-1 hover:text-blue-800 dark:hover:text-emerald-300 transition-colors"
                     >
                         {t('viewSource')} <ExternalLink className="w-3 h-3" />
                     </a>

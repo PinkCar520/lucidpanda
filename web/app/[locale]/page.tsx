@@ -19,6 +19,7 @@ import BacktestStats from '@/components/BacktestStats';
 import { useSSE } from '@/hooks/useSSE';
 import IntelligenceCard from '@/components/IntelligenceCard';
 import Paginator from '@/components/Paginator';
+import ThemeToggle from '@/components/ThemeToggle';
 
 
 export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
@@ -364,19 +365,22 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
             />
           </div>
 
-          <SystemStatus isConnected={isConnected} />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <SystemStatus isConnected={isConnected} />
+          </div>
         </div>
       </header>
 
       {/* 2. Sticky Toolbar (Tactical Cockpit: Alerts + Regime + Mini Charts) */}
-      <div className="sticky top-0 z-50 bg-[#020617]/95 backdrop-blur-md border-b border-slate-800/50 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 py-2 mb-6 shadow-2xl shadow-black/50">
+      <div className="sticky top-0 z-50 bg-white/95 dark:bg-[#020617]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/50 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 py-2 mb-6 shadow-2xl shadow-black/5">
         {/* Mobile Tab Switcher */}
-        <div className="flex lg:hidden w-full bg-slate-900/50 rounded-lg p-1 mb-3 border border-slate-800/50">
+        <div className="flex lg:hidden w-full bg-slate-100 dark:bg-slate-900/50 rounded-lg p-1 mb-3 border border-slate-200 dark:border-slate-800/50">
           <button
             onClick={() => setActiveTab('feed')}
             className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'feed'
-              ? 'bg-emerald-500 text-white shadow-lg'
-              : 'text-slate-500 hover:text-slate-300'
+              ? 'bg-blue-600 dark:bg-emerald-500 text-white shadow-lg'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
               }`}
           >
             <Radio className="w-3.5 h-3.5" />
@@ -385,8 +389,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           <button
             onClick={() => setActiveTab('charts')}
             className={`flex-1 py-2 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-2 ${activeTab === 'charts'
-              ? 'bg-emerald-500 text-white shadow-lg'
-              : 'text-slate-500 hover:text-slate-300'
+              ? 'bg-blue-600 dark:bg-emerald-500 text-white shadow-lg'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
               }`}
           >
             <Zap className="w-3.5 h-3.5" />
@@ -401,9 +405,9 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
             <div className="h-full flex items-stretch gap-2">
 
               {/* 1. Alert Counter (Enhanced) */}
-              <div className="w-[140px] bg-slate-900/40 border border-slate-800/50 rounded-lg flex flex-col items-center justify-center shrink-0 px-4">
-                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">{t('activeAlerts')}</span>
-                <span className={`text-2xl font-black font-mono tracking-tighter ${globalHighUrgency > 0 ? 'text-rose-500 animate-pulse' : 'text-slate-600'}`}>
+              <div className="w-[140px] bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-lg flex flex-col items-center justify-center shrink-0 px-4">
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-1">{t('activeAlerts')}</span>
+                <span className={`text-2xl font-black font-mono tracking-tighter ${globalHighUrgency > 0 ? 'text-rose-600 dark:text-rose-500 animate-pulse' : 'text-slate-300 dark:text-slate-600'}`}>
                   {globalHighUrgency}
                 </span>
               </div>
@@ -413,7 +417,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
           {/* Right (col-span-9): TradingView Mini Charts */}
           <div className="hidden lg:block lg:col-span-9 h-full">
-            <div className="h-full overflow-hidden rounded-lg border border-slate-800/50 bg-slate-900/20">
+            <div className="h-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-900/20">
               <TradingViewMiniCharts />
             </div>
           </div>
@@ -433,18 +437,18 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
             {/* Search Bar */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
               <input
                 type="text"
                 placeholder={t('searchPlaceholder') || "Search intelligence..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-800 rounded-md py-2 pl-9 pr-8 text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-colors"
+                className="w-full bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md py-2 pl-9 pr-8 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 dark:focus:border-emerald-500/50 transition-colors shadow-sm dark:shadow-none"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -456,8 +460,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
               <button
                 onClick={() => setFilterMode('all')}
                 className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-all ${filterMode === 'all'
-                  ? 'bg-slate-700 text-white border-slate-600'
-                  : 'bg-transparent text-slate-500 border-slate-800 hover:bg-slate-800'
+                  ? 'bg-blue-600 dark:bg-slate-700 text-white border-blue-700 dark:border-slate-600 shadow-md'
+                  : 'bg-transparent text-slate-500 dark:text-slate-500 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
               >
                 {t('filterAll')}
@@ -465,8 +469,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
               <button
                 onClick={() => setFilterMode('essential')}
                 className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-all ${filterMode === 'essential'
-                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/50'
-                  : 'bg-transparent text-slate-500 border-slate-800 hover:bg-slate-800'
+                  ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/50'
+                  : 'bg-transparent text-slate-500 dark:text-slate-500 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
               >
                 {t('filterEssential')}
@@ -474,8 +478,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
               <button
                 onClick={() => setFilterMode('bearish')}
                 className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md border transition-all ${filterMode === 'bearish'
-                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
-                  : 'bg-transparent text-slate-500 border-slate-800 hover:bg-slate-800'
+                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/50'
+                  : 'bg-transparent text-slate-500 dark:text-slate-500 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
                   }`}
               >
                 {t('filterBearish')}
@@ -529,14 +533,14 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-800 text-slate-500 text-[10px] uppercase tracking-wider">
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-[10px] uppercase tracking-wider">
                     <th className="p-4 font-semibold">{tTable('time')}</th>
                     <th className="p-4 font-semibold w-[40%]">{tTable('context')}</th>
                     <th className="p-4 font-semibold w-[30%]">{tTable('strategy')}</th>
                     <th className="p-4 font-semibold text-right">{tTable('goldRef')}</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/50 text-sm">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-sm">
                   {loading ? (
                     <tr>
                       <td colSpan={4} className="p-8 text-center text-slate-500">
@@ -551,8 +555,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                     </tr>
                   ) : (
                     tableIntelligence.map((item: Intelligence) => (
-                      <tr key={item.id} className="group hover:bg-slate-800/30 transition-colors">
-                        <td className="p-4 font-mono text-slate-500 text-xs whitespace-nowrap">
+                      <tr key={item.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                        <td className="p-4 font-mono text-slate-400 dark:text-slate-500 text-xs whitespace-nowrap">
                           {(() => {
                             const date = new Date(item.timestamp);
                             const year = date.getUTCFullYear();
@@ -564,13 +568,13 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                             return `${year}/${month}/${day} ${hours}:${minutes}:${seconds} (UTC)`;
                           })()}
                         </td>
-                        <td className="p-4 text-slate-300">
+                        <td className="p-4 text-slate-700 dark:text-slate-300">
                           {getLocalizedText(item.summary, locale)}
                         </td>
-                        <td className="p-4 text-emerald-400 font-mono text-xs">
+                        <td className="p-4 text-blue-600 dark:text-emerald-400 font-mono text-xs">
                           {getLocalizedText(item.actionable_advice, locale)}
                         </td>
-                        <td className="p-4 text-right font-mono text-slate-400">
+                        <td className="p-4 text-right font-mono text-slate-500 dark:text-slate-400">
                           ${item.gold_price_snapshot?.toFixed(1) || '-'}
                         </td>
                       </tr>
