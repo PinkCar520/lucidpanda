@@ -408,7 +408,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     };
 
     return (
-        <div className="min-h-screen flex flex-col p-4 md:p-6 lg:p-8 font-sans bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300">
+        <div className="min-h-screen lg:h-screen flex flex-col p-4 md:p-6 lg:p-8 font-sans bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300 lg:overflow-hidden">
             <header className="mb-4 lg:mb-8 shrink-0 flex justify-between items-start">
                 <div>
                     <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400 flex items-center gap-3">
@@ -424,9 +424,9 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                 </div>
             </header>
 
-            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 flex-1">
+            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
                 {/* Left: Watchlist (Mobile: Toggleable, Desktop: Fixed Sidebar) */}
-                <div className="lg:col-span-4 flex flex-col gap-4">
+                <div className="lg:col-span-4 flex flex-col gap-4 min-h-0">
                     {/* Mobile Fund Switcher / Current Indicator */}
                     <div 
                         onClick={() => setIsWatchlistOpen(!isWatchlistOpen)}
@@ -454,7 +454,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                     {/* The Actual Watchlist Card */}
                     <Card
                         title={t('watchlist')}
-                        className={`lg:flex flex-col overflow-hidden transition-all duration-300 ${isWatchlistOpen ? 'flex h-[400px]' : 'hidden h-0 lg:h-full'}`}
+                        className={`lg:flex flex-col overflow-hidden transition-all duration-300 ${isWatchlistOpen ? 'flex h-[450px]' : 'hidden h-0 lg:h-full'}`}
                         contentClassName="flex-1 min-h-0 flex flex-col p-3"
                         action={
                             <div className="liquid-glass-toolbar">
@@ -603,7 +603,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                 </div>
 
                 {/* Right: Details */}
-                <div className="lg:col-span-8 flex flex-col gap-6">
+                <div className="lg:col-span-8 flex flex-col gap-6 min-h-0 lg:overflow-y-auto lg:pr-2 custom-scrollbar">
                     {valuation ? (
                         <div className="flex flex-col gap-6">
                             {/* Main KPI Card */}
