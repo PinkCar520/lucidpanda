@@ -6,12 +6,16 @@ on:
       - main
     paths:
       - 'src/**'
+      - 'scripts/**'
       - 'Dockerfile.backend'
+      - '.dockerignore'
       - 'requirements.txt'
+      - '*.py'
       - '.github/workflows/docker-publish.yml'
       - 'web/**'
 
 jobs:
+# ... (prep job remains same) ...
   prep:
     runs-on: ubuntu-latest
     outputs:
@@ -39,8 +43,11 @@ jobs:
           filters: |
             backend:
               - 'src/**'
+              - 'scripts/**'
               - 'Dockerfile.backend'
+              - '.dockerignore'
               - 'requirements.txt'
+              - '*.py'
 
       - name: Log in to Docker Hub
         if: steps.check_backend.outputs.backend == 'true'
