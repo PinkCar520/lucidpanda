@@ -37,6 +37,8 @@ class Settings:
     EMAIL_SENDER = os.getenv("EMAIL_SENDER")
     EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
     EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
+    EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "resend") # 'resend' or 'smtp'
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 
     # Database
     DB_TYPE = os.getenv("DB_TYPE", "sqlite")
@@ -61,6 +63,8 @@ class Settings:
     ALGORITHM = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15))
     REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", 60))
+    FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
 
 # 实例化单例
 settings = Settings()

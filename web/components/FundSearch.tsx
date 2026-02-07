@@ -14,10 +14,10 @@ interface FundSearchResult {
 interface FundSearchProps {
     onAddFund: (code: string, name: string) => void;
     existingCodes: string[];
-    placeholder?: string;
+    // Removed placeholder prop, will use t('addPlaceholder') directly
 }
 
-export default function FundSearch({ onAddFund, existingCodes, placeholder = '查询基金代码或名称...' }: FundSearchProps) {
+export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps) {
     const [query, setQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [searchResults, setSearchResults] = useState<FundSearchResult[]>([]);
@@ -28,6 +28,7 @@ export default function FundSearch({ onAddFund, existingCodes, placeholder = '�
     const dropdownRef = useRef<HTMLDivElement>(null);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const t = useTranslations('Funds');
+    const tApp = useTranslations('App'); // Assuming 'App' namespace for general strings
 
     // Load search history from localStorage
     useEffect(() => {
@@ -43,14 +44,14 @@ export default function FundSearch({ onAddFund, existingCodes, placeholder = '�
                     if (history) {
                         const legacy = JSON.parse(history);
                         // Convert to object format
-                        setSearchHistory(legacy.map((code: string) => ({ code, name: '最近搜索' })));
+                        setSearchHistory(legacy.map((code: string) => ({ code, name: tApp('lastSearch') })));
                     }
                 }
             } catch (e) {
                 console.error('Failed to load search history:', e);
             }
         }
-    }, []);
+    }, [tApp]);
 
     // Clear search history
     const clearHistory = () => {
@@ -67,7 +68,7 @@ export default function FundSearch({ onAddFund, existingCodes, placeholder = '�
         // Add to front with all metadata
         const newHistory = [{
             code: fund.code,
-            name: fund.name || '未命名基金',
+            name: fund.name || t('unnamedFund'), // Need to add unnamedFund to en.json if I use it
             type: fund.type,
             company: fund.company
         }, ...filtered].slice(0, 8); // Store up to 8 items
@@ -198,7 +199,7 @@ export default function FundSearch({ onAddFund, existingCodes, placeholder = '�
                 } else if (query.trim()) {
                     // Only direct add if no results and not loading
                     onAddFund(query.trim(), '');
-                    saveToHistory({ code: query.trim(), name: '自定义添加' });
+                    saveToHistory({ code: query.trim(), name: tApp('customAdd') });
                     setQuery('');
                     setIsOpen(false);
                 }
@@ -231,7 +232,7 @@ export default function FundSearch({ onAddFund, existingCodes, placeholder = '�
                     onChange={handleInputChange}
                     onFocus={() => setIsOpen(true)}
                     onKeyDown={handleKeyDown}
-                    placeholder={placeholder || t('addPlaceholder')}
+                    placeholder={t('addPlaceholder')}
                     className="w-full bg-white border border-slate-200 rounded-md py-2 pl-9 pr-8 text-sm focus:border-blue-600 outline-none transition-colors text-slate-900 placeholder-slate-400"
                 />
                 {query && (
@@ -367,7 +368,7 @@ export default function FundSearch({ onAddFund, existingCodes, placeholder = '�
                                 <button
                                     onClick={() => {
                                         onAddFund(query.trim(), '');
-                                        saveToHistory({ code: query.trim(), name: '自定义添加' });
+                                        saveToHistory({ code: query.trim(), name: tApp('customAdd') });
                                         setQuery('');
                                         setIsOpen(false);
                                     }}

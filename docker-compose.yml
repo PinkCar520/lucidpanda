@@ -127,6 +127,8 @@ services:
       - API_INTERNAL_URL=http://api:8001
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
+      - AUTH_URL=http://localhost:3000
+      - AUTH_SECRET=${AUTH_SECRET}
     restart: unless-stopped
     depends_on:
       api:

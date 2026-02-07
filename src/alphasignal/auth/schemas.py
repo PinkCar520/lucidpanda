@@ -25,6 +25,7 @@ class Token(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
+    user: UserOut # Add user information to the token response
 
 class TokenPayload(BaseModel):
     sub: Optional[str] = None
@@ -32,3 +33,13 @@ class TokenPayload(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=8)
+
+class MessageResponse(BaseModel):
+    message: str

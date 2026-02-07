@@ -11,6 +11,7 @@ import json
 from typing import List, AsyncGenerator
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware # Import CORSMiddleware
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import asynccontextmanager
@@ -126,6 +127,15 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 app = FastAPI(lifespan=lifespan)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Allow frontend origin
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Register Routers
 app.include_router(auth_router)

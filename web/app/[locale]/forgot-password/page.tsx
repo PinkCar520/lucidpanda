@@ -1,41 +1,47 @@
 'use client';
 
 import React, { useState } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const t = useTranslations('Auth');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const params = useParams();
   const locale = params.locale as string;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setMessage('');
     setError('');
 
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
+      const res = await fetch('http://localhost:8001/api/v1/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
       });
 
-      if (result?.error) {
-        setError(t('invalidEmailPassword'));
-      } else {
-        router.push(`/${locale}`);
-        router.refresh();
+      const data = await res.json();
+
+      if (!res.ok) {
+        // Backend always returns a generic success message to prevent email enumeration
+        // So, if res is not ok, it's a real server error or validation issue
+        setError(data.message || t('genericError'));
+        return;
       }
+
+      setMessage(data.message);
+
     } catch (err) {
-      setError(t('unexpectedError'));
+      setError(t('networkError'));
     } finally {
       setLoading(false);
     }
@@ -49,13 +55,19 @@ export default function LoginPage() {
             {t('loginTitle')}
           </h1>
           <p className="text-slate-500 text-sm mt-2 font-mono uppercase tracking-widest">
-            {t('identityTerminal')}
+            {t('forgotPasswordTitle')}
           </p>
         </div>
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
             {error}
+          </div>
+        )}
+
+        {message && (
+          <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg text-emerald-600 dark:text-emerald-400 text-sm">
+            {message}
           </div>
         )}
 
@@ -74,20 +86,6 @@ export default function LoginPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-              {t('passwordLabel')}
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-              placeholder={t('passwordPlaceholder')}
-            />
-          </div>
-
           <button
             type="submit"
             disabled={loading}
@@ -95,20 +93,15 @@ export default function LoginPage() {
               loading ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            {loading ? t('authenticating') : t('signIn')}
+            {loading ? t('sendingRequest') : t('sendResetLink')}
           </button>
-          <div className="text-right">
-            <Link href="/forgot-password" locale={locale} className="text-sm text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-medium">
-              {t('forgotPassword')}
-            </Link>
-          </div>
         </form>
 
         <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            {t('dontHaveAccount')}{' '}
-            <Link href="/register" locale={locale} className="text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-medium">
-              {t('signUp')}
+            {t('rememberPassword')}{' '}
+            <Link href="/login" locale={locale} className="text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-medium">
+              {t('signIn')}
             </Link>
           </p>
         </div>

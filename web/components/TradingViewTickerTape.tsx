@@ -2,7 +2,12 @@
 
 import React, { useEffect, useRef, memo } from 'react';
 
-function TradingViewTickerTape() {
+interface TradingViewTickerTapeProps {
+    locale: string;
+    t: (key: string) => string;
+}
+
+function TradingViewTickerTape({ locale, t }: TradingViewTickerTapeProps) {
     const container = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -18,27 +23,27 @@ function TradingViewTickerTape() {
         script.innerHTML = JSON.stringify({
             "symbols": [
                 {
-                    "description": "Gold (Spot)",
+                    "description": t('goldSpot'),
                     "proName": "OANDA:XAUUSD"
                 },
                 {
-                    "description": "DXY Index",
+                    "description": t('dxyIndex'),
                     "proName": "TVC:DXY"
                 },
                 {
-                    "description": "US 10Y Yield",
+                    "description": t('us10yYield'),
                     "proName": "TVC:US10Y"
                 },
                 {
-                    "description": "Crude Oil (WTI)",
+                    "description": t('crudeOilWti'),
                     "proName": "TVC:USOIL"
                 },
                 {
-                    "description": "VIX Index",
+                    "description": t('vixIndex'),
                     "proName": "TVC:VIX"
                 },
                 {
-                    "description": "S&P 500",
+                    "description": t('sp500'),
                     "proName": "OANDA:SPX500USD"
                 }
             ],
@@ -46,7 +51,7 @@ function TradingViewTickerTape() {
             "isTransparent": true,
             "displayMode": "adaptive",
             "colorTheme": "dark",
-            "locale": "en"
+            "locale": locale
         });
 
         // Append the standard TradingView wrapper

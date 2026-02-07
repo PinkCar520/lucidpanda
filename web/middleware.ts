@@ -12,8 +12,8 @@ export default auth((req: NextRequest & { auth: any }) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
   
-  // Check if it's an auth page (login)
-  const isAuthPage = nextUrl.pathname.includes('/login');
+  // Check if it's an auth page (login, register, forgot-password, reset-password)
+  const isAuthPage = nextUrl.pathname.includes('/login') || nextUrl.pathname.includes('/register') || nextUrl.pathname.includes('/forgot-password') || nextUrl.pathname.includes('/reset-password');
   
   // If user is on an auth page and logged in, redirect to home
   if (isAuthPage) {

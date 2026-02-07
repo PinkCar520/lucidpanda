@@ -2,7 +2,12 @@
 
 import React, { useEffect, useRef, memo } from 'react';
 
-function TradingViewMiniCharts() {
+interface TradingViewMiniChartsProps {
+    locale: string;
+    t: (key: string) => string;
+}
+
+function TradingViewMiniCharts({ locale, t }: TradingViewMiniChartsProps) {
     const container = useRef<HTMLDivElement>(null);
 
     const [theme, setTheme] = React.useState<'light' | 'dark'>('dark');
@@ -40,30 +45,30 @@ function TradingViewMiniCharts() {
         script.innerHTML = JSON.stringify({
             "symbols": [
                 {
-                    "description": "Gold",
+                    "description": t('gold'),
                     "proName": "OANDA:XAUUSD"
                 },
                 {
-                    "description": "DXY",
+                    "description": t('dxy'),
                     "proName": "CAPITALCOM:DXY"
                 },
                 {
-                    "description": "US10Y (Pyth)",
+                    "description": t('us10y'),
                     "proName": "PYTH:US10Y"
                 },
                 {
-                    "description": "Oil",
+                    "description": t('oil'),
                     "proName": "TVC:USOIL"
                 },
                 {
-                    "description": "VIX",
+                    "description": t('vix'),
                     "proName": "CAPITALCOM:VIX"
                 }
             ],
             "colorTheme": theme,
             "isTransparent": true,
             "showSymbolLogo": true,
-            "locale": "en"
+            "locale": locale
         });
 
         const widgetContainer = document.createElement('div');

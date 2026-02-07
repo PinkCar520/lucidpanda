@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import { useSession } from 'next-auth/react'; // Added missing import
+import { useRouter } from 'next/navigation'; // Added missing import
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Search, RefreshCw, ArrowUp, ArrowDown, PieChart, X, Target, Scale, Anchor, AlertTriangle } from 'lucide-react';
@@ -58,9 +60,12 @@ interface WatchlistItem {
     source?: string; // For confidence indicators
 }
 
-export default function FundDashboard({ params }: { params: Promise<{ locale: string }> }) {
-    const { locale } = React.use(params);
-    const t = useTranslations('Funds');
+export default function FundDashboard({ params }: { params: { locale: string } }) {
+  const { locale } = params;
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const t = useTranslations('Funds');
+  const tApp = useTranslations('App');
 
     // State management - API Driven
     const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
@@ -98,9 +103,14 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     const fetchBatchValuation = async (codes: string[]) => {
         if (codes.length === 0) return;
 
+        const headers: HeadersInit = {};
+        if (session?.accessToken) {
+            headers['Authorization'] = `Bearer ${session.accessToken}`;
+        }
+
         try {
             const codesParam = codes.join(',');
-            const res = await fetch(`/api/funds/batch-valuation?codes=${codesParam}`);
+            const res = await fetch(`/api/funds/batch-valuation?codes=${codesParam}`, { headers });
             const response = await res.json();
 
             if (response.data) {
@@ -142,56 +152,32 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
 
     // 1. Fetch Watchlist from API with Migration Logic
     const fetchWatchlist = async () => {
+        if (!session?.accessToken) {
+            console.warn("No access token available for watchlist fetch.");
+            setWatchlist([]); // Clear watchlist if not authenticated
+            return;
+        }
         try {
-            const res = await fetch('/api/watchlist');
+            const res = await fetch('/api/watchlist', {
+                headers: {
+                    'Authorization': `Bearer ${session.accessToken}`
+                }
+            });
             const json = await res.json();
             if (json.data) {
                 let currentWatchlist = json.data;
-
-                // Check if we need to migrate from localStorage
-                if (json.data.length === 0 && typeof window !== 'undefined') {
-                    // ... Migration logic (simplified for brevity in this replacement, assume kept or effectively omitted if not changed? 
-                    // Wait, I strictly replacing `fetchWatchlist` so I must include migration logic if I touch it.
-                    // Actually I will target the `useEffect` removal first, then modify `fetchWatchlist`?
-                    // No, I need to modify `fetchWatchlist` to call batch.
-
-                    // Standard migration logic copy-paste
-                    const localStored = localStorage.getItem('fund_watchlist');
-                    if (localStored) {
-                        try {
-                            const parsed = JSON.parse(localStored);
-                            if (parsed && parsed.length > 0) {
-                                for (const item of parsed) {
-                                    await fetch('/api/watchlist', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ code: item.code, name: item.name })
-                                    });
-                                }
-                                const res2 = await fetch('/api/watchlist');
-                                const json2 = await res2.json();
-                                if (json2.data) {
-                                    currentWatchlist = json2.data;
-                                    localStorage.removeItem('fund_watchlist');
-                                }
-                            }
-                        } catch (e) { }
-                    }
-                }
 
                 setWatchlist(currentWatchlist);
 
                 // --- OPTIMIZATION: Fetch Batch Valuation IMMEDIATELY ---
                 if (currentWatchlist.length > 0) {
                     const codes = currentWatchlist.map((i: any) => i.code);
-                    // We await this so cache is populated BEFORE we set selectedFund
-                    // This prevents the single API call in the subsequent useEffect
                     await fetchBatchValuation(codes);
                 }
 
                 // Set initial selection if empty and no local pref
                 if (currentWatchlist.length > 0 && !selectedFund && typeof window !== 'undefined') {
-                    const pref = localStorage.getItem('fund_selected');
+                    const pref = localStorage.getItem('fund_selected'); // Keep this for UI preference
                     if (pref && currentWatchlist.some((i: any) => i.code === pref)) {
                         setSelectedFund(pref);
                     } else {
@@ -205,8 +191,14 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     };
 
     useEffect(() => {
-        fetchWatchlist();
-    }, []);
+        if (status === 'authenticated') {
+            fetchWatchlist();
+        } else if (status === 'unauthenticated') {
+            // Clear watchlist if user logs out or is unauthenticated
+            setWatchlist([]);
+            setSelectedFund("");
+        }
+    }, [session, status]);
 
     const fetchValuation = async (code: string) => {
         // Check cache first
@@ -221,8 +213,12 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
         }
 
         setLoading(true);
+        const headers: HeadersInit = {};
+        if (session?.accessToken) {
+            headers['Authorization'] = `Bearer ${session.accessToken}`;
+        }
         try {
-            const res = await fetch(`/api/funds/${code}/valuation`);
+            const res = await fetch(`/api/funds/${code}/valuation`, { headers });
             const data = await res.json();
             if (data.error) {
                 console.error(data.error);
@@ -269,8 +265,12 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
 
     const fetchHistory = async (code: string) => {
         setHistoryLoading(true);
+        const headers: HeadersInit = {};
+        if (session?.accessToken) {
+            headers['Authorization'] = `Bearer ${session.accessToken}`;
+        }
         try {
-            const res = await fetch(`/api/funds/${code}/history`);
+            const res = await fetch(`/api/funds/${code}/history`, { headers });
             const json = await res.json();
             if (json.data) {
                 setHistory(json.data);
@@ -308,7 +308,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
 
     // Manual refresh for the entire watchlist
     const handleWatchlistRefresh = async () => {
-        if (watchlist.length === 0 || isWatchlistRefreshing) return;
+        if (!session?.accessToken || watchlist.length === 0 || isWatchlistRefreshing) return;
 
         setIsWatchlistRefreshing(true);
         const codesToFetch = watchlist.map(item => item.code);
@@ -316,7 +316,11 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
         try {
             const codesParam = codesToFetch.join(',');
             // Force refresh with timestamp
-            const res = await fetch(`/api/funds/batch-valuation?codes=${codesParam}&t=${Date.now()}`);
+            const res = await fetch(`/api/funds/batch-valuation?codes=${codesParam}&t=${Date.now()}`, {
+                headers: {
+                    'Authorization': `Bearer ${session.accessToken}`
+                }
+            });
             const response = await res.json();
 
             if (response.data) {
@@ -369,9 +373,17 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     const handleDelete = async (e: React.MouseEvent, codeToDelete: string) => {
         e.stopPropagation();
 
+        if (!session?.accessToken) {
+            console.warn("No access token available to delete from watchlist.");
+            return;
+        }
+
         try {
             const res = await fetch(`/api/watchlist/${codeToDelete}`, {
                 method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${session.accessToken}`
+                }
             });
             const data = await res.json();
             if (data.success) {
@@ -420,7 +432,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <ThemeToggle />
+                    <ThemeToggle t={tApp} />
                 </div>
             </header>
 
@@ -488,11 +500,18 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                             <div className="mb-4 shrink-0 relative z-20">
                                 <FundSearch
                                     onAddFund={async (code, name) => {
+                                        if (!session?.accessToken) {
+                                            console.warn("No access token available to add to watchlist.");
+                                            return;
+                                        }
                                         if (!watchlist.some(i => i.code === code)) {
                                             try {
                                                 const res = await fetch('/api/watchlist', {
                                                     method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
+                                                    headers: { 
+                                                        'Content-Type': 'application/json',
+                                                        'Authorization': `Bearer ${session.accessToken}`
+                                                    },
                                                     body: JSON.stringify({ code, name })
                                                 });
                                                 const data = await res.json();
@@ -511,7 +530,6 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                         }
                                     }}
                                     existingCodes={watchlist.map(w => w.code)}
-                                    placeholder={t('addPlaceholder')}
                                 />
                             </div>
 
@@ -762,7 +780,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                             <th className="p-3 text-right">{t('tableEst')}</th>
                                                             <th className="p-3 text-right hidden sm:table-cell">{t('tableOfficial')}</th>
                                                             <th className="p-3 text-right">{t('tableDeviation')}</th>
-                                                            <th className="p-3 text-center">状态</th>
+                                                            <th className="p-3 text-center">{t('tableStatus')}</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">

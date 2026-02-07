@@ -5,9 +5,10 @@ import { Activity, Globe } from 'lucide-react';
 
 interface SystemStatusProps {
     isConnected?: boolean;
+    t: (key: string) => string;
 }
 
-export default function SystemStatus({ isConnected = false }: SystemStatusProps) {
+export default function SystemStatus({ isConnected = false, t }: SystemStatusProps) {
     const [time, setTime] = useState<string>('');
 
     useEffect(() => {
@@ -30,7 +31,7 @@ export default function SystemStatus({ isConnected = false }: SystemStatusProps)
             <div className="flex items-center gap-1 sm:gap-2">
                 <span className={`flex items-center text-[10px] font-bold uppercase tracking-wider ${isConnected ? 'text-emerald-600 dark:text-emerald-500 animate-pulse' : 'text-slate-400 dark:text-slate-500'}`}>
                     <span className="text-lg leading-none">●</span>
-                    <span className="hidden sm:inline ml-1.5">{isConnected ? 'LIVE' : 'OFFLINE'}</span>
+                    <span className="hidden sm:inline ml-1.5">{isConnected ? t('live') : t('offline')}</span>
                 </span>
             </div>
 

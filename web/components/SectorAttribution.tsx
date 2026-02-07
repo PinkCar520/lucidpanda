@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { X, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { X, TrendingUp, TrendingDown } from 'lucide-react';
 
 // Dynamically import Plotly to avoid SSR issues
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as any;
@@ -23,13 +23,13 @@ interface Props {
 
 export function SectorAttribution({ data }: Props) {
   const t = useTranslations('Funds');
+  const tApp = useTranslations('App');
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const [chartData, setChartData] = useState<any[]>([]);
 
-  if (!data || Object.keys(data).length === 0) return null;
-
   // Prepare Data for Plotly Treemap
   useEffect(() => {
+    if (!data || Object.keys(data).length === 0) return;
     const ids: string[] = [];
     const labels: string[] = [];
     const parents: string[] = [];
@@ -108,7 +108,7 @@ export function SectorAttribution({ data }: Props) {
 
 
   // Detail Panel Logic
-  const selectedSectorData = selectedSector ? data[selectedSector] : null;
+  const selectedSectorData = selectedSector && data ? data[selectedSector] : null;
   const sortedSubItems = useMemo(() => {
     if (!selectedSectorData?.sub) return { contributors: [], detractors: [] };
 
@@ -123,6 +123,8 @@ export function SectorAttribution({ data }: Props) {
 
     return { contributors, detractors };
   }, [selectedSectorData]);
+
+  if (!data || Object.keys(data).length === 0) return null;
 
   return (
     <div className="mt-6 relative min-h-[420px] lg:h-[420px] w-full select-none">
@@ -145,13 +147,12 @@ export function SectorAttribution({ data }: Props) {
           </span>
         </div>
         <div className="flex items-center gap-4 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-sm bg-emerald-500"></div>
-            <span>Detract</span>
-          </div>
-          <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-sm bg-emerald-500"></div>
+                      <span>{tApp('detract')}</span>
+                    </div>          <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-sm bg-red-500"></div>
-            <span>Contribute</span>
+            <span>{tApp('contribute')}</span>
           </div>
         </div>
       </div>
@@ -208,10 +209,10 @@ export function SectorAttribution({ data }: Props) {
                 <h4 className="font-bold text-lg text-slate-800 dark:text-slate-200 leading-tight tracking-tight">{selectedSector}</h4>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-[10px] font-mono font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-                    Weight: {selectedSectorData.weight.toFixed(2)}%
+                    {tApp('weight', { value: selectedSectorData.weight.toFixed(2) })}
                   </span>
                   <span className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${selectedSectorData.impact >= 0 ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'}`}>
-                    Impact: {selectedSectorData.impact > 0 ? '+' : ''}{selectedSectorData.impact.toFixed(2)}%
+                    {tApp('impact', { value: (selectedSectorData.impact > 0 ? '+' : '') + selectedSectorData.impact.toFixed(2) })}
                   </span>
                 </div>
               </div>
@@ -230,14 +231,14 @@ export function SectorAttribution({ data }: Props) {
                 <div>
                   <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5 pl-1">
                     <TrendingUp className="w-3 h-3 text-red-500" />
-                    <span>Top Contributors</span>
+                    <span>{tApp('topContributors')}</span>
                   </h5>
                   <div className="space-y-1.5">
                     {sortedSubItems.contributors.map(item => (
                       <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-colors">
                         <div className="flex flex-col min-w-0">
                           <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate pr-2">{item.name}</span>
-                          <span className="text-[9px] text-slate-400 font-mono">W: {item.weight.toFixed(2)}%</span>
+                          <span className="text-[9px] text-slate-400 font-mono">{tApp('stockWeight', { value: item.weight.toFixed(2) })}</span>
                         </div>
                         <span className="text-xs font-bold font-mono text-red-600 dark:text-red-400 shrink-0">+{item.impact.toFixed(3)}%</span>
                       </div>
@@ -251,14 +252,14 @@ export function SectorAttribution({ data }: Props) {
                 <div>
                   <h5 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5 pl-1">
                     <TrendingDown className="w-3 h-3 text-emerald-500" />
-                    <span>Top Detractors</span>
+                    <span>{tApp('topDetractors')}</span>
                   </h5>
                   <div className="space-y-1.5">
                     {sortedSubItems.detractors.map(item => (
                       <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 shadow-sm hover:border-slate-200 dark:hover:border-slate-600 transition-colors">
                         <div className="flex flex-col min-w-0">
                           <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate pr-2">{item.name}</span>
-                          <span className="text-[9px] text-slate-400 font-mono">W: {item.weight.toFixed(2)}%</span>
+                          <span className="text-[9px] text-slate-400 font-mono">{tApp('stockWeight', { value: item.weight.toFixed(2) })}</span>
                         </div>
                         <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 shrink-0">{item.impact.toFixed(3)}%</span>
                       </div>
@@ -270,7 +271,7 @@ export function SectorAttribution({ data }: Props) {
               {/* Empty State */}
               {sortedSubItems.contributors.length === 0 && sortedSubItems.detractors.length === 0 && (
                 <div className="text-center py-8 opacity-50 text-xs text-slate-400">
-                  No detailed attribution data
+                  {tApp('noDetailedAttribution')}
                 </div>
               )}
             </div>

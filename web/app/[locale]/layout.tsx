@@ -2,23 +2,29 @@ import type { Metadata } from "next";
 // import { Inter } from "next/font/google";
 import "../globals.css";
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
+import { getMessages, getTranslator } from 'next-intl/server';
 import { SessionProvider } from 'next-auth/react'; // Import SessionProvider
 
-export const metadata: Metadata = {
-    title: "AlphaSignal Dashboard",
-    description: "AI-Driven Geopolitical Intelligence Terminal",
-};
+export async function generateMetadata({
+    params: { locale }
+}: {
+    params: { locale: string };
+}): Promise<Metadata> {
+    const t = await getTranslator(locale, 'App');
+    return {
+        title: t('title'),
+        description: t('description'),
+    };
+}
 
 export default async function LocaleLayout({
     children,
     params
 }: Readonly<{
     children: React.ReactNode;
-    params: Promise<{ locale: string }>;
+    params: { locale: string };
 }>) {
-    // Next.js 15: params is a Promise
-    const { locale } = await params;
+    const { locale } = params;
 
     // Providing all messages to the client
     // side is the easiest way to get started

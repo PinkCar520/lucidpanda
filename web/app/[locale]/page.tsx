@@ -1,8 +1,7 @@
-'use client';
-
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { Alert } from '@/components/Alert';
+import { useSession, signOut } from 'next-auth/react';
 
 import Chart from '@/components/Chart';
 import { Card } from '@/components/ui/Card';
@@ -22,12 +21,14 @@ import Paginator from '@/components/Paginator';
 import ThemeToggle from '@/components/ThemeToggle';
 
 
-export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = React.use(params);
+export default function Dashboard({ params }: { params: { locale: string } }) {
+  const { locale } = params;
+  const { data: session } = useSession();
 
   const t = useTranslations('Dashboard');
   const tTable = useTranslations('Table');
   const tSentiment = useTranslations('Sentiment');
+  const tApp = useTranslations('App');
 
   const [liveIntelligence, setLiveIntelligence] = useState<Intelligence[]>([]);
   const [tableIntelligence, setTableIntelligence] = useState<Intelligence[]>([]);
@@ -206,7 +207,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         setMarketData(mData);
       } catch (err: any) {
         console.error('Fetch error:', err);
-        const errorMessage = err.message || 'Failed to load data. Please check your connection.';
+        const errorMessage = err.message || tApp('failedToLoadData');
         setError(errorMessage);
 
         // Auto-retry logic (max 3 attempts)
@@ -226,7 +227,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     fetchData(true); // Initial load
     const intervalId = setInterval(() => fetchData(false), 30000); // Poll every 30s (reduced from 60s)
     return () => clearInterval(intervalId);
-  }, [chartConfig, latestIntelId, retryCount]);
+  }, [chartConfig, latestIntelId, retryCount, tApp]);
 
   const handlePageChange = useCallback(async (page: number) => {
     try {
@@ -324,18 +325,18 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         <div className="mb-4">
           <Alert variant="error" onClose={() => setError(null)}>
             <div className="flex flex-col gap-2">
-              <p className="font-semibold">Failed to load data</p>
-              <p className="text-sm opacity-90">{error}</p>
+              <p className="font-semibold">{tApp('failedToLoadData')}</p>
+              <p className="text-sm opacity-90">{error === tApp('failedToLoadData') ? tApp('checkConnection') : error}</p>
               {retryCount >= 3 && (
                 <button
                   onClick={handleRetry}
                   className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium transition-colors w-fit"
                 >
-                  Retry Now
+                  {tApp('retryNow')}
                 </button>
               )}
               {retryCount > 0 && retryCount < 3 && (
-                <p className="text-xs opacity-75">Auto-retrying... (Attempt {retryCount}/3)</p>
+                <p className="text-xs opacity-75">{tApp('autoRetrying', { retryCount })}</p>
               )}
             </div>
           </Alert>
@@ -366,7 +367,15 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           </div>
 
           <div className="flex items-center gap-2">
-            <SystemStatus isConnected={isConnected} />
+            <SystemStatus isConnected={isConnected} t={tApp} />
+            {session && session.user && (
+              <button
+                onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
+                className="px-3 py-1 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                {tApp('logout', { email: session.user.email })}
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -424,7 +433,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           {/* Right (col-span-9): TradingView Mini Charts */}
           <div className="hidden lg:block lg:col-span-9 h-full">
             <div className="h-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-900/20">
-              <TradingViewMiniCharts />
+              <TradingViewMiniCharts locale={locale} t={tApp} />
             </div>
           </div>
         </div>
@@ -446,7 +455,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
               <input
                 type="text"
-                placeholder={t('searchPlaceholder') || "Search intelligence..."}
+                placeholder={t('searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md py-2 pl-9 pr-8 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 dark:focus:border-emerald-500/50 transition-colors shadow-sm dark:shadow-none"
@@ -525,6 +534,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         {/* Right: Visualization & Data */}
         <div className={`lg:col-span-9 flex flex-col gap-6 ${activeTab === 'charts' ? 'flex' : 'hidden lg:flex'
           }`}>
+          <TradingViewTickerTape locale={locale} t={tApp} />
           <Chart
             marketData={marketData}
             intelligence={liveIntelligence}
@@ -615,8 +625,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
       {/* Floating Language Switcher */}
       <div className="fixed bottom-6 right-6 z-50 shadow-2xl shadow-emerald-500/20">
+        <ThemeToggle t={tApp} />
         <LanguageSwitcher />
       </div>
     </div >
   );
 }
+

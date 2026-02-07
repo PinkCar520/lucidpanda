@@ -23,6 +23,10 @@ const nextConfig: import("next").NextConfig = {
         source: '/api/funds/:path*',
         destination: 'http://api:8001/api/funds/:path*',
       },
+      {
+        source: '/api/alerts/:path*',
+        destination: 'http://api:8001/api/alerts/:path*',
+      },
     ];
   },
 };

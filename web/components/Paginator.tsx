@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface PaginatorProps {
     currentPage: number;
@@ -21,6 +22,7 @@ export default function Paginator({
     onItemsPerPageChange,
     className = ''
 }: PaginatorProps) {
+    const t = useTranslations('App');
     const startItem = (currentPage - 1) * itemsPerPage + 1;
     const endItem = Math.min(currentPage * itemsPerPage, totalItems);
 
@@ -69,9 +71,7 @@ export default function Paginator({
             {/* 左侧：显示当前范围和每页条目选择 */}
             <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
                 <div>
-                    显示 <span className="font-medium text-slate-900 dark:text-slate-200">{startItem}</span> 至{' '}
-                    <span className="font-medium text-slate-900 dark:text-slate-200">{endItem}</span> 条，共{' '}
-                    <span className="font-medium text-slate-900 dark:text-slate-200">{totalItems}</span> 条
+                    {t('paginationDisplay', { startItem, endItem, totalItems })}
                 </div>
 
                 {onItemsPerPageChange && (
@@ -81,10 +81,10 @@ export default function Paginator({
                             onChange={handleLimitChange}
                             className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-emerald-500 cursor-pointer hover:border-blue-500 dark:hover:border-slate-600 transition-colors"
                         >
-                            <option value={10}>10 条/页</option>
-                            <option value={20}>20 条/页</option>
-                            <option value={50}>50 条/页</option>
-                            <option value={100}>100 条/页</option>
+                            <option value={10}>{t('itemsPerPage', { number: 10 })}</option>
+                            <option value={20}>{t('itemsPerPage', { number: 20 })}</option>
+                            <option value={50}>{t('itemsPerPage', { number: 50 })}</option>
+                            <option value={100}>{t('itemsPerPage', { number: 100 })}</option>
                         </select>
                     </div>
                 )}
@@ -97,7 +97,7 @@ export default function Paginator({
                     onClick={() => handlePageChange(1)}
                     disabled={currentPage === 1}
                     className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    aria-label="首页"
+                    aria-label={t('firstPage')}
                 >
                     <ChevronsLeft className="h-4 w-4" />
                 </button>
@@ -107,7 +107,7 @@ export default function Paginator({
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                     className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    aria-label="上一页"
+                    aria-label={t('previousPage')}
                 >
                     <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -141,7 +141,7 @@ export default function Paginator({
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    aria-label="下一页"
+                    aria-label={t('nextPage')}
                 >
                     <ChevronRight className="h-4 w-4" />
                 </button>
@@ -151,7 +151,7 @@ export default function Paginator({
                     onClick={() => handlePageChange(totalPages)}
                     disabled={currentPage === totalPages}
                     className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    aria-label="末页"
+                    aria-label={t('lastPage')}
                 >
                     <ChevronsRight className="h-4 w-4" />
                 </button>
