@@ -2,15 +2,16 @@ import type { Metadata } from "next";
 // import { Inter } from "next/font/google";
 import "../globals.css";
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages, getTranslator } from 'next-intl/server';
+import { getMessages, getTranslations } from 'next-intl/server';
 import { SessionProvider } from 'next-auth/react'; // Import SessionProvider
 
 export async function generateMetadata({
-    params: { locale }
+    params
 }: {
-    params: { locale: string };
+    params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
-    const t = await getTranslator(locale, 'App');
+    const { locale } = await params;
+    const t = await getTranslations({ locale, namespace: 'App' });
     return {
         title: t('title'),
         description: t('description'),
@@ -22,9 +23,9 @@ export default async function LocaleLayout({
     params
 }: Readonly<{
     children: React.ReactNode;
-    params: { locale: string };
+    params: Promise<{ locale: string }>;
 }>) {
-    const { locale } = params;
+    const { locale } = await params;
 
     // Providing all messages to the client
     // side is the easiest way to get started

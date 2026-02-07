@@ -60,8 +60,8 @@ interface WatchlistItem {
     source?: string; // For confidence indicators
 }
 
-export default function FundDashboard({ params }: { params: { locale: string } }) {
-  const { locale } = params;
+export default function FundDashboard({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = React.use(params);
   const { data: session, status } = useSession();
   const router = useRouter();
   const t = useTranslations('Funds');
@@ -658,7 +658,7 @@ export default function FundDashboard({ params }: { params: { locale: string } }
                                             {/* Source & Calibration Note */}
                                             {valuation.source && (
                                                 <div className="mt-1 opacity-70">
-                                                    {t('sourceLabel', { source: valuation.source })}
+                                                    {t('sourceLabel', { source: valuation.source ?? '' })}
                                                 </div>
                                             )}
                                         </div>

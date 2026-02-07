@@ -91,8 +91,8 @@ export function SectorAttribution({ data }: Props) {
       hovertemplate: `
                 <div style='border-radius:8px; background:white; padding:8px; color:#0f172a;'>
                     <b style='font-size:14px; color:#334155'>%{label}</b><br>
-                    <span style='color:#64748b'>Weight:</span> <b>%{value:.2f}%</b><br>
-                    <span style='color:#64748b'>Impact:</span> <b>%{color:+.2f}%</b>
+                    <span style='color:#64748b'>${tApp('weight', { value: '' }).split(':')[0]}:</span> <b>%{value:.2f}%</b><br>
+                    <span style='color:#64748b'>${tApp('impact', { value: '' }).split(':')[0]}:</span> <b>%{color:+.2f}%</b>
                 </div>
                 <extra></extra>
             `,

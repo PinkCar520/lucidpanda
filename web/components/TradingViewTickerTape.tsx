@@ -51,7 +51,7 @@ function TradingViewTickerTape({ locale, t }: TradingViewTickerTapeProps) {
             "isTransparent": true,
             "displayMode": "adaptive",
             "colorTheme": "dark",
-            "locale": locale
+            "locale": locale === 'zh' ? 'zh_CN' : locale
         });
 
         // Append the standard TradingView wrapper

@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { Alert } from '@/components/Alert';
@@ -21,8 +23,8 @@ import Paginator from '@/components/Paginator';
 import ThemeToggle from '@/components/ThemeToggle';
 
 
-export default function Dashboard({ params }: { params: { locale: string } }) {
-  const { locale } = params;
+export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = React.use(params);
   const { data: session } = useSession();
 
   const t = useTranslations('Dashboard');
@@ -373,7 +375,7 @@ export default function Dashboard({ params }: { params: { locale: string } }) {
                 onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
                 className="px-3 py-1 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
               >
-                {tApp('logout', { email: session.user.email })}
+                {tApp('logout', { email: session.user.email ?? '' })}
               </button>
             )}
           </div>

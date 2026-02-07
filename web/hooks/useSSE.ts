@@ -5,6 +5,8 @@
  * real-time updates from the backend.
  */
 
+'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import { Intelligence } from '@/lib/db';
 

@@ -68,7 +68,7 @@ function TradingViewMiniCharts({ locale, t }: TradingViewMiniChartsProps) {
             "colorTheme": theme,
             "isTransparent": true,
             "showSymbolLogo": true,
-            "locale": locale
+            "locale": locale === 'zh' ? 'zh_CN' : locale
         });
 
         const widgetContainer = document.createElement('div');
