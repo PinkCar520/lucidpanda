@@ -46,6 +46,7 @@ services:
     environment:
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/0
     restart: unless-stopped
     depends_on:
       db:
@@ -68,6 +69,7 @@ services:
     environment:
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/0
       - TZ=Asia/Shanghai
     restart: unless-stopped
     depends_on:
@@ -106,7 +108,7 @@ services:
         max-size: "100m"
         max-file: "3"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/api/intelligence?limit=1"]
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3

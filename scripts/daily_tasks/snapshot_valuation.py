@@ -5,12 +5,8 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
 
-# Set DB Credentials from docker-compose defaults
-os.environ['POSTGRES_USER'] = 'alphasignal'
-os.environ['POSTGRES_PASSWORD'] = 'secure_password'
-os.environ['POSTGRES_DB'] = 'alphasignal_core'
-os.environ['POSTGRES_HOST'] = 'localhost'
-os.environ['POSTGRES_PORT'] = '5432'
+# Set DB Credentials from environment or defaults
+from src.alphasignal.config import settings
 
 # Add src to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
