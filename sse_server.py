@@ -9,12 +9,15 @@ to connected clients as soon as it's written to the database.
 import asyncio
 import json
 from typing import List, AsyncGenerator
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.responses import StreamingResponse
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import asynccontextmanager
 from src.alphasignal.config import settings
+from src.alphasignal.auth.router import router as auth_router
+from src.alphasignal.auth.dependencies import get_current_user
+from src.alphasignal.auth.models import User
 
 # --- Broadcast System ---
 
@@ -124,6 +127,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Register Routers
+app.include_router(auth_router)
+
 # --- Endpoints ---
 
 
@@ -229,28 +235,27 @@ from pydantic import BaseModel
 class WatchlistItem(BaseModel):
     code: str
     name: str
-    user_id: str = 'default'
 
 @app.get("/api/watchlist")
-async def get_watchlist(user_id: str = 'default'):
+async def get_watchlist(current_user: User = Depends(get_current_user)):
     from src.alphasignal.core.database import IntelligenceDB
     db = IntelligenceDB()
-    rows = db.get_watchlist(user_id)
+    rows = db.get_watchlist(str(current_user.id))
     # Simplify response
     return {"data": [{"code": r['fund_code'], "name": r['fund_name']} for r in rows]}
 
 @app.post("/api/watchlist")
-async def add_to_watchlist(item: WatchlistItem):
+async def add_to_watchlist(item: WatchlistItem, current_user: User = Depends(get_current_user)):
     from src.alphasignal.core.database import IntelligenceDB
     db = IntelligenceDB()
-    success = db.add_to_watchlist(item.code, item.name, item.user_id)
+    success = db.add_to_watchlist(item.code, item.name, str(current_user.id))
     return {"success": success}
 
 @app.delete("/api/watchlist/{code}")
-async def remove_from_watchlist(code: str, user_id: str = 'default'):
+async def remove_from_watchlist(code: str, current_user: User = Depends(get_current_user)):
     from src.alphasignal.core.database import IntelligenceDB
     db = IntelligenceDB()
-    success = db.remove_from_watchlist(code, user_id)
+    success = db.remove_from_watchlist(code, str(current_user.id))
     return {"success": success}
 
 @app.get("/api/funds/search")

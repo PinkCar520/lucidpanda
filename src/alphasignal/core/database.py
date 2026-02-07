@@ -278,7 +278,7 @@ class IntelligenceDB:
 
     # --- Watchlist Methods ---
 
-    def add_to_watchlist(self, fund_code, fund_name, user_id='default'):
+    def add_to_watchlist(self, fund_code, fund_name, user_id):
         """Add a fund to the user's watchlist."""
         try:
             conn = self._get_conn()
@@ -297,7 +297,7 @@ class IntelligenceDB:
             logger.error(f"Add to Watchlist Failed: {e}")
             return False
 
-    def remove_from_watchlist(self, fund_code, user_id='default'):
+    def remove_from_watchlist(self, fund_code, user_id):
         """Remove a fund from the watchlist."""
         try:
             conn = self._get_conn()
@@ -313,7 +313,7 @@ class IntelligenceDB:
             logger.error(f"Remove from Watchlist Failed: {e}")
             return False
 
-    def get_watchlist(self, user_id='default'):
+    def get_watchlist(self, user_id):
         """Get all funds in the user's watchlist."""
         try:
             conn = self._get_conn()

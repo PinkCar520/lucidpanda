@@ -3,8 +3,7 @@ import type { Metadata } from "next";
 import "../globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
-
-// const inter = Inter({ subsets: ["latin"] });
+import { SessionProvider } from 'next-auth/react'; // Import SessionProvider
 
 export const metadata: Metadata = {
     title: "AlphaSignal Dashboard",
@@ -29,7 +28,9 @@ export default async function LocaleLayout({
         <html lang={locale}>
             <body className="antialiased">
                 <NextIntlClientProvider messages={messages}>
-                    {children}
+                    <SessionProvider> {/* Wrap children with SessionProvider */}
+                        {children}
+                    </SessionProvider>
                 </NextIntlClientProvider>
             </body>
         </html>

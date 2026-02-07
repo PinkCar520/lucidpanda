@@ -1,12 +1,38 @@
-import createMiddleware from 'next-intl/middleware';
+import { auth } from "@/auth";
+import createIntlMiddleware from 'next-intl/middleware';
 import { locales } from './i18n/config';
+import { NextRequest } from "next/server";
 
-export default createMiddleware({
-  // A list of all locales that are supported
+const intlMiddleware = createIntlMiddleware({
   locales,
-
-  // Used when no locale matches
   defaultLocale: 'en'
+});
+
+export default auth((req: NextRequest & { auth: any }) => {
+  const { nextUrl } = req;
+  const isLoggedIn = !!req.auth;
+  
+  // Check if it's an auth page (login)
+  const isAuthPage = nextUrl.pathname.includes('/login');
+  
+  // If user is on an auth page and logged in, redirect to home
+  if (isAuthPage) {
+    if (isLoggedIn) {
+      // Find the locale from the pathname or fallback to default
+      const locale = nextUrl.pathname.split('/')[1] || 'en';
+      return Response.redirect(new URL(`/${locale}`, nextUrl));
+    }
+    return intlMiddleware(req);
+  }
+
+  // If user is NOT logged in and NOT on an auth page, redirect to login
+  if (!isLoggedIn) {
+    const locale = nextUrl.pathname.split('/')[1] || 'en';
+    // Only redirect if it's not the public root or api/etc (handled by matcher)
+    return Response.redirect(new URL(`/${locale}/login`, nextUrl));
+  }
+
+  return intlMiddleware(req);
 });
 
 export const config = {

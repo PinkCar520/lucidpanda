@@ -133,3 +133,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Auto Deploy to Server
+    needs: [build-and-push-backend, build-and-push-frontend]
+    if: github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Pull and Restart Containers
+        run: |
+          cd ~/alphasignal
+          # 拉取 Docker Hub 上的最新镜像
+          docker-compose pull
+          # 重启服务（只会重启镜像有更新的容器）
+          docker-compose up -d
+          # 清理过期的旧镜像，释放磁盘空间
+          docker image prune -f

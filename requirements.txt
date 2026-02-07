@@ -25,3 +25,8 @@ torch
 socksio
 akshare
 redis
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+email-validator
+sqlalchemy

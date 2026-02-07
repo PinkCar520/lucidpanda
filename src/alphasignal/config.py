@@ -56,5 +56,11 @@ class Settings:
     STATE_FILE = os.path.join(BASE_DIR, "monitor_state.json")
     DB_PATH = os.path.join(BASE_DIR, "alphasignal.db")
 
+    # Security (JWT)
+    SECRET_KEY = os.getenv("SECRET_KEY", "your-super-secret-key-change-it-in-prod")
+    ALGORITHM = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 15))
+    REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 7))
+
 # 实例化单例
 settings = Settings()
