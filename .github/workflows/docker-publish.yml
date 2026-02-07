@@ -129,6 +129,8 @@ jobs:
           context: ./web
           file: ./web/Dockerfile
           push: true
+          build-args: |
+            CACHE_BUST=${{ github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

@@ -24,6 +24,8 @@ ENV NODE_OPTIONS="--max-old-space-size=2048"
 # Skip Sentry sourcemap upload during Docker build to avoid connectivity/auth hangs
 ENV SENTRY_SKIP_SOURCE_MAP_UPLOAD=true
 
+ARG CACHE_BUST=1
+
 RUN npm run build
 
 # Production image, copy all the files and run next
