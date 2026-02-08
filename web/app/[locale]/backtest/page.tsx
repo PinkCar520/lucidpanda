@@ -15,7 +15,7 @@ export default function BacktestPage() {
     // For now, we'll just show the BacktestStats component with some mock data or empty
     
     return (
-        <div className="flex flex-col gap-8 p-4 md:p-8 animate-in fade-in duration-500">
+        <div className="flex flex-col gap-8 p-4 md:p-6 lg:p-8 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">

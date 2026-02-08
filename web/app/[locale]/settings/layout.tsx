@@ -46,10 +46,10 @@ export default function SettingsLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+    <div className="flex flex-col bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300">
+      <div className="flex-grow h-full">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 pb-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-blue-500/10 flex items-center justify-center shrink-0">
                 <Settings className="w-8 h-8 text-blue-600 dark:text-blue-500" />
@@ -63,9 +63,9 @@ export default function SettingsLayout({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 md:flex gap-8 h-full px-4 md:px-8">
           {/* Sidebar */}
-          <aside className="md:col-span-3">
+          <aside className="md:w-64 sticky top-8 max-h-[calc(100vh-4rem)] overflow-y-auto">
             <nav className="flex flex-col gap-1">
               {navItems.map((item) => {
                 const isActive = pathname === item.href;
@@ -88,7 +88,7 @@ export default function SettingsLayout({
           </aside>
 
           {/* Main Content */}
-          <main className="md:col-span-9 bg-slate-50/50 dark:bg-slate-900/20 rounded-2xl p-6 border border-slate-200 dark:border-slate-800/50 min-h-[500px]">
+          <main className="flex-1 bg-slate-50/50 dark:bg-slate-900/20 rounded-2xl border border-slate-200 dark:border-slate-800/50 max-h-[calc(100vh-4rem)] min-h-[calc(100vh-6rem)] overflow-y-auto">
             {children}
                     </main>
                   </div>
