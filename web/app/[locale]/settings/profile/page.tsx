@@ -162,7 +162,7 @@ export default function ProfilePage() {
   if (!session) return null;
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-bold">{t('basicInfo')}</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">

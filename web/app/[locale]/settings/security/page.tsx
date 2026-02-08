@@ -246,7 +246,7 @@ export default function SecurityPage() {
   };
 
   return (
-    <div className="flex flex-col gap-8 p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-bold">{t('security')}</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">

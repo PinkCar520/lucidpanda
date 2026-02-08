@@ -87,11 +87,10 @@ export default function SettingsLayout({
             </nav>
           </aside>
 
-          {/* Main Content */}
-          <main className="flex-1 bg-slate-50/50 dark:bg-slate-900/20 rounded-2xl border border-slate-200 dark:border-slate-800/50 max-h-[calc(100vh-4rem)] min-h-[calc(100vh-6rem)] overflow-y-auto">
-            {children}
-                    </main>
-                  </div>
+                    {/* Main Content */}
+                    <main className="flex-1 bg-slate-50/50 dark:bg-slate-900/20 rounded-2xl border border-slate-200 dark:border-slate-800/50 max-h-[calc(100vh-4rem)] min-h-[calc(100vh-6rem)] overflow-y-auto p-4 md:p-6 lg:p-8">
+                      {children}
+                    </main>                  </div>
                 </div>
               </div>
             );
