@@ -308,8 +308,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                 });
                                                 const data = await res.json();
                                                 if (data.success) {
-                                                    // Add to START of list for immediate visibility
-                                                    setWatchlist(prev => [{ code, name }, ...prev]);
+                                                    // Optimistically update watchlist
+                                                    mutateWatchlist([{ code, name }, ...(watchlistData || [])], false);
                                                     setSelectedFund(code);
                                                     setIsWatchlistOpen(false); // Auto-close on selection
                                                 }
