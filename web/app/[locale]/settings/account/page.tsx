@@ -63,7 +63,7 @@ export default function AccountOverviewPage() {
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-bold">{t('accountOverview')}</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Your financial health and system status at a glance.
+          {t('accountOverviewSubtitle')}
         </p>
       </div>
 
@@ -73,9 +73,10 @@ export default function AccountOverviewPage() {
               <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between">
                       <Wallet className="w-6 h-6 opacity-80" />
-                      <Badge variant="neutral" className="bg-white/20 border-none text-white backdrop-blur-md">
-                          USD
-                      </Badge>
+                                                <Badge variant="neutral" className="bg-white/20 border-none text-white backdrop-blur-md">
+                                                {t('currencyUSD')}
+                                                </Badge>
+                      
                   </div>
                   <div>
                       <div className="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">{t('totalAssets')}</div>
@@ -110,7 +111,7 @@ export default function AccountOverviewPage() {
                       </div>
                   </div>
                   <div className="mt-auto">
-                      <p className="text-[10px] text-slate-400 italic">Market performance across all active strategies.</p>
+                      <p className="text-[10px] text-slate-400 italic">{t('pnlDescription')}</p>
                   </div>
               </div>
           </Card>
@@ -121,7 +122,7 @@ export default function AccountOverviewPage() {
                       <Zap className="w-6 h-6 text-amber-500" />
                       <div className="flex items-center gap-1 text-xs font-bold text-slate-500">
                           <Activity className="w-3 h-3" />
-                          Live
+                          {t('liveStatus')}
                       </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -136,7 +137,7 @@ export default function AccountOverviewPage() {
                   </div>
                   <div className="mt-auto pt-4 flex gap-2">
                       <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[10px] text-slate-500 font-bold uppercase">System Engine Optimal</span>
+                      <span className="text-[10px] text-slate-500 font-bold uppercase">{t('systemEngineStatus')}</span>
                   </div>
               </div>
           </Card>
@@ -183,7 +184,7 @@ export default function AccountOverviewPage() {
           <div className="lg:col-span-2">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">
                   <Shield className="w-4 h-4 text-purple-500" />
-                  Security Status
+                  {t('securityStatus')}
               </div>
               <Card className="p-6">
                   <div className="flex flex-col md:flex-row gap-8">
@@ -193,16 +194,16 @@ export default function AccountOverviewPage() {
                                   <ShieldCheck className="w-6 h-6" />
                               </div>
                               <div>
-                                  <div className="text-sm font-bold">Two-Factor Authentication</div>
+                                  <div className="text-sm font-bold">{t('twoFA')}</div>
                                   <div className={`text-xs font-medium ${sessionData?.user?.is_two_fa_enabled ? 'text-emerald-500' : 'text-amber-500'}`}>
-                                      {sessionData?.user?.is_two_fa_enabled ? 'Enabled & Protecting your account' : 'Action Required: Enable 2FA for better security'}
+                                      {sessionData?.user?.is_two_fa_enabled ? t('twoFAEnabledMsg') : t('twoFAActionRequiredMsg')}
                                   </div>
                               </div>
                           </div>
                           {!sessionData?.user?.is_two_fa_enabled && (
                               <Link href="/en/settings/security">
                                   <button className="text-xs font-bold text-blue-600 hover:text-blue-700 underline underline-offset-4">
-                                      Protect my account now →
+                                      {t('protectAccountNow')} →
                                   </button>
                               </Link>
                           )}
@@ -213,13 +214,13 @@ export default function AccountOverviewPage() {
                                   <Star className="w-6 h-6" />
                               </div>
                               <div>
-                                  <div className="text-sm font-bold">Identity Status</div>
+                                  <div className="text-sm font-bold">{t('identityStatus')}</div>
                                   <div className="text-xs text-slate-500 font-medium">
-                                      Member Tier: Standard (Level 1)
+                                      {t('memberTier')}
                                   </div>
                               </div>
                           </div>
-                          <div className="text-[10px] text-slate-400 italic">Verify your identity to increase limits.</div>
+                          <div className="text-[10px] text-slate-400 italic">{t('verifyIdentityHint')}</div>
                       </div>
                   </div>
               </Card>

@@ -31,11 +31,11 @@ export default function CommandMenu() {
     const pathname = usePathname();
     const { data: session } = useSession();
     
-    const t = useTranslations('Dashboard');
+    const tCommand = useTranslations('CommandMenu'); // New namespace
     const tApp = useTranslations('App');
     const tSettings = useTranslations('Settings');
     const tFunds = useTranslations('Funds');
-
+    const tAuth = useTranslations('Auth'); // For Sign Out
     // Toggle the menu when ⌘K is pressed
     useEffect(() => {
         const down = (e: KeyboardEvent) => {
@@ -93,13 +93,13 @@ export default function CommandMenu() {
                     <Search className="w-5 h-5 text-slate-400 mr-3" />
                     <Command.Input
                         autoFocus
-                        placeholder="Search for funds, actions or settings..."
+                        placeholder={tCommand('placeholder')}
                         value={search}
                         onValueChange={setSearch}
                         className="flex-1 h-14 bg-transparent outline-none text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
                     />
                     <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[10px] font-bold text-slate-400">
-                        ESC
+                        {tCommand('escLabel')}
                     </div>
                 </div>
 
@@ -108,16 +108,16 @@ export default function CommandMenu() {
                         {loading ? (
                             <div className="flex items-center justify-center gap-2">
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Searching...
+                                {tCommand('searching')}
                             </div>
                         ) : (
-                            'No results found.'
+                            tCommand('noResults')
                         )}
                     </Command.Empty>
 
                     {/* 1. Async Funds Search Results */}
                     {funds.length > 0 && (
-                        <Command.Group heading="Market Funds" className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <Command.Group heading={tCommand('marketFundsGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                             {funds.map((fund) => (
                                 <div key={fund.code} className="flex flex-col gap-1 mb-1">
                                     <Command.Item
@@ -129,7 +129,7 @@ export default function CommandMenu() {
                                         </div>
                                         <div className="flex-1 flex flex-col min-w-0">
                                             <span className="text-sm font-bold truncate">{fund.name}</span>
-                                            <span className="text-[10px] font-mono opacity-60">View in AlphaFunds • {fund.code}</span>
+                                            <span className="text-[10px] font-mono opacity-60">{tCommand('viewInFunds')} • {fund.code}</span>
                                         </div>
                                         <ChevronRight className="w-4 h-4 opacity-30" />
                                     </Command.Item>
@@ -141,8 +141,8 @@ export default function CommandMenu() {
                                             <Terminal className="w-4 h-4" />
                                         </div>
                                         <div className="flex-1 flex flex-col min-w-0">
-                                            <span className="text-sm font-bold truncate">Trade {fund.name}</span>
-                                            <span className="text-[10px] font-mono opacity-60">Open in Terminal for Execution</span>
+                                            <span className="text-sm font-bold truncate">{tCommand('tradeFund', { fundName: fund.name })}</span>
+                                            <span className="text-[10px] font-mono opacity-60">{tCommand('openInTerminalForExecution')}</span>
                                         </div>
                                         <Zap className="w-4 h-4 opacity-30" />
                                     </Command.Item>
@@ -151,44 +151,45 @@ export default function CommandMenu() {
                         </Command.Group>
                     )}
 
+
                     {/* 1.5 Quick Actions */}
-                    <Command.Group heading="Quick Actions" className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    <Command.Group heading={tCommand('quickActionsGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
                         <Command.Item
                             onSelect={() => runCommand(() => window.location.reload())}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <RefreshCw className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">Reload All Data</span>
+                            <span className="text-sm">{tCommand('reloadAllData')}</span>
                         </Command.Item>
                     </Command.Group>
 
                     {/* 2. Primary Navigation */}
-                    <Command.Group heading="Navigation" className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    <Command.Group heading={tCommand('navigationGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/${locale}`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <Terminal className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">Terminal Dashboard</span>
+                            <span className="text-sm">{tApp('sidebar.terminal')}</span>
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/${locale}/funds`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <BarChart3 className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">AlphaFunds Valuation</span>
+                            <span className="text-sm">{tApp('sidebar.alphaFunds')}</span>
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/${locale}/backtest`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <Activity className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">Backtest Performance</span>
+                            <span className="text-sm">{tApp('sidebar.backtest')}</span>
                         </Command.Item>
                     </Command.Group>
 
                     {/* 3. Account & Settings */}
-                    <Command.Group heading="Account & Settings" className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    <Command.Group heading={tCommand('accountSettingsGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/${locale}/settings/account`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
@@ -220,13 +221,13 @@ export default function CommandMenu() {
                     </Command.Group>
 
                     {/* 4. System Actions */}
-                    <Command.Group heading="System" className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    <Command.Group heading={tCommand('systemGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
                         <Command.Item
                             onSelect={() => runCommand(() => signOut({ callbackUrl: `/${locale}/login` }))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors aria-selected:bg-red-50 dark:aria-selected:bg-red-900/30"
                         >
                             <LogOut className="w-4 h-4" />
-                            <span className="text-sm">Sign Out</span>
+                            <span className="text-sm">{tAuth('signOut')}</span>
                         </Command.Item>
                     </Command.Group>
                 </Command.List>
@@ -235,14 +236,14 @@ export default function CommandMenu() {
                 <div className="px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-medium text-slate-400 uppercase tracking-widest">
                     <div className="flex items-center gap-4">
                         <span className="flex items-center gap-1.5">
-                            <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">↑↓</kbd> Navigate
+                            <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">↑↓</kbd> {tCommand('navigateHint')}
                         </span>
                         <span className="flex items-center gap-1.5">
-                            <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">ENTER</kbd> Select
+                            <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">ENTER</kbd> {tCommand('selectHint')}
                         </span>
                     </div>
                     <div className="flex items-center gap-1.5 font-data">
-                        AlphaSignal Shell v1.1
+                        AlphaSignal {tCommand('shellVersion')} v1.1
                     </div>
                 </div>
             </div>

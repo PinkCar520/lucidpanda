@@ -26,9 +26,9 @@ export default function Shell({ children }: ShellProps) {
     const tSettings = useTranslations('Settings');
 
     const navItems = [
-        { id: 'terminal', icon: Terminal, href: `/${currentLocale}`, label: 'Terminal' },
-        { id: 'funds', icon: BarChart3, href: `/${currentLocale}/funds`, label: 'AlphaFunds' },
-        { id: 'backtest', icon: Activity, href: `/${currentLocale}/backtest`, label: 'Backtest' },
+        { id: 'terminal', icon: Terminal, href: `/${currentLocale}`, label: t('sidebar.terminal') },
+        { id: 'funds', icon: BarChart3, href: `/${currentLocale}/funds`, label: t('sidebar.alphaFunds') },
+        { id: 'backtest', icon: Activity, href: `/${currentLocale}/backtest`, label: t('sidebar.backtest') },
     ];
 
     const bottomItems = [
@@ -100,10 +100,10 @@ export default function Shell({ children }: ShellProps) {
                         
                         {/* Breadcrumbs / Page Title Context */}
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest overflow-hidden font-data">
-                            <span className="hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">AlphaSignal</span>
+                            <span className="hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">{t('shell.breadcrumb.alphaSignal')}</span>
                             <ChevronRight className="w-3 h-3" />
                             <span className="text-slate-900 dark:text-white truncate">
-                                {pathname === `/${currentLocale}` ? 'Terminal' : pathname.split('/').pop()?.replace(/-/g, ' ')}
+                                {pathname === `/${currentLocale}` ? t('shell.breadcrumb.terminal') : pathname.split('/').pop()?.replace(/-/g, ' ')}
                             </span>
                         </div>
                     </div>
@@ -115,7 +115,7 @@ export default function Shell({ children }: ShellProps) {
                             className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
                         >
                             <Command className="w-3 h-3" />
-                            <span>CMD + K</span>
+                            <span>{t('shell.commandK')}</span>
                         </button>
                         
                         <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />

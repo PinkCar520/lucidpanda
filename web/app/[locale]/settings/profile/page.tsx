@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
+import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { User, Mail, Calendar, ShieldCheck, Loader2, Camera, MapPin, Globe } from 'lucide-react';
@@ -12,6 +13,7 @@ import { authenticatedFetch } from '@/lib/api-client';
 export default function ProfilePage() {
   const t = useTranslations('Settings');
   const { data: session, update } = useSession();
+  const { locale } = useParams(); // Get locale for date formatting
   
   const [formData, setFormData] = useState({
     name: '',
@@ -79,9 +81,9 @@ export default function ProfilePage() {
         },
       });
 
-      setToast({ message: t('saveChanges'), type: 'success' });
+      setToast({ message: t('profileUpdateSuccess'), type: 'success' });
     } catch (error) {
-      setToast({ message: 'Error updating profile', type: 'error' });
+      setToast({ message: t('profileUpdateError'), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -117,9 +119,9 @@ export default function ProfilePage() {
         }
       });
       
-      setToast({ message: 'Avatar updated', type: 'success' });
+      setToast({ message: t('avatarUpdateSuccess'), type: 'success' });
     } catch (error) {
-      setToast({ message: 'Error uploading avatar', type: 'error' });
+      setToast({ message: t('avatarUpdateError'), type: 'error' });
     } finally {
       setUploadingAvatar(false);
     }
@@ -132,7 +134,7 @@ export default function ProfilePage() {
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-bold">{t('basicInfo')}</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Manage your public identity on AlphaSignal.
+          {t('profileSubtitle')}
         </p>
       </div>
 
@@ -164,21 +166,22 @@ export default function ProfilePage() {
             />
           </div>
           
-          <h3 className="text-lg font-bold">{session.user?.name || 'Anonymous'}</h3>
+          <h3 className="text-lg font-bold">{session.user?.name || t('anonymousUser')}</h3>
           <p className="text-xs text-slate-500 font-mono mb-4">{session.user?.email}</p>
           <Badge variant="neutral" className="uppercase tracking-widest text-[10px]">
-            {session.user?.role || 'User'}
+            {session.user?.role || t('defaultRole')}
           </Badge>
           
           <div className="w-full border-t border-slate-100 dark:border-slate-800 mt-6 pt-6 flex flex-col gap-3">
             <div className="flex items-center gap-3 text-xs text-slate-500">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              <span>Identity Verified</span>
+              <span>{t('identityVerified')}</span>
             </div>
             <div className="flex items-center gap-3 text-xs text-slate-500">
               <Calendar className="w-4 h-4" />
-              <span>Member since {new Date(session.user?.created_at || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+              <span>{t('memberSince', { date: new Date(session.user?.created_at || Date.now()).toLocaleDateString(locale, { month: 'short', year: 'numeric' })})}</span>
             </div>
+            {/* The clickable area for avatar upload is the entire div, no explicit button needed. */}
           </div>
         </Card>
 
@@ -198,7 +201,7 @@ export default function ProfilePage() {
                     value={formData.name}
                     onChange={handleInputChange}
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                    placeholder="Enter your full name"
+                    placeholder={t('fullNamePlaceholder')}
                     />
                 </div>
                 </div>
@@ -215,7 +218,7 @@ export default function ProfilePage() {
                     value={formData.nickname}
                     onChange={handleInputChange}
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                    placeholder="Enter nickname"
+                    placeholder={t('nicknamePlaceholder')}
                     />
                 </div>
                 </div>
@@ -230,7 +233,7 @@ export default function ProfilePage() {
                     onChange={handleInputChange}
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg py-2.5 px-4 text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
                 >
-                    <option value="">Select Gender</option>
+                    <option value="">{t('selectGender')}</option>
                     <option value="male">{t('male')}</option>
                     <option value="female">{t('female')}</option>
                     <option value="other">{t('other')}</option>
@@ -265,7 +268,7 @@ export default function ProfilePage() {
                     value={formData.location}
                     onChange={handleInputChange}
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                    placeholder="City, Country"
+                    placeholder={t('locationPlaceholder')}
                     />
                 </div>
                 </div>
@@ -282,11 +285,11 @@ export default function ProfilePage() {
                     onChange={handleInputChange}
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
                     >
-                        <option value="UTC">UTC</option>
+                        <option value="UTC">{t('timezoneUTC')}</option>
                         {/* Add more timezones as needed */}
-                        <option value="America/New_York">New York (EST)</option>
-                        <option value="Europe/London">London (GMT)</option>
-                        <option value="Asia/Shanghai">Shanghai (CST)</option>
+                        <option value="America/New_York">{t('timezoneNewYork')}</option>
+                        <option value="Europe/London">{t('timezoneLondon')}</option>
+                        <option value="Asia/Shanghai">{t('timezoneShanghai')}</option>
                     </select>
                 </div>
                 </div>
@@ -303,8 +306,8 @@ export default function ProfilePage() {
                     onChange={handleInputChange}
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
                     >
-                        <option value="en">English</option>
-                        <option value="zh">中文</option>
+                        <option value="en">{t('languageEnglish')}</option>
+                        <option value="zh">{t('languageChinese')}</option>
                     </select>
                 </div>
                 </div>
@@ -312,7 +315,7 @@ export default function ProfilePage() {
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Email Address
+                {t('emailAddress')}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -324,7 +327,7 @@ export default function ProfilePage() {
                 />
               </div>
               <p className="text-[10px] text-slate-400 italic">
-                Email can be changed in the Security section.
+                {t('emailChangeHint')}
               </p>
             </div>
 

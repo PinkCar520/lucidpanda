@@ -17,6 +17,7 @@ export default function UserMenu() {
     const { data: session, status } = useSession();
     const t = useTranslations('Settings');
     const tApp = useTranslations('App');
+    const tAuth = useTranslations('Auth');
     const { locale } = useParams();
     const [open, setOpen] = useState(false);
 
@@ -69,11 +70,11 @@ export default function UserMenu() {
                     {/* User Profile Header */}
                     <div className="p-4 flex flex-col gap-1">
                         <div className="flex items-center justify-between mb-1">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Account Status</span>
-                            <Badge text="PRO" color="bg-blue-500" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{t('accountStatus')}</span>
+                            <Badge text={t('proUser')} color="bg-blue-500" />
                         </div>
                         <div className="font-bold text-slate-900 dark:text-white truncate">{user.email}</div>
-                        <div className="text-[10px] text-slate-500 font-mono tracking-tight">UID: {user.id.slice(0, 8)}...</div>
+                        <div className="text-[10px] text-slate-500 font-mono tracking-tight">{t('uidLabel')} {user.id.slice(0, 8)}...</div>
                     </div>
 
                     <DropdownMenu.Separator className="h-px bg-slate-100 dark:bg-slate-800 my-2" />
@@ -92,9 +93,9 @@ export default function UserMenu() {
                                     </div>
                                 )}
                                 <div>
-                                    <div className="text-[11px] font-bold">2FA Security</div>
+                                    <div className="text-[11px] font-bold">{t('twoFASecurity')}</div>
                                     <div className={`text-[9px] ${user.is_two_fa_enabled ? 'text-emerald-500' : 'text-amber-500'}`}>
-                                        {user.is_two_fa_enabled ? 'Active' : 'Unprotected'}
+                                        {user.is_two_fa_enabled ? t('active') : t('unprotected')}
                                     </div>
                                 </div>
                             </div>
@@ -108,7 +109,7 @@ export default function UserMenu() {
                         {/* API Quota */}
                         <div className="flex flex-col gap-2 mb-2">
                             <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                <span>API Requests</span>
+                                <span>{t('apiRequests')}</span>
                                 <span>{apiQuota}%</span>
                             </div>
                             <Progress.Root className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -152,7 +153,7 @@ export default function UserMenu() {
                     >
                         <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                             <LogOut className="w-4 h-4" />
-                            {tApp('logout', { email: '' }).split(' (')[0]}
+                            {tAuth('signOut')}
                         </button>
                     </DropdownMenu.Item>
                 </DropdownMenu.Content>

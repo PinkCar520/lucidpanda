@@ -575,7 +575,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                 <div className="flex items-center gap-1">
                                                     <span className="font-mono text-[10px] opacity-60">{item.code}</span>
                                                     {item.source && (
-                                                        <div className="flex gap-1" title={`Source: ${item.source}`}>
+                                                        <div className="flex gap-1" title={t('sourceLabel', { source: item.source })}>
                                                             {item.source.includes('Calibration') && (
                                                                 <Scale className="w-3 h-3 text-blue-500" />
                                                             )}

@@ -176,10 +176,10 @@ export default function SecurityPage() {
           });
           if (res.ok) {
               setPhoneStep('verify');
-              setToast({ message: 'Code sent', type: 'success' });
+              setToast({ message: t('codeSent'), type: 'success' });
           } else {
               const data = await res.json();
-              throw new Error(data.detail || 'Failed to send code');
+              throw new Error(data.detail || t('failedToSendCode'));
           }
       } catch (error: any) {
           setToast({ message: error.message, type: 'error' });
@@ -199,13 +199,13 @@ export default function SecurityPage() {
           });
           if (res.ok) {
               await update(); // Refresh session to get bound phone
-              setToast({ message: 'Phone bound successfully', type: 'success' });
+              setToast({ message: t('phoneBoundSuccessfully'), type: 'success' });
               setPhoneStep('bind');
               setPhoneForm({ phoneNumber: '', code: '' });
               fetchAuditLogs();
           } else {
               const data = await res.json();
-              throw new Error(data.detail || 'Verification failed');
+              throw new Error(data.detail || t('verificationFailed'));
           }
       } catch (error: any) {
           setToast({ message: error.message, type: 'error' });
@@ -215,14 +215,14 @@ export default function SecurityPage() {
   };
 
   const handleUnbindPhone = async () => {
-      if (!confirm('Are you sure you want to unbind your phone?')) return;
+      if (!confirm(t('confirmUnbindPhone'))) return;
       try {
           const res = await authenticatedFetch('/api/v1/auth/phone', sessionData, {
               method: 'DELETE'
           });
           if (res.ok) {
               await update();
-              setToast({ message: 'Phone unbound successfully', type: 'success' });
+              setToast({ message: t('phoneUnboundSuccessfully'), type: 'success' });
               fetchAuditLogs();
           }
       } catch (error: any) {
@@ -240,7 +240,7 @@ export default function SecurityPage() {
               setShow2FASetup(true);
           }
       } catch (error) {
-          console.error("Failed to start 2FA setup", error);
+          console.error(t('failedToStart2FASetup'), error);
       }
   };
 
@@ -261,7 +261,7 @@ export default function SecurityPage() {
               fetchAuditLogs();
           } else {
               const data = await res.json();
-              throw new Error(data.detail || 'Verification failed');
+              throw new Error(data.detail || t('verificationFailed'));
           }
       } catch (error: any) {
           setToast({ message: error.message, type: 'error' });
@@ -271,7 +271,7 @@ export default function SecurityPage() {
   };
 
   const handleDisable2FA = async () => {
-      if (!confirm('Are you sure you want to disable 2FA? This will decrease your account security.')) return;
+      if (!confirm(t('confirmDisable2FA'))) return;
       try {
           const res = await authenticatedFetch('/api/v1/auth/2fa', sessionData, { method: 'DELETE' });
           if (res.ok) {
@@ -294,7 +294,7 @@ export default function SecurityPage() {
               setToast({ message: t('sessionRevoked'), type: 'success' });
               fetchAuditLogs();
           } else {
-              throw new Error('Failed to revoke session');
+              throw new Error(t('failedToRevokeSession'));
           }
       } catch (error: any) {
           setToast({ message: error.message, type: 'error' });
@@ -306,7 +306,7 @@ export default function SecurityPage() {
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-bold">{t('security')}</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Manage your credentials and account security.
+          {t('securitySubtitle')}
         </p>
       </div>
 
@@ -371,7 +371,7 @@ export default function SecurityPage() {
             <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
               <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-relaxed">
-                Changing your email requires verification of the new address. You will receive a link at the new address to confirm.
+                {t('emailChangeWarning')}
               </p>
             </div>
             <form onSubmit={handleEmailChangeRequest} className="flex flex-col gap-4">
@@ -386,7 +386,7 @@ export default function SecurityPage() {
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Confirm with Password</label>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('confirmWithPassword')}</label>
                 <input
                   type="password"
                   required
@@ -421,7 +421,7 @@ export default function SecurityPage() {
                             <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                             <div>
                                 <div className="text-sm font-bold">{sessionData.user.phone_number}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-widest">Verified & Bound</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-widest">{t('identityVerified')}</div>
                             </div>
                         </div>
                         <button 
@@ -484,7 +484,7 @@ export default function SecurityPage() {
                                     onClick={() => setPhoneStep('bind')}
                                     className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-lg"
                                 >
-                                    Cancel
+                                    {t('close')}
                                 </button>
                             </div>
                         </form>
@@ -508,7 +508,7 @@ export default function SecurityPage() {
                             <ShieldCheck className="w-5 h-5 text-emerald-500" />
                             <div>
                                 <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{t('status')}: {t('enabled')}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-widest">Extra Security Active</div>
+                                <div className="text-[10px] text-slate-500 uppercase tracking-widest">{t('twoFAEnabledMsg')}</div>
                             </div>
                         </div>
                         <button 
@@ -524,7 +524,7 @@ export default function SecurityPage() {
                     {!show2FASetup ? (
                         <div className="flex flex-col gap-4 h-full justify-between">
                             <p className="text-[10px] text-slate-500 leading-relaxed italic">
-                                Add an extra layer of security to your account by requiring a code from your phone when you sign in.
+                                {t('twoFAActionRequiredMsg')}
                             </p>
                             <button 
                                 onClick={handleStart2FASetup}
@@ -571,7 +571,7 @@ export default function SecurityPage() {
                                     onClick={() => setShow2FASetup(false)}
                                     className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-lg"
                                 >
-                                    Cancel
+                                    {t('close')}
                                 </button>
                             </div>
                         </form>
@@ -596,7 +596,7 @@ export default function SecurityPage() {
                             <th className="px-6 py-4">{t('device')}</th>
                             <th className="px-6 py-4">{t('location')} / {t('ipAddress')}</th>
                             <th className="px-6 py-4">{t('lastActive')}</th>
-                            <th className="px-6 py-4 text-right">Action</th>
+                            <th className="px-6 py-4 text-right">{t('action')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -604,13 +604,13 @@ export default function SecurityPage() {
                             <tr>
                                 <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
                                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                                    Loading sessions...
+                                    {t('loadingSessions')}
                                 </td>
                             </tr>
                         ) : sessions.length === 0 ? (
                             <tr>
                                 <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
-                                    No active sessions found.
+                                    {t('noSessions')}
                                 </td>
                             </tr>
                         ) : (
@@ -623,10 +623,10 @@ export default function SecurityPage() {
                                             </div>
                                             <div>
                                                 <div className="font-medium text-slate-900 dark:text-slate-100">
-                                                    {sess.device_info?.name || 'Unknown Device'}
+                                                    {sess.device_info?.name || t('unknownDevice')}
                                                 </div>
                                                 <div className="text-xs text-slate-500">
-                                                    {sess.is_current ? t('currentSession') : 'Other Session'}
+                                                    {sess.is_current ? t('currentSession') : t('otherSession')}
                                                 </div>
                                             </div>
                                         </div>
@@ -638,7 +638,7 @@ export default function SecurityPage() {
                                             </span>
                                             <span className="text-xs text-slate-500 flex items-center gap-1">
                                                 <Globe className="w-3 h-3" />
-                                                Unknown Location
+                                                {t('unknownLocation')}
                                             </span>
                                         </div>
                                     </td>
@@ -688,7 +688,7 @@ export default function SecurityPage() {
                               <tr>
                                   <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
                                       <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                                      Loading logs...
+                                      {t('loadingLogs')}
                                   </td>
                               </tr>
                           ) : auditLogs.length === 0 ? (

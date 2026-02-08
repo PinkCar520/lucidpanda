@@ -1,6 +1,6 @@
 'use client';
 
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { useTransition, useState, useRef, useEffect } from 'react';
 import { Globe, Check, ChevronDown, ChevronUp } from 'lucide-react';
@@ -33,12 +33,14 @@ export default function LanguageSwitcher() {
     }, []);
 
     const currentName = localeNames[locale as keyof typeof localeNames];
+    const tApp = useTranslations('App'); // Assuming 'App' namespace is appropriate for global UI elements
 
     return (
         <div className="relative" ref={containerRef}>
             {/* Trigger Button - Adaptive Light/Dark Mode */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
+                title={tApp('shell.languageSwitcher.toggle')}
                 className={`flex items-center gap-2 bg-white dark:bg-[#0f172a] hover:bg-slate-50 dark:hover:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-full px-4 py-2 transition-all duration-200 group shadow-sm ${isOpen ? 'ring-2 ring-blue-500/20 border-blue-500/50' : ''}`}
             >
                 <Globe className="w-4 h-4 text-blue-600 dark:text-blue-500 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors" />

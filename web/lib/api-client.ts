@@ -17,7 +17,11 @@ export async function authenticatedFetch(
     headers.set('Authorization', `Bearer ${session.accessToken}`);
   }
 
-  const fullUrl = url.startsWith('http') ? url : `${API_INTERNAL_URL}${url}`; // Handle absolute vs relative URLs
+  // Determine base URL:
+  // - On client-side (browser): use relative URL to allow Next.js proxying and avoid CORS/Internal Hostname issues.
+  // - On server-side (SSR): use API_INTERNAL_URL to talk to the backend service directly.
+  const isClient = typeof window !== 'undefined';
+  const fullUrl = url.startsWith('http') ? url : (isClient ? url : `${API_INTERNAL_URL}${url}`);
 
   const response = await fetch(fullUrl, {
     ...options,

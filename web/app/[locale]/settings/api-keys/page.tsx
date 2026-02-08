@@ -86,7 +86,7 @@ export default function APIKeysPage() {
   };
 
   const handleRevokeKey = async (keyId: string) => {
-      if (!confirm('Are you sure you want to revoke this API key?')) return;
+      if (!confirm(t('confirmRevokeKey'))) return;
       try {
           const res = await authenticatedFetch(`/api/v1/auth/api-keys/me/${keyId}`, sessionData, {
               method: 'DELETE'
@@ -102,7 +102,7 @@ export default function APIKeysPage() {
 
   const copyToClipboard = (text: string) => {
       navigator.clipboard.writeText(text);
-      setToast({ message: 'Copied to clipboard', type: 'success' });
+      setToast({ message: t('copiedToClipboard'), type: 'success' });
   };
 
   if (loading) {
@@ -149,7 +149,7 @@ export default function APIKeysPage() {
                     onClick={() => setNewKeyData(null)}
                     className="mt-2 text-xs font-bold text-slate-500 hover:text-slate-700"
                   >
-                      I have saved my secret key
+                      {t('savedSecretKey')}
                   </button>
               </div>
           </Card>
@@ -208,13 +208,13 @@ export default function APIKeysPage() {
           <div className="lg:col-span-2">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">
                   <Key className="w-4 h-4 text-indigo-500" />
-                  Your API Keys
+                  {t('yourAPIKeys')}
               </div>
               <div className="flex flex-col gap-4">
                   {keys.length === 0 ? (
                       <Card className="p-12 text-center text-slate-500 flex flex-col items-center gap-2">
                           <Key className="w-8 h-8 opacity-20" />
-                          <p className="text-sm">No API keys generated yet.</p>
+                          <p className="text-sm">{t('noAPIKeys')}</p>
                       </Card>
                   ) : (
                       keys.map((key) => (

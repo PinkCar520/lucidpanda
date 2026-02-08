@@ -243,7 +243,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
       const response = await authenticatedFetch(`/api/intelligence?limit=${itemsPerPage}&offset=${offset}`, session);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch page data');
+        throw new Error(tApp('error.fetchPageData'));
       }
 
       const data = await response.json();
@@ -336,8 +336,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                               <Terminal className="w-4 h-4" />
                           </div>
                           <div>
-                              <div className="text-[10px] font-bold uppercase tracking-widest opacity-70">Trading Context Active</div>
-                              <div className="text-sm font-black font-data tracking-tight">Focused on Execution: {focusedCode}</div>
+                              <div className="text-[10px] font-bold uppercase tracking-widest opacity-70">{t('contextAlert.title')}</div>
+                              <div className="text-sm font-black font-data tracking-tight">{t('contextAlert.message', { code: focusedCode })}</div>
                           </div>
                       </div>
                       <Link href={`/${locale}`}>

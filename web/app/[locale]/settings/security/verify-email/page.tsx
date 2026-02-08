@@ -19,7 +19,7 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     if (!token) {
       setStatus('error');
-      setMessage('Missing verification token.');
+      setMessage(t('missingToken'));
       return;
     }
 
@@ -40,11 +40,11 @@ export default function VerifyEmailPage() {
           }, 3000);
         } else {
           setStatus('error');
-          setMessage(data.detail || 'Verification failed');
+          setMessage(data.detail || t('verificationFailed'));
         }
       } catch (error) {
         setStatus('error');
-        setMessage('Network error during verification');
+        setMessage(t('networkError'));
       }
     };
 
@@ -57,30 +57,30 @@ export default function VerifyEmailPage() {
         {status === 'loading' && (
           <>
             <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
-            <h2 className="text-xl font-bold">Verifying your new email...</h2>
-            <p className="text-sm text-slate-500">Please wait while we process your request.</p>
+            <h2 className="text-xl font-bold">{t('verifyingEmail')}</h2>
+            <p className="text-sm text-slate-500">{t('waitProcess')}</p>
           </>
         )}
 
         {status === 'success' && (
           <>
             <CheckCircle2 className="w-12 h-12 text-emerald-500" />
-            <h2 className="text-xl font-bold">Success!</h2>
+            <h2 className="text-xl font-bold">{t('success')}</h2>
             <p className="text-sm text-slate-500">{message}</p>
-            <p className="text-xs text-slate-400 mt-2">Redirecting you to settings...</p>
+            <p className="text-xs text-slate-400 mt-2">{t('redirectingSettings')}</p>
           </>
         )}
 
         {status === 'error' && (
           <>
             <XCircle className="w-12 h-12 text-rose-500" />
-            <h2 className="text-xl font-bold">Verification Failed</h2>
+            <h2 className="text-xl font-bold">{t('verificationFailed')}</h2>
             <p className="text-sm text-slate-500">{message}</p>
             <button
               onClick={() => router.push(`/${locale}/settings/security`)}
               className="mt-4 px-6 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold rounded-lg"
             >
-              Back to Security
+              {t('backToSecurity')}
             </button>
           </>
         )}

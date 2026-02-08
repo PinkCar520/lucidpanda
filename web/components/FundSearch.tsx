@@ -260,7 +260,7 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
                                     <div className="flex items-center gap-2 text-xs text-slate-500 uppercase tracking-wider">
                                         {query ? (
                                             <>
-                                                <Search className="w-3 h-3" />
+                                                <Search className="w-3 3" />
                                                 <span>{t('searchMatches')} ({searchResults.length})</span>
                                             </>
                                         ) : (
