@@ -4,7 +4,7 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
 import { useParams } from 'next/navigation';
-import { User, Shield, Bell, Key, LayoutDashboard, ChevronLeft } from 'lucide-react';
+import { User, Shield, Bell, Key, LayoutDashboard, ChevronLeft, Settings } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function SettingsLayout({
@@ -47,16 +47,13 @@ export default function SettingsLayout({
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </Link>
+            <div className="w-12 h-12 rounded-2xl bg-blue-600/10 dark:bg-blue-500/10 flex items-center justify-center shrink-0">
+                <Settings className="w-8 h-8 text-blue-600 dark:text-blue-500" />
+            </div>
             <div>
               <h1 className="text-2xl font-black tracking-tight">{t('title')}</h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 font-mono uppercase tracking-wider">

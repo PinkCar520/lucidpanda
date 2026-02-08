@@ -273,9 +273,6 @@
             "todayPnL": "Today's PnL",
             "activeStrategies": "Active Strategies",
             "watchlistCount": "Watchlist",
-            "quickLinks": "Quick Links",
-            "viewTrading": "Go to Trading Terminal",
-            "viewFunds": "Go to AlphaFunds",
             "recentActivity": "Recent Activity",
             "fullName": "Full Name",
         
@@ -334,7 +331,6 @@
                     "notifications": "Notifications",
                     "notificationChannels": "Notification Channels",
                     "emailNotifications": "Email Notifications",
-                    "smsNotifications": "SMS Notifications",
                     "pushNotifications": "Push Notifications",
                     "frequency": "Frequency",
                     "immediate": "Immediate",
@@ -453,7 +449,14 @@
                                     "smsNotificationsDesc": "Direct alerts to your bound phone number.",
                                     "pushNotificationsDesc": "Browser and mobile push notifications.",
                                     "pushDevicesEnabled": "Push enabled for {count} devices.",
-                                    "alertTypeDesc": "Alerts for critical events."
+                                    "alertTypeDesc": "Alerts for critical events.",
+                                    "securityOperations": "Security Operations",
+                                    "securityOpsDesc": "Sensitive actions require additional verification.",
+                                    "verificationInfo": "Verification Info",
+                                    "verificationDetails": "Verification Details",
+                                    "verificationDesc": "Manage your verified email and phone number for security alerts.",
+                                    "passwordModalDesc": "Update your account password. Use a strong and unique one.",
+                                    "twoFAModalDesc": "Add an extra layer of security to your account."
                                   },
     "Breadcrumbs": {
         "terminal": "Terminal",

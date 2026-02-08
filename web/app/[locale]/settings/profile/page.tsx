@@ -32,11 +32,18 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (session?.user) {
+      let birthdayStr = '';
+      if (session.user.birthday) {
+          const date = new Date(session.user.birthday);
+          if (!isNaN(date.getTime())) {
+              birthdayStr = date.toISOString().split('T')[0];
+          }
+      }
       setFormData({
         name: session.user.name || '',
         nickname: session.user.nickname || '',
         gender: session.user.gender || '',
-        birthday: session.user.birthday ? new Date(session.user.birthday).toISOString().split('T')[0] : '',
+        birthday: birthdayStr,
         location: session.user.location || '',
         timezone: session.user.timezone || 'UTC',
         language_preference: session.user.language_preference || 'en'
@@ -67,23 +74,32 @@ export default function ProfilePage() {
       });
 
       if (!res.ok) {
-        throw new Error('Failed to update profile');
+        const errorData = await res.json().catch(() => ({}));
+        console.error('[Profile] Update failed:', res.status, errorData);
+        throw new Error(errorData.detail || 'Failed to update profile');
       }
 
       const updatedUser = await res.json();
+      console.log('[Profile] Update success:', updatedUser);
       
       // Update NextAuth session
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          ...updatedUser,
-        },
-      });
+      try {
+        await update({
+          ...session,
+          user: {
+            ...session?.user,
+            ...updatedUser,
+          },
+        });
+        console.log('[Profile] Session updated');
+      } catch (sessErr) {
+        console.error('[Profile] Session update failed:', sessErr);
+      }
 
       setToast({ message: t('profileUpdateSuccess'), type: 'success' });
-    } catch (error) {
-      setToast({ message: t('profileUpdateError'), type: 'error' });
+    } catch (error: any) {
+      console.error('[Profile] Error:', error);
+      setToast({ message: error.message || t('profileUpdateError'), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -110,17 +126,25 @@ export default function ProfilePage() {
       if (!res.ok) throw new Error('Failed to upload avatar');
 
       const data = await res.json();
+      console.log('[Avatar] Upload success:', data);
       
-      await update({
-        ...session,
-        user: {
-            ...session?.user,
-            avatar_url: data.avatar_url
-        }
-      });
+      // Update NextAuth session
+      try {
+        await update({
+          ...session,
+          user: {
+              ...session?.user,
+              avatar_url: data.avatar_url
+          }
+        });
+        console.log('[Avatar] Session updated');
+      } catch (sessErr) {
+        console.error('[Avatar] Session update failed:', sessErr);
+      }
       
       setToast({ message: t('avatarUpdateSuccess'), type: 'success' });
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[Avatar] Error:', error);
       setToast({ message: t('avatarUpdateError'), type: 'error' });
     } finally {
       setUploadingAvatar(false);
@@ -141,29 +165,36 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* User Card */}
         <Card className="lg:col-span-1 flex flex-col items-center text-center p-8 h-fit">
-          <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-600 to-indigo-500 flex items-center justify-center text-white text-3xl font-black mb-4 shadow-xl shadow-blue-500/20 overflow-hidden">
-              {session.user?.avatar_url ? (
-                  <img src={session.user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                  session.user?.name?.[0]?.toUpperCase() || session.user?.email?.[0]?.toUpperCase()
-              )}
-            </div>
-            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity mb-4">
-                <Camera className="w-6 h-6 text-white" />
-            </div>
-            {uploadingAvatar && (
-                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center mb-4">
-                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+          <div className="mb-6 flex flex-col items-center">
+            <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-600 to-indigo-500 flex items-center justify-center text-white text-3xl font-black shadow-xl shadow-blue-500/20 overflow-hidden">
+                {session.user?.avatar_url ? (
+                    <img src={session.user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                    session.user?.name?.[0]?.toUpperCase() || session.user?.email?.[0]?.toUpperCase()
+                )}
                 </div>
-            )}
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleAvatarChange} 
-                className="hidden" 
-                accept="image/jpeg,image/png,image/webp"
-            />
+                
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-6 h-6 text-white" />
+                </div>
+
+                {/* Uploading Spinner Overlay */}
+                {uploadingAvatar && (
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    </div>
+                )}
+                
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleAvatarChange} 
+                    className="hidden" 
+                    accept="image/jpeg,image/png,image/webp"
+                />
+            </div>
           </div>
           
           <h3 className="text-lg font-bold">{session.user?.name || t('anonymousUser')}</h3>

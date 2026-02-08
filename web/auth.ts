@@ -59,7 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger, session }) {
       // Initial sign in
       if (user && account) {
         return {
@@ -85,6 +85,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             is_two_fa_enabled: user.is_two_fa_enabled,
             created_at: user.created_at,
           },
+        };
+      }
+
+      // Handle session update
+      if (trigger === "update" && session?.user) {
+        console.log("[AUTH] JWT Update Triggered:", session.user);
+        return {
+          ...token,
+          user: {
+            ...(token.user as any),
+            ...session.user,
+          }
         };
       }
 

@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { 
     Wallet, TrendingUp, ShieldCheck, Zap, 
     ArrowUpRight, ArrowDownRight, Activity, 
-    ExternalLink, Star, Shield, Loader2 
+    Star, Shield, Loader2 
 } from 'lucide-react';
 import { authenticatedFetch } from '@/lib/api-client';
 
@@ -143,45 +143,9 @@ export default function AccountOverviewPage() {
           </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Quick Links */}
-          <div className="lg:col-span-1">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">
-                  <ExternalLink className="w-4 h-4 text-blue-500" />
-                  {t('quickLinks')}
-              </div>
-              <div className="flex flex-col gap-3">
-                  <Link href="/" className="group">
-                      <Card className="p-4 hover:border-blue-500/50 transition-all group-hover:shadow-md">
-                          <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
-                                      <Activity className="w-4 h-4" />
-                                  </div>
-                                  <span className="text-sm font-bold">{t('viewTrading')}</span>
-                              </div>
-                              <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition-colors" />
-                          </div>
-                      </Card>
-                  </Link>
-                  <Link href="/funds" className="group">
-                      <Card className="p-4 hover:border-emerald-500/50 transition-all group-hover:shadow-md">
-                          <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
-                                      <TrendingUp className="w-4 h-4" />
-                                  </div>
-                                  <span className="text-sm font-bold">{t('viewFunds')}</span>
-                              </div>
-                              <ArrowUpRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition-colors" />
-                          </div>
-                      </Card>
-                  </Link>
-              </div>
-          </div>
-
+      <div className="grid grid-cols-1 gap-8">
           {/* Security Status */}
-          <div className="lg:col-span-2">
+          <div className="w-full">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">
                   <Shield className="w-4 h-4 text-purple-500" />
                   {t('securityStatus')}

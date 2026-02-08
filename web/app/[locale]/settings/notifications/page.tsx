@@ -23,10 +23,8 @@ export default function NotificationsPage() {
   
   const [prefs, setPrefs] = useState({
     email_enabled: true,
-    sms_enabled: false,
     app_push_enabled: false,
     email_frequency: 'daily',
-    sms_frequency: 'immediate',
     subscribed_types: [] as string[]
   });
   
@@ -46,7 +44,12 @@ export default function NotificationsPage() {
         const res = await authenticatedFetch('/api/v1/auth/notifications/me/preferences', sessionData);
         if (res.ok) {
             const data = await res.json();
-            setPrefs(data);
+            setPrefs({
+                email_enabled: data.email_enabled,
+                app_push_enabled: data.app_push_enabled,
+                email_frequency: data.email_frequency,
+                subscribed_types: data.subscribed_types
+            });
         }
     } catch (error) {
         console.error("Failed to fetch notification preferences", error);
@@ -98,10 +101,17 @@ export default function NotificationsPage() {
   const handleSaveChanges = async () => {
       setSaving(true);
       try {
+          // Note: Backend might still expect sms_enabled/sms_frequency, 
+          // we'll send current local prefs and the original defaults for SMS
+          const payload = {
+              ...prefs,
+              sms_enabled: false,
+              sms_frequency: 'immediate'
+          };
           const res = await authenticatedFetch('/api/v1/auth/notifications/me/preferences', sessionData, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(prefs)
+              body: JSON.stringify(payload)
           });
           if (res.ok) {
               setToast({ message: t('saveChanges'), type: 'success' });
@@ -146,7 +156,7 @@ export default function NotificationsPage() {
                 <Zap className="w-4 h-4 text-amber-500" />
                 {t('notificationChannels')}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Email */}
                 <Card className={`p-6 border-2 transition-all ${prefs.email_enabled ? 'border-blue-500/50 bg-blue-500/5' : 'border-slate-200 dark:border-slate-800'}`}>
                     <div className="flex flex-col gap-4">
@@ -176,39 +186,6 @@ export default function NotificationsPage() {
                                 <option value="immediate">{t('immediate')}</option>
                                 <option value="daily">{t('daily')}</option>
                                 <option value="weekly">{t('weekly')}</option>
-                            </select>
-                        </div>
-                    </div>
-                </Card>
-
-                {/* SMS */}
-                <Card className={`p-6 border-2 transition-all ${prefs.sms_enabled ? 'border-purple-500/50 bg-purple-500/5' : 'border-slate-200 dark:border-slate-800'}`}>
-                    <div className="flex flex-col gap-4">
-                        <div className="flex items-center justify-between">
-                            <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600">
-                                <Smartphone className="w-5 h-5" />
-                            </div>
-                            <button 
-                                onClick={() => handleToggle('sms_enabled')}
-                                className={`w-10 h-5 rounded-full transition-colors relative ${prefs.sms_enabled ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'}`}
-                            >
-                                <div className={`absolute top-1 left-1 w-3 h-3 rounded-full bg-white transition-transform ${prefs.sms_enabled ? 'translate-x-5' : ''}`} />
-                            </button>
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-bold">{t('smsNotifications')}</h3>
-                            <p className="text-[10px] text-slate-500 mt-1">{t('smsNotificationsDesc')}</p>
-                        </div>
-                        <div className="flex flex-col gap-1.5 mt-2">
-                            <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{t('frequency')}</label>
-                            <select 
-                                value={prefs.sms_frequency}
-                                onChange={(e) => handleFrequencyChange('sms_frequency', e.target.value)}
-                                disabled={!prefs.sms_enabled}
-                                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 text-xs focus:outline-none disabled:opacity-50"
-                            >
-                                <option value="immediate">{t('immediate')}</option>
-                                <option value="daily">{t('daily')}</option>
                             </select>
                         </div>
                     </div>

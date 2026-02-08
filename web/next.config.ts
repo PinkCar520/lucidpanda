@@ -31,6 +31,10 @@ const nextConfig: import("next").NextConfig = {
         source: '/api/alerts/:path*',
         destination: 'http://api:8001/api/alerts/:path*',
       },
+      {
+        source: '/static/:path*',
+        destination: 'http://api:8001/static/:path*',
+      },
     ];
   },
 };

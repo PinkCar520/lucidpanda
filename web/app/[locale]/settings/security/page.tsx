@@ -5,7 +5,16 @@ import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Shield, KeyRound, Mail, AlertTriangle, Loader2, Monitor, Globe, Clock, Trash2, Smartphone, ShieldCheck, CheckCircle2, List } from 'lucide-react';
+import { 
+    Dialog, DialogContent, DialogHeader, 
+    DialogTitle, DialogTrigger, DialogDescription, DialogFooter 
+} from '@/components/ui/Dialog';
+import { 
+    Shield, KeyRound, Mail, AlertTriangle, Loader2, 
+    Monitor, Globe, Clock, Trash2, Smartphone, 
+    ShieldCheck, CheckCircle2, List, ChevronRight,
+    Fingerprint, Lock, MailCheck, ShieldAlert
+} from 'lucide-react';
 import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
 
@@ -38,15 +47,16 @@ export default function SecurityPage() {
     confirmPassword: '',
   });
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordPasswordDialogOpen] = useState(false);
 
-  // Email State
+  // Identity (Email/Phone) State
+  const [isIdentityDialogOpen, setIsIdentityDialogOpen] = useState(false);
   const [emailForm, setEmailForm] = useState({
     newEmail: '',
     currentPassword: '',
   });
   const [emailLoading, setEmailLoading] = useState(false);
 
-  // Phone State
   const [phoneForm, setPhoneForm] = useState({
     phoneNumber: '',
     code: '',
@@ -56,6 +66,7 @@ export default function SecurityPage() {
   const [phoneStep, setPhoneStep] = useState<'bind' | 'verify'>('bind');
 
   // 2FA State
+  const [is2FADialogOpen, setIs2FADialogOpen] = useState(false);
   const [twoFASecret, setTwoFASecret] = useState<string | null>(null);
   const [qrCodeUrl, setQRCodeUrl] = useState<string | null>(null);
   const [twoFACode, setTwoFACode] = useState('');
@@ -132,7 +143,8 @@ export default function SecurityPage() {
 
       setToast({ message: t('passwordUpdated'), type: 'success' });
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      fetchAuditLogs(); // Refresh logs
+      setIsPasswordPasswordDialogOpen(false);
+      fetchAuditLogs();
     } catch (error: any) {
       setToast({ message: error.message, type: 'error' });
     } finally {
@@ -158,6 +170,7 @@ export default function SecurityPage() {
 
       setToast({ message: t('verificationSent', { email: emailForm.newEmail }), type: 'success' });
       setEmailForm({ newEmail: '', currentPassword: '' });
+      setIsIdentityDialogOpen(false);
       fetchAuditLogs();
     } catch (error: any) {
       setToast({ message: error.message, type: 'error' });
@@ -198,10 +211,11 @@ export default function SecurityPage() {
               body: JSON.stringify({ phone_number: phoneForm.phoneNumber, code: phoneForm.code })
           });
           if (res.ok) {
-              await update(); // Refresh session to get bound phone
+              await update();
               setToast({ message: t('phoneBoundSuccessfully'), type: 'success' });
               setPhoneStep('bind');
               setPhoneForm({ phoneNumber: '', code: '' });
+              setIsIdentityDialogOpen(false);
               fetchAuditLogs();
           } else {
               const data = await res.json();
@@ -258,6 +272,7 @@ export default function SecurityPage() {
               setToast({ message: t('twoFAEnabled'), type: 'success' });
               setShow2FASetup(false);
               setTwoFACode('');
+              setIs2FADialogOpen(false);
               fetchAuditLogs();
           } else {
               const data = await res.json();
@@ -310,277 +325,314 @@ export default function SecurityPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Change Password */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-            <KeyRound className="w-4 h-4 text-blue-500" />
-            {t('changePassword')}
-          </div>
-          <Card className="p-6">
-            <form onSubmit={handlePasswordChange} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('currentPassword')}</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordForm.currentPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                  className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                />
+      {/* Security Overview Control Card */}
+      <Card className="p-6">
+          <div className="flex flex-col gap-6">
+              <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                      <Shield className="w-6 h-6" />
+                  </div>
+                  <div>
+                      <h3 className="text-base font-bold">{t('securityOperations')}</h3>
+                      <p className="text-xs text-slate-500">{t('securityOpsDesc')}</p>
+                  </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('newPassword')}</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordForm.newPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                  className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('confirmNewPassword')}</label>
-                <input
-                  type="password"
-                  required
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                  className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={passwordLoading}
-                className="mt-2 w-full py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-              >
-                {passwordLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {t('saveChanges')}
-              </button>
-            </form>
-          </Card>
-        </div>
 
-        {/* Change Email */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-            <Mail className="w-4 h-4 text-emerald-500" />
-            {t('changeEmail')}
-          </div>
-          <Card className="p-6 h-full flex flex-col justify-between">
-            <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-relaxed">
-                {t('emailChangeWarning')}
-              </p>
-            </div>
-            <form onSubmit={handleEmailChangeRequest} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('newEmail')}</label>
-                <input
-                  type="email"
-                  required
-                  value={emailForm.newEmail}
-                  onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })}
-                  className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('confirmWithPassword')}</label>
-                <input
-                  type="password"
-                  required
-                  value={emailForm.currentPassword}
-                  onChange={(e) => setEmailForm({ ...emailForm, currentPassword: e.target.value })}
-                  className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={emailLoading}
-                className="mt-2 w-full py-2 bg-blue-600 dark:bg-emerald-500 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
-              >
-                {emailLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {t('initiateChange')}
-              </button>
-            </form>
-          </Card>
-        </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Password Control */}
+                  <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordPasswordDialogOpen}>
+                      <DialogTrigger asChild>
+                          <button className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-blue-500/50 transition-all group">
+                              <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center text-slate-500 group-hover:text-blue-500 transition-colors">
+                                      <Lock className="w-4 h-4" />
+                                  </div>
+                                  <span className="text-sm font-bold">{t('changePassword')}</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-slate-300" />
+                          </button>
+                      </DialogTrigger>
+                      <DialogContent>
+                          <DialogHeader>
+                              <DialogTitle>{t('changePassword')}</DialogTitle>
+                              <DialogDescription>{t('passwordModalDesc')}</DialogDescription>
+                          </DialogHeader>
+                          <form onSubmit={handlePasswordChange} className="flex flex-col gap-4 py-4">
+                              <div className="flex flex-col gap-1.5">
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('currentPassword')}</label>
+                                  <input
+                                      type="password" required
+                                      value={passwordForm.currentPassword}
+                                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                                      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                  />
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('newPassword')}</label>
+                                  <input
+                                      type="password" required
+                                      value={passwordForm.newPassword}
+                                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                                      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                  />
+                              </div>
+                              <div className="flex flex-col gap-1.5">
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('confirmNewPassword')}</label>
+                                  <input
+                                      type="password" required
+                                      value={passwordForm.confirmPassword}
+                                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                                      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                  />
+                              </div>
+                              <DialogFooter className="mt-4">
+                                  <button
+                                      type="submit"
+                                      disabled={passwordLoading}
+                                      className="w-full sm:w-auto px-8 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                                  >
+                                      {passwordLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                      {t('saveChanges')}
+                                  </button>
+                              </DialogFooter>
+                          </form>
+                      </DialogContent>
+                  </Dialog>
 
-        {/* Phone Binding */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-            <Smartphone className="w-4 h-4 text-purple-500" />
-            {t('phoneNumber')}
-          </div>
-          <Card className="p-6">
-            {sessionData?.user?.phone_number ? (
-                <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg">
-                        <div className="flex items-center gap-3">
-                            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                            <div>
-                                <div className="text-sm font-bold">{sessionData.user.phone_number}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-widest">{t('identityVerified')}</div>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={handleUnbindPhone}
-                            className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
-                        >
-                            {t('unbindPhone')}
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <div className="flex flex-col gap-4">
-                    {phoneStep === 'bind' ? (
-                        <div className="flex flex-col gap-4">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('phoneNumber')}</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="tel"
-                                        placeholder="+1234567890"
-                                        value={phoneForm.phoneNumber}
-                                        onChange={(e) => setPhoneForm({ ...phoneForm, phoneNumber: e.target.value })}
-                                        className="flex-1 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                                    />
-                                    <button 
-                                        onClick={handleSendPhoneCode}
-                                        disabled={sendingCode || !phoneForm.phoneNumber}
-                                        className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 transition-all flex items-center gap-2"
-                                    >
-                                        {sendingCode && <Loader2 className="w-3 h-3 animate-spin" />}
-                                        {t('sendCode')}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <form onSubmit={handleVerifyPhone} className="flex flex-col gap-4 animate-in fade-in slide-in-from-right-2">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{t('verificationCode')}</label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="Enter 6-digit code"
-                                    value={phoneForm.code}
-                                    onChange={(e) => setPhoneForm({ ...phoneForm, code: e.target.value })}
-                                    className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    type="submit"
-                                    disabled={phoneLoading}
-                                    className="flex-1 py-2 bg-blue-600 dark:bg-emerald-500 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                                >
-                                    {phoneLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                    {t('verifyAndBind')}
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={() => setPhoneStep('bind')}
-                                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-lg"
-                                >
-                                    {t('close')}
-                                </button>
-                            </div>
-                        </form>
-                    )}
-                </div>
-            )}
-          </Card>
-        </div>
+                  {/* Identity Info Control (Email/Phone) */}
+                  <Dialog open={isIdentityDialogOpen} onOpenChange={setIsIdentityDialogOpen}>
+                      <DialogTrigger asChild>
+                          <button className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-emerald-500/50 transition-all group">
+                              <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center text-slate-500 group-hover:text-emerald-500 transition-colors">
+                                      <Fingerprint className="w-4 h-4" />
+                                  </div>
+                                  <span className="text-sm font-bold">{t('verificationInfo')}</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-slate-300" />
+                          </button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                              <DialogTitle>{t('verificationDetails')}</DialogTitle>
+                              <DialogDescription>{t('verificationDesc')}</DialogDescription>
+                          </DialogHeader>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-4">
+                              {/* Email Sub-section */}
+                              <div className="flex flex-col gap-4">
+                                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                      <MailCheck className="w-3.5 h-3.5" /> {t('changeEmail')}
+                                  </h4>
+                                  <form onSubmit={handleEmailChangeRequest} className="flex flex-col gap-3">
+                                      <div className="flex flex-col gap-1.5">
+                                          <label className="text-[10px] font-bold text-slate-500">{t('newEmail')}</label>
+                                          <input
+                                              type="email" required
+                                              value={emailForm.newEmail}
+                                              onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })}
+                                              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                          />
+                                      </div>
+                                      <div className="flex flex-col gap-1.5">
+                                          <label className="text-[10px] font-bold text-slate-500">{t('confirmWithPassword')}</label>
+                                          <input
+                                              type="password" required
+                                              value={emailForm.currentPassword}
+                                              onChange={(e) => setEmailForm({ ...emailForm, currentPassword: e.target.value })}
+                                              className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                          />
+                                      </div>
+                                      <button
+                                          type="submit" disabled={emailLoading}
+                                          className="w-full py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                                      >
+                                          {emailLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                          {t('initiateChange')}
+                                      </button>
+                                  </form>
+                              </div>
 
-        {/* 2FA Section */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            {t('twoFA')}
+                              {/* Phone Sub-section */}
+                              <div className="flex flex-col gap-4">
+                                  <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                                      <Smartphone className="w-3.5 h-3.5" /> {t('phoneNumber')}
+                                  </h4>
+                                  {sessionData?.user?.phone_number ? (
+                                      <div className="flex flex-col gap-4 h-full">
+                                          <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col gap-2">
+                                              <div className="text-sm font-bold font-mono">{sessionData.user.phone_number}</div>
+                                              <div className="text-[10px] text-emerald-500 font-bold flex items-center gap-1">
+                                                  <CheckCircle2 className="w-3 h-3" /> {t('identityVerified')}
+                                              </div>
+                                          </div>
+                                          <button 
+                                              onClick={handleUnbindPhone}
+                                              className="w-full py-2 border border-red-200 text-red-500 text-xs font-bold rounded-lg hover:bg-red-50 transition-colors"
+                                          >
+                                              {t('unbindPhone')}
+                                          </button>
+                                      </div>
+                                  ) : (
+                                      <div className="flex flex-col gap-3">
+                                          {phoneStep === 'bind' ? (
+                                              <>
+                                                  <div className="flex flex-col gap-1.5">
+                                                      <label className="text-[10px] font-bold text-slate-500">{t('phoneNumber')}</label>
+                                                      <input
+                                                          type="tel" placeholder="+1234567890"
+                                                          value={phoneForm.phoneNumber}
+                                                          onChange={(e) => setPhoneForm({ ...phoneForm, phoneNumber: e.target.value })}
+                                                          className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                                      />
+                                                  </div>
+                                                  <button 
+                                                      onClick={handleSendPhoneCode}
+                                                      disabled={sendingCode || !phoneForm.phoneNumber}
+                                                      className="w-full py-2 bg-blue-600 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2"
+                                                  >
+                                                      {sendingCode && <Loader2 className="w-3 h-3 animate-spin" />}
+                                                      {t('sendCode')}
+                                                  </button>
+                                              </>
+                                          ) : (
+                                              <>
+                                                  <div className="flex flex-col gap-1.5">
+                                                      <label className="text-[10px] font-bold text-slate-500">{t('verificationCode')}</label>
+                                                      <input
+                                                          type="text" required placeholder="000000"
+                                                          value={phoneForm.code}
+                                                          onChange={(e) => setPhoneForm({ ...phoneForm, code: e.target.value })}
+                                                          className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-center font-mono tracking-widest"
+                                                      />
+                                                  </div>
+                                                  <div className="flex gap-2">
+                                                      <button 
+                                                          onClick={handleVerifyPhone}
+                                                          disabled={phoneLoading}
+                                                          className="flex-1 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg"
+                                                      >
+                                                          {t('verifyAndBind')}
+                                                      </button>
+                                                      <button 
+                                                          onClick={() => setPhoneStep('bind')}
+                                                          className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-lg"
+                                                      >
+                                                          {t('close')}
+                                                      </button>
+                                                  </div>
+                                              </>
+                                          )}
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      </DialogContent>
+                  </Dialog>
+
+                  {/* 2FA Control */}
+                  <Dialog open={is2FADialogOpen} onOpenChange={setIs2FADialogOpen}>
+                      <DialogTrigger asChild>
+                          <button className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-xl hover:border-amber-500/50 transition-all group text-left">
+                              <div className="flex items-center gap-3">
+                                  <div className={`w-8 h-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center transition-colors ${sessionData?.user?.is_two_fa_enabled ? 'text-emerald-500' : 'text-slate-500 group-hover:text-amber-500'}`}>
+                                      {sessionData?.user?.is_two_fa_enabled ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                                  </div>
+                                  <div className="flex flex-col">
+                                      <span className="text-sm font-bold">{t('twoFA')}</span>
+                                      <span className={`text-[9px] font-black uppercase ${sessionData?.user?.is_two_fa_enabled ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                          {sessionData?.user?.is_two_fa_enabled ? t('enabled') : t('disabled')}
+                                      </span>
+                                  </div>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-slate-300" />
+                          </button>
+                      </DialogTrigger>
+                      <DialogContent>
+                          <DialogHeader>
+                              <DialogTitle>{t('twoFA')}</DialogTitle>
+                              <DialogDescription>{t('twoFAModalDesc')}</DialogDescription>
+                          </DialogHeader>
+                          
+                          <div className="py-4">
+                              {sessionData?.user?.is_two_fa_enabled ? (
+                                  <div className="flex flex-col gap-6 items-center text-center">
+                                      <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                                          <ShieldCheck className="w-8 h-8" />
+                                      </div>
+                                      <div className="flex flex-col gap-1">
+                                          <h4 className="font-bold">{t('twoFAEnabled')}</h4>
+                                          <p className="text-xs text-slate-500">{t('twoFAEnabledMsg')}</p>
+                                      </div>
+                                      <button 
+                                          onClick={handleDisable2FA}
+                                          className="w-full py-2.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 transition-colors"
+                                      >
+                                          {t('disable2FA')}
+                                      </button>
+                                  </div>
+                              ) : (
+                                  <div className="flex flex-col gap-4">
+                                      {!show2FASetup ? (
+                                          <div className="flex flex-col gap-6 items-center text-center">
+                                              <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
+                                                  <KeyRound className="w-8 h-8" />
+                                              </div>
+                                              <p className="text-xs text-slate-500 leading-relaxed max-w-xs">
+                                                  {t('twoFAActionRequiredMsg')}
+                                              </p>
+                                              <button 
+                                                  onClick={handleStart2FASetup}
+                                                  className="w-full py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg shadow-lg shadow-blue-500/20"
+                                              >
+                                                  {t('setup2FA')}
+                                              </button>
+                                          </div>
+                                      ) : (
+                                          <form onSubmit={handleVerify2FA} className="flex flex-col gap-6">
+                                              <div className="flex flex-col items-center gap-4">
+                                                  <div className="bg-white p-2 rounded-xl shadow-xl border border-slate-100">
+                                                      <img src={qrCodeUrl!} alt="2FA QR Code" className="w-40 h-40" />
+                                                  </div>
+                                                  <p className="text-xs text-center text-slate-500 px-4">
+                                                      {t('scanQRCode')}
+                                                  </p>
+                                                  <div className="w-full h-px bg-slate-100 dark:bg-slate-800"></div>
+                                                  <div className="flex flex-col gap-2 w-full">
+                                                      <label className="text-[10px] font-bold uppercase text-slate-500 text-center">{t('enterCodeFromApp')}</label>
+                                                      <input
+                                                          type="text" required maxLength={6} placeholder="000000"
+                                                          value={twoFACode}
+                                                          onChange={(e) => setTwoFACode(e.target.value)}
+                                                          className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-3 text-lg text-center font-mono tracking-[0.5em] focus:outline-none focus:border-blue-500"
+                                                      />
+                                                  </div>
+                                              </div>
+                                              <div className="flex gap-2">
+                                                  <button
+                                                      type="submit" disabled={twoFALoading || twoFACode.length !== 6}
+                                                      className="flex-1 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-lg disabled:opacity-50"
+                                                  >
+                                                      {twoFALoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                                      {t('enable2FA')}
+                                                  </button>
+                                                  <button 
+                                                      type="button" onClick={() => setShow2FASetup(false)}
+                                                      className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-lg"
+                                                  >
+                                                      {t('close')}
+                                                  </button>
+                                              </div>
+                                          </form>
+                                      )}
+                                  </div>
+                              )}
+                          </div>
+                      </DialogContent>
+                  </Dialog>
+              </div>
           </div>
-          <Card className="p-6 h-full">
-            {sessionData?.user?.is_two_fa_enabled ? (
-                <div className="flex flex-col gap-4 h-full justify-center">
-                    <div className="flex items-center justify-between p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                        <div className="flex items-center gap-3">
-                            <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                            <div>
-                                <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{t('status')}: {t('enabled')}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-widest">{t('twoFAEnabledMsg')}</div>
-                            </div>
-                        </div>
-                        <button 
-                            onClick={handleDisable2FA}
-                            className="text-xs font-bold text-red-500 hover:text-red-600 transition-colors"
-                        >
-                            {t('disable2FA')}
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <div className="flex flex-col gap-4">
-                    {!show2FASetup ? (
-                        <div className="flex flex-col gap-4 h-full justify-between">
-                            <p className="text-[10px] text-slate-500 leading-relaxed italic">
-                                {t('twoFAActionRequiredMsg')}
-                            </p>
-                            <button 
-                                onClick={handleStart2FASetup}
-                                className="w-full py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2"
-                            >
-                                <KeyRound className="w-3.5 h-3.5" />
-                                {t('setup2FA')}
-                            </button>
-                        </div>
-                    ) : (
-                        <form onSubmit={handleVerify2FA} className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2">
-                            <div className="flex flex-col items-center gap-4 py-2">
-                                <div className="bg-white p-2 rounded-xl shadow-lg border border-slate-100">
-                                    <img src={qrCodeUrl!} alt="2FA QR Code" className="w-32 h-32" />
-                                </div>
-                                <p className="text-[10px] text-center text-slate-500 leading-relaxed px-4">
-                                    {t('scanQRCode')}
-                                </p>
-                                <div className="w-full h-px bg-slate-100 dark:bg-slate-800"></div>
-                                <div className="flex flex-col gap-1.5 w-full">
-                                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 text-center">{t('enterCodeFromApp')}</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        maxLength={6}
-                                        placeholder="000000"
-                                        value={twoFACode}
-                                        onChange={(e) => setTwoFACode(e.target.value)}
-                                        className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm text-center font-mono tracking-[0.5em] focus:outline-none focus:border-blue-500 transition-colors"
-                                    />
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    type="submit"
-                                    disabled={twoFALoading || twoFACode.length !== 6}
-                                    className="flex-1 py-2 bg-blue-600 dark:bg-emerald-500 text-white text-xs font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
-                                >
-                                    {twoFALoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                    {t('enable2FA')}
-                                </button>
-                                <button 
-                                    type="button"
-                                    onClick={() => setShow2FASetup(false)}
-                                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs font-bold rounded-lg"
-                                >
-                                    {t('close')}
-                                </button>
-                            </div>
-                        </form>
-                    )}
-                </div>
-            )}
-          </Card>
-        </div>
-      </div>
+      </Card>
 
       {/* Active Sessions */}
       <div className="flex flex-col gap-4">
