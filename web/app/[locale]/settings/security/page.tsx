@@ -90,6 +90,12 @@ export default function SecurityPage() {
     }
   }, [sessionData]);
 
+  useEffect(() => {
+    if (!is2FADialogOpen && sessionData) {
+      update(); // Refresh session data when 2FA dialog closes
+    }
+  }, [is2FADialogOpen, sessionData, update]);
+
   const fetchSessions = async () => {
     setSessionsLoading(true);
     try {

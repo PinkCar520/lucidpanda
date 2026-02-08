@@ -1,0 +1,134 @@
+import Foundation
+import Observation
+import AlphaCore
+import AlphaData
+import SwiftUI
+
+import SwiftData
+
+@Observable
+class DashboardViewModel {
+    var items: [IntelligenceItem] = []
+    var isStreaming = false
+    var connectionStatus: String = "未连接"
+    
+    // 搜索与过滤状态
+    var searchQuery: String = ""
+    var filterMode: FilterMode = .all
+    
+    enum FilterMode {
+        case all, essential, bearish
+    }
+    
+    // 计算属性：应用过滤逻辑 (对齐 Web 端)
+    var filteredItems: [IntelligenceItem] {
+        items.filter { item in
+            // 1. 文本搜索
+            if !searchQuery.isEmpty {
+                let q = searchQuery.toLowerCase()
+                let match = item.summary.toLowerCase().contains(q) || 
+                            item.content.toLowerCase().contains(q) || 
+                            item.author.toLowerCase().contains(q)
+                if !match { return false }
+            }
+            
+            // 2. 模式过滤
+            switch filterMode {
+            case .all: return true
+            case .essential: return item.urgencyScore >= 8
+            case .bearish: 
+                let keywords = ["鹰", "利空", "下跌", "Bearish", "Hawkish", "Pressure"]
+                return keywords.some { item.sentiment.contains($0) }
+            }
+        }
+    }
+    
+    // SwiftData 上下文
+    private var modelContext: ModelContext?
+    
+    private let jsonDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+    
+    public init(modelContext: ModelContext? = nil) {
+        self.modelContext = modelContext
+    }
+    
+    @MainActor
+    func startIntelligenceStream() async {
+        guard !isStreaming else { return }
+        isStreaming = true
+        connectionStatus = "连接中..."
+        
+        // 1. 先通过 REST 获取历史数据，确保页面不为空
+        await fetchInitialHistory()
+        
+        do {
+            // 从 Keychain 获取 Token
+            let tokenData = try? KeychainManager.shared.read(key: "access_token")
+            let token = tokenData != nil ? String(data: tokenData!, encoding: .utf8) : nil
+            
+            // 订阅流 (指向 FastAPI SSE 端口)
+            let streamURL = URL(string: "http://127.0.0.1:8001/api/intelligence/stream")!
+            let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)
+            
+            connectionStatus = "实时同步中"
+            
+            for try await jsonString in stream {
+                guard let data = jsonString.data(using: .utf8) else { continue }
+                
+                if let event = try? self.jsonDecoder.decode(IntelligenceEvent.self, from: data),
+                   let newItems = event.data {
+                    processNewItems(newItems)
+                }
+            }
+        } catch {
+            print("❌ Stream failed: \(error)")
+            connectionStatus = "连接断开"
+            isStreaming = false
+            
+            // 指数退避重连逻辑
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            await startIntelligenceStream()
+        }
+    }
+    
+    @MainActor
+    private func fetchInitialHistory() async {
+        do {
+            // 对齐 web 端，请求最近 50 条
+            let response: IntelligenceEvent = try await APIClient.shared.fetch(path: "/api/intelligence?limit=50")
+            if let data = response.data {
+                processNewItems(data)
+            }
+        } catch {
+            print("❌ Failed to fetch history: \(error)")
+        }
+    }
+    
+    @MainActor
+    private func processNewItems(_ newItems: [IntelligenceItem]) {
+        withAnimation(.interpolatingSpring(stiffness: 120, damping: 14)) {
+            for item in newItems {
+                if !self.items.contains(where: { $0.id == item.id }) {
+                    self.items.append(item)
+                    
+                    // 同步到数据库
+                    let model = IntelligenceModel(from: item)
+                    modelContext?.insert(model)
+                }
+            }
+            
+            // 提交数据库更改
+            try? modelContext?.save()
+            
+            self.items.sort { $0.timestamp > $1.timestamp }
+            
+            if self.items.count > 100 {
+                self.items = Array(self.items.prefix(100))
+            }
+        }
+    }
+}
