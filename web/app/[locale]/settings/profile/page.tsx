@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { User, Mail, Calendar, ShieldCheck, Loader2, Camera, MapPin, Globe, Moon, Sun } from 'lucide-react';
+import { User, Mail, Calendar, ShieldCheck, Loader2, Camera, MapPin, Globe } from 'lucide-react';
 import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
 
@@ -20,8 +20,7 @@ export default function ProfilePage() {
     birthday: '',
     location: '',
     timezone: '',
-    language_preference: '',
-    theme_preference: ''
+    language_preference: ''
   });
   
   const [loading, setLoading] = useState(false);
@@ -38,8 +37,7 @@ export default function ProfilePage() {
         birthday: session.user.birthday ? new Date(session.user.birthday).toISOString().split('T')[0] : '',
         location: session.user.location || '',
         timezone: session.user.timezone || 'UTC',
-        language_preference: session.user.language_preference || 'en',
-        theme_preference: session.user.theme_preference || 'system'
+        language_preference: session.user.language_preference || 'en'
       });
     }
   }, [session]);
@@ -101,15 +99,9 @@ export default function ProfilePage() {
     formData.append('file', file);
 
     try {
-      // Use raw fetch for file upload to handle FormData correctly, but add auth header manually
-      // authenticatedFetch might try to set Content-Type: application/json if not careful, 
-      // but fetch handles FormData content-type boundary automatically.
-      // Let's use authenticatedFetch but ensure no Content-Type header is forced if we don't set it.
-      
       const res = await authenticatedFetch('/api/v1/auth/me/avatar', session, {
         method: 'PUT',
         body: formData,
-        // Don't set Content-Type header, let browser set it with boundary
       });
 
       if (!res.ok) throw new Error('Failed to upload avatar');
@@ -147,7 +139,7 @@ export default function ProfilePage() {
         {/* User Card */}
         <Card className="lg:col-span-1 flex flex-col items-center text-center p-8 h-fit">
           <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-600 to-emerald-500 flex items-center justify-center text-white text-3xl font-black mb-4 shadow-xl shadow-blue-500/20 overflow-hidden">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-600 to-indigo-500 flex items-center justify-center text-white text-3xl font-black mb-4 shadow-xl shadow-blue-500/20 overflow-hidden">
               {session.user?.avatar_url ? (
                   <img src={session.user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
@@ -300,19 +292,18 @@ export default function ProfilePage() {
 
                 <div className="flex flex-col gap-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    {t('theme')}
+                    {t('language')}
                 </label>
                 <div className="relative">
-                    <Sun className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <select
-                    name="theme_preference"
-                    value={formData.theme_preference}
+                    name="language_preference"
+                    value={formData.language_preference}
                     onChange={handleInputChange}
                     className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
                     >
-                        <option value="system">{t('system')}</option>
-                        <option value="light">{t('light')}</option>
-                        <option value="dark">{t('dark')}</option>
+                        <option value="en">English</option>
+                        <option value="zh">中文</option>
                     </select>
                 </div>
                 </div>

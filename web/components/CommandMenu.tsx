@@ -5,13 +5,12 @@ import { Command } from 'cmdk';
 import { 
     Search, Terminal, BarChart3, Activity, 
     User, Settings, Key, Shield, Bell, 
-    Moon, Sun, LogOut, Globe, Command as CommandIcon,
+    LogOut, Globe, Command as CommandIcon,
     Loader2, TrendingUp, ChevronRight, RefreshCw, Zap
 } from 'lucide-react';
 import { useRouter, useParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useSession, signOut } from 'next-auth/react';
-import { useTheme } from '@/hooks/useTheme';
 import { authenticatedFetch } from '@/lib/api-client';
 
 interface FundResult {
@@ -31,7 +30,6 @@ export default function CommandMenu() {
     const { locale } = useParams();
     const pathname = usePathname();
     const { data: session } = useSession();
-    const { theme, toggleTheme } = useTheme();
     
     const t = useTranslations('Dashboard');
     const tApp = useTranslations('App');
@@ -155,13 +153,6 @@ export default function CommandMenu() {
 
                     {/* 1.5 Quick Actions */}
                     <Command.Group heading="Quick Actions" className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
-                        <Command.Item
-                            onSelect={() => runCommand(() => toggleTheme())}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
-                        >
-                            {theme === 'light' ? <Moon className="w-4 h-4 text-slate-400" /> : <Sun className="w-4 h-4 text-slate-400" />}
-                            <span className="text-sm">Switch to {theme === 'light' ? 'Dark' : 'Light'} Mode</span>
-                        </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => window.location.reload())}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"

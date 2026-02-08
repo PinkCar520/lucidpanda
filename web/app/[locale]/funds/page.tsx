@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/Badge';
 import { Search, RefreshCw, ArrowUp, ArrowDown, PieChart, X, Target, Scale, Anchor, AlertTriangle } from 'lucide-react';
 import FundSearch from '@/components/FundSearch';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
-import ThemeToggle from '@/components/ThemeToggle';
 
 import { SectorAttribution } from '@/components/SectorAttribution';
 

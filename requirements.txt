@@ -32,3 +32,5 @@ python-multipart
 email-validator
 sqlalchemy
 resend
+pyotp
+qrcode[pil]

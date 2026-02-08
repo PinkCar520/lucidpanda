@@ -5,7 +5,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Progress from '@radix-ui/react-progress';
 import { 
     User, Settings, ShieldCheck, ShieldAlert, 
-    LogOut, Sun, Moon, CreditCard, ChevronRight, 
+    LogOut, CreditCard, ChevronRight, 
     Zap, Terminal, BarChart3 
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';

@@ -10,7 +10,6 @@ import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 import UserMenu from './UserMenu';
 import { useTranslations } from 'next-intl';
-import ThemeToggle from './ThemeToggle';
 import LanguageSwitcher from './LanguageSwitcher';
 import CommandMenu from './CommandMenu';
 
@@ -120,7 +119,6 @@ export default function Shell({ children }: ShellProps) {
                         <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />
                         
                         <div className="flex items-center gap-4">
-                            <ThemeToggle t={t} />
                             <LanguageSwitcher />
                             <UserMenu />
                         </div>

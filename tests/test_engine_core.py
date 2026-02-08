@@ -18,6 +18,13 @@ def mock_dependencies(mocker):
     
     # Mock Database
     mock_db = mocker.patch('src.alphasignal.core.engine.IntelligenceDB')
+    mock_db.return_value.get_latest_indicator.return_value = {
+        'timestamp': '2026-02-08',
+        'indicator_name': 'COT_GOLD_NET',
+        'value': 1000,
+        'percentile': 50,
+        'description': 'Test'
+    }
     
     # Mock Channels
     mock_email = mocker.patch('src.alphasignal.core.engine.EmailChannel')

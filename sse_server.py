@@ -126,6 +126,9 @@ async def lifespan(app: FastAPI):
     # Shutdown
     task.cancel()
 
+from fastapi.staticfiles import StaticFiles
+import os
+
 app = FastAPI(lifespan=lifespan)
 
 # Add CORS middleware
@@ -136,6 +139,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Ensure uploads directory exists
+upload_dir = os.path.join(settings.BASE_DIR, "uploads")
+os.makedirs(upload_dir, exist_ok=True)
+
+# Mount static files for avatars/etc.
+app.mount("/static", StaticFiles(directory=upload_dir), name="static")
 
 # Register Routers
 app.include_router(auth_router)

@@ -52,7 +52,7 @@ export default function LanguageSwitcher() {
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute bottom-full right-0 mb-2 w-40 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-bottom-right z-[60]">
+                <div className="absolute top-full right-0 mt-2 w-40 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right z-[60]">
                     <div className="p-1 flex flex-col gap-1">
                         {locales.map((cur) => (
                             <button

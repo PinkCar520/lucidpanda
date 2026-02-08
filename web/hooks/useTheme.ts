@@ -5,9 +5,10 @@ import { useState, useEffect, useCallback } from 'react';
 export type Theme = 'light' | 'dark';
 
 export function useTheme() {
-    const [theme, setTheme] = useState<Theme>('dark');
+    const [theme, setTheme] = useState<Theme>('dark'); // Default to dark
 
     useEffect(() => {
+        // Initialize theme from localStorage or system preference
         const storedTheme = localStorage.getItem('theme') as Theme | null;
         if (storedTheme) {
             setTheme(storedTheme);

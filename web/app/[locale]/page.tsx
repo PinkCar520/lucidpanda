@@ -21,7 +21,6 @@ import BacktestStats from '@/components/BacktestStats';
 import { useSSE } from '@/hooks/useSSE';
 import IntelligenceCard from '@/components/IntelligenceCard';
 import Paginator from '@/components/Paginator';
-import ThemeToggle from '@/components/ThemeToggle';
 import Link from 'next/link';
 import { Settings, Terminal } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
@@ -516,7 +515,6 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         {/* Right: Visualization & Data */}
         <div className={`lg:col-span-9 flex flex-col gap-6 ${activeTab === 'charts' ? 'flex' : 'hidden lg:flex'
           }`}>
-          <TradingViewTickerTape locale={locale} t={tApp} />
           <Chart
             marketData={marketData}
             intelligence={liveIntelligence}

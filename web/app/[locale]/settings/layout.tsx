@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
 import { User, Shield, Bell, Key, LayoutDashboard, ChevronLeft } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
-import ThemeToggle from '@/components/ThemeToggle';
 
 export default function SettingsLayout({
   children,
