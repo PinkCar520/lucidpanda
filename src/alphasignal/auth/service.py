@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 import hashlib
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from src.alphasignal.auth.models import User, RefreshToken, AuthAuditLog, PasswordResetToken
+from src.alphasignal.auth.models import User, RefreshToken, AuthAuditLog, PasswordResetToken, EmailChangeRequest
 from src.alphasignal.auth.security import get_password_hash, verify_password, create_access_token, create_refresh_token
 from src.alphasignal.config import settings
 from src.alphasignal.utils.email import send_email # Import send_email
@@ -153,6 +153,132 @@ class AuthService:
         self.db.commit()
         
         return True
+
+    def update_user(self, user_id: str, full_name: Optional[str] = None) -> Optional[User]:
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return None
+        
+        if full_name is not None:
+            user.full_name = full_name
+        
+        self.db.add(user)
+        self.db.commit()
+        self.db.refresh(user)
+        return user
+
+    def change_password(self, user_id: str, current_password: str, new_password: str) -> Tuple[bool, str]:
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return False, "User not found"
+        
+        if not verify_password(current_password, user.hashed_password):
+            return False, "Incorrect current password"
+        
+        user.hashed_password = get_password_hash(new_password)
+        
+        # Security: Revoke all refresh tokens for this user when password changes
+        self.db.query(RefreshToken).filter(RefreshToken.user_id == user_id).update({
+            "revoked_at": datetime.utcnow()
+        })
+        
+        self.db.add(user)
+        self.db.commit()
+        
+        # Send notification email
+        email_body = f"""
+            <p>Hello {user.full_name or user.email},</p>
+            <p>This is a notification that your AlphaSignal account password was recently changed.</p>
+            <p>If you did not make this change, please contact support immediately.</p>
+            <p>Regards,<br>AlphaSignal Team</p>
+        """
+        send_email(to_email=user.email, subject="AlphaSignal Password Changed", body=email_body)
+        
+        return True, "Password changed successfully"
+
+    def initiate_email_change(self, user_id: str, current_password: str, new_email: str) -> Tuple[bool, str]:
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return False, "User not found"
+        
+        if not verify_password(current_password, user.hashed_password):
+            return False, "Incorrect password"
+        
+        # Check if new email is already taken
+        if self.get_user_by_email(new_email):
+            return False, "Email already in use"
+        
+        # Invalidate existing change requests for this user
+        self.db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user_id).delete()
+
+        # Generate Token
+        from uuid import uuid4
+        raw_token = str(uuid4())
+        token_hash = self._hash_token(raw_token)
+        expires_at = datetime.utcnow() + timedelta(minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES)
+        
+        db_request = EmailChangeRequest(
+            user_id=user_id,
+            new_email=new_email,
+            token_hash=token_hash,
+            expires_at=expires_at
+        )
+        self.db.add(db_request)
+        self.db.commit()
+
+        # Send verification email to NEW address
+        verify_link = f"{settings.FRONTEND_BASE_URL}/en/settings/security/verify-email?token={raw_token}"
+        email_body = f"""
+            <p>Hello,</p>
+            <p>You requested to change your AlphaSignal account email to this address. Please click the link below to verify and complete the change:</p>
+            <p><a href="{verify_link}">Verify New Email Address</a></p>
+            <p>If you did not request this, please ignore this email.</p>
+            <p>Regards,<br>AlphaSignal Team</p>
+        """
+        send_email(to_email=new_email, subject="Verify your new email address", body=email_body)
+        
+        return True, "Verification email sent"
+
+    def verify_email_change(self, raw_token: str) -> Tuple[bool, str]:
+        token_hash = self._hash_token(raw_token)
+        db_request = self.db.query(EmailChangeRequest).filter(
+            and_(
+                EmailChangeRequest.token_hash == token_hash,
+                EmailChangeRequest.expires_at > datetime.utcnow()
+            )
+        ).first()
+
+        if not db_request:
+            return False, "Invalid or expired verification token"
+        
+        user = self.db.query(User).filter(User.id == db_request.user_id).first()
+        if not user:
+            return False, "User not found"
+        
+        old_email = user.email
+        new_email = db_request.new_email
+        
+        # Final check if email was taken in the meantime
+        if self.db.query(User).filter(User.email == new_email).first():
+            return False, "New email is now taken"
+
+        user.email = new_email
+        user.is_verified = True
+        
+        self.db.add(user)
+        self.db.delete(db_request)
+        self.db.commit()
+
+        # Send notification to OLD email
+        notify_body = f"""
+            <p>Hello,</p>
+            <p>Your AlphaSignal account email has been successfully changed from {old_email} to {new_email}.</p>
+            <p>If you did not authorize this change, please contact support immediately.</p>
+            <p>Regards,<br>AlphaSignal Team</p>
+        """
+        send_email(to_email=old_email, subject="AlphaSignal Email Changed", body=notify_body)
+
+        return True, "Email updated successfully"
 
     def log_audit(self, user_id: str, action: str, ip_address: str = None, user_agent: str = None, details: dict = None):
         log = AuthAuditLog(

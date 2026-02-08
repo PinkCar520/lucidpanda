@@ -43,3 +43,17 @@ class ResetPasswordRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8)
+
+class EmailChangeInitiateRequest(BaseModel):
+    new_email: EmailStr
+    current_password: str
+
+class EmailChangeVerifyRequest(BaseModel):
+    token: str

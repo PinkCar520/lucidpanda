@@ -234,7 +234,28 @@
     "sizeIsWeight": "Size = Weight",
     "colorIsImpact": "Color = Contr. to Return",
     "currentlyViewing": "CURRENTLY VIEWING",
-    "dataVisualization": "Data Analysis",
-    "loading": "Calculating real-time NAV..."
-  }
-}
+        "dataVisualization": "Data Analysis",
+        "loading": "Calculating real-time NAV..."
+      },
+      "Settings": {
+        "title": "Account Settings",
+        "subtitle": "Personalize your terminal & security",
+        "profile": "Profile Info",
+        "security": "Security & Login",
+        "basicInfo": "Basic Information",
+        "fullName": "Full Name",
+        "saveChanges": "Save Changes",
+        "changing": "Updating...",
+        "changePassword": "Change Password",
+        "currentPassword": "Current Password",
+        "newPassword": "New Password",
+        "confirmNewPassword": "Confirm New Password",
+        "changeEmail": "Change Email",
+        "newEmail": "New Email Address",
+        "initiateChange": "Initiate Change",
+        "verificationSent": "Verification email sent to {email}. Please check your inbox.",
+        "emailVerified": "Email updated successfully!",
+        "passwordUpdated": "Password updated successfully!"
+      }
+    }
+    

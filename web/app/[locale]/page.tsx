@@ -8,6 +8,7 @@ import { useSession, signOut } from 'next-auth/react';
 import Chart from '@/components/Chart';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Alert } from '@/components/Alert'; // Add this line
 import { Intelligence } from '@/lib/db';
 import { AlertTriangle, Radio, ExternalLink, Zap, Search, Filter, X } from 'lucide-react';
 
@@ -21,6 +22,8 @@ import { useSSE } from '@/hooks/useSSE';
 import IntelligenceCard from '@/components/IntelligenceCard';
 import Paginator from '@/components/Paginator';
 import ThemeToggle from '@/components/ThemeToggle';
+import Link from 'next/link';
+import { Settings } from 'lucide-react';
 
 
 export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
@@ -218,7 +221,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           setTimeout(() => {
             setRetryCount(prev => prev + 1);
             setError(null);
-            fetchData(isInitialLoad);
+            fetchData(isInitialLoad, currentSession);
           }, 5000);
         }
       } finally {
@@ -371,12 +374,21 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           <div className="flex items-center gap-2">
             <SystemStatus isConnected={isConnected} t={tApp} />
             {session && session.user && (
-              <button
-                onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
-                className="px-3 py-1 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-              >
-                {tApp('logout', { email: session.user.email ?? '' })}
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/${locale}/settings/profile`}
+                  className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-all"
+                  title="Settings"
+                >
+                  <Settings className="w-4 h-4" />
+                </Link>
+                <button
+                  onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
+                  className="px-3 py-1 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                >
+                  {tApp('logout', { email: session.user.email ?? '' })}
+                </button>
+              </div>
             )}
           </div>
         </div>

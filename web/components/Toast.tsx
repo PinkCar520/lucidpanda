@@ -119,3 +119,31 @@ export const toast = {
         console.info('[Toast] Info:', message);
     }
 };
+
+export default function Toast({ message, type, onClose }: { message: string, type: 'success' | 'error' | 'info' | 'warning', onClose: () => void }) {
+    const icons = {
+        success: <CheckCircle className="w-5 h-5" />,
+        error: <AlertCircle className="w-5 h-5" />,
+        warning: <AlertTriangle className="w-5 h-5" />,
+        info: <Info className="w-5 h-5" />
+    };
+
+    const styles = {
+        success: 'bg-emerald-500/90 text-white border-emerald-600',
+        error: 'bg-red-500/90 text-white border-red-600',
+        warning: 'bg-amber-500/90 text-white border-amber-600',
+        info: 'bg-blue-500/90 text-white border-blue-600'
+    };
+
+    return (
+        <div className="fixed top-4 right-4 z-[9999] animate-in slide-in-from-right-full">
+            <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border backdrop-blur-sm shadow-lg min-w-[300px] ${styles[type]}`}>
+                <div className="flex-shrink-0">{icons[type]}</div>
+                <p className="flex-1 text-sm font-medium">{message}</p>
+                <button onClick={onClose} className="flex-shrink-0 hover:opacity-70">
+                    <X className="w-4 h-4" />
+                </button>
+            </div>
+        </div>
+    );
+}

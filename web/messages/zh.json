@@ -234,7 +234,28 @@
     "sizeIsWeight": "面积 = 持仓占比",
     "colorIsImpact": "颜色 = 拉动点数",
     "currentlyViewing": "当前查看",
-    "dataVisualization": "数据分析",
-    "loading": "正在计算实时估值..."
-  }
-}
+        "dataVisualization": "数据分析",
+        "loading": "正在计算实时估值..."
+      },
+      "Settings": {
+        "title": "账户设置",
+        "subtitle": "个性化您的终端与安全选项",
+        "profile": "个人资料",
+        "security": "安全与登录",
+        "basicInfo": "基本信息",
+        "fullName": "姓名",
+        "saveChanges": "保存修改",
+        "changing": "正在更新...",
+        "changePassword": "修改密码",
+        "currentPassword": "当前密码",
+        "newPassword": "新密码",
+        "confirmNewPassword": "确认新密码",
+        "changeEmail": "更换邮箱",
+        "newEmail": "新电子邮箱",
+        "initiateChange": "发起变更",
+        "verificationSent": "验证邮件已发送至 {email}，请查收并点击确认链接。",
+        "emailVerified": "邮箱更新成功！",
+        "passwordUpdated": "密码修改成功！"
+      }
+    }
+    

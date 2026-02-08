@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from src.alphasignal.auth.schemas import UserCreate, UserOut, Token, RefreshTokenRequest, ForgotPasswordRequest, ResetPasswordRequest, MessageResponse
+from src.alphasignal.auth.schemas import (
+    UserCreate, UserOut, Token, RefreshTokenRequest, 
+    ForgotPasswordRequest, ResetPasswordRequest, MessageResponse,
+    UserUpdate, PasswordChangeRequest, EmailChangeInitiateRequest, EmailChangeVerifyRequest
+)
 from src.alphasignal.auth.service import AuthService
 from src.alphasignal.auth.dependencies import get_db, get_current_user
 from src.alphasignal.config import settings
@@ -80,6 +84,61 @@ def refresh_token(
 @router.get("/me", response_model=UserOut)
 def get_me(current_user=Depends(get_current_user)):
     return current_user
+
+@router.patch("/me", response_model=UserOut)
+def update_profile(
+    body: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    auth_service = AuthService(db)
+    user = auth_service.update_user(str(current_user.id), full_name=body.full_name)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+@router.post("/password/change", response_model=MessageResponse)
+def change_password(
+    body: PasswordChangeRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    auth_service = AuthService(db)
+    success, message = auth_service.change_password(
+        str(current_user.id), 
+        body.current_password, 
+        body.new_password
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {"message": message}
+
+@router.post("/email/change-request", response_model=MessageResponse)
+def initiate_email_change(
+    body: EmailChangeInitiateRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    auth_service = AuthService(db)
+    success, message = auth_service.initiate_email_change(
+        str(current_user.id),
+        body.current_password,
+        body.new_email
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {"message": message}
+
+@router.post("/email/verify-change", response_model=MessageResponse)
+def verify_email_change(
+    body: EmailChangeVerifyRequest,
+    db: Session = Depends(get_db)
+):
+    auth_service = AuthService(db)
+    success, message = auth_service.verify_email_change(body.token)
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {"message": message}
 
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)):
