@@ -6,9 +6,11 @@ import { Activity, Globe } from 'lucide-react';
 interface SystemStatusProps {
     isConnected?: boolean;
     t: (key: string) => string;
+    className?: string;
+    hideBackground?: boolean;
 }
 
-export default function SystemStatus({ isConnected = false, t }: SystemStatusProps) {
+export default function SystemStatus({ isConnected = false, t, className = '', hideBackground = false }: SystemStatusProps) {
     const [time, setTime] = useState<string>('');
 
     useEffect(() => {
@@ -26,7 +28,7 @@ export default function SystemStatus({ isConnected = false, t }: SystemStatusPro
     if (!time) return null; // Prevent hydration mismatch
 
     return (
-        <div className="flex items-center gap-2 sm:gap-4 px-2 sm:px-4 py-1.5 sm:py-2 bg-slate-100 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-800/60 backdrop-blur-sm shadow-sm">
+        <div className={`flex items-center gap-2 sm:gap-4 px-2 sm:px-4 py-1.5 sm:py-2 ${hideBackground ? '' : 'bg-slate-100 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-800/60 shadow-sm'} backdrop-blur-sm ${className}`}>
             {/* System Status - Real-time SSE Connection */}
             <div className="flex items-center gap-1 sm:gap-2">
                 <span className={`flex items-center text-[10px] font-bold uppercase tracking-wider ${isConnected ? 'text-emerald-600 dark:text-emerald-500 animate-pulse' : 'text-slate-400 dark:text-slate-500'}`}>

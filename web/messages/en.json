@@ -183,15 +183,20 @@
     "lowVol": "Low Vol (Stable)",
     "sessionBreakdown": "Market Session Reliability Breakdown",
     "best": "Best",
-    "win": "Win",
-    "sessions": {
-      "ASIA": "ASIA",
-      "LONDON": "LONDON",
-      "NEWYORK": "NEWYORK",
-      "LATE_NY": "LATE_NY"
-    }
-  },
-  "DimensionD": {
+          "win": "Win",
+          "sessions": {
+            "ASIA": "ASIA",
+            "LONDON": "LONDON",
+            "NEWYORK": "NEWYORK",
+            "LATE_NY": "LATE_NY"
+          },
+          "subtitle": "Simulate strategy performance using historical market data and AI-driven intelligence signals.",
+          "configure": "Configure",
+          "runBacktest": "Run Backtest",
+          "recentResults": "Recent Results",
+          "noResultsYet": "No results yet",
+          "runFirstBacktest": "Run your first backtest to see performance analytics."
+        },  "DimensionD": {
     "label": "MACRO REGIME",
     "dovish": "DOVISH (+0.15)",
     "hawkish": "HAWKISH (-0.15)",
@@ -458,7 +463,11 @@
         "profile": "Profile Info",
         "security": "Security",
         "notifications": "Notifications",
-        "api-keys": "API Keys"
+        "api-keys": "API Keys",
+        "login": "Login",
+        "register": "Register",
+        "forgot-password": "Forgot Password",
+        "reset-password": "Reset Password"
     },    "CommandMenu": {
         "placeholder": "Search for funds, actions or settings...",
         "escLabel": "ESC",

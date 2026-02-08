@@ -38,6 +38,9 @@ function TradingViewMiniCharts({ locale, t }: TradingViewMiniChartsProps) {
         // Clear previous widget content
         container.current.innerHTML = '';
 
+        const widgetContainer = document.createElement('div');
+        widgetContainer.className = "tradingview-widget-container__widget";
+        
         const script = document.createElement("script");
         script.src = "https://s3.tradingview.com/external-embedding/embed-widget-tickers.js";
         script.type = "text/javascript";
@@ -71,16 +74,14 @@ function TradingViewMiniCharts({ locale, t }: TradingViewMiniChartsProps) {
             "locale": locale === 'zh' ? 'zh_CN' : locale
         });
 
-        const widgetContainer = document.createElement('div');
-        widgetContainer.className = "tradingview-widget-container__widget";
         container.current.appendChild(widgetContainer);
         container.current.appendChild(script);
 
-    }, [theme]);
+    }, [theme, locale]); // Add locale to dependencies
 
     return (
-        <div className="tradingview-widget-container w-full" ref={container}>
-            {/* Widget will be injected here */}
+        <div className="tradingview-widget-container w-full h-full" ref={container}>
+            <div className="tradingview-widget-container__widget h-full"></div>
         </div>
     );
 }

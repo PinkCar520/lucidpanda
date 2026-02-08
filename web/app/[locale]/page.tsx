@@ -350,17 +350,6 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           </div>
       )}
 
-      {/* Narrative Ticker integrated into content top */}
-      <div className="w-full">
-        <AINarrativeTicker
-            items={liveIntelligence}
-            locale={locale}
-            getLocalizedText={getLocalizedText}
-        />
-      </div>
-
-      {/* Error Alert */}
-
       {/* 2. Sticky Toolbar (Tactical Cockpit: Alerts + Regime + Mini Charts) */}
       <div className="sticky top-0 z-50 bg-white/95 dark:bg-[#020617]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/50 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 py-2 mb-6 shadow-2xl shadow-black/5">
         {/* Mobile Tab Switcher */}
@@ -394,26 +383,27 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[84px] lg:h-[72px]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-auto lg:h-[72px]">
 
-          {/* Left (col-span-3): System State (Regime + Risk + Alerts) */}
-          <div className="hidden lg:block lg:col-span-3 h-full">
-            <div className="h-full flex items-stretch gap-2">
-
-              {/* 1. Alert Counter (Enhanced) */}
-              <div className="w-[140px] bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-lg flex flex-col items-center justify-center shrink-0 px-4">
+          {/* Left: Alerts + System Status */}
+          <div className="hidden lg:flex lg:col-span-4 h-full items-stretch gap-2">
+              {/* 1. Alert Counter */}
+              <div className="px-6 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-xl flex flex-col items-center justify-center shrink-0 min-w-[140px]">
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-1">{t('activeAlerts')}</span>
                 <span className={`text-2xl font-black font-mono tracking-tighter ${globalHighUrgency > 0 ? 'text-rose-600 dark:text-rose-500 animate-pulse' : 'text-slate-300 dark:text-slate-600'}`}>
                   {globalHighUrgency}
                 </span>
               </div>
-
-            </div>
+              
+              {/* 2. Connection Status & Time */}
+              <div className="flex-1 flex items-center">
+                <SystemStatus isConnected={isConnected} t={tApp} hideBackground />
+              </div>
           </div>
 
-          {/* Right (col-span-9): TradingView Mini Charts */}
-          <div className="hidden lg:block lg:col-span-9 h-full">
-            <div className="h-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-900/20">
+          {/* Right: TradingView Mini Charts */}
+          <div className="hidden lg:block lg:col-span-8 h-full">
+            <div className="h-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-900/20 px-2">
               <TradingViewMiniCharts locale={locale} t={tApp} />
             </div>
           </div>

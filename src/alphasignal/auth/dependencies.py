@@ -38,15 +38,22 @@ async def get_current_user(
         user_id: str = payload.get("sub")
         token_type: str = payload.get("type")
         if user_id is None or token_type != "access":
+            print(f"[AUTH] Invalid payload: user_id={user_id}, type={token_type}")
             raise credentials_exception
         token_data = TokenPayload(sub=user_id, type=token_type)
-    except JWTError:
+    except JWTError as e:
+        print(f"[AUTH] JWT Decode Error: {e}")
+        raise credentials_exception
+    except Exception as e:
+        print(f"[AUTH] Unexpected Error during decode: {e}")
         raise credentials_exception
     
     user = db.query(User).filter(User.id == token_data.sub).first()
     if user is None:
+        print(f"[AUTH] User not found: id={token_data.sub}")
         raise credentials_exception
     if not user.is_active:
+        print(f"[AUTH] User inactive: id={token_data.sub}")
         raise HTTPException(status_code=400, detail="Inactive user")
     return user
 

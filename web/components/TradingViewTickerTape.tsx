@@ -57,14 +57,15 @@ function TradingViewTickerTape({ locale, t }: TradingViewTickerTapeProps) {
         // Append the standard TradingView wrapper
         const widgetContainer = document.createElement('div');
         widgetContainer.className = "tradingview-widget-container__widget";
+        
         container.current.appendChild(widgetContainer);
         container.current.appendChild(script);
 
-    }, []);
+    }, [locale]); // Add locale to dependencies
 
     return (
         <div className="tradingview-widget-container w-full h-12 border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-sm" ref={container}>
-            {/* Widget will be injected here */}
+            <div className="tradingview-widget-container__widget"></div>
         </div>
     );
 }

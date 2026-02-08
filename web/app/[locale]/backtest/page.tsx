@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card';
 
 export default function BacktestPage() {
     const t = useTranslations('App');
+    const tBacktest = useTranslations('Backtest');
     const [loading, setLoading] = useState(false);
     
     // Mock data or fetch data if needed
@@ -22,18 +23,18 @@ export default function BacktestPage() {
                         {t('sidebar.backtest')}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm max-w-2xl">
-                        Simulate strategy performance using historical market data and AI-driven intelligence signals.
+                        {tBacktest('subtitle')}
                     </p>
                 </div>
                 
                 <div className="flex items-center gap-3">
                     <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
                         <Settings className="w-4 h-4" />
-                        Configure
+                        {tBacktest('configure')}
                     </button>
                     <button className="flex items-center gap-2 px-6 py-2 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20">
                         <Play className="w-4 h-4 fill-current" />
-                        Run Backtest
+                        {tBacktest('runBacktest')}
                     </button>
                 </div>
             </div>
@@ -47,7 +48,7 @@ export default function BacktestPage() {
                 <div className="flex flex-col gap-6">
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest">
                         <History className="w-4 h-4" />
-                        Recent Results
+                        {tBacktest('recentResults')}
                     </div>
                     
                     <Card className="p-12 flex flex-col items-center justify-center text-center gap-4 border-dashed">
@@ -55,8 +56,8 @@ export default function BacktestPage() {
                             <Activity className="w-8 h-8" />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h3 className="font-bold">No results yet</h3>
-                            <p className="text-xs text-slate-500">Run your first backtest to see performance analytics.</p>
+                            <h3 className="font-bold">{tBacktest('noResultsYet')}</h3>
+                            <p className="text-xs text-slate-500">{tBacktest('runFirstBacktest')}</p>
                         </div>
                     </Card>
                 </div>

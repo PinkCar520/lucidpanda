@@ -15,6 +15,8 @@ export async function authenticatedFetch(
 
   if (session?.accessToken) {
     headers.set('Authorization', `Bearer ${session.accessToken}`);
+  } else if (session) {
+    console.warn('[api-client] Session provided but accessToken is missing. This will likely result in 401.');
   }
 
   // Determine base URL:

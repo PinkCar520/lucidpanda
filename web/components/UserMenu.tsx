@@ -63,7 +63,7 @@ export default function UserMenu() {
             <DropdownMenu.Portal>
                 <DropdownMenu.Content 
                     onMouseLeave={() => setOpen(false)}
-                    className="z-[100] min-w-[280px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl shadow-black/20 p-2 animate-in fade-in zoom-in-95 duration-200"
+                    className="z-[150] min-w-[280px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl shadow-black/20 p-2 animate-in fade-in zoom-in-95 duration-200"
                     sideOffset={8}
                     align="end"
                 >
