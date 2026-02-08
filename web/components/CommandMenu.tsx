@@ -8,7 +8,8 @@ import {
     LogOut, Globe, Command as CommandIcon,
     Loader2, TrendingUp, ChevronRight, RefreshCw, Zap
 } from 'lucide-react';
-import { useRouter, useParams, usePathname } from 'next/navigation';
+import { useRouter, usePathname, Link } from '@/i18n/navigation';
+import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useSession, signOut } from 'next-auth/react';
 import { authenticatedFetch } from '@/lib/api-client';
@@ -121,7 +122,7 @@ export default function CommandMenu() {
                             {funds.map((fund) => (
                                 <div key={fund.code} className="flex flex-col gap-1 mb-1">
                                     <Command.Item
-                                        onSelect={() => runCommand(() => router.push(`/${locale}/funds?code=${fund.code}`))}
+                                        onSelect={() => runCommand(() => router.push(`/funds?code=${fund.code}`))}
                                         className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30 aria-selected:text-blue-600 dark:aria-selected:text-blue-400"
                                     >
                                         <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
@@ -134,7 +135,7 @@ export default function CommandMenu() {
                                         <ChevronRight className="w-4 h-4 opacity-30" />
                                     </Command.Item>
                                     <Command.Item
-                                        onSelect={() => runCommand(() => router.push(`/${locale}?code=${fund.code}`))}
+                                        onSelect={() => runCommand(() => router.push(`/?code=${fund.code}`))}
                                         className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-indigo-50 dark:aria-selected:bg-indigo-900/30 aria-selected:text-indigo-600 dark:aria-selected:text-indigo-400"
                                     >
                                         <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
@@ -166,21 +167,21 @@ export default function CommandMenu() {
                     {/* 2. Primary Navigation */}
                     <Command.Group heading={tCommand('navigationGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
                         <Command.Item
-                            onSelect={() => runCommand(() => router.push(`/${locale}`))}
+                            onSelect={() => runCommand(() => router.push(`/`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <Terminal className="w-4 h-4 text-slate-400" />
                             <span className="text-sm">{tApp('sidebar.terminal')}</span>
                         </Command.Item>
                         <Command.Item
-                            onSelect={() => runCommand(() => router.push(`/${locale}/funds`))}
+                            onSelect={() => runCommand(() => router.push(`/funds`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <BarChart3 className="w-4 h-4 text-slate-400" />
                             <span className="text-sm">{tApp('sidebar.alphaFunds')}</span>
                         </Command.Item>
                         <Command.Item
-                            onSelect={() => runCommand(() => router.push(`/${locale}/backtest`))}
+                            onSelect={() => runCommand(() => router.push(`/backtest`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <Activity className="w-4 h-4 text-slate-400" />
@@ -191,28 +192,28 @@ export default function CommandMenu() {
                     {/* 3. Account & Settings */}
                     <Command.Group heading={tCommand('accountSettingsGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
                         <Command.Item
-                            onSelect={() => runCommand(() => router.push(`/${locale}/settings/account`))}
+                            onSelect={() => runCommand(() => router.push(`/settings/account`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <Settings className="w-4 h-4 text-slate-400" />
                             <span className="text-sm">{tSettings('accountOverview')}</span>
                         </Command.Item>
                         <Command.Item
-                            onSelect={() => runCommand(() => router.push(`/${locale}/settings/profile`))}
+                            onSelect={() => runCommand(() => router.push(`/settings/profile`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <User className="w-4 h-4 text-slate-400" />
                             <span className="text-sm">{tSettings('profile')}</span>
                         </Command.Item>
                         <Command.Item
-                            onSelect={() => runCommand(() => router.push(`/${locale}/settings/api-keys`))}
+                            onSelect={() => runCommand(() => router.push(`/settings/api-keys`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <Key className="w-4 h-4 text-slate-400" />
                             <span className="text-sm">{tSettings('apiKeys')}</span>
                         </Command.Item>
                         <Command.Item
-                            onSelect={() => runCommand(() => router.push(`/${locale}/settings/security`))}
+                            onSelect={() => runCommand(() => router.push(`/settings/security`))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
                         >
                             <Shield className="w-4 h-4 text-slate-400" />

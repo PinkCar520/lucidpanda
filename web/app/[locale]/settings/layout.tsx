@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
-import { usePathname, useParams } from 'next/navigation';
+import { Link, usePathname } from '@/i18n/navigation';
+import { useParams } from 'next/navigation';
 import { User, Shield, Bell, Key, LayoutDashboard, ChevronLeft } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
@@ -20,27 +20,27 @@ export default function SettingsLayout({
   const navItems = [
     {
       label: t('accountOverview'),
-      href: `/${locale}/settings/account`,
+      href: `/settings/account`,
       icon: LayoutDashboard,
     },
     {
       label: t('profile'),
-      href: `/${locale}/settings/profile`,
+      href: `/settings/profile`,
       icon: User,
     },
     {
       label: t('security'),
-      href: `/${locale}/settings/security`,
+      href: `/settings/security`,
       icon: Shield,
     },
     {
       label: t('notifications'),
-      href: `/${locale}/settings/notifications`,
+      href: `/settings/notifications`,
       icon: Bell,
     },
     {
       label: t('apiKeys'),
-      href: `/${locale}/settings/api-keys`,
+      href: `/settings/api-keys`,
       icon: Key,
     },
   ];
@@ -52,7 +52,7 @@ export default function SettingsLayout({
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Link
-              href={`/${locale}`}
+              href="/"
               className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500"
             >
               <ChevronLeft className="w-5 h-5" />

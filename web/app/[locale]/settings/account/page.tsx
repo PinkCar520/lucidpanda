@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { 
@@ -151,7 +151,7 @@ export default function AccountOverviewPage() {
                   {t('quickLinks')}
               </div>
               <div className="flex flex-col gap-3">
-                  <Link href={`/${sessionData?.user?.id ? sessionData.user.id : ''}`} className="group">
+                  <Link href="/" className="group">
                       <Card className="p-4 hover:border-blue-500/50 transition-all group-hover:shadow-md">
                           <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -164,7 +164,7 @@ export default function AccountOverviewPage() {
                           </div>
                       </Card>
                   </Link>
-                  <Link href={`/en/funds`} className="group">
+                  <Link href="/funds" className="group">
                       <Card className="p-4 hover:border-emerald-500/50 transition-all group-hover:shadow-md">
                           <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -201,7 +201,7 @@ export default function AccountOverviewPage() {
                               </div>
                           </div>
                           {!sessionData?.user?.is_two_fa_enabled && (
-                              <Link href="/en/settings/security">
+                              <Link href="/settings/security">
                                   <button className="text-xs font-bold text-blue-600 hover:text-blue-700 underline underline-offset-4">
                                       {t('protectAccountNow')} →
                                   </button>

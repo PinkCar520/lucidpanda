@@ -21,7 +21,7 @@ import BacktestStats from '@/components/BacktestStats';
 import { useSSE } from '@/hooks/useSSE';
 import IntelligenceCard from '@/components/IntelligenceCard';
 import Paginator from '@/components/Paginator';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { Settings, Terminal } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 
@@ -340,7 +340,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
                               <div className="text-sm font-black font-data tracking-tight">{t('contextAlert.message', { code: focusedCode })}</div>
                           </div>
                       </div>
-                      <Link href={`/${locale}`}>
+                      <Link href="/">
                           <button className="p-1.5 hover:bg-indigo-500/20 rounded-full transition-colors">
                               <X className="w-4 h-4" />
                           </button>

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { useParams } from 'next/navigation';
 
 export default function UserMenu() {
@@ -99,7 +99,7 @@ export default function UserMenu() {
                                     </div>
                                 </div>
                             </div>
-                            <Link href={`/${locale}/settings/security`}>
+                            <Link href="/settings/security">
                                 <button className="p-1 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
                                     <ChevronRight className="w-4 h-4 text-slate-400" />
                                 </button>
@@ -126,19 +126,19 @@ export default function UserMenu() {
                     {/* Menu Items */}
                     <div className="flex flex-col gap-1 p-1">
                         <DropdownMenu.Item asChild className="outline-none">
-                            <Link href={`/${locale}/settings/profile`} className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <Link href="/settings/profile" className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                                 <User className="w-4 h-4 text-slate-400" />
                                 {t('profile')}
                             </Link>
                         </DropdownMenu.Item>
                         <DropdownMenu.Item asChild className="outline-none">
-                            <Link href={`/${locale}/settings/account`} className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <Link href="/settings/account" className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                                 <Settings className="w-4 h-4 text-slate-400" />
                                 {t('accountOverview')}
                             </Link>
                         </DropdownMenu.Item>
                         <DropdownMenu.Item asChild className="outline-none">
-                            <Link href={`/${locale}/settings/api-keys`} className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                            <Link href="/settings/api-keys" className="flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                                 <Zap className="w-4 h-4 text-slate-400" />
                                 {t('apiKeys')}
                             </Link>

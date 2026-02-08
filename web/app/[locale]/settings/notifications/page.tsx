@@ -135,7 +135,7 @@ export default function NotificationsPage() {
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-bold">{t('notifications')}</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Control how and when you receive updates from AlphaSignal.
+          {t('notificationsSubtitle')}
         </p>
       </div>
 
@@ -163,7 +163,7 @@ export default function NotificationsPage() {
                         </div>
                         <div>
                             <h3 className="text-sm font-bold">{t('emailNotifications')}</h3>
-                            <p className="text-[10px] text-slate-500 mt-1">Receive updates via your verified email address.</p>
+                            <p className="text-[10px] text-slate-500 mt-1">{t('emailNotificationsDesc')}</p>
                         </div>
                         <div className="flex flex-col gap-1.5 mt-2">
                             <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{t('frequency')}</label>
@@ -197,7 +197,7 @@ export default function NotificationsPage() {
                         </div>
                         <div>
                             <h3 className="text-sm font-bold">{t('smsNotifications')}</h3>
-                            <p className="text-[10px] text-slate-500 mt-1">Direct alerts to your bound phone number.</p>
+                            <p className="text-[10px] text-slate-500 mt-1">{t('smsNotificationsDesc')}</p>
                         </div>
                         <div className="flex flex-col gap-1.5 mt-2">
                             <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{t('frequency')}</label>
@@ -230,10 +230,10 @@ export default function NotificationsPage() {
                         </div>
                         <div>
                             <h3 className="text-sm font-bold">{t('pushNotifications')}</h3>
-                            <p className="text-[10px] text-slate-500 mt-1">Browser and mobile push notifications.</p>
+                            <p className="text-[10px] text-slate-500 mt-1">{t('pushNotificationsDesc')}</p>
                         </div>
                         <div className="mt-auto pt-4">
-                            <div className="text-[10px] text-slate-400 italic">Push enabled for 2 devices.</div>
+                            <div className="text-[10px] text-slate-400 italic">{t('pushDevicesEnabled', { count: 2 })}</div>
                         </div>
                     </div>
                 </Card>
@@ -252,7 +252,7 @@ export default function NotificationsPage() {
                         <div key={type.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                             <div className="flex flex-col">
                                 <span className="text-sm font-bold">{type.label}</span>
-                                <span className="text-[10px] text-slate-500">Alerts for critical events.</span>
+                                <span className="text-[10px] text-slate-500">{t('alertTypeDesc')}</span>
                             </div>
                             <button 
                                 onClick={() => handleTypeToggle(type.id)}

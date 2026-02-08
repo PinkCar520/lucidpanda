@@ -441,8 +441,25 @@
                                     "redirectingSettings": "Redirecting you to settings...",
                                     "backToSecurity": "Back to Security",
                                     "missingToken": "Missing verification token.",
-                                    "networkError": "Network error during verification"
-                                  },    "CommandMenu": {
+                                    "networkError": "Network error during verification",
+                                    "notificationsSubtitle": "Control how and when you receive updates from AlphaSignal.",
+                                    "emailNotificationsDesc": "Receive updates via your verified email address.",
+                                    "smsNotificationsDesc": "Direct alerts to your bound phone number.",
+                                    "pushNotificationsDesc": "Browser and mobile push notifications.",
+                                    "pushDevicesEnabled": "Push enabled for {count} devices.",
+                                    "alertTypeDesc": "Alerts for critical events."
+                                  },
+    "Breadcrumbs": {
+        "terminal": "Terminal",
+        "funds": "AlphaFunds",
+        "backtest": "Backtest",
+        "settings": "Settings",
+        "account": "Account Overview",
+        "profile": "Profile Info",
+        "security": "Security",
+        "notifications": "Notifications",
+        "api-keys": "API Keys"
+    },    "CommandMenu": {
         "placeholder": "Search for funds, actions or settings...",
         "escLabel": "ESC",
         "searching": "Searching...",

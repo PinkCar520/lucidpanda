@@ -6,8 +6,8 @@ import {
     Settings, HelpCircle, ChevronRight,
     Command, Menu, X
 } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useParams } from 'next/navigation';
+import { Link, usePathname } from '@/i18n/navigation';
+import { useParams } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import UserMenu from './UserMenu';
 import { useTranslations } from 'next-intl';
@@ -24,15 +24,31 @@ export default function Shell({ children }: ShellProps) {
     const currentLocale = useLocale(); // Get locale as string from next-intl
     const t = useTranslations('App');
     const tSettings = useTranslations('Settings');
+    const tBreadcrumbs = useTranslations('Breadcrumbs');
+
+    const getBreadcrumbLabel = (path: string) => {
+        if (path === `/${currentLocale}`) return tBreadcrumbs('terminal');
+        
+        const lastSegment = path.split('/').pop() || '';
+        
+        // Check for specific translations in Breadcrumbs namespace
+        // Handles segments like 'account', 'profile', 'funds', etc.
+        try {
+            return tBreadcrumbs(lastSegment);
+        } catch (e) {
+            // Fallback to formatted segment name if no translation exists
+            return lastSegment.replace(/-/g, ' ');
+        }
+    };
 
     const navItems = [
-        { id: 'terminal', icon: Terminal, href: `/${currentLocale}`, label: t('sidebar.terminal') },
-        { id: 'funds', icon: BarChart3, href: `/${currentLocale}/funds`, label: t('sidebar.alphaFunds') },
-        { id: 'backtest', icon: Activity, href: `/${currentLocale}/backtest`, label: t('sidebar.backtest') },
+        { id: 'terminal', icon: Terminal, href: `/`, label: t('sidebar.terminal') },
+        { id: 'funds', icon: BarChart3, href: `/funds`, label: t('sidebar.alphaFunds') },
+        { id: 'backtest', icon: Activity, href: `/backtest`, label: t('sidebar.backtest') },
     ];
 
     const bottomItems = [
-        { id: 'settings', icon: Settings, href: `/${currentLocale}/settings/account`, label: tSettings('title') },
+        { id: 'settings', icon: Settings, href: `/settings/account`, label: tSettings('title') },
     ];
 
     return (
@@ -72,7 +88,7 @@ export default function Shell({ children }: ShellProps) {
                 {/* Bottom Nav */}
                 <div className="flex flex-col gap-4 mt-auto">
                     {bottomItems.map((item) => {
-                        const isActive = pathname.startsWith(item.href.split('/settings')[0] + '/settings');
+                        const isActive = pathname.startsWith('/settings');
                         return (
                             <Link key={item.id} href={item.href} title={item.label}>
                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 group relative ${
@@ -100,10 +116,12 @@ export default function Shell({ children }: ShellProps) {
                         
                         {/* Breadcrumbs / Page Title Context */}
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest overflow-hidden font-data">
-                            <span className="hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">{t('shell.breadcrumb.alphaSignal')}</span>
+                            <Link href="/" className="hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                                {t('shell.breadcrumb.alphaSignal')}
+                            </Link>
                             <ChevronRight className="w-3 h-3" />
                             <span className="text-slate-900 dark:text-white truncate">
-                                {pathname === `/${currentLocale}` ? t('shell.breadcrumb.terminal') : pathname.split('/').pop()?.replace(/-/g, ' ')}
+                                {getBreadcrumbLabel(pathname)}
                             </span>
                         </div>
                     </div>
