@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { Alert } from '@/components/Alert';
+import { authenticatedFetch } from '@/lib/api-client';
 import { useSession, signOut } from 'next-auth/react';
 
 import Chart from '@/components/Chart';
@@ -171,7 +171,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    async function fetchData(isInitialLoad = false) {
+    async function fetchData(isInitialLoad = false, currentSession: any) {
       try {
         // Build intelligence API URL with incremental update support
         const intelUrl = isInitialLoad || !latestIntelId
@@ -179,8 +179,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           : `/api/intelligence?since_id=${latestIntelId}&limit=50`;
 
         const [intelRes, marketRes] = await Promise.all([
-          fetch(intelUrl),
-          fetch(`/api/market?symbol=GC=F&range=${chartConfig.range}&interval=${chartConfig.interval}`)
+          authenticatedFetch(intelUrl, currentSession),
+          authenticatedFetch(`/api/market?symbol=GC=F&range=${chartConfig.range}&interval=${chartConfig.interval}`, currentSession)
         ]);
 
         const intelResponse = await intelRes.json();
@@ -226,16 +226,16 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
       }
     }
 
-    fetchData(true); // Initial load
-    const intervalId = setInterval(() => fetchData(false), 30000); // Poll every 30s (reduced from 60s)
+    fetchData(true, session); // Initial load
+    const intervalId = setInterval(() => fetchData(false, session), 30000); // Poll every 30s (reduced from 60s)
     return () => clearInterval(intervalId);
-  }, [chartConfig, latestIntelId, retryCount, tApp]);
+  }, [chartConfig, latestIntelId, retryCount, tApp, session]);
 
   const handlePageChange = useCallback(async (page: number) => {
     try {
       setLoading(true);
       const offset = (page - 1) * itemsPerPage;
-      const response = await fetch(`/api/intelligence?limit=${itemsPerPage}&offset=${offset}`);
+      const response = await authenticatedFetch(`/api/intelligence?limit=${itemsPerPage}&offset=${offset}`, session);
 
       if (!response.ok) {
         throw new Error('Failed to fetch page data');
@@ -268,7 +268,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   useEffect(() => {
     if (liveIntelligence.length > 0 && totalItems === 0) {
       // 1. 分页基本信息
-      fetch(`/api/intelligence?limit=${itemsPerPage}`)
+      authenticatedFetch(`/api/intelligence?limit=${itemsPerPage}`, session)
         .then(res => res.json())
         .then(data => {
           setTotalPages(data.total_pages || 0);
@@ -277,7 +277,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
         .catch(err => console.error('Failed to fetch pagination info:', err));
 
       // 2. 获取 24h 内的高分预警数
-      fetch('/api/alerts/24h')
+      authenticatedFetch('/api/alerts/24h', session)
         .then(res => res.json())
         .then(data => {
           if (data.count !== undefined) {

@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-const API_URL = process.env.API_INTERNAL_URL || "http://api:8001";
+import { API_INTERNAL_URL as API_URL } from "@/lib/constants";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [

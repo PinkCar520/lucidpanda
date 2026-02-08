@@ -1,51 +1,43 @@
-/**
- * API Client Configuration
- * 
- * Centralized configuration for API requests with authentication
- */
+// web/lib/api-client.ts
+import { Session } from 'next-auth'; // Session type
+import { API_INTERNAL_URL } from '@/lib/constants'; // Backend API URL
 
-/**
- * Get API headers with authentication
- */
-export function getApiHeaders(): HeadersInit {
-    const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-    };
-
-    // Add API key if configured (for production)
-    const apiKey = process.env.NEXT_PUBLIC_API_KEY;
-    if (apiKey) {
-        headers['X-API-Key'] = apiKey;
-    }
-
-    return headers;
+interface AuthenticatedFetchOptions extends RequestInit {
+  // Custom options can be added here if needed
 }
 
-/**
- * Fetch wrapper with automatic authentication
- */
-export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-    const headers = {
-        ...getApiHeaders(),
-        ...options.headers,
-    };
+export async function authenticatedFetch(
+  url: string,
+  session: Session | null,
+  options?: AuthenticatedFetchOptions
+): Promise<Response> {
+  const headers = new Headers(options?.headers);
 
-    return fetch(url, {
-        ...options,
-        headers,
-    });
-}
+  if (session?.accessToken) {
+    headers.set('Authorization', `Bearer ${session.accessToken}`);
+  }
 
-/**
- * Typed API fetch with JSON response
- */
-export async function apiFetchJSON<T = any>(url: string, options: RequestInit = {}): Promise<T> {
-    const response = await apiFetch(url, options);
+  const fullUrl = url.startsWith('http') ? url : `${API_INTERNAL_URL}${url}`; // Handle absolute vs relative URLs
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(error.error || error.message || `HTTP ${response.status}`);
-    }
+  const response = await fetch(fullUrl, {
+    ...options,
+    headers,
+  });
 
-    return response.json();
+  // NextAuth.js handles 401 for token refresh internally via its callbacks.
+  // If a 401 reaches here, it means next-auth couldn't refresh the token,
+  // or it's a 401 for a different reason (e.g., completely invalid session).
+  // In most cases, next-auth will eventually redirect to the login page
+  // if the session is truly invalid.
+  // We can add specific client-side logic here if needed, but it's often
+  // best to let next-auth handle the primary redirection.
+  if (response.status === 401) {
+    // Optionally, if this 401 needs to explicitly trigger a client-side signOut
+    // if next-auth's internal mechanisms haven't already
+    // For many apps, just allowing the component re-render with a null session
+    // after next-auth has failed to refresh (and potentially redirecting via middleware)
+    // is sufficient.
+  }
+
+  return response;
 }
