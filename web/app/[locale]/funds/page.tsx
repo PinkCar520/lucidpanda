@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Search, RefreshCw, ArrowUp, ArrowDown, PieChart, X, Target, Scale, Anchor, AlertTriangle } from 'lucide-react';
 import FundSearch from '@/components/FundSearch';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { authenticatedFetch } from '@/lib/api-client';
 
 import { SectorAttribution } from '@/components/SectorAttribution';
 
@@ -108,14 +109,9 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     const fetchBatchValuation = async (codes: string[]) => {
         if (codes.length === 0) return;
 
-        const headers: HeadersInit = {};
-        if (session?.accessToken) {
-            headers['Authorization'] = `Bearer ${session.accessToken}`;
-        }
-
         try {
             const codesParam = codes.join(',');
-            const res = await fetch(`/api/funds/batch-valuation?codes=${codesParam}`, { headers });
+            const res = await authenticatedFetch(`/api/funds/batch-valuation?codes=${codesParam}`, session);
             const response = await res.json();
 
             if (response.data) {
@@ -163,11 +159,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             return;
         }
         try {
-            const res = await fetch('/api/watchlist', {
-                headers: {
-                    'Authorization': `Bearer ${session.accessToken}`
-                }
-            });
+            const res = await authenticatedFetch('/api/watchlist', session);
             const json = await res.json();
             if (json.data) {
                 let currentWatchlist = json.data;
@@ -218,12 +210,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
         }
 
         setLoading(true);
-        const headers: HeadersInit = {};
-        if (session?.accessToken) {
-            headers['Authorization'] = `Bearer ${session.accessToken}`;
-        }
         try {
-            const res = await fetch(`/api/funds/${code}/valuation`, { headers });
+            const res = await authenticatedFetch(`/api/funds/${code}/valuation`, session);
             const data = await res.json();
             if (data.error) {
                 console.error(data.error);
@@ -270,12 +258,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
 
     const fetchHistory = async (code: string) => {
         setHistoryLoading(true);
-        const headers: HeadersInit = {};
-        if (session?.accessToken) {
-            headers['Authorization'] = `Bearer ${session.accessToken}`;
-        }
         try {
-            const res = await fetch(`/api/funds/${code}/history`, { headers });
+            const res = await authenticatedFetch(`/api/funds/${code}/history`, session);
             const json = await res.json();
             if (json.data) {
                 setHistory(json.data);
@@ -321,11 +305,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
         try {
             const codesParam = codesToFetch.join(',');
             // Force refresh with timestamp
-            const res = await fetch(`/api/funds/batch-valuation?codes=${codesParam}&t=${Date.now()}`, {
-                headers: {
-                    'Authorization': `Bearer ${session.accessToken}`
-                }
-            });
+            const res = await authenticatedFetch(`/api/funds/batch-valuation?codes=${codesParam}&t=${Date.now()}`, session);
             const response = await res.json();
 
             if (response.data) {
@@ -384,11 +364,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
         }
 
         try {
-            const res = await fetch(`/api/watchlist/${codeToDelete}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${session.accessToken}`
-                }
+            const res = await authenticatedFetch(`/api/watchlist/${codeToDelete}`, session, {
+                method: 'DELETE'
             });
             const data = await res.json();
             if (data.success) {
@@ -496,11 +473,10 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                         }
                                         if (!watchlist.some(i => i.code === code)) {
                                             try {
-                                                const res = await fetch('/api/watchlist', {
+                                                const res = await authenticatedFetch('/api/watchlist', session, {
                                                     method: 'POST',
                                                     headers: { 
-                                                        'Content-Type': 'application/json',
-                                                        'Authorization': `Bearer ${session.accessToken}`
+                                                        'Content-Type': 'application/json'
                                                     },
                                                     body: JSON.stringify({ code, name })
                                                 });

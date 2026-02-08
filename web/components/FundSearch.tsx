@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, TrendingUp, Clock, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useSession } from 'next-auth/react';
+import { authenticatedFetch } from '@/lib/api-client';
 
 interface FundSearchResult {
     code: string;
@@ -18,6 +20,7 @@ interface FundSearchProps {
 }
 
 export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps) {
+    const { data: session } = useSession();
     const [query, setQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [searchResults, setSearchResults] = useState<FundSearchResult[]>([]);
@@ -94,8 +97,9 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
 
         setIsLoading(true);
         try {
-            const response = await fetch(
-                `/api/funds/search?q=${encodeURIComponent(searchTerm)}&limit=20`
+            const response = await authenticatedFetch(
+                `/api/funds/search?q=${encodeURIComponent(searchTerm)}&limit=20`,
+                session
             );
             const data = await response.json();
             if (data.results) {

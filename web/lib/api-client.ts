@@ -30,19 +30,16 @@ export async function authenticatedFetch(
     headers,
   });
 
-  // NextAuth.js handles 401 for token refresh internally via its callbacks.
-  // If a 401 reaches here, it means next-auth couldn't refresh the token,
-  // or it's a 401 for a different reason (e.g., completely invalid session).
-  // In most cases, next-auth will eventually redirect to the login page
-  // if the session is truly invalid.
-  // We can add specific client-side logic here if needed, but it's often
-  // best to let next-auth handle the primary redirection.
+  // Handle 401 Unauthorized
   if (response.status === 401) {
-    // Optionally, if this 401 needs to explicitly trigger a client-side signOut
-    // if next-auth's internal mechanisms haven't already
-    // For many apps, just allowing the component re-render with a null session
-    // after next-auth has failed to refresh (and potentially redirecting via middleware)
-    // is sufficient.
+    console.error(`[api-client] Unauthorized request to ${url}. Token might be expired or invalid.`);
+    
+    // On client-side, if we get a 401, it means the session is likely dead (refresh failed)
+    if (isClient) {
+      const { signOut } = await import('next-auth/react');
+      // Force sign out and redirect to login with a specific error flag
+      signOut({ callbackUrl: `/${window.location.pathname.split('/')[1]}/login?error=session_expired` });
+    }
   }
 
   return response;

@@ -96,7 +96,8 @@
     "resetting": "Resetting Password...",
     "updatePassword": "Update Password",
     "resetSuccessful": "Password reset successful! Redirecting to login...",
-    "signOut": "Sign Out"
+    "signOut": "Sign Out",
+    "sessionExpired": "Your session has expired. Please log in again."
   },
   "Dashboard": {
     "title": "Alpha Signal",
