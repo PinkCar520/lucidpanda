@@ -1,4 +1,5 @@
 import os
+import threading
 import akshare as ak
 import pandas as pd
 import yfinance as yf
@@ -83,28 +84,33 @@ class FundEngine:
                 os.environ['HTTPS_PROXY'] = original_https
 
     def _get_fund_name(self, fund_code):
-        """Fetch Fund Name with Redis Cache."""
+        """Fetch Fund Name with Redis Cache and Local DB fallback."""
         if self.redis:
             cached_name = self.redis.get(f"fund:name:{fund_code}")
             if cached_name: return cached_name
             
         fund_name = ""
         try:
-            # Use Xueqiu API for single fund info
-            # Force disable proxy for AkShare
-            if "HTTP_PROXY" in os.environ: del os.environ["HTTP_PROXY"]
-            if "HTTPS_PROXY" in os.environ: del os.environ["HTTPS_PROXY"]
+            # 1. Try local DB first (Fastest fallback)
+            names = self.db.get_fund_names([fund_code])
+            if names.get(fund_code):
+                fund_name = names[fund_code]
             
-            info_df = ak.fund_individual_basic_info_xq(symbol=fund_code)
-            # Usually row 1 is '基金简称'
-            fund_name = info_df[info_df.iloc[:,0] == '基金简称'].iloc[0,1]
+            # 2. Only if DB missing, try Xueqiu API
+            if not fund_name:
+                # Force disable proxy for AkShare
+                if "HTTP_PROXY" in os.environ: del os.environ["HTTP_PROXY"]
+                if "HTTPS_PROXY" in os.environ: del os.environ["HTTPS_PROXY"]
+                
+                info_df = ak.fund_individual_basic_info_xq(symbol=fund_code)
+                fund_name = info_df[info_df.iloc[:,0] == '基金简称'].iloc[0,1]
             
             if self.redis and fund_name:
                 self.redis.setex(f"fund:name:{fund_code}", 86400 * 7, fund_name) # 7 days
                 
         except:
             pass
-        return fund_name
+        return fund_name or fund_code
 
     def _get_industry_map(self, stock_codes: list):
         """
@@ -198,13 +204,24 @@ class FundEngine:
             # 1. Get Holdings from DB
             holdings = self.db.get_fund_holdings(fund_code)
             
-            # If no holdings in DB, try to fetch
+            # If no holdings in DB, try to fetch in background to avoid blocking
             if not holdings:
-                holdings = self.update_fund_holdings(fund_code)
+                sync_key = f"syncing:holdings:{fund_code}"
+                is_syncing = self.redis.get(sync_key) if self.redis else False
                 
-            if not holdings:
-                return {"error": "No holdings data"}
+                if not is_syncing:
+                    if self.redis: self.redis.setex(sync_key, 300, "1")
+                    threading.Thread(target=self.update_fund_holdings, args=(fund_code,), daemon=True).start()
                 
+                return {
+                    "fund_code": fund_code,
+                    "fund_name": self._get_fund_name(fund_code),
+                    "status": "syncing",
+                    "estimated_growth": 0,
+                    "message": "Holdings missing. Syncing in background...",
+                    "source": "System"
+                }
+                    
             logger.info(f"📈 Calculating valuation for {fund_code} ({len(holdings)} stocks) using EastMoney")
 
             # 2. Identify Markets (A-Share vs HK)
@@ -477,11 +494,29 @@ class FundEngine:
             for k, v in old_proxies.items():
                 os.environ[k] = v
 
-    def calculate_batch_valuation(self, fund_codes: list):
+    def calculate_batch_valuation(self, fund_codes: list, summary: bool = False):
         """
         Calculate valuations for multiple funds in a single batch request using efficient EastMoney API.
+        summary: If True, skip components and sector stats for speed.
         """
         import requests
+        
+        # 0. Pre-fetch Fund Names in Bulk (Avoid serial DB/API calls)
+        fund_name_map = {}
+        missing_name_codes = []
+        if self.redis:
+            cached_names = self.redis.mget([f"fund:name:{c}" for c in fund_codes])
+            for code, name in zip(fund_codes, cached_names):
+                if name: fund_name_map[code] = name
+                else: missing_name_codes.append(code)
+        else:
+            missing_name_codes = fund_codes
+            
+        if missing_name_codes:
+            db_names = self.db.get_fund_names(missing_name_codes)
+            for c, n in db_names.items():
+                fund_name_map[c] = n
+                if self.redis: self.redis.setex(f"fund:name:{c}", 86400 * 7, n)
         
         # 1. Fetch Holdings for ALL funds
         # Use DB first, then fetch missing
@@ -492,16 +527,23 @@ class FundEngine:
         stock_map = {} # code -> market_id needed
         
         # Collect holdings
-        # Collect holdings
         for f_code in fund_codes:
             holdings = self.db.get_fund_holdings(f_code)
             if not holdings:
-                # If cached holding missing, try fetch (this part is still slow if many missing)
-                holdings = self.update_fund_holdings(f_code)
+                # Start background update and mark as syncing
+                sync_key = f"syncing:holdings:{f_code}"
+                is_syncing = self.redis.get(sync_key) if self.redis else False
+                
+                if not is_syncing:
+                    if self.redis: self.redis.setex(sync_key, 300, "1")
+                    threading.Thread(target=self.update_fund_holdings, args=(f_code,), daemon=True).start()
+                
+                all_holdings[f_code] = None # Mark as syncing
+                continue
             
-            all_holdings[f_code] = holdings or []
+            all_holdings[f_code] = holdings
             
-            for h in (holdings or []):
+            for h in holdings:
                 s_code = h.get('stock_code') or h.get('code')
                 if not s_code: continue
                 
@@ -586,18 +628,39 @@ class FundEngine:
         results = []
         tz_cn = datetime.now().astimezone().replace(tzinfo=None) # simple local time
         
-        # Pre-fetch industry mappings
-        all_stock_codes = []
-        for f_code, holdings in all_holdings.items():
-            for h in holdings:
-                s_code = h.get('stock_code') or h.get('code')
-                if s_code: all_stock_codes.append(s_code)
-        industry_map = self._get_industry_map(list(set(all_stock_codes)))
+        # Pre-fetch industry mappings (Skip if summary)
+        industry_map = {}
+        if not summary:
+            all_stock_codes = []
+            for f_code, holdings in all_holdings.items():
+                if holdings:
+                    for h in holdings:
+                        s_code = h.get('stock_code') or h.get('code')
+                        if s_code: all_stock_codes.append(s_code)
+            industry_map = self._get_industry_map(list(set(all_stock_codes)))
 
         for f_code in fund_codes:
-            holdings = all_holdings.get(f_code, [])
+            holdings = all_holdings.get(f_code)
+            
+            if holdings is None:
+                # This fund is syncing
+                results.append({
+                    "fund_code": f_code,
+                    "fund_name": fund_name_map.get(f_code, f_code),
+                    "estimated_growth": 0,
+                    "status": "syncing",
+                    "message": "Fetching holdings in background...",
+                    "source": "System"
+                })
+                continue
+
             if not holdings:
-                results.append({"fund_code": f_code, "estimated_growth": 0, "error": "No holdings"})
+                results.append({
+                    "fund_code": f_code, 
+                    "fund_name": fund_name_map.get(f_code, f_code),
+                    "estimated_growth": 0, 
+                    "error": "No holdings data available"
+                })
                 continue
                 
             total_impact = 0.0
@@ -619,39 +682,43 @@ class FundEngine:
                     current_impact = impact
                     total_impact += impact
                     total_weight += weight
-                    components.append({
-                        "code": code, "name": name, "price": price, 
-                        "change_pct": pct, "impact": impact, "weight": weight
-                    })
+                    
+                    if not summary:
+                        components.append({
+                            "code": code, "name": name, "price": price, 
+                            "change_pct": pct, "impact": impact, "weight": weight
+                        })
                 else:
-                    components.append({
-                        "code": code, "name": name, "price": 0, 
-                        "change_pct": 0, "impact": 0, "weight": weight, "note": "No Quote"
-                    })
+                    if not summary:
+                        components.append({
+                            "code": code, "name": name, "price": 0, 
+                            "change_pct": 0, "impact": 0, "weight": weight, "note": "No Quote"
+                        })
                 
-                # Sector Aggregation
-                ind_info = industry_map.get(code, {'l1': "其他", 'l2': "其他"})
-                l1 = ind_info.get('l1') or "其他"
-                l2 = ind_info.get('l2') or "其他"
-                
-                if l1 not in sector_stats:
-                    sector_stats[l1] = {"impact": 0.0, "weight": 0.0, "sub": {}}
-                
-                sector_stats[l1]["impact"] += current_impact
-                sector_stats[l1]["weight"] += weight
-                
-                if l2 not in sector_stats[l1]["sub"]:
-                    sector_stats[l1]["sub"][l2] = {"impact": 0.0, "weight": 0.0}
-                
-                sector_stats[l1]["sub"][l2]["impact"] += current_impact
-                sector_stats[l1]["sub"][l2]["weight"] += weight
+                # Sector Aggregation (Skip if summary)
+                if not summary:
+                    ind_info = industry_map.get(code, {'l1': "其他", 'l2': "其他"})
+                    l1 = ind_info.get('l1') or "其他"
+                    l2 = ind_info.get('l2') or "其他"
+                    
+                    if l1 not in sector_stats:
+                        sector_stats[l1] = {"impact": 0.0, "weight": 0.0, "sub": {}}
+                    
+                    sector_stats[l1]["impact"] += current_impact
+                    sector_stats[l1]["weight"] += weight
+                    
+                    if l2 not in sector_stats[l1]["sub"]:
+                        sector_stats[l1]["sub"][l2] = {"impact": 0.0, "weight": 0.0}
+                    
+                    sector_stats[l1]["sub"][l2]["impact"] += current_impact
+                    sector_stats[l1]["sub"][l2]["weight"] += weight
             
             final_est = 0.0
             if total_weight > 0:
                 final_est = total_impact * (100 / total_weight)
                 
             # Get cached name
-            fund_name = self._get_fund_name(f_code)
+            fund_name = fund_name_map.get(f_code, f_code)
             
             # --- Manual Calibration (2026-02-04) ---
             # Based on 2026-02-03 Verification

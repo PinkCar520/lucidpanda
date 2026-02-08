@@ -181,10 +181,11 @@ async def refresh_fund_holdings(code: str):
     return {"status": "ok", "holdings_count": len(holdings)}
 
 @app.get("/api/funds/batch-valuation")
-async def get_batch_valuations(codes: str):
+async def get_batch_valuations(codes: str, mode: str = "full"):
     """
     Get real-time valuations for multiple funds.
     codes: Comma-separated list of fund codes.
+    mode: 'full' (all data) or 'summary' (only growth)
     """
     import time
     if not codes:
@@ -199,7 +200,7 @@ async def get_batch_valuations(codes: str):
     
     # Use optimized batch valuation
     try:
-        results = engine.calculate_batch_valuation(code_list)
+        results = engine.calculate_batch_valuation(code_list, summary=(mode == "summary"))
         return {"data": results}
     except AttributeError:
         # Fallback if method missing (during partial reload)

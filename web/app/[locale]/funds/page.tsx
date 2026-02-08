@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react'; // Added missing import
 import { useRouter, useSearchParams } from 'next/navigation'; // Added missing import
@@ -10,6 +10,7 @@ import { Search, RefreshCw, ArrowUp, ArrowDown, PieChart, X, Target, Scale, Anch
 import FundSearch from '@/components/FundSearch';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { authenticatedFetch } from '@/lib/api-client';
+import useSWR, { mutate } from 'swr';
 
 import { SectorAttribution } from '@/components/SectorAttribution';
 
@@ -68,222 +69,106 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
   const t = useTranslations('Funds');
   const tApp = useTranslations('App');
 
-    // State management - API Driven
-    const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
+    // State management - UI and sorting
     const [selectedFund, setSelectedFund] = useState<string>('');
-    const [valuation, setValuation] = useState<FundValuation | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [refreshing, setRefreshing] = useState(false);
-    const [isWatchlistRefreshing, setIsWatchlistRefreshing] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-    // Client-side valuation cache
-    const [valuationCache, setValuationCache] = useState<Map<string, { data: FundValuation, timestamp: number }>>(new Map());
-    const CACHE_TTL = 3 * 60 * 1000;
-
-    // Sorting state: 'desc' (default), 'asc', or 'none' (insertion order)
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc' | 'none'>('desc');
-
     const [activeTab, setActiveTab] = useState<'attribution' | 'sector' | 'history'>('attribution');
-    const [history, setHistory] = useState<ValuationHistory[]>([]);
-    const [historyLoading, setHistoryLoading] = useState(false);
-
-    // Mobile UI State
     const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
 
+    // --- SWR Data Fetching ---
 
-    // Load selected fund preference from local storage or URL
+    // 1. Fetch Watchlist
+    const { data: watchlistData, mutate: mutateWatchlist, isValidating: watchlistValidating } = useSWR(
+        status === 'authenticated' ? '/api/watchlist' : null,
+        async (url) => {
+            const res = await authenticatedFetch(url, session);
+            const json = await res.json();
+            return json.data as WatchlistItem[];
+        },
+        { 
+            revalidateOnFocus: true,
+            dedupingInterval: 5000,
+            onSuccess: (data) => {
+                if (data.length > 0 && !selectedFund) {
+                    const stored = localStorage.getItem('fund_selected');
+                    if (stored && data.some(i => i.code === stored)) {
+                        setSelectedFund(stored);
+                    } else {
+                        setSelectedFund(data[0].code);
+                    }
+                }
+            }
+        }
+    );
+
+    // 2. Fetch Batch Valuation (Growth only)
+    const watchlistCodes = watchlistData?.map(w => w.code).join(',');
+    const { data: batchData } = useSWR(
+        status === 'authenticated' && watchlistCodes ? `/api/funds/batch-valuation?codes=${watchlistCodes}&mode=summary` : null,
+        async (url) => {
+            const res = await authenticatedFetch(url, session);
+            const json = await res.json();
+            return json.data;
+        },
+        { refreshInterval: 30000, dedupingInterval: 10000 } // Auto refresh every 30s
+    );
+
+    // 3. Fetch Selected Fund Detail
+    const { data: valuation, error: valError, isValidating: loading } = useSWR(
+        status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/valuation` : null,
+        async (url) => {
+            const res = await authenticatedFetch(url, session);
+            return await res.json();
+        },
+        { 
+            revalidateOnFocus: false, 
+            dedupingInterval: 60000,
+            onSuccess: () => setLastUpdated(new Date())
+        }
+    );
+
+    // 4. Fetch History
+    const { data: historyData, isValidating: historyLoading } = useSWR(
+        status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/history` : null,
+        async (url) => {
+            const res = await authenticatedFetch(url, session);
+            const json = await res.json();
+            return json.data as ValuationHistory[];
+        }
+    );
+
+    const watchlist = useMemo(() => {
+        if (!watchlistData) return [];
+        return watchlistData.map(item => {
+            const val = batchData?.find((v: any) => v.fund_code === item.code);
+            return {
+                ...item,
+                estimated_growth: val?.estimated_growth ?? item.estimated_growth,
+                source: val?.source ?? item.source
+            };
+        });
+    }, [watchlistData, batchData]);
+
+    const history = historyData || [];
+
+
+    // Load selected fund preference from URL
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const queryCode = searchParams.get('code');
             if (queryCode) {
                 setSelectedFund(queryCode);
-            } else {
-                const stored = localStorage.getItem('fund_selected');
-                if (stored) setSelectedFund(stored);
             }
         }
     }, [searchParams]);
 
-    // Unified batch fetch function
-    const fetchBatchValuation = async (codes: string[]) => {
-        if (codes.length === 0) return;
-
-        try {
-            const codesParam = codes.join(',');
-            const res = await authenticatedFetch(`/api/funds/batch-valuation?codes=${codesParam}`, session);
-            const response = await res.json();
-
-            if (response.data) {
-                const fetchTime = new Date();
-
-                // Update Cache
-                setValuationCache(prev => {
-                    const newCache = new Map(prev);
-                    response.data.forEach((val: any) => {
-                        if (val && !val.error && val.fund_code) {
-                            newCache.set(val.fund_code, { data: val, timestamp: fetchTime.getTime() });
-                        }
-                    });
-                    return newCache;
-                });
-
-                // Update Watchlist State
-                setWatchlist(prev => prev.map(item => {
-                    const val = response.data.find((v: any) => v.fund_code === item.code);
-                    if (val && !val.error) {
-                        return {
-                            ...item,
-                            previous_growth: item.estimated_growth,
-                            estimated_growth: val.estimated_growth,
-                            name: (val.fund_name && !item.name) ? val.fund_name : item.name,
-                            source: val.source
-                        };
-                    }
-                    return item;
-                }));
-
-                return response.data;
-            }
-        } catch (err) {
-            console.error('Failed to fetch batch:', err);
-        }
-        return [];
-    };
-
-    // 1. Fetch Watchlist from API with Migration Logic
-    const fetchWatchlist = async () => {
-        if (!session?.accessToken) {
-            console.warn("No access token available for watchlist fetch.");
-            setWatchlist([]); // Clear watchlist if not authenticated
-            return;
-        }
-        try {
-            const res = await authenticatedFetch('/api/watchlist', session);
-            const json = await res.json();
-            if (json.data) {
-                let currentWatchlist = json.data;
-
-                setWatchlist(currentWatchlist);
-
-                // --- OPTIMIZATION: Fetch Batch Valuation IMMEDIATELY ---
-                if (currentWatchlist.length > 0) {
-                    const codes = currentWatchlist.map((i: any) => i.code);
-                    await fetchBatchValuation(codes);
-                }
-
-                // Set initial selection if empty and no local pref
-                if (currentWatchlist.length > 0 && !selectedFund && typeof window !== 'undefined') {
-                    const pref = localStorage.getItem('fund_selected'); // Keep this for UI preference
-                    if (pref && currentWatchlist.some((i: any) => i.code === pref)) {
-                        setSelectedFund(pref);
-                    } else {
-                        setSelectedFund(currentWatchlist[0].code);
-                    }
-                }
-            }
-        } catch (e) {
-            console.error("Failed to fetch watchlist", e);
-        }
-    };
-
-    // Use a ref to track the last fetched token to prevent double calls on mount/refresh
-    const lastFetchedTokenRef = useRef<string | null>(null);
-
+    // Persist selected fund to localStorage
     useEffect(() => {
-        if (status === 'authenticated' && session?.accessToken) {
-            // Only fetch if we haven't fetched for this token yet
-            if (lastFetchedTokenRef.current !== session.accessToken) {
-                lastFetchedTokenRef.current = session.accessToken;
-                fetchWatchlist();
-            }
-        } else if (status === 'unauthenticated') {
-            lastFetchedTokenRef.current = null;
-            setWatchlist([]);
-            setSelectedFund("");
+        if (selectedFund) {
+            localStorage.setItem('fund_selected', selectedFund);
         }
-    }, [session, status]);
-
-    const fetchValuation = async (code: string) => {
-        // Check cache first
-        const cached = valuationCache.get(code);
-        const now = Date.now();
-
-        if (cached) {
-            console.log(`[Cache Hit] Using cached data for ${code}`);
-            setValuation(cached.data);
-            setLastUpdated(new Date(cached.timestamp));
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const res = await authenticatedFetch(`/api/funds/${code}/valuation`, session);
-            const data = await res.json();
-            if (data.error) {
-                console.error(data.error);
-                return;
-            }
-
-            // Update state
-            setValuation(data);
-            const fetchTime = new Date();
-            setLastUpdated(fetchTime);
-
-            // Update cache
-            setValuationCache(prev => {
-                const newCache = new Map(prev);
-                newCache.set(code, { data, timestamp: fetchTime.getTime() });
-                return newCache;
-            });
-
-            // Update watchlist with growth data for sorting and trend tracking
-            setWatchlist(prev => prev.map(item => {
-                if (item.code === code) {
-                    return {
-                        ...item,
-                        previous_growth: item.estimated_growth, // Store current as previous
-                        estimated_growth: data.estimated_growth, // Update with new value
-                        source: data.source
-                    };
-                }
-                return item;
-            }));
-
-            // Auto-update name in watchlist if found
-            if (data.fund_name) {
-                setWatchlist(prev => prev.map(item =>
-                    item.code === code && !item.name ? { ...item, name: data.fund_name } : item
-                ));
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchHistory = async (code: string) => {
-        setHistoryLoading(true);
-        try {
-            const res = await authenticatedFetch(`/api/funds/${code}/history`, session);
-            const json = await res.json();
-            if (json.data) {
-                setHistory(json.data);
-            }
-        } catch (err) {
-            console.error('Failed to fetch history:', err);
-        } finally {
-            setHistoryLoading(false);
-        }
-    };
-
-    // Auto-fetch valuation and history when selectedFund changes or authentication status changes
-    useEffect(() => {
-        if (!selectedFund || status !== 'authenticated') return;
-        fetchValuation(selectedFund);
-        fetchHistory(selectedFund);
-    }, [selectedFund, status]);
+    }, [selectedFund]);
 
 
 
@@ -304,71 +189,18 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
 
     // Manual refresh for the entire watchlist
     const handleWatchlistRefresh = async () => {
-        if (!session?.accessToken || watchlist.length === 0 || isWatchlistRefreshing) return;
-
-        setIsWatchlistRefreshing(true);
-        const codesToFetch = watchlist.map(item => item.code);
-
-        try {
-            const codesParam = codesToFetch.join(',');
-            // Force refresh with timestamp
-            const res = await authenticatedFetch(`/api/funds/batch-valuation?codes=${codesParam}&t=${Date.now()}`, session);
-            const response = await res.json();
-
-            if (response.data) {
-                const fetchTime = new Date();
-
-                // Update Cache
-                setValuationCache(prev => {
-                    const newCache = new Map(prev);
-                    response.data.forEach((val: any) => {
-                        if (val && !val.error && val.fund_code) {
-                            newCache.set(val.fund_code, { data: val, timestamp: fetchTime.getTime() });
-                        }
-                    });
-                    return newCache;
-                });
-
-                // Update Watchlist State
-                setWatchlist(prev => prev.map(item => {
-                    const val = response.data.find((v: any) => v.fund_code === item.code);
-                    if (val && !val.error) {
-                        return {
-                            ...item,
-                            previous_growth: item.estimated_growth,
-                            estimated_growth: val.estimated_growth,
-                            name: (val.fund_name && !item.name) ? val.fund_name : item.name,
-                            source: val.source
-                        };
-                    }
-                    return item;
-                }));
-
-                // Update selected fund if it was part of the batch
-                if (selectedFund && codesToFetch.includes(selectedFund)) {
-                    const selectedVal = response.data.find((v: any) => v.fund_code === selectedFund);
-                    if (selectedVal && !selectedVal.error) {
-                        setValuation(selectedVal);
-                        setLastUpdated(fetchTime);
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('Failed to refresh watchlist:', err);
-        } finally {
-            setTimeout(() => {
-                setIsWatchlistRefreshing(false);
-            }, 600);
+        // Trigger SWR revalidation
+        mutate(status === 'authenticated' && watchlistCodes ? `/api/funds/batch-valuation?codes=${watchlistCodes}&mode=summary` : null);
+        if (selectedFund) {
+            mutate(status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/valuation` : null);
+            mutate(status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/history` : null);
         }
     };
 
     const handleDelete = async (e: React.MouseEvent, codeToDelete: string) => {
         e.stopPropagation();
 
-        if (!session?.accessToken) {
-            console.warn("No access token available to delete from watchlist.");
-            return;
-        }
+        if (!session?.accessToken) return;
 
         try {
             const res = await authenticatedFetch(`/api/watchlist/${codeToDelete}`, session, {
@@ -376,10 +208,11 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             });
             const data = await res.json();
             if (data.success) {
-                setWatchlist(prev => prev.filter(item => item.code !== codeToDelete));
+                // Optimistically update watchlist
+                mutateWatchlist(watchlistData?.filter(i => i.code !== codeToDelete), false);
                 if (selectedFund === codeToDelete) {
-                    const remaining = watchlist.filter(i => i.code !== codeToDelete);
-                    if (remaining.length > 0) setSelectedFund(remaining[0].code);
+                    const remaining = watchlistData?.filter(i => i.code !== codeToDelete);
+                    if (remaining && remaining.length > 0) setSelectedFund(remaining[0].code);
                     else setSelectedFund("");
                 }
             }
@@ -389,22 +222,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     };
 
     const handleManualRefresh = async () => {
-        if (selectedFund && !refreshing) {
-            setRefreshing(true);
-
-            // Clear cache to force fresh fetch
-            setValuationCache(prev => {
-                const newCache = new Map(prev);
-                newCache.delete(selectedFund);
-                return newCache;
-            });
-
-            await fetchValuation(selectedFund);
-
-            // Keep animation for at least 600ms for better UX
-            setTimeout(() => {
-                setRefreshing(false);
-            }, 600);
+        if (selectedFund) {
+            mutate(status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/valuation` : null);
         }
     };
 
@@ -446,11 +265,11 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                             <div className="liquid-glass-toolbar">
                                 <button
                                     onClick={handleWatchlistRefresh}
-                                    className={`liquid-glass-btn ${isWatchlistRefreshing ? 'active' : ''}`}
+                                    className={`liquid-glass-btn ${watchlistValidating ? 'active' : ''}`}
                                     title={t('refreshWatchlist')}
-                                    disabled={isWatchlistRefreshing}
+                                    disabled={watchlistValidating}
                                 >
-                                    <RefreshCw className={`w-4 h-4 ${isWatchlistRefreshing ? 'animate-spin' : ''}`} />
+                                    <RefreshCw className={`w-4 h-4 ${watchlistValidating ? 'animate-spin' : ''}`} />
                                 </button>
                                 <div className="w-px h-4 bg-slate-400/20 mx-1"></div>
                                 <button
@@ -613,11 +432,11 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={handleManualRefresh}
-                                                    disabled={loading || refreshing}
+                                                    disabled={loading}
                                                     className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                                     title={t('refreshData')}
                                                 >
-                                                    <RefreshCw className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform ${refreshing ? 'animate-spin' : ''}`} />
+                                                    <RefreshCw className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform ${loading ? 'animate-spin' : ''}`} />
                                                 </button>
                                                 <Badge variant={valuation.estimated_growth >= 0 ? 'bullish' : 'bearish'}>
                                                     {t('live')}
