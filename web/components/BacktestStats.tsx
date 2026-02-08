@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { Card } from './ui/Card';
 import { Intelligence } from '@/lib/db';
-import { TrendingDown, TrendingUp, Activity, CheckCircle2 } from 'lucide-react';
+import { TrendingDown, TrendingUp, Activity, CheckCircle2, Settings } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface BacktestStatsProps {
@@ -24,12 +24,17 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
         volatility?: Record<string, { count: number; winRate: number }>;
         sessionStats?: Array<{ session: string; count: number; winRate: number; avgDrop: number }>;
     } | null>(null);
+    
+    // Configuration State
     const [window, setWindow] = React.useState<'1h' | '24h'>('1h');
+    const [minScore, setMinScore] = React.useState(8);
+    const [sentiment, setSentiment] = React.useState<'bearish' | 'bullish'>('bearish');
+    const [showConfig, setShowConfig] = React.useState(false);
 
     React.useEffect(() => {
         const fetchStats = async () => {
             try {
-                const res = await fetch(`/api/stats?window=${window}`);
+                const res = await fetch(`/api/stats?window=${window}&min_score=${minScore}&sentiment=${sentiment}`);
                 if (res.ok) {
                     const data = await res.json();
                     if (!data.error) {
@@ -42,7 +47,7 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
         };
 
         fetchStats();
-    }, [intelligence, window]);
+    }, [intelligence, window, minScore, sentiment]);
 
     const bestSession = useMemo(() => {
         if (!stats?.sessionStats || stats.sessionStats.length === 0) return null;
@@ -57,33 +62,84 @@ export default function BacktestStats({ intelligence, marketData }: BacktestStat
 
     return (
         <div className="flex flex-col gap-4 mb-6">
-            {/* Header with Toggle */}
+            {/* Header with Toggle & Config Trigger */}
             <div className="flex items-center justify-between px-1">
                 <div className="flex flex-col">
                     <h3 className="text-xs font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
                         <Activity className="w-4 h-4 text-blue-600 dark:text-emerald-500" />
                         {t('title')}
                     </h3>
-                    <div className="flex gap-3 mt-1">
-                        <span className="text-[8px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter opacity-70">{t('scenarioA')}</span>
-                        <span className="text-[8px] text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter opacity-70">{t('scenarioB')}</span>
+                    <div className="flex gap-2 mt-1">
+                        <span className="text-[8px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-bold uppercase">
+                            Score {minScore}+
+                        </span>
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase ${sentiment === 'bearish' ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                            {sentiment}
+                        </span>
                     </div>
                 </div>
-                <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
-                    <button
-                        onClick={() => setWindow('1h')}
-                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '1h' ? 'bg-white dark:bg-emerald-500/20 text-blue-600 dark:text-emerald-400 shadow-sm dark:shadow-emerald-500/10' : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
+                
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => setShowConfig(!showConfig)}
+                        className={`p-1.5 rounded-lg border transition-all ${showConfig ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-500'}`}
                     >
-                        {t('window1h')}
+                        <Settings className="w-4 h-4" />
                     </button>
-                    <button
-                        onClick={() => setWindow('24h')}
-                        className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '24h' ? 'bg-white dark:bg-cyan-500/20 text-blue-600 dark:text-cyan-400 shadow-sm dark:shadow-cyan-500/10' : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
-                    >
-                        {t('window24h')}
-                    </button>
+
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
+                        <button
+                            onClick={() => setWindow('1h')}
+                            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '1h' ? 'bg-white dark:bg-emerald-500/20 text-blue-600 dark:text-emerald-400 shadow-sm dark:shadow-emerald-500/10' : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
+                        >
+                            {t('window1h')}
+                        </button>
+                        <button
+                            onClick={() => setWindow('24h')}
+                            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '24h' ? 'bg-white dark:bg-cyan-500/20 text-blue-600 dark:text-cyan-400 shadow-sm dark:shadow-cyan-500/10' : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
+                        >
+                            {t('window24h')}
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            {/* Inline Configuration Panel */}
+            {showConfig && (
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/60 border border-blue-500/30 rounded-xl animate-in slide-in-from-top-2 duration-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="flex flex-col gap-3">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Min Urgency Score</label>
+                            <div className="flex items-center gap-4">
+                                <input 
+                                    type="range" min="1" max="10" step="1" 
+                                    value={minScore} 
+                                    onChange={(e) => setMinScore(parseInt(e.target.value))}
+                                    className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full appearance-none cursor-pointer accent-blue-600"
+                                />
+                                <span className="text-xl font-black font-mono w-8">{minScore}</span>
+                            </div>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sentiment Direction</label>
+                            <div className="flex bg-white dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
+                                <button 
+                                    onClick={() => setSentiment('bearish')}
+                                    className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${sentiment === 'bearish' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'}`}
+                                >
+                                    Bearish (Sell)
+                                </button>
+                                <button 
+                                    onClick={() => setSentiment('bullish')}
+                                    className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${sentiment === 'bullish' ? 'bg-emerald-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'}`}
+                                >
+                                    Bullish (Buy)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {stats.count === 0 ? (
                 <div className="p-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg text-center text-slate-400 dark:text-slate-500 text-xs">

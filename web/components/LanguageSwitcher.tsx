@@ -13,6 +13,7 @@ export default function LanguageSwitcher() {
     const [isPending, startTransition] = useTransition();
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const handleLocaleChange = (nextLocale: string) => {
         setIsOpen(false);
@@ -21,7 +22,18 @@ export default function LanguageSwitcher() {
         });
     };
 
-    // Close on click outside
+    const handleMouseEnter = () => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        setIsOpen(true);
+    };
+
+    const handleMouseLeave = () => {
+        timeoutRef.current = setTimeout(() => {
+            setIsOpen(false);
+        }, 100); // Small delay to prevent accidental closing
+    };
+
+    // Close on click outside (fallback)
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -29,18 +41,24 @@ export default function LanguageSwitcher() {
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
     }, []);
 
     const currentName = localeNames[locale as keyof typeof localeNames];
     const tApp = useTranslations('App'); // Assuming 'App' namespace is appropriate for global UI elements
 
     return (
-        <div className="relative" ref={containerRef}>
+        <div 
+            className="relative" 
+            ref={containerRef}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+        >
             {/* Trigger Button - Adaptive Light/Dark Mode */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
-                title={tApp('shell.languageSwitcher.toggle')}
                 className={`flex items-center gap-2 bg-white dark:bg-[#0f172a] hover:bg-slate-50 dark:hover:bg-[#1e293b] border border-slate-200 dark:border-slate-800 rounded-full px-4 py-2 transition-all duration-200 group shadow-sm ${isOpen ? 'ring-2 ring-blue-500/20 border-blue-500/50' : ''}`}
             >
                 <Globe className="w-4 h-4 text-blue-600 dark:text-blue-500 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors" />
@@ -54,7 +72,7 @@ export default function LanguageSwitcher() {
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute top-full right-0 mt-2 w-40 bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right z-[150]">
+                <div className="absolute top-full right-0 mt-2 w-40 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right z-[200]">
                     <div className="p-1 flex flex-col gap-1">
                         {locales.map((cur) => (
                             <button

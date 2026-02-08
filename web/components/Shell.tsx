@@ -119,7 +119,7 @@ export default function Shell({ children }: ShellProps) {
             <main className="flex-1 flex flex-col min-w-0 relative">
                 {/* Global Header */}
                 {!isAuthPage && (
-                    <header className="h-[56px] flex items-center justify-between px-4 md:px-8 border-b border-slate-200 dark:border-slate-800/50 bg-white/80 dark:bg-[#020617]/80 backdrop-blur-md z-40">
+                    <header className="h-[56px] flex items-center justify-between px-4 md:px-8 border-b border-slate-200 dark:border-slate-800/50 bg-white/80 dark:bg-[#020617]/80 backdrop-blur-md z-50">
                         <div className="flex items-center gap-4">
                             {/* Mobile Menu Toggle */}
                             <button className="md:hidden p-2 text-slate-500">

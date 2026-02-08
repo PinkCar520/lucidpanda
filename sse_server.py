@@ -314,10 +314,11 @@ async def search_funds(q: str = "", limit: int = 20):
 async def get_backtest_stats(request: Request):
     """
     Calculate backtest statistics on the SERVER side using the full database history.
-    Supports window='1h' or window='24h'.
-    Now includes session-level breakdown and trading hygiene filters (Clustering/Exhaustion).
+    Supports window, min_score, and sentiment_type parameters.
     """
     window = request.query_params.get('window', '1h')
+    min_score = int(request.query_params.get('min_score', 8))
+    sentiment_type = request.query_params.get('sentiment', 'bearish') # 'bearish' or 'bullish'
     
     try:
         conn = psycopg2.connect(
@@ -332,7 +333,13 @@ async def get_backtest_stats(request: Request):
         # Determine columns based on window
         outcome_col = "price_1h" if window == "1h" else "price_24h"
         
-        keywords = "鹰|利空|下跌|风险|Bearish|Hawkish|Risk|Negative"
+        # Define keywords based on sentiment type
+        if sentiment_type == 'bearish':
+            keywords = "鹰|利空|下跌|风险|Bearish|Hawkish|Risk|Negative|Pressure"
+            win_condition = "exit < entry" # Profit from price drop
+        else:
+            keywords = "鸽|利多|上涨|积极|Bullish|Dovish|Positive|Safe-haven|Support"
+            win_condition = "exit > entry" # Profit from price rise
         
         # 1. Global Stats (Raw)
         query_global = f"""
@@ -347,14 +354,14 @@ async def get_backtest_stats(request: Request):
                 gvz_snapshot
             FROM intelligence 
             WHERE 
-                urgency_score >= 8 
+                urgency_score >= %(min_score)s
                 AND (sentiment::text ~* %(keywords)s)
                 AND gold_price_snapshot IS NOT NULL 
                 AND {outcome_col} IS NOT NULL
         )
         SELECT 
             COUNT(*) as count,
-            COUNT(CASE WHEN exit < entry THEN 1 END) as wins,
+            COUNT(CASE WHEN {win_condition} THEN 1 END) as wins,
             AVG((exit - entry) / entry) * 100 as avg_change_pct,
             AVG(clustering_score) as avg_clustering,
             AVG(exhaustion_score) as avg_exhaustion,
@@ -365,7 +372,7 @@ async def get_backtest_stats(request: Request):
             AVG(gvz_snapshot) as avg_gvz,
             
             -- Adjusted Win Rate: Exclude noise
-            COUNT(CASE WHEN exit < entry AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float / 
+            COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float / 
             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
         FROM qualified_events;
         """
@@ -379,7 +386,7 @@ async def get_backtest_stats(request: Request):
                 {outcome_col} as exit
             FROM intelligence 
             WHERE 
-                urgency_score >= 8 
+                urgency_score >= %(min_score)s
                 AND (sentiment::text ~* %(keywords)s)
                 AND gold_price_snapshot IS NOT NULL 
                 AND {outcome_col} IS NOT NULL
@@ -388,7 +395,7 @@ async def get_backtest_stats(request: Request):
         SELECT 
             market_session,
             COUNT(*) as count,
-            COUNT(CASE WHEN exit < entry THEN 1 END) as wins,
+            COUNT(CASE WHEN {win_condition} THEN 1 END) as wins,
             AVG((exit - entry) / entry) * 100 as avg_change_pct
         FROM qualified_events
         GROUP BY market_session;
@@ -403,19 +410,18 @@ async def get_backtest_stats(request: Request):
                 {outcome_col} as exit,
                 dxy_snapshot
             FROM intelligence, stats
-            WHERE urgency_score >= 8 AND (sentiment::text ~* %(keywords)s)
+            WHERE urgency_score >= %(min_score)s AND (sentiment::text ~* %(keywords)s)
             AND gold_price_snapshot IS NOT NULL AND {outcome_col} IS NOT NULL AND dxy_snapshot IS NOT NULL
         )
         SELECT 
             CASE WHEN dxy_snapshot > (SELECT mid FROM stats) THEN 'DXY_STRONG' ELSE 'DXY_WEAK' END as env,
             COUNT(*) as count,
-            COUNT(CASE WHEN exit < entry THEN 1 END) as wins
+            COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
         FROM qualified
         GROUP BY env;
         """
 
         # 4. Positioning Overhang (COT)
-        # We find the nearest COT indicator for each intelligence record
         query_positioning = f"""
         WITH qualified AS (
             SELECT 
@@ -425,7 +431,7 @@ async def get_backtest_stats(request: Request):
                  WHERE indicator_name = 'COT_GOLD_NET' AND timestamp <= i.timestamp 
                  ORDER BY timestamp DESC LIMIT 1) as cot_pct
             FROM intelligence i
-            WHERE i.urgency_score >= 8 AND (i.sentiment::text ~* %(keywords)s)
+            WHERE i.urgency_score >= %(min_score)s AND (i.sentiment::text ~* %(keywords)s)
             AND i.gold_price_snapshot IS NOT NULL AND i.{outcome_col} IS NOT NULL
         )
         SELECT 
@@ -435,7 +441,7 @@ async def get_backtest_stats(request: Request):
                 ELSE 'NEUTRAL_POSITION'
             END as env,
             COUNT(*) as count,
-            COUNT(CASE WHEN exit < entry THEN 1 END) as wins
+            COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
         FROM qualified
         WHERE cot_pct IS NOT NULL
         GROUP BY env;
@@ -449,13 +455,13 @@ async def get_backtest_stats(request: Request):
                 {outcome_col} as exit,
                 gvz_snapshot
             FROM intelligence
-            WHERE urgency_score >= 8 AND (sentiment::text ~* %(keywords)s)
+            WHERE urgency_score >= %(min_score)s AND (sentiment::text ~* %(keywords)s)
             AND gold_price_snapshot IS NOT NULL AND {outcome_col} IS NOT NULL AND gvz_snapshot IS NOT NULL
         )
         SELECT 
             CASE WHEN gvz_snapshot > 25 THEN 'HIGH_VOL' ELSE 'LOW_VOL' END as env,
             COUNT(*) as count,
-            COUNT(CASE WHEN exit < entry THEN 1 END) as wins
+            COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
         FROM qualified
         GROUP BY env;
         """
@@ -470,7 +476,7 @@ async def get_backtest_stats(request: Request):
                  WHERE indicator_name = 'FED_REGIME' AND timestamp <= i.timestamp 
                  ORDER BY timestamp DESC LIMIT 1) as fed_val
             FROM intelligence i
-            WHERE i.urgency_score >= 8 AND (i.sentiment::text ~* %(keywords)s)
+            WHERE i.urgency_score >= %(min_score)s AND (i.sentiment::text ~* %(keywords)s)
             AND i.gold_price_snapshot IS NOT NULL AND i.{outcome_col} IS NOT NULL
         )
         SELECT 
@@ -480,30 +486,28 @@ async def get_backtest_stats(request: Request):
                 ELSE 'NEUTRAL_REGIME'
             END as env,
             COUNT(*) as count,
-            COUNT(CASE WHEN exit < entry THEN 1 END) as wins
+            COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
         FROM qualified
         GROUP BY env;
         """
         
-        cursor.execute(query_global, {'keywords': keywords})
+        cursor.execute(query_global, {'keywords': keywords, 'min_score': min_score})
         res_global = cursor.fetchone()
         
-        cursor.execute(query_session, {'keywords': keywords})
+        cursor.execute(query_session, {'keywords': keywords, 'min_score': min_score})
         res_sessions = cursor.fetchall()
 
-        cursor.execute(query_correlation, {'keywords': keywords})
+        cursor.execute(query_correlation, {'keywords': keywords, 'min_score': min_score})
         res_corr = cursor.fetchall()
 
-        cursor.execute(query_positioning, {'keywords': keywords})
+        cursor.execute(query_positioning, {'keywords': keywords, 'min_score': min_score})
         res_pos = cursor.fetchall()
 
-        cursor.execute(query_volatility, {'keywords': keywords})
+        cursor.execute(query_volatility, {'keywords': keywords, 'min_score': min_score})
         res_vol = cursor.fetchall()
 
-        cursor.execute(query_macro, {'keywords': keywords})
+        cursor.execute(query_macro, {'keywords': keywords, 'min_score': min_score})
         res_macro = cursor.fetchall()
-        
-        conn.close()
         
         if not res_global or res_global['count'] == 0:
             return {"count": 0, "winRate": 0, "avgDrop": 0, "window": window, "sessionStats": []}
