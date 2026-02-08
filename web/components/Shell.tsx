@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import UserMenu from './UserMenu';
 import { useTranslations } from 'next-intl';
 import LanguageSwitcher from './LanguageSwitcher';
@@ -19,18 +20,19 @@ interface ShellProps {
 
 export default function Shell({ children }: ShellProps) {
     const pathname = usePathname();
-    const { locale } = useParams();
+    const { locale: currentLocaleFromParams } = useParams(); // Rename to avoid conflict
+    const currentLocale = useLocale(); // Get locale as string from next-intl
     const t = useTranslations('App');
     const tSettings = useTranslations('Settings');
 
     const navItems = [
-        { id: 'terminal', icon: Terminal, href: `/${locale}`, label: 'Terminal' },
-        { id: 'funds', icon: BarChart3, href: `/${locale}/funds`, label: 'AlphaFunds' },
-        { id: 'backtest', icon: Activity, href: `/${locale}/backtest`, label: 'Backtest' },
+        { id: 'terminal', icon: Terminal, href: `/${currentLocale}`, label: 'Terminal' },
+        { id: 'funds', icon: BarChart3, href: `/${currentLocale}/funds`, label: 'AlphaFunds' },
+        { id: 'backtest', icon: Activity, href: `/${currentLocale}/backtest`, label: 'Backtest' },
     ];
 
     const bottomItems = [
-        { id: 'settings', icon: Settings, href: `/${locale}/settings/account`, label: tSettings('title') },
+        { id: 'settings', icon: Settings, href: `/${currentLocale}/settings/account`, label: tSettings('title') },
     ];
 
     return (
@@ -101,7 +103,7 @@ export default function Shell({ children }: ShellProps) {
                             <span className="hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">AlphaSignal</span>
                             <ChevronRight className="w-3 h-3" />
                             <span className="text-slate-900 dark:text-white truncate">
-                                {pathname === `/${locale}` ? 'Terminal' : pathname.split('/').pop()?.replace(/-/g, ' ')}
+                                {pathname === `/${currentLocale}` ? 'Terminal' : pathname.split('/').pop()?.replace(/-/g, ' ')}
                             </span>
                         </div>
                     </div>
@@ -119,7 +121,7 @@ export default function Shell({ children }: ShellProps) {
                         <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block" />
                         
                         <div className="flex items-center gap-4">
-                            <LanguageSwitcher />
+                            <LanguageSwitcher key={currentLocale} />
                             <UserMenu />
                         </div>
                     </div>

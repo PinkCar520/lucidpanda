@@ -14,15 +14,28 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
 export default function UserMenu() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const t = useTranslations('Settings');
     const tApp = useTranslations('App');
     const { locale } = useParams();
     const [open, setOpen] = useState(false);
 
-    if (!session || !session.user) return null;
+    // 显示加载骨架屏
+    if (status === 'loading') {
+        return (
+            <div className="flex items-center gap-2 p-1 pr-3 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 animate-pulse">
+                <div className="w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                <div className="w-12 h-3 rounded bg-slate-300 dark:bg-slate-600 hidden md:block"></div>
+            </div>
+        );
+    }
 
-    const user = session.user;
+    // 用户未登录时，不显示任何东西 (或者可以根据产品需求显示登录按钮)
+    if (status === 'unauthenticated') {
+        return null;
+    }
+
+    const user = session!.user!; // 使用非空断言，因为 TypeScript 此时知道它们存在
     // Mock quota for demo
     const apiQuota = 65; 
 
