@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, signOut, useSession } from 'next-auth/react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
@@ -16,14 +16,23 @@ export default function LoginPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const locale = params.locale as string;
+  const { data: session } = useSession();
 
   // Check for errors from URL (like session_expired)
   useEffect(() => {
     const errorParam = searchParams.get('error');
-    if (errorParam === 'session_expired') {
+    if (errorParam === 'session_expired' || errorParam === 'RefreshAccessTokenError') {
       setError(t('sessionExpired'));
     }
   }, [searchParams, t]);
+
+  // If there's an error in the session, clear it
+  useEffect(() => {
+    if (session && (session as any).error) {
+      console.log("[Login] Session error detected, signing out to clear state:", (session as any).error);
+      signOut({ redirect: false });
+    }
+  }, [session]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

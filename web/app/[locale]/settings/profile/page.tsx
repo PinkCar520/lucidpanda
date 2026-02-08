@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { User, Mail, Calendar, ShieldCheck, Loader2, Camera, MapPin, Globe } from 'lucide-react';
 import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
+import Image from 'next/image';
 
 export default function ProfilePage() {
   const t = useTranslations('Settings');
@@ -27,8 +28,15 @@ export default function ProfilePage() {
   
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (session?.user?.avatar_url) {
+      setImageError(false);
+    }
+  }, [session?.user?.avatar_url]);
 
   useEffect(() => {
     if (session?.user) {
@@ -154,7 +162,7 @@ export default function ProfilePage() {
   if (!session) return null;
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="flex flex-col gap-6 p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-bold">{t('basicInfo')}</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -167,9 +175,17 @@ export default function ProfilePage() {
         <Card className="lg:col-span-1 flex flex-col items-center text-center p-8 h-fit">
           <div className="mb-6 flex flex-col items-center">
             <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-600 to-indigo-500 flex items-center justify-center text-white text-3xl font-black shadow-xl shadow-blue-500/20 overflow-hidden">
-                {session.user?.avatar_url ? (
-                    <img src={session.user.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-600 to-indigo-500 flex items-center justify-center text-white text-3xl font-black shadow-xl shadow-blue-500/20 overflow-hidden relative">
+                {session.user?.avatar_url && !imageError ? (
+                    <Image 
+                      src={session.user.avatar_url} 
+                      alt="Avatar" 
+                      width={96} 
+                      height={96} 
+                      className="w-full h-full object-cover"
+                      onError={() => setImageError(true)}
+                      unoptimized={true}
+                    />
                 ) : (
                     session.user?.name?.[0]?.toUpperCase() || session.user?.email?.[0]?.toUpperCase()
                 )}

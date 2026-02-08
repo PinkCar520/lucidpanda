@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react'; // Added missing import
 import { useRouter, useSearchParams } from 'next/navigation'; // Added missing import
@@ -187,11 +187,18 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
         }
     };
 
+    // Use a ref to track the last fetched token to prevent double calls on mount/refresh
+    const lastFetchedTokenRef = useRef<string | null>(null);
+
     useEffect(() => {
-        if (status === 'authenticated') {
-            fetchWatchlist();
+        if (status === 'authenticated' && session?.accessToken) {
+            // Only fetch if we haven't fetched for this token yet
+            if (lastFetchedTokenRef.current !== session.accessToken) {
+                lastFetchedTokenRef.current = session.accessToken;
+                fetchWatchlist();
+            }
         } else if (status === 'unauthenticated') {
-            // Clear watchlist if user logs out or is unauthenticated
+            lastFetchedTokenRef.current = null;
             setWatchlist([]);
             setSelectedFund("");
         }
@@ -271,12 +278,12 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
         }
     };
 
-    // Auto-fetch valuation and history when selectedFund changes
+    // Auto-fetch valuation and history when selectedFund changes or authentication status changes
     useEffect(() => {
-        if (!selectedFund) return;
+        if (!selectedFund || status !== 'authenticated') return;
         fetchValuation(selectedFund);
         fetchHistory(selectedFund);
-    }, [selectedFund]);
+    }, [selectedFund, status]);
 
 
 

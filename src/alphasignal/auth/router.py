@@ -311,18 +311,34 @@ async def upload_avatar(
     if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG, PNG, and WebP are allowed.")
     
+    from PIL import Image
+    import io
+
     upload_dir = os.path.join(settings.BASE_DIR, "uploads", "avatars")
     os.makedirs(upload_dir, exist_ok=True)
     
-    file_ext = file.filename.split(".")[-1]
-    filename = f"{current_user.id}_{uuid.uuid4()}.{file_ext}"
+    # Use .webp extension for optimized storage
+    filename = f"{current_user.id}_{uuid.uuid4()}.webp"
     file_path = os.path.join(upload_dir, filename)
     
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # Read the uploaded file into memory
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        
+        # Convert to RGB if necessary (e.g. for RGBA PNGs to WebP)
+        if image.mode in ("RGBA", "P"):
+            image = image.convert("RGB")
+            
+        # Resize using Lanczos for high quality
+        # Standard profile size 256x256 is plenty for UI display
+        image.thumbnail((256, 256), Image.Resampling.LANCZOS)
+        
+        # Save as WebP with optimized quality
+        image.save(file_path, "WEBP", quality=85, optimize=True)
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Could not process image: {str(e)}")
         
     avatar_url = f"/static/avatars/{filename}" 
     auth_service = AuthService(db)

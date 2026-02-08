@@ -63,7 +63,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Initial sign in
       if (user && account) {
         return {
-          ...token,
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
           accessTokenExpires: user.accessTokenExpires,
@@ -91,13 +90,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Handle session update
       if (trigger === "update" && session?.user) {
         console.log("[AUTH] JWT Update Triggered:", session.user);
-        return {
+        const newToken = {
           ...token,
           user: {
             ...(token.user as any),
             ...session.user,
           }
         };
+        // If we are updating the session, we should probably clear any error
+        delete (newToken as any).error;
+        return newToken;
       }
 
       // Return previous token if the access token has not expired yet
@@ -115,6 +117,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           ...token.user,
         };
         session.accessToken = token.accessToken as string;
+        if (token.error) {
+          (session as any).error = token.error;
+        }
       }
       return session;
     },

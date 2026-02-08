@@ -12,6 +12,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
 import { useParams } from 'next/navigation';
+import Image from 'next/image';
 
 export default function UserMenu() {
     const { data: session, status } = useSession();
@@ -20,6 +21,7 @@ export default function UserMenu() {
     const tAuth = useTranslations('Auth');
     const { locale } = useParams();
     const [open, setOpen] = useState(false);
+    const [imageError, setImageError] = useState(false);
 
     // 显示加载骨架屏
     if (status === 'loading') {
@@ -47,11 +49,19 @@ export default function UserMenu() {
                     onMouseEnter={() => setOpen(true)}
                     className="flex items-center gap-2 p-1 pr-3 rounded-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all outline-none group"
                 >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform">
-                        {user.avatar_url ? (
-                            <img src={user.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform overflow-hidden relative">
+                        {user.avatar_url && !imageError ? (
+                            <Image 
+                                src={user.avatar_url} 
+                                alt="Avatar" 
+                                width={32} 
+                                height={32} 
+                                className="w-full h-full object-cover"
+                                onError={() => setImageError(true)}
+                                unoptimized={true} // Since we proxy to a different port, Next.js optimization might fail in dev without proper loader
+                            />
                         ) : (
-                            user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()
+                            <span>{user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()}</span>
                         )}
                     </div>
                     <span className="text-xs font-bold text-slate-600 dark:text-slate-300 hidden md:block">
