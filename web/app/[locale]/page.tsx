@@ -23,12 +23,15 @@ import IntelligenceCard from '@/components/IntelligenceCard';
 import Paginator from '@/components/Paginator';
 import ThemeToggle from '@/components/ThemeToggle';
 import Link from 'next/link';
-import { Settings } from 'lucide-react';
+import { Settings, Terminal } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 
 
 export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = React.use(params);
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
+  const focusedCode = searchParams.get('code');
 
   const t = useTranslations('Dashboard');
   const tTable = useTranslations('Table');
@@ -323,76 +326,41 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   // const highUrgencyCount = liveIntelligence.filter(i => i.urgency_score >= 8).length; // 不再实时计算，使用全局状态
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-8 font-sans bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300">
-
-      {/* Error Alert */}
-      {error && (
-        <div className="mb-4">
-          <Alert variant="error" onClose={() => setError(null)}>
-            <div className="flex flex-col gap-2">
-              <p className="font-semibold">{tApp('failedToLoadData')}</p>
-              <p className="text-sm opacity-90">{error === tApp('failedToLoadData') ? tApp('checkConnection') : error}</p>
-              {retryCount >= 3 && (
-                <button
-                  onClick={handleRetry}
-                  className="mt-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-sm font-medium transition-colors w-fit"
-                >
-                  {tApp('retryNow')}
-                </button>
-              )}
-              {retryCount > 0 && retryCount < 3 && (
-                <p className="text-xs opacity-75">{tApp('autoRetrying', { retryCount })}</p>
-              )}
-            </div>
-          </Alert>
-        </div>
+    <div className="p-4 md:p-6 lg:p-8 flex flex-col gap-6">
+      
+      {focusedCode && (
+          <div className="animate-in slide-in-from-top-4 duration-500">
+              <Alert variant="info" className="bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 py-3 shadow-lg shadow-indigo-500/5">
+                  <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                              <Terminal className="w-4 h-4" />
+                          </div>
+                          <div>
+                              <div className="text-[10px] font-bold uppercase tracking-widest opacity-70">Trading Context Active</div>
+                              <div className="text-sm font-black font-data tracking-tight">Focused on Execution: {focusedCode}</div>
+                          </div>
+                      </div>
+                      <Link href={`/${locale}`}>
+                          <button className="p-1.5 hover:bg-indigo-500/20 rounded-full transition-colors">
+                              <X className="w-4 h-4" />
+                          </button>
+                      </Link>
+                  </div>
+              </Alert>
+          </div>
       )}
 
-      {/* 1. Brand Header (Scrolls away) */}
-      <header className="flex flex-col md:flex-row justify-between items-start gap-4 mb-2">
-        {/* Left: Brand Identity */}
-        <div>
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400 flex items-center gap-2 md:gap-3">
-            <span className="text-3xl md:text-4xl">🍍</span>
-            {t('title')}
-          </h1>
-          <p className="text-slate-500 font-mono text-[10px] md:text-xs mt-1 uppercase tracking-widest pl-11 md:pl-14">
-            {t('subtitle')}
-          </p>
-        </div>
+      {/* Narrative Ticker integrated into content top */}
+      <div className="w-full">
+        <AINarrativeTicker
+            items={liveIntelligence}
+            locale={locale}
+            getLocalizedText={getLocalizedText}
+        />
+      </div>
 
-        {/* Right: Utilities */}
-        <div className="flex items-center gap-4">
-          <div className="hidden lg:block mr-4 flex-1 max-w-4xl">
-            <AINarrativeTicker
-              items={liveIntelligence}
-              locale={locale}
-              getLocalizedText={getLocalizedText}
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <SystemStatus isConnected={isConnected} t={tApp} />
-            {session && session.user && (
-              <div className="flex items-center gap-2">
-                <Link
-                  href={`/${locale}/settings/profile`}
-                  className="p-1.5 text-slate-500 hover:text-blue-600 dark:hover:text-emerald-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-all"
-                  title="Settings"
-                >
-                  <Settings className="w-4 h-4" />
-                </Link>
-                <button
-                  onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
-                  className="px-3 py-1 text-xs font-semibold rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                >
-                  {tApp('logout', { email: session.user.email ?? '' })}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* Error Alert */}
 
       {/* 2. Sticky Toolbar (Tactical Cockpit: Alerts + Regime + Mini Charts) */}
       <div className="sticky top-0 z-50 bg-white/95 dark:bg-[#020617]/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800/50 -mx-4 px-4 md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 py-2 mb-6 shadow-2xl shadow-black/5">
@@ -636,13 +604,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           </Card>
         </div>
       </div>
-
-      {/* Floating Language Switcher */}
-      <div className="fixed bottom-6 right-6 z-50 shadow-2xl shadow-emerald-500/20">
-        <ThemeToggle t={tApp} />
-        <LanguageSwitcher />
-      </div>
-    </div >
+    </div>
   );
 }
 

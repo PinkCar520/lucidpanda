@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -6,6 +7,8 @@
   --foreground: #0f172a;
   --card-bg: #ffffff;
   --card-border: #e2e8f0;
+  
+  --font-mono: 'JetBrains Mono', monospace;
 
   /* Liquid Glass Variables */
   --lg-glass: #bbbbbc;
@@ -17,22 +20,36 @@
 }
 
 .dark {
-  /* Dark Mode (AlphaSignal Style) */
-  --background: #020617;
+  /* Dark Mode (Zen / Professional) */
+  --background: #020617; /* Slate 950 */
   --foreground: #f8fafc;
   --card-bg: rgba(15, 23, 42, 0.6);
-  --card-border: rgba(30, 41, 59, 0.6);
+  --card-border: rgba(30, 41, 59, 0.4);
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  /* 背景网格纹理 - 仅在深色模式下明显 */
-  background-image:
-    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.05) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(239, 68, 68, 0.05) 0px, transparent 50%);
+  font-family: var(--font-sans);
   min-height: 100vh;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.font-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Data Update Highlight Flash */
+@keyframes highlight-flash {
+  0% { background-color: transparent; }
+  10% { background-color: rgba(234, 179, 8, 0.2); } /* Gold tint */
+  100% { background-color: transparent; }
+}
+
+.animate-highlight {
+  animation: highlight-flash 1.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 玻璃拟态卡片效果 */

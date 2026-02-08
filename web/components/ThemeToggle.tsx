@@ -7,30 +7,14 @@ interface ThemeToggleProps {
     t: (key: string) => string;
 }
 
+import { useTheme } from '@/hooks/useTheme';
+
+interface ThemeToggleProps {
+    t: (key: string) => string;
+}
+
 export default function ThemeToggle({ t }: ThemeToggleProps) {
-    const [theme, setTheme] = useState<'light' | 'dark'>('dark');
-
-    // Initialize theme from localStorage or system preference
-    useEffect(() => {
-        const storedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-        if (storedTheme) {
-            setTheme(storedTheme);
-            document.documentElement.classList.toggle('dark', storedTheme === 'dark');
-        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            setTheme('dark');
-            document.documentElement.classList.add('dark');
-        } else {
-            setTheme('light');
-            document.documentElement.classList.remove('dark');
-        }
-    }, []);
-
-    const toggleTheme = () => {
-        const newTheme = theme === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
-        localStorage.setItem('theme', newTheme);
-        document.documentElement.classList.toggle('dark', newTheme === 'dark');
-    };
+    const { theme, toggleTheme } = useTheme();
 
     return (
         <button

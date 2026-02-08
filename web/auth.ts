@@ -31,8 +31,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return {
               id: data.user.id,
               email: data.user.email,
-              name: data.user.full_name,
+              name: data.user.name || data.user.full_name,
               role: data.user.role,
+              avatar_url: data.user.avatar_url,
+              nickname: data.user.nickname,
+              gender: data.user.gender,
+              birthday: data.user.birthday,
+              location: data.user.location,
+              language_preference: data.user.language_preference,
+              timezone: data.user.timezone,
+              theme_preference: data.user.theme_preference,
+              phone_number: data.user.phone_number,
+              is_phone_verified: data.user.is_phone_verified,
+              is_two_fa_enabled: data.user.is_two_fa_enabled,
+              created_at: data.user.created_at,
               accessToken: data.access_token,
               refreshToken: data.refresh_token,
               accessTokenExpires: Date.now() + data.expires_in * 1000,
@@ -57,9 +69,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           accessTokenExpires: user.accessTokenExpires,
           user: {
             id: user.id,
-            email: user.email,
+            email: user.email!,
             name: user.name,
-            role: user.role,
+            role: user.role!,
+            avatar_url: user.avatar_url,
+            nickname: user.nickname,
+            gender: user.gender,
+            birthday: user.birthday,
+            location: user.location,
+            language_preference: user.language_preference,
+            timezone: user.timezone,
+            theme_preference: user.theme_preference,
+            phone_number: user.phone_number,
+            is_phone_verified: user.is_phone_verified,
+            is_two_fa_enabled: user.is_two_fa_enabled,
+            created_at: user.created_at,
           },
         };
       }
@@ -73,8 +97,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return refreshAccessToken(token);
     },
     async session({ session, token }) {
-      if (token) {
-        session.user = token.user as any;
+      if (token && token.user) {
+        session.user = {
+          ...session.user,
+          ...token.user,
+        };
         session.accessToken = token.accessToken as string;
       }
       return session;

@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Zap, ExternalLink } from 'lucide-react';
 import { Intelligence } from '@/lib/db';
 import { useTranslations } from 'next-intl';
+import { useHighlight } from '@/hooks/useHighlight';
 
 interface IntelligenceCardProps {
     item: Intelligence;
@@ -26,6 +27,9 @@ const IntelligenceCard = memo(function IntelligenceCard({
 }: IntelligenceCardProps) {
     const td = useTranslations('DimensionD');
     const badgeVariant = isBearish ? 'bearish' : 'bullish';
+    
+    // Trigger highlight when content or summary changes
+    const highlightClass = useHighlight(item.id); 
 
     // Time Decay Logic (Quant Standard)
     const timeDiff = Date.now() - new Date(item.timestamp).getTime();
@@ -47,7 +51,7 @@ const IntelligenceCard = memo(function IntelligenceCard({
     return (
         <div style={style} className={`transition-opacity duration-500 ${decayClass}`}>
             <Card
-                className="flex-shrink-0 group hover:bg-white dark:hover:bg-slate-800/40 transition-all duration-200 border border-slate-100 dark:border-slate-800 hover:border-[#165dfc] dark:hover:border-[#165dfc] hover:shadow-md dark:hover:shadow-none h-[calc(100%-12px)] mb-3 overflow-hidden relative"
+                className={`flex-shrink-0 group hover:bg-white dark:hover:bg-slate-800/40 transition-all duration-200 border border-slate-100 dark:border-slate-800 hover:border-[#165dfc] dark:hover:border-[#165dfc] hover:shadow-md dark:hover:shadow-none h-[calc(100%-12px)] mb-3 overflow-hidden relative ${highlightClass}`}
             >
                 <div className="flex justify-between items-start mb-2">
                     <div className="flex gap-2">
@@ -58,7 +62,7 @@ const IntelligenceCard = memo(function IntelligenceCard({
                             {getLocalizedText(item.sentiment, locale)}
                         </Badge>
                     </div>
-                    <span className="text-slate-400 dark:text-slate-600 text-[10px] font-mono">
+                    <span className="text-slate-400 dark:text-slate-600 text-[10px] font-data">
                         {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} (UTC)
                     </span>
                 </div>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react'; // Added missing import
-import { useRouter } from 'next/navigation'; // Added missing import
+import { useRouter, useSearchParams } from 'next/navigation'; // Added missing import
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Search, RefreshCw, ArrowUp, ArrowDown, PieChart, X, Target, Scale, Anchor, AlertTriangle } from 'lucide-react';
@@ -64,6 +64,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
   const { locale } = React.use(params);
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations('Funds');
   const tApp = useTranslations('App');
 
@@ -91,13 +92,18 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
 
 
-    // Load selected fund preference from local storage (UI preference only)
+    // Load selected fund preference from local storage or URL
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            const stored = localStorage.getItem('fund_selected');
-            if (stored) setSelectedFund(stored);
+            const queryCode = searchParams.get('code');
+            if (queryCode) {
+                setSelectedFund(queryCode);
+            } else {
+                const stored = localStorage.getItem('fund_selected');
+                if (stored) setSelectedFund(stored);
+            }
         }
-    }, []);
+    }, [searchParams]);
 
     // Unified batch fetch function
     const fetchBatchValuation = async (codes: string[]) => {
@@ -420,22 +426,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     };
 
     return (
-        <div className="min-h-screen lg:h-screen flex flex-col p-4 md:p-6 lg:p-8 font-sans bg-white dark:bg-[#020617] text-slate-900 dark:text-slate-100 transition-colors duration-300 lg:overflow-hidden">
-            <header className="mb-4 lg:mb-8 shrink-0 flex justify-between items-start">
-                <div>
-                    <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400 flex items-center gap-3">
-                        <span>💎</span>
-                        {t('title')}
-                    </h1>
-                    <p className="text-slate-500 font-mono text-[10px] lg:text-xs mt-1 uppercase tracking-widest pl-10 lg:pl-12">
-                        {t('subtitle')}
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <ThemeToggle t={tApp} />
-                </div>
-            </header>
-
+        <div className="flex flex-col p-4 md:p-6 lg:p-8 gap-6 h-full min-h-0 overflow-hidden">
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
                 {/* Left: Watchlist (Mobile: Toggleable, Desktop: Fixed Sidebar) */}
                 <div className="lg:col-span-4 flex flex-col gap-4 min-h-0">
@@ -829,11 +820,6 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                         </div>
                     )}
                 </div>
-            </div>
-
-            {/* Floating Language Switcher */}
-            <div className="fixed bottom-6 right-6 z-50">
-                <LanguageSwitcher />
             </div>
         </div>
     );

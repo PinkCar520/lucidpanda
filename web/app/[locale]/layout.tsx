@@ -4,6 +4,7 @@ import "../globals.css";
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getTranslations } from 'next-intl/server';
 import { SessionProvider } from 'next-auth/react'; // Import SessionProvider
+import Shell from '@/components/Shell';
 
 export async function generateMetadata({
     params
@@ -33,10 +34,12 @@ export default async function LocaleLayout({
 
     return (
         <html lang={locale}>
-            <body className="antialiased">
+            <body className="antialiased font-sans">
                 <NextIntlClientProvider messages={messages}>
                     <SessionProvider> {/* Wrap children with SessionProvider */}
-                        {children}
+                        <Shell>
+                            {children}
+                        </Shell>
                     </SessionProvider>
                 </NextIntlClientProvider>
             </body>

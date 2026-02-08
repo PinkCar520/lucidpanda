@@ -4,7 +4,7 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
-import { User, Shield, ChevronLeft } from 'lucide-react';
+import { User, Shield, Bell, Key, LayoutDashboard, ChevronLeft } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -20,6 +20,11 @@ export default function SettingsLayout({
 
   const navItems = [
     {
+      label: t('accountOverview'),
+      href: `/${locale}/settings/account`,
+      icon: LayoutDashboard,
+    },
+    {
       label: t('profile'),
       href: `/${locale}/settings/profile`,
       icon: User,
@@ -28,6 +33,16 @@ export default function SettingsLayout({
       label: t('security'),
       href: `/${locale}/settings/security`,
       icon: Shield,
+    },
+    {
+      label: t('notifications'),
+      href: `/${locale}/settings/notifications`,
+      icon: Bell,
+    },
+    {
+      label: t('apiKeys'),
+      href: `/${locale}/settings/api-keys`,
+      icon: Key,
     },
   ];
 
@@ -79,15 +94,10 @@ export default function SettingsLayout({
           {/* Main Content */}
           <main className="md:col-span-9 bg-slate-50/50 dark:bg-slate-900/20 rounded-2xl p-6 border border-slate-200 dark:border-slate-800/50 min-h-[500px]">
             {children}
-          </main>
-        </div>
-      </div>
-
-      {/* Floating Utilities */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <ThemeToggle t={tApp} />
-        <LanguageSwitcher />
-      </div>
-    </div>
-  );
-}
+                    </main>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          
