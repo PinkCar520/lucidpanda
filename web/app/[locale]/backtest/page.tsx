@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter, usePathname } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import BacktestStats from '@/components/BacktestStats';
-import { Loader2, Activity, Play, Settings, History } from 'lucide-react';
+import { Activity, Play, Settings, History } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 
 const STORAGE_KEY = 'backtest_config';
@@ -17,14 +17,13 @@ export default function BacktestPage() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
-    const [loading, setLoading] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
 
     // Initial state logic: URL > LocalStorage > Defaults
     const getInitialConfig = () => {
-        const urlW = searchParams.get('w') as '1h' | '24h';
+        const urlW = searchParams.get('w') as '1h' | '24h' | null;
         const urlS = searchParams.get('s');
-        const urlDir = searchParams.get('dir') as 'bearish' | 'bullish';
+        const urlDir = searchParams.get('dir') as 'bearish' | 'bullish' | null;
 
         let stored: any = {};
         if (typeof window !== 'undefined') {

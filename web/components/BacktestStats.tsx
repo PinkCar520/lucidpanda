@@ -3,12 +3,14 @@
 import React, { useMemo } from 'react';
 import { Card } from './ui/Card';
 import { Intelligence } from '@/lib/db';
-import { TrendingDown, TrendingUp, Activity, CheckCircle2, Settings, AlertTriangle } from 'lucide-react';
+import { TrendingDown, TrendingUp, Activity, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import AnimatedNumber from './AnimatedNumber';
+import { motion } from 'framer-motion';
 
 interface BacktestStatsProps {
     intelligence: Intelligence[];
-    marketData: any;
+    marketData: any; // Keeping any for now as it's defined elsewhere this way
     showConfig?: boolean;
     window?: '1h' | '24h';
     minScore?: number;
@@ -17,8 +19,6 @@ interface BacktestStatsProps {
 }
 
 export default function BacktestStats({ 
-    intelligence, 
-    marketData, 
     showConfig = false,
     window: initialWindow = '1h',
     minScore: initialMinScore = 8,
@@ -39,21 +39,31 @@ export default function BacktestStats({
         sessionStats?: Array<{ session: string; count: number; winRate: number; avgDrop: number }>;
     } | null>(null);
     
-    // Configuration State
+    // Configuration State - Initialize directly from props to avoid sync effect
     const [window, setWindow] = React.useState<'1h' | '24h'>(initialWindow);
     const [minScore, setMinScore] = React.useState(initialMinScore);
     const [debouncedMinScore, setDebouncedMinScore] = React.useState(initialMinScore);
     const [sentiment, setSentiment] = React.useState<'bearish' | 'bullish'>(initialSentiment);
 
-    // Sync state from props if they change externally (e.g. initial load from URL)
+    // Sync state from props ONLY when they change externally (e.g. initial load from URL)
+    // Use a ref to track if it's the first mount to avoid redundant internal state updates
+    const isFirstMount = React.useRef(true);
     React.useEffect(() => {
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            return;
+        }
         setWindow(initialWindow);
         setMinScore(initialMinScore);
         setSentiment(initialSentiment);
+        setDebouncedMinScore(initialMinScore);
     }, [initialWindow, initialMinScore, initialSentiment]);
 
     // Debounce minScore and trigger onConfigChange
     React.useEffect(() => {
+        // If values match already, don't trigger anything
+        if (debouncedMinScore === minScore) return;
+
         const handler = setTimeout(() => {
             setDebouncedMinScore(minScore);
             onConfigChange?.({ window, minScore, sentiment });
@@ -62,7 +72,16 @@ export default function BacktestStats({
         return () => {
             clearTimeout(handler);
         };
-    }, [minScore, window, sentiment, onConfigChange]);
+    }, [minScore, debouncedMinScore, window, sentiment, onConfigChange]);
+
+    // Separate effect for immediate config changes (window/sentiment)
+    React.useEffect(() => {
+        // Only trigger if window or sentiment changed and they don't match initial props
+        // to avoid infinite loops or redundant calls on mount
+        if (window !== initialWindow || sentiment !== initialSentiment) {
+            onConfigChange?.({ window, minScore, sentiment });
+        }
+    }, [window, initialWindow, sentiment, initialSentiment, minScore, onConfigChange]);
 
     React.useEffect(() => {
         const fetchStats = async () => {
@@ -83,7 +102,7 @@ export default function BacktestStats({
         };
 
         fetchStats();
-    }, [intelligence, window, debouncedMinScore, sentiment]);
+    }, [window, debouncedMinScore, sentiment]); 
 
     const bestSession = useMemo(() => {
         if (!stats?.sessionStats || stats.sessionStats.length === 0) return null;
@@ -95,7 +114,6 @@ export default function BacktestStats({
     const accentColorClass = isBearish ? 'text-blue-600 dark:text-emerald-500' : 'text-emerald-600 dark:text-blue-500';
     const borderAccentClass = isBearish ? 'border-blue-100 dark:border-emerald-500/20' : 'border-emerald-100 dark:border-blue-500/20';
     const bgAccentClass = isBearish ? 'bg-blue-100 dark:bg-emerald-500/20' : 'bg-emerald-100 dark:bg-blue-500/20';
-    const winRateBgClass = isBearish ? 'bg-blue-500/50' : 'bg-emerald-500/50';
 
     if (!stats && loading) return (
         <div className="mb-6 p-12 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg text-center flex flex-col items-center justify-center gap-3">
@@ -210,7 +228,14 @@ export default function BacktestStats({
                         <div>
                             <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">{t(isBearish ? 'bearishSignals' : 'bullishSignals', { score: minScore })}</p>
                             <div className={`flex items-baseline gap-1 ${loading ? 'animate-pulse' : ''}`}>
-                                <span className="text-3xl font-mono text-slate-900 dark:text-white font-black">{loading ? '--' : stats?.count || 0}</span>
+                                {loading ? (
+                                    <span className="text-3xl font-mono text-slate-900 dark:text-white font-black">--</span>
+                                ) : (
+                                    <AnimatedNumber 
+                                        value={stats?.count || 0} 
+                                        className="text-3xl font-mono text-slate-900 dark:text-white font-black"
+                                    />
+                                )}
                                 <span className="text-sm text-slate-400 dark:text-slate-500">{t('events')}</span>
                             </div>
                         </div>
@@ -228,10 +253,20 @@ export default function BacktestStats({
                                 {t('adjAccuracy')}
                             </p>
                             <div className={`flex items-baseline gap-1 ${loading ? 'animate-pulse' : ''}`}>
-                                <span className={`text-3xl font-mono font-black ${stats?.adjWinRate && stats.adjWinRate > 50 ? (isBearish ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400') : 'text-slate-600 dark:text-slate-300'}`}>
-                                    {loading ? '--' : (stats?.adjWinRate?.toFixed(0) || '0')}%
-                                </span>
-                                {!loading && stats && <span className="text-xs text-slate-400 dark:text-slate-600 line-through decoration-slate-200 dark:decoration-slate-700">({stats.winRate.toFixed(0)}%)</span>}
+                                {loading ? (
+                                    <span className="text-3xl font-mono font-black text-slate-600 dark:text-slate-300">--%</span>
+                                ) : (
+                                    <AnimatedNumber 
+                                        value={stats?.adjWinRate || 0}
+                                        suffix="%"
+                                        className={`text-3xl font-mono font-black ${stats?.adjWinRate && stats.adjWinRate > 50 ? (isBearish ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400') : 'text-slate-600 dark:text-slate-300'}`}
+                                    />
+                                )}
+                                {!loading && stats && (
+                                    <div className="text-xs text-slate-400 dark:text-slate-600 line-through decoration-slate-200 dark:decoration-slate-700 flex">
+                                        (<AnimatedNumber value={stats.winRate} suffix="%" />)
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <TrendingUp className={`w-5 h-5 ${stats?.adjWinRate && stats.adjWinRate > 50 ? (isBearish ? 'text-blue-500/30' : 'text-emerald-500/50') : 'text-slate-300 dark:text-slate-700'}`} />
@@ -245,9 +280,17 @@ export default function BacktestStats({
                                 {t(isBearish ? 'avgDrop' : 'avgGain')}
                             </p>
                             <div className={`flex items-baseline gap-1 ${loading ? 'animate-pulse' : ''}`}>
-                                <span className={`text-3xl font-mono font-black ${stats?.avgDrop && stats.avgDrop !== 0 ? (isBearish ? 'text-rose-600' : 'text-emerald-600') : 'text-slate-600 dark:text-slate-400'}`}>
-                                    {loading ? '--' : (isBearish ? (stats?.avgDrop && stats.avgDrop > 0 ? '↓' : '') : (stats?.avgDrop && stats.avgDrop < 0 ? '↑' : '')) + ' ' + Math.abs(stats?.avgDrop || 0).toFixed(2)}%
-                                </span>
+                                {loading ? (
+                                    <span className="text-3xl font-mono font-black text-slate-600 dark:text-slate-400">--%</span>
+                                ) : (
+                                    <AnimatedNumber 
+                                        value={Math.abs(stats?.avgDrop || 0)}
+                                        precision={2}
+                                        suffix="%"
+                                        prefix={isBearish ? (stats?.avgDrop && stats.avgDrop > 0 ? '↓ ' : '') : (stats?.avgDrop && stats.avgDrop < 0 ? '↑ ' : '')}
+                                        className={`text-3xl font-mono font-black ${stats?.avgDrop && stats.avgDrop !== 0 ? (isBearish ? 'text-rose-600' : 'text-emerald-600') : 'text-slate-600 dark:text-slate-400'}`}
+                                    />
+                                )}
                             </div>
                         </div>
                         {isBearish ? (
@@ -267,13 +310,13 @@ export default function BacktestStats({
                             <div className="flex justify-between items-center text-[10px]">
                                 <span className="text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{t('density')}</span>
                                 <span className={`font-mono font-bold ${stats?.hygiene && stats.hygiene.avgClustering > 2 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                                    {loading ? '-' : stats?.hygiene?.avgClustering.toFixed(1)}
+                                    {loading ? '-' : <AnimatedNumber value={stats?.hygiene?.avgClustering || 0} precision={1} />}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center text-[10px]">
                                 <span className="text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{t('exhaustion')}</span>
                                 <span className={`font-mono font-bold ${stats?.hygiene && stats.hygiene.avgExhaustion > 4 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                                    {loading ? '-' : stats?.hygiene?.avgExhaustion.toFixed(1)}
+                                    {loading ? '-' : <AnimatedNumber value={stats?.hygiene?.avgExhaustion || 0} precision={1} />}
                                 </span>
                             </div>
                         </div>
@@ -292,19 +335,33 @@ export default function BacktestStats({
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase">{t('strongUsd')}</span>
-                                        <span className={`text-[10px] font-mono ${isBearish ? 'text-emerald-600' : 'text-blue-600'} font-bold`}>{stats.correlation['DXY_STRONG']?.winRate.toFixed(0)}% {t('win')}</span>
+                                        <span className={`text-[10px] font-mono ${isBearish ? 'text-emerald-600' : 'text-blue-600'} font-bold flex`}>
+                                            <AnimatedNumber value={stats.correlation['DXY_STRONG']?.winRate || 0} suffix="%" /> 
+                                            <span className="ml-1">{t('win')}</span>
+                                        </span>
                                     </div>
                                     <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <div className={`h-full ${isBearish ? 'bg-emerald-500/50' : 'bg-blue-500/50'}`} style={{ width: `${stats.correlation['DXY_STRONG']?.winRate || 0}%` }}></div>
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${stats.correlation['DXY_STRONG']?.winRate || 0}%` }}
+                                            className={`h-full ${isBearish ? 'bg-emerald-500/50' : 'bg-blue-500/50'}`} 
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2 opacity-60">
                                     <div className="flex justify-between items-center px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase">{t('weakUsd')}</span>
-                                        <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold">{stats.correlation['DXY_WEAK']?.winRate.toFixed(0)}% {t('win')}</span>
+                                        <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold flex">
+                                            <AnimatedNumber value={stats.correlation['DXY_WEAK']?.winRate || 0} suffix="%" /> 
+                                            <span className="ml-1">{t('win')}</span>
+                                        </span>
                                     </div>
                                     <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <div className="h-full bg-slate-400 dark:bg-slate-700" style={{ width: `${stats.correlation['DXY_WEAK']?.winRate || 0}%` }}></div>
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${stats.correlation['DXY_WEAK']?.winRate || 0}%` }}
+                                            className="h-full bg-slate-400 dark:bg-slate-700" 
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -322,19 +379,30 @@ export default function BacktestStats({
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase">{t('overcrowdedLong')}</span>
-                                        <span className="text-[10px] font-mono text-amber-600 dark:text-amber-500 font-bold">{stats.positioning['OVERCROWDED_LONG']?.winRate.toFixed(0) || 0}% {t('win')}</span>
+                                        <span className="text-[10px] font-mono text-amber-600 dark:text-amber-500 font-bold flex">
+                                            <AnimatedNumber value={stats.positioning['OVERCROWDED_LONG']?.winRate || 0} suffix="%" />
+                                            <span className="ml-1">{t('win')}</span>
+                                        </span>
                                     </div>
                                     <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <div className="h-full bg-amber-500/50" style={{ width: `${stats.positioning['OVERCROWDED_LONG']?.winRate || 0}%` }}></div>
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${stats.positioning['OVERCROWDED_LONG']?.winRate || 0}%` }}
+                                            className="h-full bg-amber-500/50" 
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase">{t('neutralRange')}</span>
-                                        <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold">
-                                            {(((stats.positioning['NEUTRAL_POSITION']?.winRate || 0) * (stats.positioning['NEUTRAL_POSITION']?.count || 0) +
-                                                (stats.positioning['OVERCROWDED_SHORT']?.winRate || 0) * (stats.positioning['OVERCROWDED_SHORT']?.count || 0)) /
-                                                Math.max(1, (stats.positioning['NEUTRAL_POSITION']?.count || 0) + (stats.positioning['OVERCROWDED_SHORT']?.count || 0))).toFixed(0)}% {t('win')}
+                                        <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold flex">
+                                            <AnimatedNumber 
+                                                value={(((stats.positioning['NEUTRAL_POSITION']?.winRate || 0) * (stats.positioning['NEUTRAL_POSITION']?.count || 0) +
+                                                    (stats.positioning['OVERCROWDED_SHORT']?.winRate || 0) * (stats.positioning['OVERCROWDED_SHORT']?.count || 0)) /
+                                                    Math.max(1, (stats.positioning['NEUTRAL_POSITION']?.count || 0) + (stats.positioning['OVERCROWDED_SHORT']?.count || 0)))}
+                                                suffix="%"
+                                            />
+                                            <span className="ml-1">{t('win')}</span>
                                         </span>
                                     </div>
                                     <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
@@ -356,19 +424,33 @@ export default function BacktestStats({
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase">{t('highVol')}</span>
-                                        <span className={`text-[10px] font-mono ${isBearish ? 'text-rose-600' : 'text-emerald-600'} font-bold`}>{stats.volatility['HIGH_VOL']?.winRate.toFixed(0) || 0}% {t('win')}</span>
+                                        <span className={`text-[10px] font-mono ${isBearish ? 'text-rose-600' : 'text-emerald-600'} font-bold flex`}>
+                                            <AnimatedNumber value={stats.volatility['HIGH_VOL']?.winRate || 0} suffix="%" />
+                                            <span className="ml-1">{t('win')}</span>
+                                        </span>
                                     </div>
                                     <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <div className={`h-full ${isBearish ? 'bg-rose-500/50' : 'bg-emerald-500/50'}`} style={{ width: `${stats.volatility['HIGH_VOL']?.winRate || 0}%` }}></div>
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${stats.volatility['HIGH_VOL']?.winRate || 0}%` }}
+                                            className={`h-full ${isBearish ? 'bg-rose-500/50' : 'bg-emerald-500/50'}`} 
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <div className="flex justify-between items-center px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase">{t('lowVol')}</span>
-                                        <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold">{stats.volatility['LOW_VOL']?.winRate.toFixed(0) || 0}% {t('win')}</span>
+                                        <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold flex">
+                                            <AnimatedNumber value={stats.volatility['LOW_VOL']?.winRate || 0} suffix="%" />
+                                            <span className="ml-1">{t('win')}</span>
+                                        </span>
                                     </div>
                                     <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <div className="h-full bg-slate-400 dark:bg-slate-700" style={{ width: `${stats.volatility['LOW_VOL']?.winRate || 0}%` }}></div>
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${stats.volatility['LOW_VOL']?.winRate || 0}%` }}
+                                            className="h-full bg-slate-400 dark:bg-slate-700" 
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -398,10 +480,10 @@ export default function BacktestStats({
                                         </div>
                                         <div className="flex items-baseline gap-2">
                                             <span className={`text-base font-mono font-bold ${s ? 'text-slate-900 dark:text-white' : 'text-slate-300 dark:text-slate-700'}`}>
-                                                {s ? `${s.winRate.toFixed(0)}%` : '-%'}
+                                                {s ? <AnimatedNumber value={s.winRate} suffix="%" /> : '-%'}
                                             </span>
-                                            <span className="text-[10px] text-slate-400 dark:text-slate-600 font-mono">
-                                                n={s?.count || 0}
+                                            <span className="text-[10px] text-slate-400 dark:text-slate-600 font-mono flex">
+                                                n=<AnimatedNumber value={s?.count || 0} />
                                             </span>
                                         </div>
                                     </div>
