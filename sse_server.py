@@ -733,30 +733,6 @@ async def get_24h_alerts_count():
         print(f"[API] 24h Alerts error: {e}")
         return {"error": str(e)}
 
-@app.get("/api/intelligence/{item_id}")
-async def get_intelligence_item(item_id: int):
-    """Fetch a single intelligence item by ID."""
-    try:
-        conn = psycopg2.connect(
-            host=settings.POSTGRES_HOST,
-            port=settings.POSTGRES_PORT,
-            user=settings.POSTGRES_USER,
-            password=settings.POSTGRES_PASSWORD,
-            dbname=settings.POSTGRES_DB
-        )
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT * FROM intelligence WHERE id = %s", (item_id,))
-        item = cursor.fetchone()
-        conn.close()
-        
-        if not item:
-            return {"error": "Item not found"}, 404
-            
-        return item
-    except Exception as e:
-        print(f"[API] Fetch intelligence error: {e}")
-        return {"error": str(e)}, 500
-
 @app.get("/api/intelligence/stream")
 async def intelligence_stream(request: Request):
     """
@@ -839,6 +815,30 @@ async def intelligence_stream(request: Request):
             "X-Accel-Buffering": "no",
         }
     )
+
+@app.get("/api/intelligence/{item_id}")
+async def get_intelligence_item(item_id: int):
+    """Fetch a single intelligence item by ID."""
+    try:
+        conn = psycopg2.connect(
+            host=settings.POSTGRES_HOST,
+            port=settings.POSTGRES_PORT,
+            user=settings.POSTGRES_USER,
+            password=settings.POSTGRES_PASSWORD,
+            dbname=settings.POSTGRES_DB
+        )
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT * FROM intelligence WHERE id = %s", (item_id,))
+        item = cursor.fetchone()
+        conn.close()
+        
+        if not item:
+            return {"error": "Item not found"}, 404
+            
+        return item
+    except Exception as e:
+        print(f"[API] Fetch intelligence error: {e}")
+        return {"error": str(e)}, 500
 
 @app.get("/health")
 async def health_check():
