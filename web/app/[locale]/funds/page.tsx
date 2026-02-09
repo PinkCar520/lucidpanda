@@ -232,10 +232,10 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
                 {/* Left: Watchlist (Mobile: Toggleable, Desktop: Fixed Sidebar) */}
                 <div className="lg:col-span-4 flex flex-col gap-4 min-h-0">
-                    {/* Mobile Fund Switcher / Current Indicator - STICKY on Mobile */}
+                    {/* Mobile Fund Switcher / Current Indicator - STICKY Apple Style Glass */}
                     <div
                         onClick={() => setIsWatchlistOpen(!isWatchlistOpen)}
-                        className="flex lg:hidden sticky top-0 z-30 items-center justify-between p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer active:bg-slate-100 dark:active:bg-slate-800 transition-colors shadow-sm"
+                        className="flex lg:hidden sticky top-0 z-30 items-center justify-between p-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl saturate-150 rounded-xl border border-slate-200/60 dark:border-slate-800/60 cursor-pointer active:bg-slate-100/50 dark:active:bg-slate-800/50 transition-all shadow-sm"
                     >
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">{t('currentlyViewing') || 'CURRENTLY VIEWING'}</span>
@@ -301,7 +301,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                             try {
                                                 const res = await authenticatedFetch('/api/watchlist', session, {
                                                     method: 'POST',
-                                                    headers: {
+                                                    headers: { 
                                                         'Content-Type': 'application/json'
                                                     },
                                                     body: JSON.stringify({ code, name })

@@ -26,7 +26,7 @@ export default function UserMenu() {
     // 显示加载骨架屏
     if (status === 'loading') {
         return (
-            <div className="flex items-center gap-2 p-1 pr-3 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 animate-pulse">
+            <div className="flex items-center gap-2 p-1 md:pr-3 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 animate-pulse">
                 <div className="w-8 h-8 rounded-full bg-slate-300 dark:bg-slate-600"></div>
                 <div className="w-12 h-3 rounded bg-slate-300 dark:bg-slate-600 hidden md:block"></div>
             </div>
@@ -47,9 +47,9 @@ export default function UserMenu() {
             <DropdownMenu.Trigger asChild>
                 <button 
                     onMouseEnter={() => setOpen(true)}
-                    className="flex items-center gap-2 p-1 pr-3 rounded-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all outline-none group"
+                    className="flex items-center gap-2 p-0.5 md:p-1 md:pr-3 rounded-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:border-blue-500/50 transition-all outline-none group"
                 >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform overflow-hidden relative">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform overflow-hidden relative shrink-0">
                         {user.avatar_url && !imageError ? (
                             <Image 
                                 src={user.avatar_url} 
