@@ -341,10 +341,28 @@ async def get_backtest_stats(request: Request):
         else:
             keywords = "鸽|利多|上涨|积极|Bullish|Dovish|Positive|Safe-haven|Support"
             win_condition = "exit > entry" # Profit from price rise
+
+        # Clustering Logic: Group signals within 30 minutes and pick the first one
+        cluster_window = "30 minutes"
         
         # 1. Global Stats (Raw)
         query_global = f"""
-        WITH qualified_events AS (
+        WITH filtered_intelligence AS (
+            -- This CTE removes clustered signals: only the first signal in a 30min window is kept
+            SELECT *,
+                   LAG(timestamp) OVER (ORDER BY timestamp ASC) as prev_timestamp
+            FROM intelligence
+            WHERE urgency_score >= %(min_score)s
+              AND (sentiment::text ~* %(keywords)s)
+              AND gold_price_snapshot IS NOT NULL 
+              AND {outcome_col} IS NOT NULL
+        ),
+        deduplicated_events AS (
+            SELECT * FROM filtered_intelligence
+            WHERE prev_timestamp IS NULL 
+               OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+        ),
+        qualified_events AS (
             SELECT 
                 gold_price_snapshot as entry,
                 {outcome_col} as exit,
@@ -353,12 +371,7 @@ async def get_backtest_stats(request: Request):
                 dxy_snapshot,
                 us10y_snapshot,
                 gvz_snapshot
-            FROM intelligence 
-            WHERE 
-                urgency_score >= %(min_score)s
-                AND (sentiment::text ~* %(keywords)s)
-                AND gold_price_snapshot IS NOT NULL 
-                AND {outcome_col} IS NOT NULL
+            FROM deduplicated_events
         )
         SELECT 
             COUNT(*) as count,
@@ -380,18 +393,27 @@ async def get_backtest_stats(request: Request):
         
         # 2. Session Stats
         query_session = f"""
-        WITH qualified_events AS (
+        WITH filtered_intelligence AS (
+            SELECT *,
+                   LAG(timestamp) OVER (ORDER BY timestamp ASC) as prev_timestamp
+            FROM intelligence
+            WHERE urgency_score >= %(min_score)s
+              AND (sentiment::text ~* %(keywords)s)
+              AND gold_price_snapshot IS NOT NULL 
+              AND {outcome_col} IS NOT NULL
+              AND market_session IS NOT NULL
+        ),
+        deduplicated_events AS (
+            SELECT * FROM filtered_intelligence
+            WHERE prev_timestamp IS NULL 
+               OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+        ),
+        qualified_events AS (
             SELECT 
                 market_session,
                 gold_price_snapshot as entry,
                 {outcome_col} as exit
-            FROM intelligence 
-            WHERE 
-                urgency_score >= %(min_score)s
-                AND (sentiment::text ~* %(keywords)s)
-                AND gold_price_snapshot IS NOT NULL 
-                AND {outcome_col} IS NOT NULL
-                AND market_session IS NOT NULL
+            FROM deduplicated_events
         )
         SELECT 
             market_session,
@@ -405,14 +427,27 @@ async def get_backtest_stats(request: Request):
         # 3. Correlation Breakdown (DXY sensitivity)
         query_correlation = f"""
         WITH stats AS (SELECT AVG(dxy_snapshot) as mid FROM intelligence WHERE dxy_snapshot IS NOT NULL),
+        filtered_intelligence AS (
+            SELECT *,
+                   LAG(timestamp) OVER (ORDER BY timestamp ASC) as prev_timestamp
+            FROM intelligence
+            WHERE urgency_score >= %(min_score)s
+              AND (sentiment::text ~* %(keywords)s)
+              AND gold_price_snapshot IS NOT NULL 
+              AND {outcome_col} IS NOT NULL
+              AND dxy_snapshot IS NOT NULL
+        ),
+        deduplicated_events AS (
+            SELECT * FROM filtered_intelligence
+            WHERE prev_timestamp IS NULL 
+               OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+        ),
         qualified AS (
             SELECT 
                 gold_price_snapshot as entry,
                 {outcome_col} as exit,
                 dxy_snapshot
-            FROM intelligence, stats
-            WHERE urgency_score >= %(min_score)s AND (sentiment::text ~* %(keywords)s)
-            AND gold_price_snapshot IS NOT NULL AND {outcome_col} IS NOT NULL AND dxy_snapshot IS NOT NULL
+            FROM deduplicated_events, stats
         )
         SELECT 
             CASE WHEN dxy_snapshot > (SELECT mid FROM stats) THEN 'DXY_STRONG' ELSE 'DXY_WEAK' END as env,
@@ -424,22 +459,34 @@ async def get_backtest_stats(request: Request):
 
         # 4. Positioning Overhang (COT)
         query_positioning = f"""
-        WITH qualified AS (
+        WITH filtered_intelligence AS (
+            SELECT *,
+                   LAG(timestamp) OVER (ORDER BY timestamp ASC) as prev_timestamp
+            FROM intelligence
+            WHERE urgency_score >= %(min_score)s
+              AND (sentiment::text ~* %(keywords)s)
+              AND gold_price_snapshot IS NOT NULL 
+              AND {outcome_col} IS NOT NULL
+        ),
+        deduplicated_events AS (
+            SELECT * FROM filtered_intelligence
+            WHERE prev_timestamp IS NULL 
+               OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+        ),
+        qualified AS (
             SELECT 
                 i.gold_price_snapshot as entry,
                 i.{outcome_col} as exit,
                 (SELECT percentile FROM market_indicators 
                  WHERE indicator_name = 'COT_GOLD_NET' AND timestamp <= i.timestamp 
                  ORDER BY timestamp DESC LIMIT 1) as cot_pct
-            FROM intelligence i
-            WHERE i.urgency_score >= %(min_score)s AND (i.sentiment::text ~* %(keywords)s)
-            AND i.gold_price_snapshot IS NOT NULL AND i.{outcome_col} IS NOT NULL
+            FROM deduplicated_events i
         )
         SELECT 
             CASE 
                 WHEN cot_pct >= 85 THEN 'OVERCROWDED_LONG'
                 WHEN cot_pct <= 15 THEN 'OVERCROWDED_SHORT'
-                ELSE 'NEUTRAL_POSITION'
+                else 'NEUTRAL_POSITION'
             END as env,
             COUNT(*) as count,
             COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
@@ -450,14 +497,27 @@ async def get_backtest_stats(request: Request):
 
         # 5. Volatility Regime (GVZ)
         query_volatility = f"""
-        WITH qualified AS (
+        WITH filtered_intelligence AS (
+            SELECT *,
+                   LAG(timestamp) OVER (ORDER BY timestamp ASC) as prev_timestamp
+            FROM intelligence
+            WHERE urgency_score >= %(min_score)s
+              AND (sentiment::text ~* %(keywords)s)
+              AND gold_price_snapshot IS NOT NULL 
+              AND {outcome_col} IS NOT NULL
+              AND gvz_snapshot IS NOT NULL
+        ),
+        deduplicated_events AS (
+            SELECT * FROM filtered_intelligence
+            WHERE prev_timestamp IS NULL 
+               OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+        ),
+        qualified AS (
             SELECT 
                 gold_price_snapshot as entry,
                 {outcome_col} as exit,
                 gvz_snapshot
-            FROM intelligence
-            WHERE urgency_score >= %(min_score)s AND (sentiment::text ~* %(keywords)s)
-            AND gold_price_snapshot IS NOT NULL AND {outcome_col} IS NOT NULL AND gvz_snapshot IS NOT NULL
+            FROM deduplicated_events
         )
         SELECT 
             CASE WHEN gvz_snapshot > 25 THEN 'HIGH_VOL' ELSE 'LOW_VOL' END as env,
@@ -469,16 +529,28 @@ async def get_backtest_stats(request: Request):
         
         # 6. Macro Regime (Fed Basis)
         query_macro = f"""
-        WITH qualified AS (
+        WITH filtered_intelligence AS (
+            SELECT *,
+                   LAG(timestamp) OVER (ORDER BY timestamp ASC) as prev_timestamp
+            FROM intelligence
+            WHERE urgency_score >= %(min_score)s
+              AND (sentiment::text ~* %(keywords)s)
+              AND gold_price_snapshot IS NOT NULL 
+              AND {outcome_col} IS NOT NULL
+        ),
+        deduplicated_events AS (
+            SELECT * FROM filtered_intelligence
+            WHERE prev_timestamp IS NULL 
+               OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+        ),
+        qualified AS (
             SELECT 
                 i.gold_price_snapshot as entry,
                 i.{outcome_col} as exit,
                 (SELECT value FROM market_indicators 
                  WHERE indicator_name = 'FED_REGIME' AND timestamp <= i.timestamp 
                  ORDER BY timestamp DESC LIMIT 1) as fed_val
-            FROM intelligence i
-            WHERE i.urgency_score >= %(min_score)s AND (i.sentiment::text ~* %(keywords)s)
-            AND i.gold_price_snapshot IS NOT NULL AND i.{outcome_col} IS NOT NULL
+            FROM deduplicated_events i
         )
         SELECT 
             CASE 
@@ -494,7 +566,21 @@ async def get_backtest_stats(request: Request):
         
         # 7. Detailed Items
         query_items = f"""
-        WITH raw_items AS (
+        WITH filtered_intelligence AS (
+            SELECT *,
+                   LAG(timestamp) OVER (ORDER BY timestamp ASC) as prev_timestamp
+            FROM intelligence
+            WHERE urgency_score >= %(min_score)s
+              AND (sentiment::text ~* %(keywords)s)
+              AND gold_price_snapshot IS NOT NULL 
+              AND {outcome_col} IS NOT NULL
+        ),
+        deduplicated_events AS (
+            SELECT * FROM filtered_intelligence
+            WHERE prev_timestamp IS NULL 
+               OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+        ),
+        raw_items AS (
             SELECT 
                 id,
                 summary as title,
@@ -502,12 +588,7 @@ async def get_backtest_stats(request: Request):
                 urgency_score as score,
                 gold_price_snapshot as entry,
                 {outcome_col} as exit
-            FROM intelligence 
-            WHERE 
-                urgency_score >= %(min_score)s
-                AND (sentiment::text ~* %(keywords)s)
-                AND gold_price_snapshot IS NOT NULL 
-                AND {outcome_col} IS NOT NULL
+            FROM deduplicated_events
         )
         SELECT 
             *,
