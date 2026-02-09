@@ -511,8 +511,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
             onRangeChange={(range, interval) => setChartConfig({ range, interval })}
           />
 
-          {/* AI Backtest Stats */}
-          <BacktestStats intelligence={liveIntelligence} marketData={marketData} />
+          {/* AI Backtest Stats - Minimal Contextual Insight Mode */}
+          <BacktestStats intelligence={liveIntelligence} marketData={marketData} minimal={true} />
 
           {/* Strategy Matrix (Integrated into Right Column) */}
           <Card title={tTable('title')} className="min-h-[300px]" id="tactical-matrix">

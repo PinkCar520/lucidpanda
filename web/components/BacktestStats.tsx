@@ -31,6 +31,7 @@ interface BacktestStatsProps {
     intelligence: Intelligence[];
     marketData: unknown; 
     showConfig?: boolean;
+    minimal?: boolean;
     window?: '15m' | '1h' | '4h' | '12h' | '24h';
     minScore?: number;
     sentiment?: 'bearish' | 'bullish';
@@ -39,6 +40,7 @@ interface BacktestStatsProps {
 
 export default function BacktestStats({ 
     showConfig = false,
+    minimal = false,
     window: initialWindow = '1h',
     minScore: initialMinScore = 8,
     sentiment: initialSentiment = 'bearish',
@@ -158,42 +160,44 @@ export default function BacktestStats({
     );
 
     return (
-        <div className="flex flex-col gap-4 mb-6">
-            {/* Header with Toggle & Config Trigger */}
-            <div className="flex items-center justify-between px-1">
-                <div className="flex flex-col">
-                    <h3 className="text-xs font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                        <Activity className={`w-4 h-4 ${accentColorClass} ${loading ? 'animate-pulse' : ''}`} />
-                        {t('title')}
-                    </h3>
-                    <div className="flex gap-2 mt-1">
-                        <span className="text-[8px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-bold uppercase">
-                            {t('scoreLabel', { minScore })}
-                        </span>
-                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase ${isBearish ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                            {t(sentiment)}
-                        </span>
+        <div className={`flex flex-col gap-4 mb-6 ${minimal ? 'p-1' : ''}`}>
+            {/* Header with Toggle & Config Trigger - Hidden in Minimal Mode */}
+            {!minimal && (
+                <div className="flex items-center justify-between px-1">
+                    <div className="flex flex-col">
+                        <h3 className="text-xs font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <Activity className={`w-4 h-4 ${accentColorClass} ${loading ? 'animate-pulse' : ''}`} />
+                            {t('title')}
+                        </h3>
+                        <div className="flex gap-2 mt-1">
+                            <span className="text-[8px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-500 font-bold uppercase">
+                                {t('scoreLabel', { minScore })}
+                            </span>
+                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-black uppercase ${isBearish ? 'bg-rose-500/10 text-rose-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                                {t(sentiment)}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg p-1 overflow-x-auto">
+                            {(['15m', '1h', '4h', '12h', '24h'] as const).map((w) => (
+                                <button
+                                    key={w}
+                                    onClick={() => setWindow(w)}
+                                    disabled={loading}
+                                    className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all whitespace-nowrap ${window === w ? `bg-white dark:bg-slate-800 ${isBearish ? 'text-blue-600' : 'text-emerald-500'} shadow-sm` : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
+                                >
+                                    {t('window' + w)}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg p-1 overflow-x-auto">
-                        {(['15m', '1h', '4h', '12h', '24h'] as const).map((w) => (
-                            <button
-                                key={w}
-                                onClick={() => setWindow(w)}
-                                disabled={loading}
-                                className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all whitespace-nowrap ${window === w ? `bg-white dark:bg-slate-800 ${isBearish ? 'text-blue-600' : 'text-emerald-500'} shadow-sm` : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
-                            >
-                                {t('window' + w)}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            </div>
+            )}
 
-            {/* Inline Configuration Panel */}
-            {showConfig && (
+            {/* Inline Configuration Panel - Hidden in Minimal Mode */}
+            {showConfig && !minimal && (
                 <div className={`p-4 bg-slate-50 dark:bg-slate-900/60 border ${isBearish ? 'border-blue-500/30' : 'border-emerald-500/30'} rounded-xl animate-in slide-in-from-top-2 duration-300`}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="flex flex-col gap-1.5">
@@ -223,7 +227,7 @@ export default function BacktestStats({
                                 <button 
                                     onClick={() => setSentiment('bearish')}
                                     disabled={loading}
-                                    className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${sentiment === 'bearish' ? 'bg-rose-500 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'}`}
+                                    className={`flex-1 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${sentiment === 'bearish' ? 'bg-rose-50 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'}`}
                                 >
                                     {t('bearishSell')}
                                 </button>
@@ -253,11 +257,11 @@ export default function BacktestStats({
                     </div>
                 )}
 
-                <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 transition-opacity duration-300 ${stats && stats.count === 0 && !loading ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                <div className={`grid grid-cols-1 ${minimal ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 transition-opacity duration-300 ${stats && stats.count === 0 && !loading ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
                     {/* Stat 1: Signal Count */}
                     <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-lg p-4 flex items-center justify-between shadow-sm dark:shadow-none">
                         <div>
-                            <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">{t(isBearish ? 'bearishSignals' : 'bullishSignals', { score: minScore })}</p>
+                            <p className="text-slate-500 text-[10px] uppercase tracking-wider font-bold mb-1">{t(isBearish ? 'bearishSignals' : 'bullishSignals', { score: minScore })}</p>
                             <div className={`flex items-baseline gap-1 ${loading ? 'animate-pulse' : ''}`}>
                                 {loading ? (
                                     <span className="text-3xl font-mono text-slate-900 dark:text-white font-black">--</span>
@@ -270,16 +274,18 @@ export default function BacktestStats({
                                 <span className="text-sm text-slate-400 dark:text-slate-500">{t('events')}</span>
                             </div>
                         </div>
-                        <CheckCircle2 className="w-5 h-5 text-slate-300 dark:text-slate-700" />
+                        {!minimal && <CheckCircle2 className="w-5 h-5 text-slate-300 dark:text-slate-700" />}
                     </div>
 
                     {/* Stat 2: Adjusted Accuracy */}
                     <div className={`bg-slate-50 dark:bg-slate-900/40 border ${borderAccentClass} rounded-lg p-4 flex items-center justify-between relative overflow-hidden shadow-sm dark:shadow-none`}>
-                        <div className="absolute top-0 right-0 p-1">
-                            <span className={`${bgAccentClass} ${isBearish ? 'text-blue-600' : 'text-emerald-400'} text-[7px] px-1 rounded font-black uppercase`}>{t('adjusted')}</span>
-                        </div>
+                        {!minimal && (
+                            <div className="absolute top-0 right-0 p-1">
+                                <span className={`${bgAccentClass} ${isBearish ? 'text-blue-600' : 'text-emerald-400'} text-[7px] px-1 rounded font-black uppercase`}>{t('adjusted')}</span>
+                            </div>
+                        )}
                         <div>
-                            <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">
+                            <p className="text-slate-500 text-[10px] uppercase tracking-wider font-bold mb-1">
                                 <span className={`${isBearish ? 'text-blue-600' : 'text-emerald-500/80'} mr-1`}>{t('window' + window)}</span>
                                 {t('adjAccuracy')}
                             </p>
@@ -293,20 +299,20 @@ export default function BacktestStats({
                                         className={`text-3xl font-mono font-black ${stats?.adjWinRate && stats.adjWinRate > 50 ? (isBearish ? 'text-blue-600 dark:text-blue-400' : 'text-emerald-600 dark:text-emerald-400') : 'text-slate-600 dark:text-slate-300'}`}
                                     />
                                 )}
-                                {!loading && stats && (
+                                {!loading && stats && !minimal && (
                                     <div className="text-xs text-slate-400 dark:text-slate-600 line-through decoration-slate-200 dark:decoration-slate-700 flex">
                                         (<AnimatedNumber value={stats.winRate} suffix="%" />)
                                     </div>
                                 )}
                             </div>
                         </div>
-                        <TrendingUp className={`w-5 h-5 ${stats?.adjWinRate && stats.adjWinRate > 50 ? (isBearish ? 'text-blue-500/30' : 'text-emerald-500/50') : 'text-slate-300 dark:text-slate-700'}`} />
+                        {!minimal && <TrendingUp className={`w-5 h-5 ${stats?.adjWinRate && stats.adjWinRate > 50 ? (isBearish ? 'text-blue-500/30' : 'text-emerald-500/50') : 'text-slate-300 dark:text-slate-700'}`} />}
                     </div>
 
                     {/* Stat 3: Avg Performance */}
                     <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-lg p-4 flex items-center justify-between shadow-sm dark:shadow-none">
                         <div>
-                            <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-1">
+                            <p className="text-slate-500 text-[10px] uppercase tracking-wider font-bold mb-1">
                                 <span className={`${mainColorClass} mr-1`}>{t('window' + window)}</span>
                                 {t(isBearish ? 'avgDrop' : 'avgGain')}
                             </p>
@@ -324,303 +330,319 @@ export default function BacktestStats({
                                 )}
                             </div>
                         </div>
-                        {isBearish ? (
+                        {!minimal && (isBearish ? (
                             <TrendingDown className={`w-5 h-5 ${stats?.avgDrop && stats.avgDrop > 0 ? 'text-rose-500/30' : 'text-slate-300 dark:text-slate-700'}`} />
                         ) : (
                             <TrendingUp className={`w-5 h-5 ${stats?.avgDrop && stats.avgDrop < 0 ? 'text-emerald-500/30' : 'text-slate-300 dark:text-slate-700'}`} />
-                        )}
+                        ))}
                     </div>
-                </div>
 
-                {/* Hygiene & Sensitivities remain in the same structure, updated with loading states */}
-                <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-300 ${stats && stats.count === 0 && !loading ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
-                    {/* Stat 4: Hygiene Score */}
-                    <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-lg p-4 shadow-sm dark:shadow-none">
-                        <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-2 underline decoration-slate-200 dark:decoration-slate-700 underline-offset-4">{t('marketHygiene')}</p>
-                        <div className={`space-y-1 ${loading ? 'animate-pulse opacity-50' : ''}`}>
-                            <div className="flex justify-between items-center text-[10px]">
-                                <span className="text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{t('density')}</span>
-                                <span className={`font-mono font-bold ${stats?.hygiene && stats.hygiene.avgClustering > 2 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                                    {loading ? '-' : <AnimatedNumber value={stats?.hygiene?.avgClustering || 0} precision={1} />}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-center text-[10px]">
-                                <span className="text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{t('exhaustion')}</span>
-                                <span className={`font-mono font-bold ${stats?.hygiene && stats.hygiene.avgExhaustion > 4 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
-                                    {loading ? '-' : <AnimatedNumber value={stats?.hygiene?.avgExhaustion || 0} precision={1} />}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 transition-opacity duration-300 ${stats && stats.count === 0 && !loading ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
-                    {/* Correlation Card */}
-                    {stats?.correlation && (
-                        <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
-                            <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                                <span className={`w-1.5 h-1.5 rounded-full ${isBearish ? 'bg-blue-600' : 'bg-emerald-600'}`}></span>
-                                {t('dxySensitivity')}
-                            </h4>
-                            <div className={`space-y-4 ${loading ? 'animate-pulse opacity-50' : ''}`}>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex justify-between items-center px-1">
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase">{t('strongUsd')}</span>
-                                        <span className={`text-[10px] font-mono ${isBearish ? 'text-emerald-600' : 'text-blue-600'} font-bold flex`}>
-                                            <AnimatedNumber value={stats.correlation['DXY_STRONG']?.winRate || 0} suffix="%" /> 
-                                            <span className="ml-1">{t('win')}</span>
-                                        </span>
-                                    </div>
-                                    <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <motion.div 
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${stats.correlation['DXY_STRONG']?.winRate || 0}%` }}
-                                            className={`h-full ${isBearish ? 'bg-emerald-500/50' : 'bg-blue-500/50'}`} 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-2 opacity-60">
-                                    <div className="flex justify-between items-center px-1">
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase">{t('weakUsd')}</span>
-                                        <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold flex">
-                                            <AnimatedNumber value={stats.correlation['DXY_WEAK']?.winRate || 0} suffix="%" /> 
-                                            <span className="ml-1">{t('win')}</span>
-                                        </span>
-                                    </div>
-                                    <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <motion.div 
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${stats.correlation['DXY_WEAK']?.winRate || 0}%` }}
-                                            className="h-full bg-slate-400 dark:bg-slate-700" 
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Positioning Card */}
-                    {stats?.positioning && (
-                        <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
-                            <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                {t('positioningCot')}
-                            </h4>
-                            <div className={`space-y-4 ${loading ? 'animate-pulse opacity-50' : ''}`}>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex justify-between items-center px-1">
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase">{t('overcrowdedLong')}</span>
-                                        <span className="text-[10px] font-mono text-amber-600 dark:text-amber-500 font-bold flex">
-                                            <AnimatedNumber value={stats.positioning['OVERCROWDED_LONG']?.winRate || 0} suffix="%" />
-                                            <span className="ml-1">{t('win')}</span>
-                                        </span>
-                                    </div>
-                                    <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <motion.div 
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${stats.positioning['OVERCROWDED_LONG']?.winRate || 0}%` }}
-                                            className="h-full bg-amber-500/50" 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex justify-between items-center px-1">
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase">{t('neutralRange')}</span>
-                                        <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold flex">
-                                            <AnimatedNumber 
-                                                value={(((stats.positioning['NEUTRAL_POSITION']?.winRate || 0) * (stats.positioning['NEUTRAL_POSITION']?.count || 0) +
-                                                    (stats.positioning['OVERCROWDED_SHORT']?.winRate || 0) * (stats.positioning['OVERCROWDED_SHORT']?.count || 0)) /
-                                                    Math.max(1, (stats.positioning['NEUTRAL_POSITION']?.count || 0) + (stats.positioning['OVERCROWDED_SHORT']?.count || 0)))}
-                                                suffix="%"
-                                            />
-                                            <span className="ml-1">{t('win')}</span>
-                                        </span>
-                                    </div>
-                                    <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <div className="h-full bg-slate-400 dark:bg-slate-700" style={{ width: '50%' }}></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Volatility Card */}
-                    {stats?.volatility && (
-                        <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
-                            <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                                <span className={`w-1.5 h-1.5 rounded-full ${isBearish ? 'bg-rose-600' : 'bg-emerald-600'}`}></span>
-                                {t('volatilityRegime')}
-                            </h4>
-                            <div className={`space-y-4 ${loading ? 'animate-pulse opacity-50' : ''}`}>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex justify-between items-center px-1">
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase">{t('highVol')}</span>
-                                        <span className={`text-[10px] font-mono ${isBearish ? 'text-rose-600' : 'text-emerald-600'} font-bold flex`}>
-                                            <AnimatedNumber value={stats.volatility['HIGH_VOL']?.winRate || 0} suffix="%" />
-                                            <span className="ml-1">{t('win')}</span>
-                                        </span>
-                                    </div>
-                                    <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <motion.div 
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${stats.volatility['HIGH_VOL']?.winRate || 0}%` }}
-                                            className={`h-full ${isBearish ? 'bg-rose-500/50' : 'bg-emerald-500/50'}`} 
-                                        />
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex justify-between items-center px-1">
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase">{t('lowVol')}</span>
-                                        <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold flex">
-                                            <AnimatedNumber value={stats.volatility['LOW_VOL']?.winRate || 0} suffix="%" />
-                                            <span className="ml-1">{t('win')}</span>
-                                        </span>
-                                    </div>
-                                    <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
-                                        <motion.div 
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${stats.volatility['LOW_VOL']?.winRate || 0}%` }}
-                                            className="h-full bg-slate-400 dark:bg-slate-700" 
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    {/* Action Card for Minimal Mode */}
+                    {minimal && (
+                        <Link 
+                            href="/backtest" 
+                            className="bg-blue-600 hover:bg-blue-700 transition-all rounded-lg p-4 flex flex-col items-center justify-center text-white shadow-lg shadow-blue-500/20 group text-center"
+                        >
+                            <Zap className="w-5 h-5 mb-1 group-hover:scale-110 transition-transform" />
+                            <span className="text-[10px] font-black uppercase tracking-tighter leading-none">{t('viewFullAnalysis')}</span>
+                            <span className="text-[8px] opacity-70 font-bold mt-1">{t('recentResults')} →</span>
+                        </Link>
                     )}
                 </div>
 
-                {/* Session Performance Breakdown */}
-                {stats?.sessionStats && stats.sessionStats.length > 0 && (
-                    <div className={`bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none transition-opacity duration-300 ${stats && stats.count === 0 && !loading ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
-                        <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-600"></span>
-                            {t('sessionBreakdown')}
-                        </h4>
-                        <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 ${loading ? 'animate-pulse opacity-50' : ''}`}>
-                            {['ASIA', 'LONDON', 'NEWYORK', 'LATE_NY'].map(sessionName => {
-                                const s = stats.sessionStats?.find(item => item.session === sessionName);
-                                const isBest = bestSession?.session === sessionName;
-
-                                return (
-                                    <div key={sessionName} className={`p-2 rounded border ${isBest ? 'bg-emerald-50 dark:bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20 shadow-sm' : 'bg-white dark:bg-slate-900/20 border-slate-100 dark:border-slate-800/50'}`}>
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className={`text-[10px] font-black tracking-tighter ${isBest ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
-                                                {t(`sessions.${sessionName}`)}
-                                            </span>
-                                            {isBest && <span className="text-[9px] bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-1 rounded uppercase font-bold">{t('best')}</span>}
-                                        </div>
-                                        <div className="flex items-baseline gap-2">
-                                            <span className="text-base font-mono font-bold text-slate-900 dark:text-white">
-                                                {s ? <AnimatedNumber value={s.winRate} suffix="%" /> : '-%'}
-                                            </span>
-                                            <span className="text-[10px] text-slate-400 dark:text-slate-600 font-mono flex">
-                                                n=<AnimatedNumber value={s?.count || 0} />
-                                            </span>
-                                        </div>
+                {/* Extended Analytics - Hidden in Minimal Mode */}
+                {!minimal && (
+                    <>
+                        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-300 ${stats && stats.count === 0 && !loading ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                            {/* Stat 4: Hygiene Score */}
+                            <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-lg p-4 shadow-sm dark:shadow-none">
+                                <p className="text-slate-500 text-xs uppercase tracking-wider font-bold mb-2 underline decoration-slate-200 dark:decoration-slate-700 underline-offset-4">{t('marketHygiene')}</p>
+                                <div className={`space-y-1 ${loading ? 'animate-pulse opacity-50' : ''}`}>
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span className="text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{t('density')}</span>
+                                        <span className={`font-mono font-bold ${stats?.hygiene && stats.hygiene.avgClustering > 2 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                                            {loading ? '-' : <AnimatedNumber value={stats?.hygiene?.avgClustering || 0} precision={1} />}
+                                        </span>
                                     </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Return Distribution Histogram */}
-                {!loading && stats?.distribution && stats.distribution.length > 0 && (
-                    <div className={`bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-4 shadow-sm dark:shadow-none transition-opacity duration-300 ${stats && stats.count === 0 ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
-                        <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                            <BarChart3 className="w-4 h-4 text-blue-500" />
-                            {t('distributionTitle')}
-                        </h4>
-                        
-                        <div className="relative h-32 flex items-end gap-1 px-2 mb-8">
-                            {/* Baseline */}
-                            <div className="absolute bottom-0 left-0 right-0 h-px bg-slate-200 dark:bg-slate-800" />
-                            
-                            {stats.distribution.map((d, i) => {
-                                const maxCount = Math.max(...(stats.distribution?.map(x => x.count) || [1]));
-                                const height = (d.count / maxCount) * 100;
-                                // Determine color based on bin center (is it in the win zone?)
-                                // Bearish win: return < 0. Bullish win: return > 0.
-                                const isWinZone = isBearish ? d.bin < 0 : d.bin > 0;
-                                const barColor = isWinZone 
-                                    ? 'bg-emerald-500/60 dark:bg-emerald-500/40' 
-                                    : 'bg-rose-500/60 dark:bg-rose-500/40';
-                                
-                                return (
-                                    <div key={i} className="group relative flex-1 flex flex-col items-center justify-end h-full">
-                                        {/* Tooltip */}
-                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
-                                            {d.count} {t('events')} ({d.bin.toFixed(1)}%)
-                                        </div>
-                                        
-                                        <motion.div 
-                                            initial={{ height: 0 }}
-                                            animate={{ height: `${height}%` }}
-                                            className={`w-full rounded-t-sm transition-colors ${barColor} group-hover:bg-blue-500`}
-                                        />
-                                        
-                                        {/* X-Axis Labels (show only some to avoid overlap) */}
-                                        {(i % 2 === 0 || (stats?.distribution?.length || 0) < 10) && (
-                                            <div className="absolute -bottom-5 text-[8px] text-slate-400 font-mono rotate-45 md:rotate-0">
-                                                {d.bin > 0 ? '+' : ''}{d.bin.toFixed(1)}
-                                            </div>
-                                        )}
+                                    <div className="flex justify-between items-center text-[10px]">
+                                        <span className="text-slate-400 dark:text-slate-600 font-bold uppercase tracking-tighter">{t('exhaustion')}</span>
+                                        <span className={`font-mono font-bold ${stats?.hygiene && stats.hygiene.avgExhaustion > 4 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                                            {loading ? '-' : <AnimatedNumber value={stats?.hygiene?.avgExhaustion || 0} precision={1} />}
+                                        </span>
                                     </div>
-                                );
-                            })}
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                )}
 
-                {/* Evidence List (Breaking the Black Box) */}
-                {!loading && stats?.items && stats.items.length > 0 && (
-                    <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] px-1 flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-blue-500" />
-                            {t('evidenceList')} ({stats.count})
-                        </h4>
-                        <div className="space-y-2">
-                            {stats.items.map((item) => (
-                                <div 
-                                    key={item.id} 
-                                    onClick={() => setSelectedItem(item)}
-                                    className="group relative bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-xl p-3 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer shadow-sm dark:shadow-none"
-                                >
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${item.is_win ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                                                {item.is_win ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                                            </div>
-                                            <div className="flex flex-col min-w-0">
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
-                                                    {getLocalizedText(item.title, locale)}
+                        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-4 transition-opacity duration-300 ${stats && stats.count === 0 && !loading ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                            {/* Correlation Card */}
+                            {stats?.correlation && (
+                                <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
+                                    <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                                        <span className={`w-1.5 h-1.5 rounded-full ${isBearish ? 'bg-blue-600' : 'bg-emerald-600'}`}></span>
+                                        {t('dxySensitivity')}
+                                    </h4>
+                                    <div className={`space-y-4 ${loading ? 'animate-pulse opacity-50' : ''}`}>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center px-1">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">{t('strongUsd')}</span>
+                                                <span className={`text-[10px] font-mono ${isBearish ? 'text-emerald-600' : 'text-blue-600'} font-bold flex`}>
+                                                    <AnimatedNumber value={stats.correlation['DXY_STRONG']?.winRate || 0} suffix="%" /> 
+                                                    <span className="ml-1">{t('win')}</span>
                                                 </span>
-                                                <div className="flex items-center gap-2 text-[9px] text-slate-400 font-mono mt-0.5">
-                                                    <span>{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                    <span className="opacity-30">|</span>
-                                                    <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded font-bold">Score {item.score}</span>
-                                                </div>
+                                            </div>
+                                            <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${stats.correlation['DXY_STRONG']?.winRate || 0}%` }}
+                                                    className={`h-full ${isBearish ? 'bg-emerald-500/50' : 'bg-blue-500/50'}`} 
+                                                />
                                             </div>
                                         </div>
-
-                                        <div className="flex items-center gap-8 shrink-0">
-                                            <div className="hidden md:flex flex-col items-end">
-                                                <span className="text-[8px] text-slate-400 uppercase font-black tracking-tighter leading-none mb-1">{t('priceAction')}</span>
-                                                <div className="text-[10px] font-mono font-bold flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                                                    <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{item.entry.toFixed(1)}</span>
-                                                    <ArrowRight className="w-3 h-3 opacity-30" />
-                                                    <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{item.exit.toFixed(1)}</span>
-                                                </div>
+                                        <div className="flex flex-col gap-2 opacity-60">
+                                            <div className="flex justify-between items-center px-1">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">{t('weakUsd')}</span>
+                                                <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold flex">
+                                                    <AnimatedNumber value={stats.correlation['DXY_WEAK']?.winRate || 0} suffix="%" /> 
+                                                    <span className="ml-1">{t('win')}</span>
+                                                </span>
                                             </div>
-                                            <div className={`w-14 text-right font-mono font-black text-xs ${item.is_win ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                {item.change_pct > 0 ? '↑' : '↓'} {Math.abs(item.change_pct).toFixed(2)}%
+                                            <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${stats.correlation['DXY_WEAK']?.winRate || 0}%` }}
+                                                    className="h-full bg-slate-400 dark:bg-slate-700" 
+                                                />
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                            )}
+
+                            {/* Positioning Card */}
+                            {stats?.positioning && (
+                                <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
+                                    <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                                        {t('positioningCot')}
+                                    </h4>
+                                    <div className={`space-y-4 ${loading ? 'animate-pulse opacity-50' : ''}`}>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center px-1">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">{t('overcrowdedLong')}</span>
+                                                <span className="text-[10px] font-mono text-amber-600 dark:text-amber-500 font-bold flex">
+                                                    <AnimatedNumber value={stats.positioning['OVERCROWDED_LONG']?.winRate || 0} suffix="%" />
+                                                    <span className="ml-1">{t('win')}</span>
+                                                </span>
+                                            </div>
+                                            <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${stats.positioning['OVERCROWDED_LONG']?.winRate || 0}%` }}
+                                                    className="h-full bg-amber-500/50" 
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center px-1">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">{t('neutralRange')}</span>
+                                                <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold flex">
+                                                    <AnimatedNumber 
+                                                        value={(((stats.positioning['NEUTRAL_POSITION']?.winRate || 0) * (stats.positioning['NEUTRAL_POSITION']?.count || 0) +
+                                                            (stats.positioning['OVERCROWDED_SHORT']?.winRate || 0) * (stats.positioning['OVERCROWDED_SHORT']?.count || 0)) /
+                                                            Math.max(1, (stats.positioning['NEUTRAL_POSITION']?.count || 0) + (stats.positioning['OVERCROWDED_SHORT']?.count || 0)))}
+                                                        suffix="%"
+                                                    />
+                                                    <span className="ml-1">{t('win')}</span>
+                                                </span>
+                                            </div>
+                                            <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
+                                                <div className="h-full bg-slate-400 dark:bg-slate-700" style={{ width: '50%' }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Volatility Card */}
+                            {stats?.volatility && (
+                                <div className="bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none">
+                                    <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                                        <span className={`w-1.5 h-1.5 rounded-full ${isBearish ? 'bg-rose-600' : 'bg-emerald-600'}`}></span>
+                                        {t('volatilityRegime')}
+                                    </h4>
+                                    <div className={`space-y-4 ${loading ? 'animate-pulse opacity-50' : ''}`}>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center px-1">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">{t('highVol')}</span>
+                                                <span className={`text-[10px] font-mono ${isBearish ? 'text-rose-600' : 'text-emerald-600'} font-bold flex`}>
+                                                    <AnimatedNumber value={stats.volatility['HIGH_VOL']?.winRate || 0} suffix="%" />
+                                                    <span className="ml-1">{t('win')}</span>
+                                                </span>
+                                            </div>
+                                            <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${stats.volatility['HIGH_VOL']?.winRate || 0}%` }}
+                                                    className={`h-full ${isBearish ? 'bg-rose-500/50' : 'bg-emerald-500/50'}`} 
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center px-1">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">{t('lowVol')}</span>
+                                                <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 font-bold flex">
+                                                    <AnimatedNumber value={stats.volatility['LOW_VOL']?.winRate || 0} suffix="%" />
+                                                    <span className="ml-1">{t('win')}</span>
+                                                </span>
+                                            </div>
+                                            <div className="h-1 bg-slate-200 dark:bg-slate-900 rounded-full overflow-hidden">
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${stats.volatility['LOW_VOL']?.winRate || 0}%` }}
+                                                    className="h-full bg-slate-400 dark:bg-slate-700" 
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    </div>
+
+                        {/* Session Performance Breakdown */}
+                        {stats?.sessionStats && stats.sessionStats.length > 0 && (
+                            <div className={`bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-3 shadow-sm dark:shadow-none transition-opacity duration-300 ${stats && stats.count === 0 && !loading ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                                <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 dark:bg-slate-600"></span>
+                                    {t('sessionBreakdown')}
+                                </h4>
+                                <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 ${loading ? 'animate-pulse opacity-50' : ''}`}>
+                                    {['ASIA', 'LONDON', 'NEWYORK', 'LATE_NY'].map(sessionName => {
+                                        const s = stats.sessionStats?.find(item => item.session === sessionName);
+                                        const isBest = bestSession?.session === sessionName;
+
+                                        return (
+                                            <div key={sessionName} className={`p-2 rounded border ${isBest ? 'bg-emerald-50 dark:bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/20 shadow-sm' : 'bg-white dark:bg-slate-900/20 border-slate-100 dark:border-slate-800/50'}`}>
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <span className={`text-[10px] font-black tracking-tighter ${isBest ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'}`}>
+                                                        {t(`sessions.${sessionName}`)}
+                                                    </span>
+                                                    {isBest && <span className="text-[9px] bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-1 rounded uppercase font-bold">{t('best')}</span>}
+                                                </div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="text-base font-mono font-bold text-slate-900 dark:text-white">
+                                                        {s ? <AnimatedNumber value={s.winRate} suffix="%" /> : '-%'}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 dark:text-slate-600 font-mono flex">
+                                                        n=<AnimatedNumber value={s?.count || 0} />
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Return Distribution Histogram */}
+                        {!loading && stats?.distribution && stats.distribution.length > 0 && (
+                            <div className={`bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-4 shadow-sm dark:shadow-none transition-opacity duration-300 ${stats && stats.count === 0 ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                                <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                                    <BarChart3 className="w-4 h-4 text-blue-500" />
+                                    {t('distributionTitle')}
+                                </h4>
+                                
+                                <div className="relative h-32 flex items-end gap-1 px-2 mb-8">
+                                    {/* Baseline */}
+                                    <div className="absolute bottom-0 left-0 right-0 h-px bg-slate-200 dark:bg-slate-800" />
+                                    
+                                    {stats.distribution.map((d, i) => {
+                                        const maxCount = Math.max(...(stats.distribution?.map(x => x.count) || [1]));
+                                        const height = (d.count / maxCount) * 100;
+                                        // Determine color based on bin center (is it in the win zone?)
+                                        // Bearish win: return < 0. Bullish win: return > 0.
+                                        const isWinZone = isBearish ? d.bin < 0 : d.bin > 0;
+                                        const barColor = isWinZone 
+                                            ? 'bg-emerald-500/60 dark:bg-emerald-500/40' 
+                                            : 'bg-rose-500/60 dark:bg-rose-500/40';
+                                        
+                                        return (
+                                            <div key={i} className="group relative flex-1 flex flex-col items-center justify-end h-full">
+                                                {/* Tooltip */}
+                                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                                                    {d.count} {t('events')} ({d.bin.toFixed(1)}%)
+                                                </div>
+                                                
+                                                <motion.div 
+                                                    initial={{ height: 0 }}
+                                                    animate={{ height: `${height}%` }}
+                                                    className={`w-full rounded-t-sm transition-colors ${barColor} group-hover:bg-blue-500`}
+                                                />
+                                                
+                                                {/* X-Axis Labels (show only some to avoid overlap) */}
+                                                {(i % 2 === 0 || (stats?.distribution?.length || 0) < 10) && (
+                                                    <div className="absolute -bottom-5 text-[8px] text-slate-400 font-mono rotate-45 md:rotate-0">
+                                                        {d.bin > 0 ? '+' : ''}{d.bin.toFixed(1)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Evidence List (Breaking the Black Box) */}
+                        {!loading && stats?.items && stats.items.length > 0 && (
+                            <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] px-1 flex items-center gap-2">
+                                    <FileText className="w-4 h-4 text-blue-500" />
+                                    {t('evidenceList')} ({stats.count})
+                                </h4>
+                                <div className="space-y-2">
+                                    {stats.items.map((item) => (
+                                        <div 
+                                            key={item.id} 
+                                            onClick={() => setSelectedItem(item)}
+                                            className="group relative bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-xl p-3 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer shadow-sm dark:shadow-none"
+                                        >
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${item.is_win ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                                        {item.is_win ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                                    </div>
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
+                                                            {getLocalizedText(item.title, locale)}
+                                                        </span>
+                                                        <div className="flex items-center gap-2 text-[9px] text-slate-400 font-mono mt-0.5">
+                                                            <span>{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                            <span className="opacity-30">|</span>
+                                                            <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded font-bold">Score {item.score}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-8 shrink-0">
+                                                    <div className="hidden md:flex flex-col items-end">
+                                                        <span className="text-[8px] text-slate-400 uppercase font-black tracking-tighter leading-none mb-1">{t('priceAction')}</span>
+                                                        <div className="text-[10px] font-mono font-bold flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                                                            <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{item.entry.toFixed(1)}</span>
+                                                            <ArrowRight className="w-3 h-3 opacity-30" />
+                                                            <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{item.exit.toFixed(1)}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className={`w-14 text-right font-mono font-black text-xs ${item.is_win ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                        {item.change_pct > 0 ? '↑' : '↓'} {Math.abs(item.change_pct).toFixed(2)}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
 
                 {/* Detail Drawer (Sheet) */}
