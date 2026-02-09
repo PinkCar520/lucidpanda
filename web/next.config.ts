@@ -12,6 +12,10 @@ const nextConfig: import("next").NextConfig = {
         destination: 'http://api:8001/api/v1/auth/:path*',
       },
       {
+        source: '/api/intelligence/:path*',
+        destination: 'http://api:8001/api/intelligence/:path*',
+      },
+      {
         source: '/api/sse/:path*',
         destination: 'http://api:8001/api/:path*',
       },

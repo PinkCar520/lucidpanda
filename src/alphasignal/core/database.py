@@ -65,7 +65,10 @@ class IntelligenceDB:
                     url TEXT,
                     
                     gold_price_snapshot DOUBLE PRECISION,
+                    price_15m DOUBLE PRECISION,
                     price_1h DOUBLE PRECISION,
+                    price_4h DOUBLE PRECISION,
+                    price_12h DOUBLE PRECISION,
                     price_24h DOUBLE PRECISION,
                     market_session TEXT,
                     clustering_score INTEGER DEFAULT 0,
@@ -77,6 +80,11 @@ class IntelligenceDB:
             """)
             
             # Migration
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS price_15m DOUBLE PRECISION;")
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS price_1h DOUBLE PRECISION;")
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS price_4h DOUBLE PRECISION;")
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS price_12h DOUBLE PRECISION;")
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS price_24h DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS dxy_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS us10y_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS gvz_snapshot DOUBLE PRECISION;")
@@ -331,33 +339,43 @@ class IntelligenceDB:
             logger.error(f"Get Watchlist Failed: {e}")
             return []
 
-        """Update historical outcome data."""
+    def update_outcome(self, record_id, **kwargs):
+        """Update historical outcome data dynamically."""
+        if not kwargs:
+            return
+            
         try:
             conn = self._get_conn()
             cursor = conn.cursor()
             
-            if price_1h is not None:
-                cursor.execute("UPDATE intelligence SET price_1h = %s WHERE id = %s", (price_1h, record_id))
-                
-            if price_24h is not None:
-                cursor.execute("UPDATE intelligence SET price_24h = %s WHERE id = %s", (price_24h, record_id))
-                
-            conn.commit()
-            if cursor.rowcount > 0:
-                logger.info(f"✅ Outcome Updated ID: {record_id} | 1h: {price_1h} | 24h: {price_24h}")
+            # Construct dynamic UPDATE query
+            columns = []
+            values = []
+            for col, val in kwargs.items():
+                if val is not None:
+                    columns.append(f"{col} = %s")
+                    values.append(val)
+            
+            if columns:
+                query = f"UPDATE intelligence SET {', '.join(columns)} WHERE id = %s"
+                values.append(record_id)
+                cursor.execute(query, tuple(values))
+                conn.commit()
+                logger.info(f"✅ Outcome Updated ID: {record_id} | Fields: {list(kwargs.keys())}")
+            
             conn.close()
         except Exception as e:
             logger.error(f"Update Outcome Failed: {e}")
 
     def get_pending_outcomes(self):
-        """Get records older than 1 hour that lack price_1h."""
+        """Get records older than 1 hour that lack any of the outcome prices."""
         try:
             conn = self._get_conn()
             cursor = conn.cursor(cursor_factory=DictCursor)
             
             cursor.execute("""
                 SELECT * FROM intelligence 
-                WHERE price_1h IS NULL 
+                WHERE (price_1h IS NULL OR price_15m IS NULL OR price_4h IS NULL OR price_12h IS NULL)
                 AND timestamp < NOW() - INTERVAL '1 hour'
                 ORDER BY timestamp DESC LIMIT 50
             """)

@@ -2,9 +2,9 @@
 
 import React, { useMemo } from 'react';
 import { Intelligence } from '@/lib/db';
-import { useLocale } from 'next-intl';
-import { TrendingDown, TrendingUp, Activity, CheckCircle2, AlertTriangle, FileText, ArrowRight, XCircle, Zap, ExternalLink } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { TrendingDown, TrendingUp, Activity, CheckCircle2, AlertTriangle, FileText, ArrowRight, XCircle, Zap, ExternalLink, BarChart3 } from 'lucide-react';
+import { useTranslations, useLocale } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import AnimatedNumber from './AnimatedNumber';
 import { motion } from 'framer-motion';
 import { 
@@ -31,10 +31,10 @@ interface BacktestStatsProps {
     intelligence: Intelligence[];
     marketData: unknown; 
     showConfig?: boolean;
-    window?: '1h' | '24h';
+    window?: '15m' | '1h' | '4h' | '12h' | '24h';
     minScore?: number;
     sentiment?: 'bearish' | 'bullish';
-    onConfigChange?: (config: { window: '1h' | '24h', minScore: number, sentiment: 'bearish' | 'bullish' }) => void;
+    onConfigChange?: (config: { window: '15m' | '1h' | '4h' | '12h' | '24h', minScore: number, sentiment: 'bearish' | 'bullish' }) => void;
 }
 
 export default function BacktestStats({ 
@@ -71,10 +71,11 @@ export default function BacktestStats({
         volatility?: Record<string, { count: number; winRate: number }>;
         sessionStats?: Array<{ session: string; count: number; winRate: number; avgDrop: number }>;
         items?: BacktestItem[];
+        distribution?: Array<{ bin: number; count: number }>;
     } | null>(null);
     
     // Configuration State - Initialize directly from props to avoid sync effect
-    const [window, setWindow] = React.useState<'1h' | '24h'>(initialWindow);
+    const [window, setWindow] = React.useState<'15m' | '1h' | '4h' | '12h' | '24h'>(initialWindow);
     const [minScore, setMinScore] = React.useState(initialMinScore);
     const [debouncedMinScore, setDebouncedMinScore] = React.useState(initialMinScore);
     const [sentiment, setSentiment] = React.useState<'bearish' | 'bullish'>(initialSentiment);
@@ -176,21 +177,17 @@ export default function BacktestStats({
                 </div>
                 
                 <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
-                        <button
-                            onClick={() => setWindow('1h')}
-                            disabled={loading}
-                            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '1h' ? `bg-white dark:bg-slate-800 ${isBearish ? 'text-blue-600' : 'text-emerald-500'} shadow-sm` : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
-                        >
-                            {t('window1h')}
-                        </button>
-                        <button
-                            onClick={() => setWindow('24h')}
-                            disabled={loading}
-                            className={`px-3 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all ${window === '24h' ? `bg-white dark:bg-slate-800 ${isBearish ? 'text-blue-600' : 'text-emerald-500'} shadow-sm` : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
-                        >
-                            {t('window24h')}
-                        </button>
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-lg p-1 overflow-x-auto">
+                        {(['15m', '1h', '4h', '12h', '24h'] as const).map((w) => (
+                            <button
+                                key={w}
+                                onClick={() => setWindow(w)}
+                                disabled={loading}
+                                className={`px-2.5 py-1 text-[10px] font-bold uppercase tracking-tighter rounded-md transition-all whitespace-nowrap ${window === w ? `bg-white dark:bg-slate-800 ${isBearish ? 'text-blue-600' : 'text-emerald-500'} shadow-sm` : 'text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400'}`}
+                            >
+                                {t('window' + w)}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -527,6 +524,54 @@ export default function BacktestStats({
                     </div>
                 )}
 
+                {/* Return Distribution Histogram */}
+                {!loading && stats?.distribution && stats.distribution.length > 0 && (
+                    <div className={`bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/30 rounded-lg p-4 shadow-sm dark:shadow-none transition-opacity duration-300 ${stats && stats.count === 0 ? 'opacity-30 grayscale pointer-events-none' : ''}`}>
+                        <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-600 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-blue-500" />
+                            {t('distributionTitle')}
+                        </h4>
+                        
+                        <div className="relative h-32 flex items-end gap-1 px-2 mb-8">
+                            {/* Baseline */}
+                            <div className="absolute bottom-0 left-0 right-0 h-px bg-slate-200 dark:bg-slate-800" />
+                            
+                            {stats.distribution.map((d, i) => {
+                                const maxCount = Math.max(...(stats.distribution?.map(x => x.count) || [1]));
+                                const height = (d.count / maxCount) * 100;
+                                // Determine color based on bin center (is it in the win zone?)
+                                // Bearish win: return < 0. Bullish win: return > 0.
+                                const isWinZone = isBearish ? d.bin < 0 : d.bin > 0;
+                                const barColor = isWinZone 
+                                    ? 'bg-emerald-500/60 dark:bg-emerald-500/40' 
+                                    : 'bg-rose-500/60 dark:bg-rose-500/40';
+                                
+                                return (
+                                    <div key={i} className="group relative flex-1 flex flex-col items-center justify-end h-full">
+                                        {/* Tooltip */}
+                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                                            {d.count} {t('events')} ({d.bin.toFixed(1)}%)
+                                        </div>
+                                        
+                                        <motion.div 
+                                            initial={{ height: 0 }}
+                                            animate={{ height: `${height}%` }}
+                                            className={`w-full rounded-t-sm transition-colors ${barColor} group-hover:bg-blue-500`}
+                                        />
+                                        
+                                        {/* X-Axis Labels (show only some to avoid overlap) */}
+                                        {(i % 2 === 0 || (stats?.distribution?.length || 0) < 10) && (
+                                            <div className="absolute -bottom-5 text-[8px] text-slate-400 font-mono rotate-45 md:rotate-0">
+                                                {d.bin > 0 ? '+' : ''}{d.bin.toFixed(1)}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
                 {/* Evidence List (Breaking the Black Box) */}
                 {!loading && stats?.items && stats.items.length > 0 && (
                     <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -638,10 +683,13 @@ export default function BacktestStats({
 
                             {/* Actions */}
                             <div className="pt-6 border-t border-slate-100 dark:border-slate-900 flex flex-col gap-3">
-                                <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                                <Link 
+                                    href={`/intelligence/${selectedItem?.id}`}
+                                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                                >
                                     {t('viewFullAnalysis')}
                                     <ExternalLink className="w-4 h-4" />
-                                </button>
+                                </Link>
                                 <p className="text-[10px] text-slate-400 text-center px-4 leading-relaxed italic">
                                     {t('analysisDisclaimer', { 
                                         window: t('window' + window), 

@@ -193,6 +193,9 @@
         "tooHighScore": "评分过高 (匹配: 0)",
         "smallSample": "样本不足 (仅 {count} 条)",
         "window1h": "1小时窗口",
+        "window15m": "15分钟窗口",
+        "window4h": "4小时窗口",
+        "window12h": "12小时窗口",
         "window24h": "24小时窗口",
         "title": "AI 预测回测表现",
         "scenarioA": "场景 A：集群保护激活",
@@ -244,7 +247,10 @@
         "winStatus": "准确 / 符合预期",
         "lossStatus": "偏差 / 背离预期",
         "idLabel": "编号",
-        "analysisDisclaimer": "该事件已纳入 {window} 回测模型，采用 {sentiment} 情绪因子进行计算。"
+        "analysisDisclaimer": "该事件已纳入 {window} 回测模型，采用 {sentiment} 情绪因子进行计算。",
+        "distributionTitle": "表现分布直方图 (频率分析)",
+        "returnBin": "盈亏区间",
+        "frequency": "出现频率"
     },
     "DimensionD": {
         "label": "宏观体制 (MACRO REGIME)",
@@ -503,6 +509,21 @@
         "verificationDesc": "管理您的已验证邮箱和手机号码，用于接收安全警报。",
         "passwordModalDesc": "更新您的账户密码。请使用强密码以确保安全。",
         "twoFAModalDesc": "为您的账户添加额外的安全防护。"
+    },
+    "IntelligenceDetail": {
+        "loading": "正在分析地缘政治信号...",
+        "notFound": "未找到该情报项",
+        "backToTerminal": "返回终端",
+        "backToResearch": "返回研究",
+        "deepAnalysis": "情报深度分析",
+        "marketImplication": "市场影响解读",
+        "actionableRecommendation": "核心操作建议",
+        "priceActionLog": "价格变动日志",
+        "triggerPrice": "触发瞬间价 (T+0)",
+        "sourceAuthenticity": "来源可靠性认证",
+        "viewOriginalSource": "查看情报原始来源",
+        "contextualMatrix": "宏观上下文矩阵",
+        "analysisNote": "该事件已纳入 {window} 回测模型，采用 {sentiment} 情绪因子进行计算。"
     },
     "Breadcrumbs": {
         "terminal": "智能终端",

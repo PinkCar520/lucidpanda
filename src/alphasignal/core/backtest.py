@@ -119,29 +119,29 @@ class BacktestEngine:
         success_count = 0
         for record, record_time in parsed_records:
             try:
-                # A. 找到 T+1h (Next Trading Candle >= record_time + 1h)
-                target_1h = record_time + timedelta(hours=1)
-                idx_1h = hist.index.searchsorted(target_1h)
+                # 定义要同步的窗口和对应的 timedelta
+                windows = {
+                    'price_15m': timedelta(minutes=15),
+                    'price_1h': timedelta(hours=1),
+                    'price_4h': timedelta(hours=4),
+                    'price_12h': timedelta(hours=12),
+                    'price_24h': timedelta(hours=24)
+                }
                 
-                price_1h = None
-                if idx_1h < len(hist):
-                    # 检查时间差，防止跨度过大 (例如数据缺失导致的错误匹配)
-                    matched_time = hist.index[idx_1h]
-                    # 允许 4 天的 gap (覆盖长周末)，超过则视为数据缺失
-                    if (matched_time - target_1h).total_seconds() <= 4 * 86400:
-                        price_1h = float(hist.iloc[idx_1h]['Close'])
+                outcomes = {}
+                for col, delta in windows.items():
+                    target_time = record_time + delta
+                    idx = hist.index.searchsorted(target_time)
+                    
+                    if idx < len(hist):
+                        matched_time = hist.index[idx]
+                        # 允许 4 天的 gap (覆盖长周末)
+                        if (matched_time - target_time).total_seconds() <= 4 * 86400:
+                            outcomes[col] = round(float(hist.iloc[idx]['Close']), 2)
 
-                # (可选) 如果需要 T+24h，逻辑类似
-                # target_24h = record_time + timedelta(hours=24)
-                # idx_24h = hist.index.searchsorted(target_24h)
-                # ...
-
-                if price_1h is not None:
-                    self.db.update_outcome(record['id'], price_1h=round(price_1h, 2))
+                if outcomes:
+                    self.db.update_outcome(record['id'], **outcomes)
                     success_count += 1
-                else:
-                    # 只有在数据确实缺失时才警告，避免周末正常的 gap 刷屏
-                    pass 
                 
             except Exception as e:
                 logger.warning(f"单条回填失败 ID {record['id']}: {e}")

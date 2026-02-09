@@ -332,7 +332,14 @@ async def get_backtest_stats(request: Request):
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
         # Determine columns based on window
-        outcome_col = "price_1h" if window == "1h" else "price_24h"
+        window_map = {
+            "15m": "price_15m",
+            "1h": "price_1h",
+            "4h": "price_4h",
+            "12h": "price_12h",
+            "24h": "price_24h"
+        }
+        outcome_col = window_map.get(window, "price_1h")
         
         # Define keywords based on sentiment type
         if sentiment_type == 'bearish':
@@ -389,6 +396,34 @@ async def get_backtest_stats(request: Request):
             COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float / 
             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
         FROM qualified_events;
+        """
+        
+        # 1.5 Distribution Stats
+        query_dist = f"""
+        WITH filtered_intelligence AS (
+            SELECT *,
+                   LAG(timestamp) OVER (ORDER BY timestamp ASC) as prev_timestamp
+            FROM intelligence
+            WHERE urgency_score >= %(min_score)s
+              AND (sentiment::text ~* %(keywords)s)
+              AND gold_price_snapshot IS NOT NULL 
+              AND {outcome_col} IS NOT NULL
+        ),
+        deduplicated_events AS (
+            SELECT * FROM filtered_intelligence
+            WHERE prev_timestamp IS NULL 
+               OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+        ),
+        returns AS (
+            SELECT ((CAST({outcome_col} AS FLOAT) - gold_price_snapshot) / gold_price_snapshot) * 100 as ret
+            FROM deduplicated_events
+        )
+        SELECT 
+            floor(ret / 0.5) * 0.5 as bin,
+            COUNT(*) as count
+        FROM returns
+        GROUP BY bin
+        ORDER BY bin ASC;
         """
         
         # 2. Session Stats
@@ -617,11 +652,14 @@ async def get_backtest_stats(request: Request):
         cursor.execute(query_macro, {'keywords': keywords, 'min_score': min_score})
         res_macro = cursor.fetchall()
 
+        cursor.execute(query_dist, {'keywords': keywords, 'min_score': min_score})
+        res_dist = cursor.fetchall()
+
         cursor.execute(query_items, {'keywords': keywords, 'min_score': min_score})
         res_items = cursor.fetchall()
         
         if not res_global or res_global['count'] == 0:
-            return {"count": 0, "winRate": 0, "avgDrop": 0, "window": window, "sessionStats": [], "items": []}
+            return {"count": 0, "winRate": 0, "avgDrop": 0, "window": window, "sessionStats": [], "items": [], "distribution": []}
             
         session_stats = []
         for s in res_sessions:
@@ -653,6 +691,7 @@ async def get_backtest_stats(request: Request):
             "positioning": positioning_stats,
             "volatility": volatility_stats,
             "macro": macro_stats,
+            "distribution": res_dist,
             "window": window,
             "sessionStats": session_stats,
             "items": res_items
@@ -693,6 +732,30 @@ async def get_24h_alerts_count():
     except Exception as e:
         print(f"[API] 24h Alerts error: {e}")
         return {"error": str(e)}
+
+@app.get("/api/intelligence/{item_id}")
+async def get_intelligence_item(item_id: int):
+    """Fetch a single intelligence item by ID."""
+    try:
+        conn = psycopg2.connect(
+            host=settings.POSTGRES_HOST,
+            port=settings.POSTGRES_PORT,
+            user=settings.POSTGRES_USER,
+            password=settings.POSTGRES_PASSWORD,
+            dbname=settings.POSTGRES_DB
+        )
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT * FROM intelligence WHERE id = %s", (item_id,))
+        item = cursor.fetchone()
+        conn.close()
+        
+        if not item:
+            return {"error": "Item not found"}, 404
+            
+        return item
+    except Exception as e:
+        print(f"[API] Fetch intelligence error: {e}")
+        return {"error": str(e)}, 500
 
 @app.get("/api/intelligence/stream")
 async def intelligence_stream(request: Request):

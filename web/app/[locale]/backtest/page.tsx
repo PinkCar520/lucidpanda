@@ -21,11 +21,11 @@ export default function BacktestPage() {
 
     // Initial state logic: URL > LocalStorage > Defaults
     const getInitialConfig = () => {
-        const urlW = searchParams.get('w') as '1h' | '24h' | null;
+        const urlW = searchParams.get('w') as '15m' | '1h' | '4h' | '12h' | '24h' | null;
         const urlS = searchParams.get('s');
         const urlDir = searchParams.get('dir') as 'bearish' | 'bullish' | null;
 
-        let stored: { window?: '1h' | '24h', minScore?: number, sentiment?: 'bearish' | 'bullish' } = {};
+        let stored: { window?: '15m' | '1h' | '4h' | '12h' | '24h', minScore?: number, sentiment?: 'bearish' | 'bullish' } = {};
         if (typeof window !== 'undefined') {
             try {
                 const item = localStorage.getItem(STORAGE_KEY);
@@ -45,7 +45,7 @@ export default function BacktestPage() {
     const [config, setConfig] = useState(getInitialConfig());
 
     // Sync to URL and LocalStorage
-    const handleConfigChange = useCallback((newConfig: { window: '1h' | '24h', minScore: number, sentiment: 'bearish' | 'bullish' }) => {
+    const handleConfigChange = useCallback((newConfig: { window: '15m' | '1h' | '4h' | '12h' | '24h', minScore: number, sentiment: 'bearish' | 'bullish' }) => {
         // Update URL
         const params = new URLSearchParams(searchParams.toString());
         params.set('w', newConfig.window);

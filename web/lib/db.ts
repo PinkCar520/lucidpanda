@@ -21,7 +21,10 @@ export interface Intelligence {
   actionable_advice: string | any;
   url: string;
   gold_price_snapshot: number | null;
+  price_15m: number | null;
   price_1h: number | null;
+  price_4h: number | null;
+  price_12h: number | null;
   price_24h: number | null;
   clustering_score?: number;
   exhaustion_score?: number;

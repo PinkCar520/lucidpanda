@@ -175,6 +175,9 @@
     "tooHighScore": "Score too high (Matches: 0)",
     "smallSample": "Sample size low ({count} matches)",
     "window1h": "1H Window",
+    "window15m": "15M Window",
+    "window4h": "4H Window",
+    "window12h": "12H Window",
     "window24h": "24H Window",
     "title": "AI Prediction Backtest Performance",
     "scenarioA": "Scenario A: Clustering Protection Active",
@@ -226,7 +229,10 @@
     "winStatus": "WIN / ACCURATE",
     "lossStatus": "LOSS / INACCURATE",
     "idLabel": "ID",
-    "analysisDisclaimer": "This event was factored into the {window} backtest result using a {sentiment} sentiment model."
+    "analysisDisclaimer": "This event was factored into the {window} backtest result using a {sentiment} sentiment model.",
+    "distributionTitle": "Performance Distribution (Frequency Analysis)",
+    "returnBin": "Return Bin",
+    "frequency": "Frequency"
   },
   "DimensionD": {
     "label": "MACRO REGIME",
@@ -485,6 +491,21 @@
     "verificationDesc": "Manage your verified email and phone number for security alerts.",
     "passwordModalDesc": "Update your account password. Use a strong and unique one.",
     "twoFAModalDesc": "Add an extra layer of security to your account."
+  },
+  "IntelligenceDetail": {
+    "loading": "Analyzing Geopolitical Signal...",
+    "notFound": "Intelligence item not found",
+    "backToTerminal": "Back to Terminal",
+    "backToResearch": "Back to Research",
+    "deepAnalysis": "Deep Intelligence Analysis",
+    "marketImplication": "Market Implication",
+    "actionableRecommendation": "Actionable Recommendation",
+    "priceActionLog": "Price Action Log",
+    "triggerPrice": "Trigger Price (T+0)",
+    "sourceAuthenticity": "Source Authenticity",
+    "viewOriginalSource": "View Original Source",
+    "contextualMatrix": "Contextual Matrix",
+    "analysisNote": "This event was factored into the {window} backtest result using a {sentiment} sentiment model."
   },
   "Breadcrumbs": {
     "terminal": "Terminal",
