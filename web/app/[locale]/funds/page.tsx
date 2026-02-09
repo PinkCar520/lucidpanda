@@ -507,16 +507,16 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                 className="lg:flex-1 lg:flex lg:flex-col"
                                 contentClassName="lg:flex-1 p-0"
                             >
-                                <div className="w-full overflow-x-auto">
+                                <div className="w-full overflow-hidden">
                                     {activeTab === 'attribution' && (
-                                        <div className="max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                            <table className="w-full text-left border-collapse text-sm">
-                                                <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                                        <div className="max-h-[50vh] lg:max-h-[60vh] overflow-y-auto overflow-x-auto custom-scrollbar">
+                                            <table className="w-full min-w-[500px] text-left border-collapse text-sm">
+                                                <thead className="sticky top-0 bg-white dark:bg-slate-900 z-30">
                                                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider shadow-sm bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur">
-                                                        <th className="p-3">{t('tableStock')}</th>
-                                                        <th className="p-3 text-right hidden sm:table-cell">{t('tablePrice')}</th>
+                                                        <th className="p-3 sticky left-0 top-0 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur">{t('tableStock')}</th>
+                                                        <th className="p-3 text-right">{t('tablePrice')}</th>
                                                         <th className="p-3 text-right">{t('tableChange')}</th>
-                                                        <th className="p-3 text-right hidden sm:table-cell">{t('tableWeight')}</th>
+                                                        <th className="p-3 text-right">{t('tableWeight')}</th>
                                                         <th className="p-3 text-right">{t('tableImpact')}</th>
                                                     </tr>
                                                 </thead>
@@ -526,19 +526,19 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                         .sort((a: ComponentStock, b: ComponentStock) => b.weight - a.weight)
                                                         .map((comp: ComponentStock) => (
                                                             <tr key={comp.code} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                                <td className="p-3">
+                                                                <td className="p-3 sticky left-0 z-10 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur border-r border-slate-100 dark:border-slate-800/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                                                                     <div className="flex flex-col">
-                                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm">{comp.name}</span>
+                                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm whitespace-nowrap">{comp.name}</span>
                                                                         <span className="text-[9px] sm:text-[10px] font-mono text-slate-500 dark:text-slate-500">{comp.code}</span>
                                                                     </div>
                                                                 </td>
-                                                                <td className="p-3 text-right font-mono text-slate-600 dark:text-slate-400 hidden sm:table-cell">
+                                                                <td className="p-3 text-right font-mono text-slate-600 dark:text-slate-400">
                                                                     {comp.price.toFixed(2)}
                                                                 </td>
                                                                 <td className={`p-3 text-right font-mono font-bold ${comp.change_pct >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                                                                     {comp.change_pct > 0 ? "+" : ""}{comp.change_pct.toFixed(2)}%
                                                                 </td>
-                                                                <td className="p-3 text-right font-mono text-slate-500 dark:text-slate-500 hidden sm:table-cell">
+                                                                <td className="p-3 text-right font-mono text-slate-500 dark:text-slate-500">
                                                                     {comp.weight.toFixed(2)}%
                                                                 </td>
                                                                 <td className={`p-3 text-right font-mono font-bold ${comp.impact >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
@@ -565,13 +565,13 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                     <RefreshCw className="w-6 h-6 animate-spin text-slate-300 dark:text-slate-700" />
                                                 </div>
                                             ) : history.length > 0 ? (
-                                                <div className="max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                                    <table className="w-full text-left border-collapse text-sm">
-                                                        <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                                                <div className="max-h-[50vh] lg:max-h-[60vh] overflow-y-auto overflow-x-auto custom-scrollbar">
+                                                    <table className="w-full min-w-[500px] text-left border-collapse text-sm">
+                                                        <thead className="sticky top-0 bg-white dark:bg-slate-900 z-30">
                                                             <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider shadow-sm bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur">
-                                                                <th className="p-3">{t('tableDate')}</th>
+                                                                <th className="p-3 sticky left-0 top-0 z-40 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur">{t('tableDate')}</th>
                                                                 <th className="p-3 text-right">{t('tableEst')}</th>
-                                                                <th className="p-3 text-right hidden sm:table-cell">{t('tableOfficial')}</th>
+                                                                <th className="p-3 text-right">{t('tableOfficial')}</th>
                                                                 <th className="p-3 text-right">{t('tableDeviation')}</th>
                                                                 <th className="p-3 text-center">{t('tableStatus')}</th>
                                                             </tr>
@@ -579,11 +579,11 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                                                             {history.map((h, i) => (
                                                                 <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                                    <td className="p-3 font-mono text-slate-600 dark:text-slate-400 text-xs">{h.trade_date}</td>
+                                                                    <td className="p-3 sticky left-0 z-10 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur border-r border-slate-100 dark:border-slate-800/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] font-mono text-slate-600 dark:text-slate-400 text-xs whitespace-nowrap">{h.trade_date}</td>
                                                                     <td className={`p-3 text-right font-mono font-bold ${h.frozen_est_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                                                                         {h.frozen_est_growth > 0 ? "+" : ""}{Number(h.frozen_est_growth).toFixed(2)}%
                                                                     </td>
-                                                                    <td className={`p-3 text-right font-mono font-bold hidden sm:table-cell ${h.official_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                                                                    <td className={`p-3 text-right font-mono font-bold ${h.official_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
                                                                         {h.official_growth > 0 ? "+" : ""}{Number(h.official_growth).toFixed(2)}%
                                                                     </td>
                                                                     <td className="p-3 text-right font-mono text-slate-500 dark:text-slate-500">

@@ -183,9 +183,11 @@
     },
     "Backtest": {
         "bearishSignals": "看跌信号 (评分 8+)",
+        "bullishSignals": "看涨信号 (评分 8+)",
         "events": "事件",
         "accuracy": "准确率",
         "avgDrop": "平均跌幅",
+        "avgGain": "平均涨幅",
         "waiting": "正在等待市场数据...",
         "noData": "当前范围内未发现可用于回测的高影响看跌事件。",
         "window1h": "1小时窗口",
@@ -221,7 +223,14 @@
         "runBacktest": "运行回测",
         "recentResults": "最近结果",
         "noResultsYet": "暂无结果",
-        "runFirstBacktest": "运行您的第一次回测以查看性能分析。"
+        "runFirstBacktest": "运行您的第一次回测以查看性能分析。",
+        "scoreLabel": "评分 {minScore}+",
+        "bearish": "看跌",
+        "bullish": "看涨",
+        "minUrgencyScore": "最低紧急评分",
+        "sentimentDirection": "情绪方向",
+        "bearishSell": "看跌 (卖出)",
+        "bullishBuy": "看涨 (买入)"
     },
     "DimensionD": {
         "label": "宏观体制 (MACRO REGIME)",

@@ -165,9 +165,11 @@
   },
   "Backtest": {
     "bearishSignals": "Bearish Signals (Score 8+)",
+    "bullishSignals": "Bullish Signals (Score 8+)",
     "events": "Events",
     "accuracy": "Accuracy",
     "avgDrop": "Avg Drop",
+    "avgGain": "Avg Gain",
     "waiting": "waiting for market data...",
     "noData": "No high-impact bearish events found in current range for backtesting.",
     "window1h": "1H Window",
@@ -203,7 +205,14 @@
     "runBacktest": "Run Backtest",
     "recentResults": "Recent Results",
     "noResultsYet": "No results yet",
-    "runFirstBacktest": "Run your first backtest to see performance analytics."
+    "runFirstBacktest": "Run your first backtest to see performance analytics.",
+    "scoreLabel": "Score {minScore}+",
+    "bearish": "Bearish",
+    "bullish": "Bullish",
+    "minUrgencyScore": "Min Urgency Score",
+    "sentimentDirection": "Sentiment Direction",
+    "bearishSell": "Bearish (Sell)",
+    "bullishBuy": "Bullish (Buy)"
   },
   "DimensionD": {
     "label": "MACRO REGIME",

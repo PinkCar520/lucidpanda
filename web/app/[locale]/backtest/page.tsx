@@ -10,6 +10,7 @@ export default function BacktestPage() {
     const t = useTranslations('App');
     const tBacktest = useTranslations('Backtest');
     const [loading, setLoading] = useState(false);
+    const [showConfig, setShowConfig] = useState(false);
     
     // Mock data or fetch data if needed
     // For now, we'll just show the BacktestStats component with some mock data or empty
@@ -28,7 +29,10 @@ export default function BacktestPage() {
                 </div>
                 
                 <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                    <button 
+                        onClick={() => setShowConfig(!showConfig)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${showConfig ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 dark:bg-slate-800 border-transparent text-slate-900 dark:text-slate-100 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                    >
                         <Settings className="w-4 h-4" />
                         {tBacktest('configure')}
                     </button>
@@ -42,7 +46,7 @@ export default function BacktestPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                     {/* Placeholder for Backtest UI */}
-                    <BacktestStats intelligence={[]} marketData={[]} />
+                    <BacktestStats intelligence={[]} marketData={[]} showConfig={showConfig} />
                 </div>
                 
                 <div className="flex flex-col gap-6">
