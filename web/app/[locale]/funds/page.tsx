@@ -62,12 +62,12 @@ interface WatchlistItem {
 }
 
 export default function FundDashboard({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = React.use(params);
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const t = useTranslations('Funds');
-  const tApp = useTranslations('App');
+    const { locale } = React.use(params);
+    const { data: session, status } = useSession();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const t = useTranslations('Funds');
+    const tApp = useTranslations('App');
 
     // State management - UI and sorting
     const [selectedFund, setSelectedFund] = useState<string>('');
@@ -86,7 +86,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             const json = await res.json();
             return json.data as WatchlistItem[];
         },
-        { 
+        {
             revalidateOnFocus: true,
             dedupingInterval: 5000,
             onSuccess: (data) => {
@@ -121,8 +121,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             const res = await authenticatedFetch(url, session);
             return await res.json();
         },
-        { 
-            revalidateOnFocus: false, 
+        {
+            revalidateOnFocus: false,
             dedupingInterval: 60000,
             onSuccess: () => setLastUpdated(new Date())
         }
@@ -228,14 +228,14 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     };
 
     return (
-        <div className="flex flex-col p-4 md:p-6 lg:p-8 gap-6 h-full min-h-0 overflow-hidden">
+        <div className="flex flex-col p-4 md:p-6 lg:p-8 gap-6 lg:h-full lg:overflow-hidden min-h-screen">
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
                 {/* Left: Watchlist (Mobile: Toggleable, Desktop: Fixed Sidebar) */}
                 <div className="lg:col-span-4 flex flex-col gap-4 min-h-0">
-                    {/* Mobile Fund Switcher / Current Indicator */}
-                    <div 
+                    {/* Mobile Fund Switcher / Current Indicator - STICKY on Mobile */}
+                    <div
                         onClick={() => setIsWatchlistOpen(!isWatchlistOpen)}
-                        className="flex lg:hidden items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer active:bg-slate-100 dark:active:bg-slate-800 transition-colors"
+                        className="flex lg:hidden sticky top-0 z-30 items-center justify-between p-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer active:bg-slate-100 dark:active:bg-slate-800 transition-colors shadow-sm"
                     >
                         <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">{t('currentlyViewing') || 'CURRENTLY VIEWING'}</span>
@@ -259,7 +259,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                     {/* The Actual Watchlist Card */}
                     <Card
                         title={t('watchlist')}
-                        className={`lg:flex flex-col overflow-hidden transition-all duration-300 ${isWatchlistOpen ? 'flex h-[450px]' : 'hidden h-0 lg:h-full'}`}
+                        className={`lg:flex flex-col overflow-hidden transition-all duration-300 ${isWatchlistOpen ? 'flex h-[500px] border-blue-200 dark:border-blue-900 shadow-lg' : 'hidden h-0 lg:h-full'}`}
                         contentClassName="flex-1 min-h-0 flex flex-col p-3"
                         action={
                             <div className="liquid-glass-toolbar">
@@ -289,7 +289,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                             </div>
                         }
                     >
-                        <div className="flex flex-col h-full min-h-0">
+                        <div className="flex flex-col flex-1 min-h-0">
                             <div className="mb-4 shrink-0 relative z-20">
                                 <FundSearch
                                     onAddFund={async (code, name) => {
@@ -301,7 +301,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                             try {
                                                 const res = await authenticatedFetch('/api/watchlist', session, {
                                                     method: 'POST',
-                                                    headers: { 
+                                                    headers: {
                                                         'Content-Type': 'application/json'
                                                     },
                                                     body: JSON.stringify({ code, name })
@@ -325,7 +325,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                 />
                             </div>
 
-                            <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-1 custom-scrollbar">
+                            <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-1 custom-scrollbar max-h-[400px] lg:max-h-96">
                                 {watchlist
                                     .slice() // Create a copy to avoid mutating state
                                     .sort((a, b) => {
@@ -399,9 +399,9 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                 {selectedFund === item.code && loading && <RefreshCw className="w-3 h-3 animate-spin" />}
                                                 <button
                                                     onClick={(e) => handleDelete(e, item.code)}
-                                                    className="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-900 transition-colors"
+                                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-900 transition-colors"
                                                 >
-                                                    <X className="w-3 h-3" />
+                                                    <X className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </div>
@@ -504,13 +504,14 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                         </button>
                                     </div>
                                 }
-                                                                className="lg:flex-1 lg:flex lg:flex-col"
-                                                                contentClassName="lg:flex-1 p-0"
-                                                            >
-                                                                <div className="w-full overflow-x-auto">
-                                                                    {activeTab === 'attribution' && (
-                                                                        <div className="flex flex-col">
-                                                                            <table className="w-full text-left border-collapse text-sm">                                                <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                                className="lg:flex-1 lg:flex lg:flex-col"
+                                contentClassName="lg:flex-1 p-0"
+                            >
+                                <div className="w-full overflow-x-auto">
+                                    {activeTab === 'attribution' && (
+                                        <div className="max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                            <table className="w-full text-left border-collapse text-sm">
+                                                <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
                                                     <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider shadow-sm bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur">
                                                         <th className="p-3">{t('tableStock')}</th>
                                                         <th className="p-3 text-right hidden sm:table-cell">{t('tablePrice')}</th>
@@ -547,8 +548,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                         ))}
                                                 </tbody>
                                             </table>
-                                        </div>
-                                    )}
+                                        </div>)}
 
                                     {activeTab === 'sector' && (
                                         <div className="flex flex-col p-2 lg:p-4">
@@ -565,42 +565,44 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                     <RefreshCw className="w-6 h-6 animate-spin text-slate-300 dark:text-slate-700" />
                                                 </div>
                                             ) : history.length > 0 ? (
-                                                <table className="w-full text-left border-collapse text-sm">
-                                                    <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
-                                                        <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider shadow-sm bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur">
-                                                            <th className="p-3">{t('tableDate')}</th>
-                                                            <th className="p-3 text-right">{t('tableEst')}</th>
-                                                            <th className="p-3 text-right hidden sm:table-cell">{t('tableOfficial')}</th>
-                                                            <th className="p-3 text-right">{t('tableDeviation')}</th>
-                                                            <th className="p-3 text-center">{t('tableStatus')}</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                                                        {history.map((h, i) => (
-                                                            <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                                <td className="p-3 font-mono text-slate-600 dark:text-slate-400 text-xs">{h.trade_date}</td>
-                                                                <td className={`p-3 text-right font-mono font-bold ${h.frozen_est_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
-                                                                    {h.frozen_est_growth > 0 ? "+" : ""}{Number(h.frozen_est_growth).toFixed(2)}%
-                                                                </td>
-                                                                <td className={`p-3 text-right font-mono font-bold hidden sm:table-cell ${h.official_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
-                                                                    {h.official_growth > 0 ? "+" : ""}{Number(h.official_growth).toFixed(2)}%
-                                                                </td>
-                                                                <td className="p-3 text-right font-mono text-slate-500 dark:text-slate-500">
-                                                                    {h.deviation > 0 ? "+" : ""}{Number(h.deviation).toFixed(2)}%
-                                                                </td>
-                                                                <td className="p-3 text-center">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${h.tracking_status === 'S' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
-                                                                        h.tracking_status === 'A' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
-                                                                            h.tracking_status === 'B' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
-                                                                                'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
-                                                                        }`}>
-                                                                        {t(`accuracy${h.tracking_status}`)}
-                                                                    </span>
-                                                                </td>
+                                                <div className="max-h-[50vh] lg:max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                                    <table className="w-full text-left border-collapse text-sm">
+                                                        <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
+                                                            <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider shadow-sm bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur">
+                                                                <th className="p-3">{t('tableDate')}</th>
+                                                                <th className="p-3 text-right">{t('tableEst')}</th>
+                                                                <th className="p-3 text-right hidden sm:table-cell">{t('tableOfficial')}</th>
+                                                                <th className="p-3 text-right">{t('tableDeviation')}</th>
+                                                                <th className="p-3 text-center">{t('tableStatus')}</th>
                                                             </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                                                            {history.map((h, i) => (
+                                                                <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                                    <td className="p-3 font-mono text-slate-600 dark:text-slate-400 text-xs">{h.trade_date}</td>
+                                                                    <td className={`p-3 text-right font-mono font-bold ${h.frozen_est_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                                                                        {h.frozen_est_growth > 0 ? "+" : ""}{Number(h.frozen_est_growth).toFixed(2)}%
+                                                                    </td>
+                                                                    <td className={`p-3 text-right font-mono font-bold hidden sm:table-cell ${h.official_growth >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                                                                        {h.official_growth > 0 ? "+" : ""}{Number(h.official_growth).toFixed(2)}%
+                                                                    </td>
+                                                                    <td className="p-3 text-right font-mono text-slate-500 dark:text-slate-500">
+                                                                        {h.deviation > 0 ? "+" : ""}{Number(h.deviation).toFixed(2)}%
+                                                                    </td>
+                                                                    <td className="p-3 text-center">
+                                                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${h.tracking_status === 'S' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                                                                            h.tracking_status === 'A' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                                                                                h.tracking_status === 'B' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
+                                                                                    'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400'
+                                                                            }`}>
+                                                                            {t(`accuracy${h.tracking_status}`)}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
                                             ) : (
                                                 <div className="flex-1 flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-600">
                                                     <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-full mb-4">

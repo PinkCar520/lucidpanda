@@ -74,21 +74,22 @@ body {
 
 /* 自定义滚动条 */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px; /* Slightly wider */
+  height: 8px; /* For horizontal scrollbar if any */
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(226, 232, 240, 0.5); /* Light grey track */
+  border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 99px;
+  background: rgba(59, 130, 246, 0.8); /* A more distinct blue */
+  border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: rgba(59, 130, 246, 1); /* Full opacity blue on hover */
 }
 
 /* 隐藏滚动条但保留功能 */
