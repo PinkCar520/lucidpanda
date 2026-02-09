@@ -214,7 +214,15 @@
     "minUrgencyScore": "Min Urgency Score",
     "sentimentDirection": "Sentiment Direction",
     "bearishSell": "Bearish (Sell)",
-    "bullishBuy": "Bullish (Buy)"
+    "bullishBuy": "Bullish (Buy)",
+    "evidenceList": "Backtest Evidence List",
+    "priceAction": "Price Action",
+    "priceActionDetail": "Price Action Detail",
+    "entryPrice": "Entry Price",
+    "exitPrice": "Exit Price",
+    "netChange": "Net Change",
+    "urgencyImpact": "Urgency & Impact",
+    "viewFullAnalysis": "View Full Analysis"
   },
   "DimensionD": {
     "label": "MACRO REGIME",

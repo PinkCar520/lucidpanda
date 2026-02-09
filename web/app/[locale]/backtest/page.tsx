@@ -25,12 +25,13 @@ export default function BacktestPage() {
         const urlS = searchParams.get('s');
         const urlDir = searchParams.get('dir') as 'bearish' | 'bullish' | null;
 
-        let stored: any = {};
+        let stored: { window?: '1h' | '24h', minScore?: number, sentiment?: 'bearish' | 'bullish' } = {};
         if (typeof window !== 'undefined') {
             try {
-                stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-            } catch (e) {
-                console.error("Failed to parse stored config", e);
+                const item = localStorage.getItem(STORAGE_KEY);
+                if (item) stored = JSON.parse(item);
+            } catch {
+                console.error("Failed to parse stored config");
             }
         }
 

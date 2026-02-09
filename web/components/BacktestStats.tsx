@@ -1,16 +1,35 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Card } from './ui/Card';
 import { Intelligence } from '@/lib/db';
-import { TrendingDown, TrendingUp, Activity, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useLocale } from 'next-intl';
+import { TrendingDown, TrendingUp, Activity, CheckCircle2, AlertTriangle, FileText, ArrowRight, XCircle, Zap, ExternalLink } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import AnimatedNumber from './AnimatedNumber';
 import { motion } from 'framer-motion';
+import { 
+    Sheet, 
+    SheetContent, 
+    SheetHeader, 
+    SheetTitle, 
+    SheetDescription 
+} from './ui/Sheet';
+import { Badge } from './ui/Badge';
+
+interface BacktestItem {
+    id: number;
+    title: string | Record<string, string>; // Localized JSON string or object
+    timestamp: string;
+    score: number;
+    entry: number;
+    exit: number;
+    is_win: boolean;
+    change_pct: number;
+}
 
 interface BacktestStatsProps {
     intelligence: Intelligence[];
-    marketData: any; // Keeping any for now as it's defined elsewhere this way
+    marketData: unknown; 
     showConfig?: boolean;
     window?: '1h' | '24h';
     minScore?: number;
@@ -26,7 +45,21 @@ export default function BacktestStats({
     onConfigChange
 }: BacktestStatsProps) {
     const t = useTranslations('Backtest');
+    const locale = useLocale();
+    
+    // Helper to get localized text from JSON string or object
+    const getLocalizedText = (textSource: string | Record<string, string> | undefined, locale: string) => {
+        if (!textSource) return '';
+        try {
+            const data = typeof textSource === 'string' ? JSON.parse(textSource) : textSource;
+            return data[locale] || data['en'] || Object.values(data)[0] || '';
+        } catch {
+            return String(textSource);
+        }
+    };
+
     const [loading, setLoading] = React.useState(true);
+    const [selectedItem, setSelectedItem] = React.useState<BacktestItem | null>(null);
     const [stats, setStats] = React.useState<{
         count: number;
         winRate: number;
@@ -37,6 +70,7 @@ export default function BacktestStats({
         positioning?: Record<string, { count: number; winRate: number }>;
         volatility?: Record<string, { count: number; winRate: number }>;
         sessionStats?: Array<{ session: string; count: number; winRate: number; avgDrop: number }>;
+        items?: BacktestItem[];
     } | null>(null);
     
     // Configuration State - Initialize directly from props to avoid sync effect
@@ -94,8 +128,8 @@ export default function BacktestStats({
                         setStats(data);
                     }
                 }
-            } catch (e) {
-                console.error("Failed to fetch stats", e);
+            } catch {
+                console.error("Failed to fetch stats");
             } finally {
                 setLoading(false);
             }
@@ -479,7 +513,7 @@ export default function BacktestStats({
                                             {isBest && <span className="text-[9px] bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 px-1 rounded uppercase font-bold">{t('best')}</span>}
                                         </div>
                                         <div className="flex items-baseline gap-2">
-                                            <span className={`text-base font-mono font-bold ${s ? 'text-slate-900 dark:text-white' : 'text-slate-300 dark:text-slate-700'}`}>
+                                            <span className="text-base font-mono font-bold text-slate-900 dark:text-white">
                                                 {s ? <AnimatedNumber value={s.winRate} suffix="%" /> : '-%'}
                                             </span>
                                             <span className="text-[10px] text-slate-400 dark:text-slate-600 font-mono flex">
@@ -492,6 +526,129 @@ export default function BacktestStats({
                         </div>
                     </div>
                 )}
+
+                {/* Evidence List (Breaking the Black Box) */}
+                {!loading && stats?.items && stats.items.length > 0 && (
+                    <div className="flex flex-col gap-3 mt-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] px-1 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-500" />
+                            {t('evidenceList')} ({stats.count})
+                        </h4>
+                        <div className="space-y-2">
+                            {stats.items.map((item) => (
+                                <div 
+                                    key={item.id} 
+                                    onClick={() => setSelectedItem(item)}
+                                    className="group relative bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-xl p-3 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all cursor-pointer shadow-sm dark:shadow-none"
+                                >
+                                    <div className="flex items-center justify-between gap-4">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${item.is_win ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                                                {item.is_win ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                            </div>
+                                            <div className="flex flex-col min-w-0">
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">
+                                                    {getLocalizedText(item.title, locale)}
+                                                </span>
+                                                <div className="flex items-center gap-2 text-[9px] text-slate-400 font-mono mt-0.5">
+                                                    <span>{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                    <span className="opacity-30">|</span>
+                                                    <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded font-bold">Score {item.score}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-8 shrink-0">
+                                            <div className="hidden md:flex flex-col items-end">
+                                                <span className="text-[8px] text-slate-400 uppercase font-black tracking-tighter leading-none mb-1">{t('priceAction')}</span>
+                                                <div className="text-[10px] font-mono font-bold flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                                                    <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{item.entry.toFixed(1)}</span>
+                                                    <ArrowRight className="w-3 h-3 opacity-30" />
+                                                    <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{item.exit.toFixed(1)}</span>
+                                                </div>
+                                            </div>
+                                            <div className={`w-14 text-right font-mono font-black text-xs ${item.is_win ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                {item.change_pct > 0 ? '↑' : '↓'} {Math.abs(item.change_pct).toFixed(2)}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Detail Drawer (Sheet) */}
+                <Sheet open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
+                    <SheetContent className="overflow-y-auto">
+                        <SheetHeader className="mb-6">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Badge variant={selectedItem?.is_win ? 'bullish' : 'bearish'}>
+                                    {selectedItem?.is_win ? 'WIN / ACCURATE' : 'LOSS / INACCURATE'}
+                                </Badge>
+                                <span className="text-[10px] font-mono text-slate-400">ID: {selectedItem?.id}</span>
+                            </div>
+                            <SheetTitle className="text-xl leading-snug">{getLocalizedText(selectedItem?.title, locale)}</SheetTitle>
+                            <SheetDescription className="flex items-center gap-2 font-mono text-[10px] mt-1">
+                                <Activity className="w-3 h-3" />
+                                {selectedItem && new Date(selectedItem.timestamp).toLocaleString()}
+                            </SheetDescription>
+                        </SheetHeader>
+
+                        <div className="flex flex-col gap-6">
+                            {/* Price Snapshot */}
+                            <div className="bg-slate-50 dark:bg-slate-900 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
+                                <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">{t('priceActionDetail')}</h5>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">{t('entryPrice')}</span>
+                                        <span className="text-xl font-mono font-black">{selectedItem?.entry?.toFixed(2) || '0.00'}</span>
+                                    </div>
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">{t('exitPrice')} ({window})</span>
+                                        <span className="text-xl font-mono font-black">{selectedItem?.exit?.toFixed(2) || '0.00'}</span>
+                                    </div>
+                                </div>
+                                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-500">{t('netChange')}</span>
+                                    <span className={`text-lg font-mono font-black ${selectedItem?.is_win ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                        {(selectedItem?.change_pct ?? 0) > 0 ? '+' : ''}{selectedItem?.change_pct?.toFixed(3) || '0.000'}%
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Intelligence Metadata */}
+                            <div className="space-y-4">
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                        <Zap className="w-3 h-3 text-amber-500" />
+                                        {t('urgencyImpact')}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-2 flex-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                            <div 
+                                                className="h-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.4)]" 
+                                                style={{ width: `${(selectedItem?.score || 0) * 10}%` }} 
+                                            />
+                                        </div>
+                                        <span className="text-sm font-black font-mono">{selectedItem?.score}/10</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="pt-6 border-t border-slate-100 dark:border-slate-900 flex flex-col gap-3">
+                                <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                                    {t('viewFullAnalysis')}
+                                    <ExternalLink className="w-4 h-4" />
+                                </button>
+                                <p className="text-[10px] text-slate-400 text-center px-4 leading-relaxed">
+                                    This event was factored into the {window} backtest result using a {sentiment} sentiment model.
+                                </p>
+                            </div>
+                        </div>
+                    </SheetContent>
+                </Sheet>
             </div>
         </div>
     );

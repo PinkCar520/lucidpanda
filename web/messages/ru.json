@@ -214,7 +214,15 @@
     "minUrgencyScore": "Мин. балл срочности",
     "sentimentDirection": "Направление настроения",
     "bearishSell": "Медвежий (Продажа)",
-    "bullishBuy": "Бычий (Покупка)"
+    "bullishBuy": "Бычий (Покупка)",
+    "evidenceList": "Список доказательств бэктеста",
+    "priceAction": "Движение цены",
+    "priceActionDetail": "Детали движения цены",
+    "entryPrice": "Цена входа",
+    "exitPrice": "Цена выхода",
+    "netChange": "Чистое изменение",
+    "urgencyImpact": "Срочность и влияние",
+    "viewFullAnalysis": "Полный анализ"
   },
   "DimensionD": {
     "label": "МАКРО-РЕЖИМ",

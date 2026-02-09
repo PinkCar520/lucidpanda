@@ -232,7 +232,15 @@
         "minUrgencyScore": "最低紧急评分",
         "sentimentDirection": "情绪方向",
         "bearishSell": "看跌 (卖出)",
-        "bullishBuy": "看涨 (买入)"
+        "bullishBuy": "看涨 (买入)",
+        "evidenceList": "回测证据列表",
+        "priceAction": "价格表现",
+        "priceActionDetail": "价格波动详情",
+        "entryPrice": "触发价",
+        "exitPrice": "结果价",
+        "netChange": "净变动",
+        "urgencyImpact": "紧急程度与影响",
+        "viewFullAnalysis": "查看完整情报分析"
     },
     "DimensionD": {
         "label": "宏观体制 (MACRO REGIME)",

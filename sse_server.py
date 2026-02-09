@@ -492,6 +492,32 @@ async def get_backtest_stats(request: Request):
         GROUP BY env;
         """
         
+        # 7. Detailed Items
+        query_items = f"""
+        WITH raw_items AS (
+            SELECT 
+                id,
+                summary as title,
+                timestamp,
+                urgency_score as score,
+                gold_price_snapshot as entry,
+                {outcome_col} as exit
+            FROM intelligence 
+            WHERE 
+                urgency_score >= %(min_score)s
+                AND (sentiment::text ~* %(keywords)s)
+                AND gold_price_snapshot IS NOT NULL 
+                AND {outcome_col} IS NOT NULL
+        )
+        SELECT 
+            *,
+            CASE WHEN {win_condition} THEN true ELSE false END as is_win,
+            ((CAST(exit AS FLOAT) - entry) / entry) * 100 as change_pct
+        FROM raw_items
+        ORDER BY timestamp DESC
+        LIMIT 50;
+        """
+        
         cursor.execute(query_global, {'keywords': keywords, 'min_score': min_score})
         res_global = cursor.fetchone()
         
@@ -509,9 +535,12 @@ async def get_backtest_stats(request: Request):
 
         cursor.execute(query_macro, {'keywords': keywords, 'min_score': min_score})
         res_macro = cursor.fetchall()
+
+        cursor.execute(query_items, {'keywords': keywords, 'min_score': min_score})
+        res_items = cursor.fetchall()
         
         if not res_global or res_global['count'] == 0:
-            return {"count": 0, "winRate": 0, "avgDrop": 0, "window": window, "sessionStats": []}
+            return {"count": 0, "winRate": 0, "avgDrop": 0, "window": window, "sessionStats": [], "items": []}
             
         session_stats = []
         for s in res_sessions:
@@ -544,7 +573,8 @@ async def get_backtest_stats(request: Request):
             "volatility": volatility_stats,
             "macro": macro_stats,
             "window": window,
-            "sessionStats": session_stats
+            "sessionStats": session_stats,
+            "items": res_items
         }
         
     except Exception as e:
