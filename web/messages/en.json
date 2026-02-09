@@ -222,7 +222,11 @@
     "exitPrice": "Exit Price",
     "netChange": "Net Change",
     "urgencyImpact": "Urgency & Impact",
-    "viewFullAnalysis": "View Full Analysis"
+    "viewFullAnalysis": "View Full Analysis",
+    "winStatus": "WIN / ACCURATE",
+    "lossStatus": "LOSS / INACCURATE",
+    "idLabel": "ID",
+    "analysisDisclaimer": "This event was factored into the {window} backtest result using a {sentiment} sentiment model."
   },
   "DimensionD": {
     "label": "MACRO REGIME",

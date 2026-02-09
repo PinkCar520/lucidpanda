@@ -584,9 +584,9 @@ export default function BacktestStats({
                         <SheetHeader className="mb-6">
                             <div className="flex items-center gap-2 mb-2">
                                 <Badge variant={selectedItem?.is_win ? 'bullish' : 'bearish'}>
-                                    {selectedItem?.is_win ? 'WIN / ACCURATE' : 'LOSS / INACCURATE'}
+                                    {selectedItem?.is_win ? t('winStatus') : t('lossStatus')}
                                 </Badge>
-                                <span className="text-[10px] font-mono text-slate-400">ID: {selectedItem?.id}</span>
+                                <span className="text-[10px] font-mono text-slate-400">{t('idLabel')}: {selectedItem?.id}</span>
                             </div>
                             <SheetTitle className="text-xl leading-snug">{getLocalizedText(selectedItem?.title, locale)}</SheetTitle>
                             <SheetDescription className="flex items-center gap-2 font-mono text-[10px] mt-1">
@@ -605,7 +605,7 @@ export default function BacktestStats({
                                         <span className="text-xl font-mono font-black">{selectedItem?.entry?.toFixed(2) || '0.00'}</span>
                                     </div>
                                     <div className="flex flex-col items-end">
-                                        <span className="text-[10px] text-slate-500 font-bold uppercase">{t('exitPrice')} ({window})</span>
+                                        <span className="text-[10px] text-slate-500 font-bold uppercase">{t('exitPrice')} ({t('window' + window)})</span>
                                         <span className="text-xl font-mono font-black">{selectedItem?.exit?.toFixed(2) || '0.00'}</span>
                                     </div>
                                 </div>
@@ -642,8 +642,11 @@ export default function BacktestStats({
                                     {t('viewFullAnalysis')}
                                     <ExternalLink className="w-4 h-4" />
                                 </button>
-                                <p className="text-[10px] text-slate-400 text-center px-4 leading-relaxed">
-                                    This event was factored into the {window} backtest result using a {sentiment} sentiment model.
+                                <p className="text-[10px] text-slate-400 text-center px-4 leading-relaxed italic">
+                                    {t('analysisDisclaimer', { 
+                                        window: t('window' + window), 
+                                        sentiment: t(sentiment) 
+                                    })}
                                 </p>
                             </div>
                         </div>

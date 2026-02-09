@@ -12,9 +12,9 @@ const SheetPortal = SheetPrimitive.Portal;
 const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
->(({ ...props }, ref) => (
+>(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
-    className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+    className={`fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 ${className || ''}`}
     {...props}
     ref={ref}
   />
@@ -24,12 +24,12 @@ SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>
->(({ children, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
-      className="fixed inset-y-0 right-0 z-[101] h-full w-full max-w-md border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right duration-300"
+      className={`fixed inset-y-0 right-0 z-[101] h-full w-full max-w-md border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-6 shadow-2xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right duration-300 ${className || ''}`}
       {...props}
     >
       {children}
@@ -43,10 +43,11 @@ const SheetContent = React.forwardRef<
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
 const SheetHeader = ({
+  className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className="flex flex-col space-y-2 text-left"
+    className={`flex flex-col space-y-2 text-left ${className || ''}`}
     {...props}
   />
 );
@@ -55,10 +56,10 @@ SheetHeader.displayName = 'SheetHeader';
 const SheetTitle = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>
->(({ ...props }, ref) => (
+>(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
     ref={ref}
-    className="text-lg font-bold text-slate-950 dark:text-slate-50"
+    className={`text-lg font-bold text-slate-950 dark:text-slate-50 ${className || ''}`}
     {...props}
   />
 ));
@@ -67,10 +68,10 @@ SheetTitle.displayName = SheetPrimitive.Title.displayName;
 const SheetDescription = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Description>
->(({ ...props }, ref) => (
+>(({ className, ...props }, ref) => (
   <SheetPrimitive.Description
     ref={ref}
-    className="text-sm text-slate-500 dark:text-slate-400"
+    className={`text-sm text-slate-500 dark:text-slate-400 ${className || ''}`}
     {...props}
   />
 ));

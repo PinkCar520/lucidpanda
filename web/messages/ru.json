@@ -222,7 +222,11 @@
     "exitPrice": "Цена выхода",
     "netChange": "Чистое изменение",
     "urgencyImpact": "Срочность и влияние",
-    "viewFullAnalysis": "Полный анализ"
+    "viewFullAnalysis": "Полный анализ",
+    "winStatus": "ТОЧНО / ОЖИДАЕМО",
+    "lossStatus": "ОТКЛОНЕНИЕ / НЕ ОЖИДАЕМО",
+    "idLabel": "ID",
+    "analysisDisclaimer": "Это событие было учтено в модели бэктеста {window} с использованием {sentiment} фактора настроения."
   },
   "DimensionD": {
     "label": "МАКРО-РЕЖИМ",
