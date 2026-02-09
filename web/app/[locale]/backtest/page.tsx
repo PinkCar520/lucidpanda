@@ -1,20 +1,67 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
+import { useRouter, usePathname } from '@/i18n/navigation';
+import { useSearchParams } from 'next/navigation';
 import BacktestStats from '@/components/BacktestStats';
 import { Loader2, Activity, Play, Settings, History } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 
+const STORAGE_KEY = 'backtest_config';
+
 export default function BacktestPage() {
     const t = useTranslations('App');
     const tBacktest = useTranslations('Backtest');
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
     const [loading, setLoading] = useState(false);
     const [showConfig, setShowConfig] = useState(false);
-    
-    // Mock data or fetch data if needed
-    // For now, we'll just show the BacktestStats component with some mock data or empty
-    
+
+    // Initial state logic: URL > LocalStorage > Defaults
+    const getInitialConfig = () => {
+        const urlW = searchParams.get('w') as '1h' | '24h';
+        const urlS = searchParams.get('s');
+        const urlDir = searchParams.get('dir') as 'bearish' | 'bullish';
+
+        let stored: any = {};
+        if (typeof window !== 'undefined') {
+            try {
+                stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            } catch (e) {
+                console.error("Failed to parse stored config", e);
+            }
+        }
+
+        return {
+            window: urlW || stored.window || '1h',
+            minScore: urlS ? parseInt(urlS) : (stored.minScore || 8),
+            sentiment: urlDir || stored.sentiment || 'bearish'
+        };
+    };
+
+    const [config, setConfig] = useState(getInitialConfig());
+
+    // Sync to URL and LocalStorage
+    const handleConfigChange = useCallback((newConfig: { window: '1h' | '24h', minScore: number, sentiment: 'bearish' | 'bullish' }) => {
+        // Update URL
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('w', newConfig.window);
+        params.set('s', newConfig.minScore.toString());
+        params.set('dir', newConfig.sentiment);
+        
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+
+        // Update LocalStorage
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(newConfig));
+        }
+        
+        setConfig(newConfig);
+    }, [pathname, router, searchParams]);
+
     return (
         <div className="flex flex-col gap-8 p-4 md:p-6 lg:p-8 animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -46,7 +93,15 @@ export default function BacktestPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                     {/* Placeholder for Backtest UI */}
-                    <BacktestStats intelligence={[]} marketData={[]} showConfig={showConfig} />
+                    <BacktestStats 
+                        intelligence={[]} 
+                        marketData={[]} 
+                        showConfig={showConfig}
+                        window={config.window}
+                        minScore={config.minScore}
+                        sentiment={config.sentiment}
+                        onConfigChange={handleConfigChange}
+                    />
                 </div>
                 
                 <div className="flex flex-col gap-6">
