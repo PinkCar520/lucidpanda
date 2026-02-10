@@ -10,6 +10,8 @@ class BacktestEngine:
     def __init__(self, db: IntelligenceDB):
         self.db = db
         self.current_position = None # Initial state: No position (None)
+        self.last_sync_attempt = datetime.min.replace(tzinfo=pytz.utc)
+        self.sync_cooldown_minutes = 15 # Initial cooldown
 
     def process_signal(self, signal_direction: str) -> bool:
         """
@@ -49,22 +51,20 @@ class BacktestEngine:
         [自动回填] 检查旧数据并更新 T+1h, T+24h 的价格
         采用 "Next Trading Candle" 逻辑，确保对齐交易时段。
         """
+        now = datetime.now(pytz.utc)
+        # 频率控制：如果距离上次尝试不足冷却时间，直接跳过
+        if (now - self.last_sync_attempt).total_seconds() < self.sync_cooldown_minutes * 60:
+            return
+
         pending_records = self.db.get_pending_outcomes()
         if not pending_records:
             return
 
-        logger.info(f"⏳ 正在同步 {len(pending_records)} 条历史数据的收益率...")
-
-        # 1. 确定所需的历史数据范围
-        min_time = None
-        max_time = None
-        
-        parsed_records = []
-
+        # 预解析并过滤
+        ready_records = []
         for record in pending_records:
             try:
                 raw_time = record['timestamp']
-                # 统一转为 UTC datetime
                 if isinstance(raw_time, str):
                     try:
                         dt = datetime.strptime(raw_time, "%Y-%m-%d %H:%M:%S")
@@ -78,48 +78,56 @@ class BacktestEngine:
                 else:
                     dt = dt.astimezone(pytz.utc)
                 
-                parsed_records.append((record, dt))
+                # 只处理 15 分钟以前的记录，避免雅虎还没生成最近的 Candle
+                if (now - dt).total_seconds() > 900:
+                    ready_records.append((record, dt))
+            except:
+                continue
 
-                if min_time is None or dt < min_time:
-                    min_time = dt
-                if max_time is None or dt > max_time:
-                    max_time = dt
-            except Exception as e:
-                logger.warning(f"跳过时间格式错误的记录 ID {record.get('id')}: {e}")
-
-        if not parsed_records:
+        if not ready_records:
             return
 
-        # 2. 获取历史数据 (动态范围 + 7天缓冲)
-        fetch_start = (min_time - timedelta(days=7)).strftime('%Y-%m-%d')
-        fetch_end = (max_time + timedelta(days=7)).strftime('%Y-%m-%d')
+        logger.info(f"⏳ 正在同步 {len(ready_records)} 条历史数据的收益率...")
+        self.last_sync_attempt = now
+
+        # 1. 确定所需的历史数据范围
+        min_time = min(r[1] for r in ready_records)
+        max_time = max(r[1] for r in ready_records)
+
+        # 2. 获取历史数据 (缓冲缩小为 2 天以减少数据量)
+        fetch_start = (min_time - timedelta(days=2)).strftime('%Y-%m-%d')
+        fetch_end = (max_time + timedelta(days=2)).strftime('%Y-%m-%d')
         
         logger.info(f"📈 获取行情数据范围: {fetch_start} 至 {fetch_end}")
         
         try:
             ticker = yf.Ticker("GC=F")
-            # 优先尝试获取较长历史
             hist = ticker.history(start=fetch_start, end=fetch_end, interval="1h")
             
             if hist.empty:
                 logger.warning("未能获取到行情数据，跳过本次同步")
                 return
 
-            # 统一时区为 UTC
             if hist.index.tz is None:
                 hist.index = hist.index.tz_localize('UTC')
             else:
                 hist.index = hist.index.tz_convert('UTC')
                 
+            # 同步成功，恢复较短的冷却时间
+            self.sync_cooldown_minutes = 15
+                
         except Exception as e:
-            logger.warning(f"获取历史行情失败: {e}")
+            if "Too Many Requests" in str(e) or "429" in str(e):
+                logger.error("🚫 Yahoo Finance 限流，进入 60 分钟冷却保护期")
+                self.sync_cooldown_minutes = 60
+            else:
+                logger.warning(f"获取历史行情失败: {e}")
             return
 
         # 3. 逐条匹配 (Next Trading Candle)
         success_count = 0
-        for record, record_time in parsed_records:
+        for record, record_time in ready_records:
             try:
-                # 定义要同步的窗口和对应的 timedelta
                 windows = {
                     'price_15m': timedelta(minutes=15),
                     'price_1h': timedelta(hours=1),
@@ -135,7 +143,6 @@ class BacktestEngine:
                     
                     if idx < len(hist):
                         matched_time = hist.index[idx]
-                        # 允许 4 天的 gap (覆盖长周末)
                         if (matched_time - target_time).total_seconds() <= 4 * 86400:
                             outcomes[col] = round(float(hist.iloc[idx]['Close']), 2)
 
@@ -146,19 +153,12 @@ class BacktestEngine:
             except Exception as e:
                 logger.warning(f"单条回填失败 ID {record['id']}: {e}")
         
-        logger.info(f"✅ 同步完成: 成功回填 {success_count}/{len(pending_records)} 条")
+        logger.info(f"✅ 同步完成: 成功回填 {success_count}/{len(ready_records)} 条")
 
     def get_confidence_stats(self, keyword):
         """
         [策略执行] 根据关键词查询历史表现
-        Returns:
-            dict: {
-                "count": 12,
-                "win_rate": 0.75, # 75% 概率上涨
-                "avg_return": 0.42 # 平均涨幅 %
-            }
         """
-        # 使用 PostgreSQL 连接
         try:
             with psycopg2.connect(
                 host=settings.POSTGRES_HOST,
