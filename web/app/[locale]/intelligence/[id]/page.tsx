@@ -3,15 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
-import { 
-    Activity, 
-    ArrowLeft, 
-    Zap, 
-    Clock, 
-    Globe, 
-    ExternalLink, 
-    Shield, 
-    TrendingUp, 
+import {
+    Activity,
+    ArrowLeft,
+    Zap,
+    Clock,
+    Globe,
+    ExternalLink,
+    Shield,
+    TrendingUp,
     TrendingDown,
     FileText
 } from 'lucide-react';
@@ -28,7 +28,7 @@ export default function IntelligenceDetailPage() {
     const t = useTranslations('IntelligenceDetail');
     const tBacktest = useTranslations('Backtest');
     const tSentiment = useTranslations('Sentiment');
-    
+
     const [item, setItem] = useState<Intelligence | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export default function IntelligenceDetailPage() {
                 <Shield className="w-8 h-8" />
             </div>
             <h2 className="text-xl font-bold">{error || t('notFound')}</h2>
-            <button 
+            <button
                 onClick={() => router.back()}
                 className="px-6 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-sm"
             >
@@ -87,15 +87,15 @@ export default function IntelligenceDetailPage() {
         </div>
     );
 
-    const isBearish = (getLocalizedText(item.sentiment).toLowerCase().includes('bearish') || 
-                      getLocalizedText(item.sentiment).includes('看跌') ||
-                      getLocalizedText(item.sentiment).includes('медвежий'));
+    const isBearish = (getLocalizedText(item.sentiment).toLowerCase().includes('bearish') ||
+        getLocalizedText(item.sentiment).includes('看跌') ||
+        getLocalizedText(item.sentiment).includes('медвежий'));
 
     return (
         <div className="flex flex-col gap-8 p-4 md:p-6 lg:p-8 animate-in fade-in slide-in-from-bottom-2 duration-700 max-w-5xl mx-auto">
             {/* Header */}
             <div className="flex flex-col gap-6">
-                <button 
+                <button
                     onClick={() => router.back()}
                     className="flex items-center gap-2 text-slate-500 hover:text-blue-600 transition-colors text-xs font-bold uppercase tracking-widest group w-fit"
                 >
@@ -212,9 +212,9 @@ export default function IntelligenceDetailPage() {
                                 {item.author}
                             </span>
                         </div>
-                        <a 
-                            href={item.url} 
-                            target="_blank" 
+                        <a
+                            href={item.url}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white transition-all rounded-xl flex items-center justify-center gap-2 text-xs font-bold"
                         >
@@ -245,7 +245,7 @@ export default function IntelligenceDetailPage() {
                     {/* Analysis Note */}
                     <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
                         <p className="text-[10px] text-slate-400 leading-relaxed italic text-center">
-                            {t('analysisNote', { 
+                            {t('analysisNote', {
                                 window: tBacktest('window1h'), // Defaulting to 1H for the general note
                                 sentiment: getLocalizedText(item.sentiment)
                             })}
