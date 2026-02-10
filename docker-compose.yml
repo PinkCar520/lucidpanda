@@ -9,8 +9,8 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-alphasignal_core}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # ports:
-    #   - "5432:5432" # Disabled in production for security
+      # ports:
+      - "5432:5432" # Disabled in production for security
     restart: unless-stopped
     logging:
       driver: "json-file"
