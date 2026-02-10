@@ -273,6 +273,17 @@ class IntelligenceDB:
             """)
 
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS fund_relationships (
+                    sub_code VARCHAR(20) PRIMARY KEY,
+                    parent_code VARCHAR(20) NOT NULL,
+                    relation_type VARCHAR(20) NOT NULL,
+                    ratio DOUBLE PRECISION DEFAULT 0.95,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_fund_rel_parent ON fund_relationships(parent_code);
+            """)
+
+            cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intelligence_timestamp ON intelligence(timestamp DESC);
                 CREATE INDEX IF NOT EXISTS idx_intelligence_source_id ON intelligence(source_id);
             """)
@@ -1095,3 +1106,39 @@ class IntelligenceDB:
         except Exception as e:
             logger.error(f"Get Watchlist All Codes Failed: {e}")
             return []
+
+    # --- Fund Relationship Methods (Shadow Mapping) ---
+
+    def get_fund_relationship(self, sub_code):
+        """Retrieve the parent/shadow mapping for a fund."""
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("SELECT * FROM fund_relationships WHERE sub_code = %s", (sub_code,))
+            row = cursor.fetchone()
+            conn.close()
+            return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"Get Fund Relationship Failed: {e}")
+            return None
+
+    def save_fund_relationship(self, sub_code, parent_code, rel_type="ETF_FEEDER", ratio=0.95):
+        """Save or update a fund relationship mapping."""
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO fund_relationships (sub_code, parent_code, relation_type, ratio, updated_at)
+                VALUES (%s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (sub_code) DO UPDATE SET
+                    parent_code = EXCLUDED.parent_code,
+                    relation_type = EXCLUDED.relation_type,
+                    ratio = EXCLUDED.ratio,
+                    updated_at = CURRENT_TIMESTAMP
+            """, (sub_code, parent_code, rel_type, ratio))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.error(f"Save Fund Relationship Failed: {e}")
+            return False

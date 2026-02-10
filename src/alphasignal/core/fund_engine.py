@@ -82,6 +82,54 @@ class FundEngine:
             if original_https:
                 os.environ['HTTPS_PROXY'] = original_https
 
+    def _identify_shadow_etf(self, fund_code, fund_name):
+        """
+        Heuristic algorithm to find parent ETF for feeder funds.
+        Example: '永赢中证全指医疗器械ETF发起联接C' -> '中证全指医疗器械ETF' -> '159883'
+        """
+        if not fund_name or "联接" not in fund_name:
+            return None
+            
+        import re
+        # 1. Clean the name to find the core ETF name
+        # Remove suffixes like '发起式联接', '发起联接', '联接', 'A/C/D', '式'
+        core_name = fund_name
+        # Match Chinese or alphanumeric suffix patterns
+        patterns = [r'发起式联接', r'发起联接', r'联接', r'[A-Z]$', r'\(.*?\)', r'（.*?）']
+        for p in patterns:
+            core_name = re.sub(p, '', core_name)
+        core_name = core_name.strip()
+        
+        if not core_name: return None
+        
+        logger.info(f"🧩 Feeder Detected: '{fund_name}' -> Core: '{core_name}'")
+        
+        # 2. Search local DB for this core name in fund_metadata
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cursor:
+                # Look for matching ETF names
+                # Standard ETFs usually start with 51, 15, 56, 58
+                cursor.execute("""
+                    SELECT fund_code FROM fund_metadata 
+                    WHERE (fund_name = %s OR fund_name LIKE %s)
+                    AND (fund_code LIKE '51%%' OR fund_code LIKE '15%%' OR fund_code LIKE '56%%' OR fund_code LIKE '58%%')
+                    LIMIT 1
+                """, (core_name, f"%{core_name}%"))
+                row = cursor.fetchone()
+                if row:
+                    parent_code = row[0]
+                    logger.info(f"🎯 Shadow Found: '{fund_name}' -> Parent ETF: {parent_code}")
+                    # Save to relationship table for future use
+                    self.db.save_fund_relationship(fund_code, parent_code, "ETF_FEEDER")
+                    return parent_code
+        except Exception as e:
+            logger.error(f"Shadow identification DB error: {e}")
+        finally:
+            if 'conn' in locals() and conn: conn.close()
+            
+        return None
+
     def _get_fund_name(self, fund_code):
         """Fetch Fund Name with Redis Cache and Local DB fallback."""
         if self.redis:
@@ -191,6 +239,67 @@ class FundEngine:
                 logger.info(f"⚡️ Using cached valuation for {fund_code}")
                 return json.loads(cached_val)
         
+        # --- NEW: Shadow Mapping Logic ---
+        # 1. Check if this is a feeder fund with a mapped shadow ETF
+        fund_name = self._get_fund_name(fund_code)
+        relationship = self.db.get_fund_relationship(fund_code)
+        
+        if not relationship:
+            # Try to identify it heuristically
+            parent_code = self._identify_shadow_etf(fund_code, fund_name)
+            if parent_code:
+                relationship = {"parent_code": parent_code, "ratio": 0.95}
+        
+        if relationship:
+            parent_code = relationship['parent_code']
+            ratio = relationship.get('ratio', 0.95)
+            logger.info(f"🕶️ Using Shadow Mapping for {fund_code}: Parent {parent_code}")
+            
+            # Fetch parent ETF price (using efficient SecID logic)
+            # ETFs are field traded, so we use the same batch quote logic but for one item
+            secid = None
+            if parent_code.startswith(('5', '9')): secid = f"sh{parent_code}"
+            else: secid = f"sz{parent_code}"
+            
+            try:
+                import requests
+                url = f"http://qt.gtimg.cn/q={secid}"
+                res = requests.get(url, timeout=3)
+                content = res.content.decode('gbk', errors='ignore')
+                
+                if '=' in content:
+                    val_part = content.split('=', 1)[1].strip('"')
+                    parts = val_part.split('~')
+                    if len(parts) > 32:
+                        price = float(parts[3])
+                        pct = float(parts[32])
+                        est_growth = pct * ratio
+                        
+                        result = {
+                            "fund_code": fund_code,
+                            "fund_name": fund_name,
+                            "status": "active",
+                            "estimated_growth": round(est_growth, 4),
+                            "total_weight": ratio * 100,
+                            "components": [{
+                                "code": parent_code,
+                                "name": self._get_fund_name(parent_code),
+                                "price": price,
+                                "change_pct": pct,
+                                "impact": est_growth,
+                                "weight": ratio * 100
+                            }],
+                            "sector_attribution": {},
+                            "timestamp": datetime.now().isoformat(),
+                            "source": f"Shadow Mapping ({parent_code})"
+                        }
+                        if self.redis:
+                            self.redis.setex(f"fund:valuation:{fund_code}", 180, json.dumps(result))
+                        return result
+            except Exception as e:
+                logger.error(f"Shadow price fetch failed: {e}")
+        # --- END Shadow Mapping ---
+
         # Force disable proxy for reliability with Market Data
         old_proxies = {}
         for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "all_proxy", "ALL_PROXY"]:
@@ -345,7 +454,7 @@ class FundEngine:
                          # Try single fetch
                          try:
                              # Using simple interface for single quote as fallback
-                             # We can use yfinance or akshare daily
+                             # We can use Public API daily
                              # Faster: just Assume we missed it and rely on next batch or add to need_ashare?
                              # Actually if it was in holdings, it should be in quote_map if 'a' snapshot covered it.
                              # If snapshot 'a' covers all A shares, it should be there.
@@ -528,8 +637,28 @@ class FundEngine:
         all_holdings = {}
         stock_map = {} # code -> market_id needed
         
-        # Collect holdings
+        # --- NEW: Batch Relationship Check ---
+        shadow_map = {} # fund_code -> relationship object
         for f_code in fund_codes:
+            rel = self.db.get_fund_relationship(f_code)
+            if not rel:
+                # Try heuristic sync
+                p_code = self._identify_shadow_etf(f_code, fund_name_map.get(f_code))
+                if p_code: rel = {"parent_code": p_code, "ratio": 0.95}
+            
+            if rel:
+                shadow_map[f_code] = rel
+                # Add parent ETF to stock_map for batch quoting
+                p_code = rel['parent_code']
+                secid = None
+                if p_code.startswith(('5', '9')): secid = f"sh{p_code}"
+                else: secid = f"sz{p_code}"
+                stock_map[p_code] = secid
+
+        # Collect holdings for NON-shadow funds
+        for f_code in fund_codes:
+            if f_code in shadow_map: continue
+            
             holdings = self.db.get_fund_holdings(f_code)
             if not holdings:
                 # Start background update and mark as syncing
@@ -631,6 +760,34 @@ class FundEngine:
             industry_map = self._get_industry_map(list(set(all_stock_codes)))
 
         for f_code in fund_codes:
+            # A. Check Shadow Mapping First
+            if f_code in shadow_map:
+                rel = shadow_map[f_code]
+                p_code = rel['parent_code']
+                ratio = rel.get('ratio', 0.95)
+                q = quotes.get(p_code)
+                
+                if q:
+                    est_growth = q['change_pct'] * ratio
+                    res_obj = {
+                        "fund_code": f_code,
+                        "fund_name": fund_name_map.get(f_code, f_code),
+                        "estimated_growth": round(est_growth, 4),
+                        "total_weight": ratio * 100,
+                        "components": [] if summary else [{
+                            "code": p_code, "name": self._get_fund_name(p_code), "price": q['price'], 
+                            "change_pct": q['change_pct'], "impact": est_growth, "weight": ratio * 100
+                        }],
+                        "sector_attribution": {},
+                        "timestamp": datetime.now().isoformat(),
+                        "source": f"Shadow Batch ({p_code})"
+                    }
+                    if self.redis:
+                        self.redis.setex(f"fund:valuation:{f_code}", 180, json.dumps(res_obj))
+                    results.append(res_obj)
+                    continue
+
+            # B. Standard Holdings Logic
             holdings = all_holdings.get(f_code)
             
             if holdings is None:
