@@ -57,7 +57,13 @@ class AlphaEngine:
                         if clean_text:
                             from simhash import Simhash
                             sh = Simhash(clean_text)
-                            vec = self.deduplicator.model.encode(clean_text)
+                            vec = None
+                            if self.deduplicator.model:
+                                try:
+                                    vec = self.deduplicator.model.encode(clean_text)
+                                except Exception as e:
+                                    logger.warning(f"Semantic encoding failed during bootstrap: {e}")
+                            
                             self.deduplicator.add_to_history(sh, vec, record_id=item.get('id'))
                 
                 logger.info(f"✅ 已加载 {len(self.deduplicator.simhash_history)} 条记录到去重引擎历史。")

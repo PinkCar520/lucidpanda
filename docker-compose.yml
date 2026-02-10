@@ -52,6 +52,7 @@ services:
       - HTTP_PROXY=http://host.docker.internal:7890
       - HTTPS_PROXY=http://host.docker.internal:7890
       - NO_PROXY=localhost,127.0.0.1,db,redis,api,web,postgres
+      - HF_ENDPOINT=https://hf-mirror.com
     restart: unless-stopped
     depends_on:
       db:
@@ -81,6 +82,7 @@ services:
       - HTTP_PROXY=http://host.docker.internal:7890
       - HTTPS_PROXY=http://host.docker.internal:7890
       - NO_PROXY=localhost,127.0.0.1,db,redis,api,web,postgres
+      - HF_ENDPOINT=https://hf-mirror.com
     restart: unless-stopped
     depends_on:
       db:
@@ -144,6 +146,9 @@ services:
       - POSTGRES_HOST=db
       - AUTH_URL=${AUTH_URL:-http://localhost:3000}
       - AUTH_SECRET=${AUTH_SECRET}
+      - HTTP_PROXY=http://host.docker.internal:7890
+      - HTTPS_PROXY=http://host.docker.internal:7890
+      - NO_PROXY=localhost,127.0.0.1,db,redis,api,web,postgres
     restart: unless-stopped
     depends_on:
       api:
