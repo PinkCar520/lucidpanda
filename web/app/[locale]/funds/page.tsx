@@ -13,6 +13,7 @@ import { authenticatedFetch } from '@/lib/api-client';
 import useSWR, { mutate } from 'swr';
 
 import { SectorAttribution } from '@/components/SectorAttribution';
+import { FundSparkline } from '@/components/FundSparkline';
 
 interface ComponentStock {
     code: string;
@@ -21,6 +22,19 @@ interface ComponentStock {
     change_pct: number;
     impact: number;
     weight: number;
+}
+
+interface FundStats {
+    return_1w: number;
+    return_1m: number;
+    return_3m: number;
+    return_1y: number;
+    sharpe_ratio: number;
+    sharpe_grade: string;
+    max_drawdown: number;
+    drawdown_grade: string;
+    volatility: number;
+    sparkline_data: number[];
 }
 
 interface FundValuation {
@@ -38,6 +52,7 @@ interface FundValuation {
     }>;
     timestamp: string;
     source?: string;
+    stats?: FundStats;
 }
 
 interface ValuationHistory {
@@ -61,6 +76,7 @@ interface WatchlistItem {
     estimated_growth?: number; // For sorting by daily performance
     previous_growth?: number; // For trend arrows (↑↓)
     source?: string; // For confidence indicators
+    stats?: FundStats;
 }
 
 export default function FundDashboard({ params }: { params: Promise<{ locale: string }> }) {
@@ -155,7 +171,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             return {
                 ...item,
                 estimated_growth: val?.estimated_growth ?? item.estimated_growth,
-                source: val?.source ?? item.source
+                source: val?.source ?? item.source,
+                stats: val?.stats ?? item.stats
             };
         });
     }, [watchlistData, batchData]);
@@ -366,41 +383,63 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                         >
                                             <div className="flex flex-col overflow-hidden flex-1">
                                                 <div className="flex items-center justify-between gap-2">
-                                                    <span className="font-bold text-sm truncate">{item.name || item.code}</span>
+                                                    <div className="flex items-center gap-2 overflow-hidden">
+                                                        <span className="font-bold text-sm truncate">{item.name || item.code}</span>
+                                                        {/* Risk Grades */}
+                                                        {item.stats && (
+                                                            <div className="flex gap-1 shrink-0">
+                                                                <span className={`text-[8px] font-black px-1 rounded-sm ${
+                                                                    item.stats.sharpe_grade === 'S' ? 'bg-amber-500/10 text-amber-600' :
+                                                                    item.stats.sharpe_grade === 'A' ? 'bg-blue-500/10 text-blue-600' :
+                                                                    'bg-slate-500/10 text-slate-500'
+                                                                }`} title={`Sharpe: ${item.stats.sharpe_grade}`}>S:{item.stats.sharpe_grade}</span>
+                                                                <span className={`text-[8px] font-black px-1 rounded-sm ${
+                                                                    item.stats.drawdown_grade === 'S' ? 'bg-emerald-500/10 text-emerald-600' :
+                                                                    item.stats.drawdown_grade === 'A' ? 'bg-cyan-500/10 text-cyan-600' :
+                                                                    'bg-slate-500/10 text-slate-500'
+                                                                }`} title={`Drawdown: ${item.stats.drawdown_grade}`}>D:{item.stats.drawdown_grade}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                     {item.estimated_growth !== undefined && (
                                                         <div className="flex items-center gap-1 shrink-0">
                                                             <span className={`font-mono text-xs font-bold ${item.estimated_growth >= 0 ? 'text-rose-600' : 'text-emerald-600'
                                                                 }`}>
                                                                 {item.estimated_growth > 0 ? '+' : ''}{item.estimated_growth.toFixed(2)}%
                                                             </span>
-                                                            {/* Trend Arrow */}
-                                                            {item.previous_growth !== undefined && item.estimated_growth !== item.previous_growth && (
-                                                                item.estimated_growth > item.previous_growth ? (
-                                                                    <ArrowUp className="w-3 h-3 text-rose-600" />
-                                                                ) : (
-                                                                    <ArrowDown className="w-3 h-3 text-emerald-600" />
-                                                                )
-                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
-                                                <div className="flex items-center gap-1">
-                                                    <span className="font-mono text-[10px] opacity-60">{item.code}</span>
-                                                    {item.source && (
-                                                        <div className="flex gap-1" title={t('sourceLabel', { source: item.source })}>
-                                                            {item.source.includes('Calibration') && (
-                                                                <Scale className="w-3 h-3 text-blue-500" />
-                                                            )}
-                                                            {item.source.includes('ETF') && (
-                                                                <Anchor className="w-3 h-3 text-blue-500" />
-                                                            )}
-                                                            {(item.code === '002207' || item.code === '022365') && (
-                                                                <AlertTriangle className="w-3 h-3 text-amber-500" />
-                                                            )}
-                                                            {!item.source.includes('Calibration') && !item.source.includes('ETF') && item.code !== '002207' && item.code !== '022365' && (
-                                                                <Target className="w-3 h-3 text-emerald-500" />
-                                                            )}
-                                                        </div>
+                                                <div className="flex items-center justify-between gap-2 mt-0.5">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="font-mono text-[10px] opacity-60">{item.code}</span>
+                                                        {item.source && (
+                                                            <div className="flex gap-1" title={t('sourceLabel', { source: item.source })}>
+                                                                {item.source.includes('Calibration') && (
+                                                                    <Scale className="w-3 h-3 text-blue-500" />
+                                                                )}
+                                                                {item.source.includes('ETF') && (
+                                                                    <Anchor className="w-3 h-3 text-blue-500" />
+                                                                )}
+                                                                {(item.code === '002207' || item.code === '022365') && (
+                                                                    <AlertTriangle className="w-3 h-3 text-amber-500" />
+                                                                )}
+                                                                {!item.source.includes('Calibration') && !item.source.includes('ETF') && item.code !== '002207' && item.code !== '022365' && (
+                                                                    <Target className="w-3 h-3 text-emerald-500" />
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    {/* Sparkline */}
+                                                    {item.stats?.sparkline_data && (
+                                                        <FundSparkline 
+                                                            data={item.stats.sparkline_data} 
+                                                            width={60} 
+                                                            height={16}
+                                                            isPositive={item.stats.return_1m >= 0}
+                                                            className="opacity-60 group-hover:opacity-100 transition-opacity"
+                                                        />
                                                     )}
                                                 </div>
                                             </div>

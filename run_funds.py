@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from src.alphasignal.core.logger import logger
 from src.alphasignal.core.fund_engine import FundEngine
 from scripts.sync_stock_industries import IndustrySyncer
+from scripts.daily_tasks.calc_fund_stats import StatsEngine
 
 def run_snapshot():
     logger.info("⏰ [SCHEDULE] Triggering 15:00 Valuation Snapshot...")
@@ -36,6 +37,14 @@ def run_daily_sync():
     except Exception as e:
         logger.error(f"Daily sync task failed: {e}")
 
+def run_stats_calc():
+    logger.info("⏰ [SCHEDULE] Triggering Fund Performance Stats Calculation...")
+    try:
+        engine = StatsEngine()
+        engine.run()
+    except Exception as e:
+        logger.error(f"Stats calculation task failed: {e}")
+
 def main():
     logger.info("==========================================")
     logger.info("   AlphaFunds Automation Engine Started")
@@ -43,6 +52,7 @@ def main():
     logger.info("1. 15:05 - Closing Valuation Snapshot")
     logger.info("2. 22:30 - Official NAV Reconciliation")
     logger.info("3. 01:00 - Industry & Metadata Sync")
+    logger.info("4. 01:30 - Performance Stats & Grading")
     logger.info("==========================================")
 
     # Define Schedule
@@ -54,6 +64,9 @@ def main():
     
     # Full Sync at 01:00
     schedule.every().day.at("01:00").do(run_daily_sync)
+
+    # Stats calculation at 01:30
+    schedule.every().day.at("01:30").do(run_stats_calc)
 
     # Log next runs
     for job in schedule.get_jobs():

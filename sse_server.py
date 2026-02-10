@@ -166,6 +166,12 @@ async def get_fund_valuation(code: str):
     try:
         results = engine.calculate_batch_valuation([code])
         if results:
+            # Enrich with stats
+            from src.alphasignal.core.database import IntelligenceDB
+            db = IntelligenceDB()
+            stats_map = db.get_fund_stats([code])
+            if code in stats_map:
+                results[0]['stats'] = stats_map[code]
             return results[0]
         return {"error": "Valuation failed"}
     except AttributeError:
@@ -201,6 +207,17 @@ async def get_batch_valuations(codes: str, mode: str = "full"):
     # Use optimized batch valuation
     try:
         results = engine.calculate_batch_valuation(code_list, summary=(mode == "summary"))
+        
+        # Enrich with stats
+        from src.alphasignal.core.database import IntelligenceDB
+        db = IntelligenceDB()
+        stats_map = db.get_fund_stats(code_list)
+        
+        for res in results:
+            f_code = res.get('fund_code')
+            if f_code in stats_map:
+                res['stats'] = stats_map[f_code]
+                
         return {"data": results}
     except AttributeError:
         # Fallback if method missing (during partial reload)

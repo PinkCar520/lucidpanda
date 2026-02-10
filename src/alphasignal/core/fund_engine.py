@@ -352,7 +352,7 @@ class FundEngine:
                             "total_weight": ratio * 100,
                             "components": [{
                                 "code": parent_code,
-                                "name": self._get_fund_name(parent_code) if rel_type == 'ETF_FEEDER' else f"Benchmark: {parent_code}",
+                                "name": real_name,
                                 "price": price,
                                 "change_pct": pct,
                                 "impact": est_growth,
@@ -821,23 +821,22 @@ class FundEngine:
                     
                     key_part, val_part = line.split('=', 1)
                     # key_part: v_sh600519 -> code is sh600519 (remove v_)
+                    actual_market_code = key_part.replace('v_', '').strip()
                     
                     val_part = val_part.strip('"')
                     parts = val_part.split('~')
                     
                     if len(parts) > 32:
                         try:
-                            t_code = parts[2] # Pure code like 600519
-                            
+                            # Price and Percentage
+                            real_name = parts[1]
                             price = float(parts[3])
-                            # Change Pct is usually index 32
                             pct = float(parts[32])
                             
-                            # Handle US stock code names
-                            if '.' in t_code and not t_code.replace('.','').isdigit():
-                                t_code = t_code.split('.')[0] # NVDA.OQ -> NVDA
-                                
-                            quotes[t_code] = {'price': price, 'change_pct': pct}
+                            # Store by both pure code and market code for maximum compatibility
+                            t_code = parts[2] # e.g. 600519
+                            quotes[t_code] = {'price': price, 'change_pct': pct, 'name': real_name}
+                            quotes[actual_market_code] = {'price': price, 'change_pct': pct, 'name': real_name}
                         except: 
                             pass
             except Exception as e:
@@ -899,7 +898,7 @@ class FundEngine:
                         "total_weight": ratio * 100,
                         "components": [] if summary else [{
                             "code": p_code, 
-                            "name": self._get_fund_name(p_code) if rel_type == 'ETF_FEEDER' else f"Benchmark: {p_code}", 
+                            "name": q.get('name', p_code), 
                             "price": q['price'], 
                             "change_pct": q['change_pct'], "impact": est_growth, "weight": ratio * 100
                         }],

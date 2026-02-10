@@ -235,9 +235,21 @@ class IntelligenceDB:
                     sharpe_ratio DOUBLE PRECISION,
                     max_drawdown DOUBLE PRECISION,
                     volatility DOUBLE PRECISION,
+                    sharpe_grade CHAR(1),
+                    drawdown_grade CHAR(1),
+                    return_3m DOUBLE PRECISION,
+                    latest_nav DOUBLE PRECISION,
+                    sparkline_data JSONB,
                     last_updated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+
+            # Migration for Fund Stats
+            cursor.execute("ALTER TABLE fund_stats_snapshot ADD COLUMN IF NOT EXISTS sharpe_grade CHAR(1);")
+            cursor.execute("ALTER TABLE fund_stats_snapshot ADD COLUMN IF NOT EXISTS drawdown_grade CHAR(1);")
+            cursor.execute("ALTER TABLE fund_stats_snapshot ADD COLUMN IF NOT EXISTS return_3m DOUBLE PRECISION;")
+            cursor.execute("ALTER TABLE fund_stats_snapshot ADD COLUMN IF NOT EXISTS latest_nav DOUBLE PRECISION;")
+            cursor.execute("ALTER TABLE fund_stats_snapshot ADD COLUMN IF NOT EXISTS sparkline_data JSONB;")
 
             # Fund Valuation Tables
             cursor.execute("""
@@ -1016,6 +1028,58 @@ class IntelligenceDB:
         except Exception as e:
             logger.error(f"Get Latest Valuation Failed: {e}")
             return None
+
+    def save_fund_stats(self, fund_code, stats):
+        """Save calculated fund statistics and grades."""
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO fund_stats_snapshot (
+                    fund_code, return_1w, return_1m, return_3m, return_1y,
+                    sharpe_ratio, sharpe_grade, max_drawdown, drawdown_grade,
+                    volatility, latest_nav, sparkline_data, last_updated
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (fund_code) DO UPDATE SET
+                    return_1w = EXCLUDED.return_1w,
+                    return_1m = EXCLUDED.return_1m,
+                    return_3m = EXCLUDED.return_3m,
+                    return_1y = EXCLUDED.return_1y,
+                    sharpe_ratio = EXCLUDED.sharpe_ratio,
+                    sharpe_grade = EXCLUDED.sharpe_grade,
+                    max_drawdown = EXCLUDED.max_drawdown,
+                    drawdown_grade = EXCLUDED.drawdown_grade,
+                    volatility = EXCLUDED.volatility,
+                    latest_nav = EXCLUDED.latest_nav,
+                    sparkline_data = EXCLUDED.sparkline_data,
+                    last_updated = CURRENT_TIMESTAMP
+            """, (
+                fund_code, 
+                stats.get('return_1w'), stats.get('return_1m'), stats.get('return_3m'), stats.get('return_1y'),
+                stats.get('sharpe'), stats.get('sharpe_grade'), 
+                stats.get('max_dd'), stats.get('drawdown_grade'),
+                stats.get('volatility'), stats.get('latest_nav'), Json(stats.get('sparkline'))
+            ))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.error(f"Save Fund Stats Failed for {fund_code}: {e}")
+            return False
+
+    def get_fund_stats(self, fund_codes):
+        """Batch fetch fund statistics."""
+        if not fund_codes: return {}
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("SELECT * FROM fund_stats_snapshot WHERE fund_code = ANY(%s)", (fund_codes,))
+            rows = cursor.fetchall()
+            conn.close()
+            return {r['fund_code']: dict(r) for r in rows}
+        except Exception as e:
+            logger.error(f"Get Fund Stats Failed: {e}")
+            return {}
 
     def search_funds_metadata(self, query, limit=20):
         """Search funds in local metadata table."""
