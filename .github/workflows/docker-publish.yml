@@ -14,7 +14,6 @@ on:
       - '*.py'
       - '.github/workflows/docker-publish.yml'
       - 'web/**'
-workflow_dispatch:
 jobs:
 # ... (prep job remains same) ...
   prep:
