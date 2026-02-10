@@ -330,6 +330,20 @@ class FundEngine:
                             est_growth -= dynamic_bias
                             calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
 
+                        # --- FX Compensation for Shadow ---
+                        fx_note = ""
+                        if "QDII" in fund_name or "(QDII)" in fund_name:
+                            currency = "USD/CNY"
+                            if any(k in fund_name for k in ["恒生", "港", "HK", "H股"]):
+                                currency = "HKD/CNY"
+                            elif any(k in fund_name for k in ["日", "东京", "东证"]):
+                                currency = "JPY/CNY"
+                            
+                            fx_change = self.db.get_fx_rate_change(currency)
+                            fx_impact = fx_change * 0.9
+                            est_growth += fx_impact
+                            fx_note = f" (FX {currency} {fx_impact:+.2f}%)"
+
                         result = {
                             "fund_code": fund_code,
                             "fund_name": fund_name,
@@ -346,7 +360,7 @@ class FundEngine:
                             }],
                             "sector_attribution": {},
                             "timestamp": datetime.now().isoformat(),
-                            "source": f"{rel_type} ({parent_code}){calibration_note}"
+                            "source": f"{rel_type} ({parent_code}){calibration_note}{fx_note}"
                         }
                         if self.redis:
                             self.redis.setex(f"fund:valuation:{fund_code}", 180, json.dumps(result))
@@ -634,6 +648,22 @@ class FundEngine:
                 final_est -= dynamic_bias # Subtract bias because deviation = est - official
                 calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
 
+            # --- FX Compensation for QDII ---
+            fx_note = ""
+            # Check if it's a QDII fund (usually contains 'QDII' in name or metadata)
+            if "QDII" in fund_name or "(QDII)" in fund_name:
+                currency = "USD/CNY"
+                if any(k in fund_name for k in ["恒生", "港", "HK", "H股"]):
+                    currency = "HKD/CNY"
+                elif any(k in fund_name for k in ["日", "东京", "东证"]):
+                    currency = "JPY/CNY"
+                
+                fx_change = self.db.get_fx_rate_change(currency)
+                # Assume 90% exposure to FX
+                fx_impact = fx_change * 0.9
+                final_est += fx_impact
+                fx_note = f" (FX {currency} {fx_impact:+.2f}%)"
+
             result = {
                 "fund_code": fund_code,
                 "fund_name": fund_name,
@@ -642,7 +672,7 @@ class FundEngine:
                 "components": components, 
                 "sector_attribution": sector_stats,
                 "timestamp": datetime.now(tz_cn).isoformat(),
-                "source": "System Engine" + calibration_note
+                "source": "System Engine" + calibration_note + fx_note
             }
             
             # Save to DB history
@@ -847,6 +877,21 @@ class FundEngine:
                         est_growth -= dynamic_bias
                         calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
 
+                    # --- FX Compensation for Shadow Batch ---
+                    fx_note = ""
+                    if "QDII" in fund_name_map.get(f_code, ""):
+                        currency = "USD/CNY"
+                        f_name_check = fund_name_map.get(f_code, "")
+                        if any(k in f_name_check for k in ["恒生", "港", "HK", "H股"]):
+                            currency = "HKD/CNY"
+                        elif any(k in f_name_check for k in ["日", "东京", "东证"]):
+                            currency = "JPY/CNY"
+                        
+                        fx_change = self.db.get_fx_rate_change(currency)
+                        fx_impact = fx_change * 0.9
+                        est_growth += fx_impact
+                        fx_note = f" (FX {currency} {fx_impact:+.2f}%)"
+
                     res_obj = {
                         "fund_code": f_code,
                         "fund_name": fund_name_map.get(f_code, f_code),
@@ -860,7 +905,7 @@ class FundEngine:
                         }],
                         "sector_attribution": {},
                         "timestamp": datetime.now().isoformat(),
-                        "source": f"{'Shadow' if rel_type == 'ETF_FEEDER' else 'Proxy'} Batch ({p_code}){calibration_note}"
+                        "source": f"{'Shadow' if rel_type == 'ETF_FEEDER' else 'Proxy'} Batch ({p_code}){calibration_note}{fx_note}"
                     }
                     if self.redis:
                         self.redis.setex(f"fund:valuation:{f_code}", 180, json.dumps(res_obj))
@@ -958,6 +1003,20 @@ class FundEngine:
                 final_est -= dynamic_bias
                 calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
             
+            # --- FX Compensation for QDII ---
+            fx_note = ""
+            if "QDII" in fund_name:
+                currency = "USD/CNY"
+                if any(k in fund_name for k in ["恒生", "港", "HK", "H股"]):
+                    currency = "HKD/CNY"
+                elif any(k in fund_name for k in ["日", "东京", "东证"]):
+                    currency = "JPY/CNY"
+                
+                fx_change = self.db.get_fx_rate_change(currency)
+                fx_impact = fx_change * 0.9
+                final_est += fx_impact
+                fx_note = f" (FX {currency} {fx_impact:+.2f}%)"
+
             res_obj = {
                 "fund_code": f_code,
                 "fund_name": fund_name,
@@ -966,7 +1025,7 @@ class FundEngine:
                 "components": components,
                 "sector_attribution": sector_stats,
                 "timestamp": datetime.now().isoformat(),
-                "source": "System Batch" + calibration_note
+                "source": "System Batch" + calibration_note + fx_note
             }
             
             # Update cache

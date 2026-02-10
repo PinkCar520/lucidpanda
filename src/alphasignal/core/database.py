@@ -793,6 +793,47 @@ class IntelligenceDB:
             logger.warning(f"Gold Price Fetch Failed: {e}")
         return None
 
+    def get_fx_rate_change(self, currency_pair="USD/CNY"):
+        """
+        Fetch real-time exchange rate daily change percentage.
+        Supports USD/CNY, HKD/CNY etc.
+        """
+        try:
+            # Use Sina FX spot quote via AkShare
+            df = ak.fx_spot_quote()
+            
+            mapping = {
+                "USD/CNY": "美元人民币",
+                "HKD/CNY": "港元人民币",
+                "JPY/CNY": "日元人民币",
+                "EUR/CNY": "欧元人民币"
+            }
+            
+            search_name = mapping.get(currency_pair, currency_pair)
+            # Find the row by partial name match
+            row = df[df['外汇名称'].str.contains(search_name, case=False, na=False)]
+            
+            if not row.empty:
+                # Some versions of AkShare use '涨跌幅', others might use different names
+                change_col = next((c for c in row.columns if '涨跌幅' in c or '幅度' in c), None)
+                if change_col:
+                    return float(row.iloc[0][change_col])
+                
+                # If no direct percentage, calculate from Last Close if available
+                price_col = next((c for c in row.columns if '最新价' in c), None)
+                close_col = next((c for c in row.columns if '昨收' in c or '昨开' in c), None) # Fallback heuristic
+                
+                if price_col and close_col:
+                    price = float(row.iloc[0][price_col])
+                    close = float(row.iloc[0][close_col])
+                    if close > 0:
+                        return (price - close) / close * 100
+            
+            return 0.0
+        except Exception as e:
+            logger.error(f"Get FX Rate Change Failed for {currency_pair}: {e}")
+            return 0.0
+
     def get_latest_indicator(self, indicator_name, dt=None):
         """Get the most recent indicator value relative to a timestamp."""
         try:
