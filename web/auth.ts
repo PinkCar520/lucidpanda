@@ -8,7 +8,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Credentials({
       name: "AlphaSignal",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email or Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
@@ -31,6 +31,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return {
               id: data.user.id,
               email: data.user.email,
+              username: data.user.username,
               name: data.user.name || data.user.full_name,
               role: data.user.role,
               avatar_url: data.user.avatar_url,
@@ -45,6 +46,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               is_phone_verified: data.user.is_phone_verified,
               is_two_fa_enabled: data.user.is_two_fa_enabled,
               created_at: data.user.created_at,
+              username_updated_at: data.user.username_updated_at,
               accessToken: data.access_token,
               refreshToken: data.refresh_token,
               accessTokenExpires: Date.now() + data.expires_in * 1000,
@@ -69,6 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user: {
             id: user.id,
             email: user.email!,
+            username: user.username,
             name: user.name,
             role: user.role!,
             avatar_url: user.avatar_url,
@@ -83,6 +86,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             is_phone_verified: user.is_phone_verified,
             is_two_fa_enabled: user.is_two_fa_enabled,
             created_at: user.created_at,
+            username_updated_at: user.username_updated_at,
           },
         };
       }

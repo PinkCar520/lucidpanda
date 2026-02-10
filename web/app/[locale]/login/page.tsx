@@ -83,7 +83,7 @@ export default function LoginPage() {
               {t('emailLabel')}
             </label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

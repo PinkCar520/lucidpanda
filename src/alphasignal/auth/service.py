@@ -28,20 +28,30 @@ class AuthService:
     def get_user_by_email(self, email: str) -> Optional[User]:
         return self.db.query(User).filter(User.email == email).first()
 
-    def create_user(self, email: str, password: str, full_name: str = None) -> User:
+    def get_user_by_username(self, username: str) -> Optional[User]:
+        return self.db.query(User).filter(User.username == username).first()
+
+    def get_user_by_identifier(self, identifier: str) -> Optional[User]:
+        if "@" in identifier:
+            return self.get_user_by_email(identifier)
+        return self.get_user_by_username(identifier)
+
+    def create_user(self, email: str, username: str, password: str, full_name: str = None) -> User:
         hashed_password = get_password_hash(password)
         db_user = User(
             email=email,
+            username=username,
             hashed_password=hashed_password,
-            name=full_name
+            name=full_name,
+            username_updated_at=datetime.utcnow()
         )
         self.db.add(db_user)
         self.db.commit()
         self.db.refresh(db_user)
         return db_user
 
-    def authenticate_user(self, email: str, password: str) -> Optional[User]:
-        user = self.get_user_by_email(email)
+    def authenticate_user(self, identifier: str, password: str) -> Optional[User]:
+        user = self.get_user_by_identifier(identifier)
         if not user:
             return None
         if not verify_password(password, user.hashed_password):
@@ -141,6 +151,36 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
         return user
+
+    def update_username(self, user_id: str, new_username: str) -> Tuple[bool, str]:
+        user_uuid = self._to_uuid(user_id)
+        user = self.db.query(User).filter(User.id == user_uuid).first()
+        if not user:
+            return False, "User not found"
+        
+        # Validation (should also be in schema, but good for safety)
+        if "@" in new_username or len(new_username) < 3:
+            return False, "Invalid username format"
+            
+        now = datetime.utcnow()
+        
+        # Check if username is already taken
+        existing_user = self.get_user_by_username(new_username)
+        if existing_user and existing_user.id != user.id:
+            return False, "Username already taken"
+
+        # Check for 365 days limit
+        if user.username and user.username_updated_at:
+            one_year_ago = now - timedelta(days=365)
+            if user.username_updated_at > one_year_ago:
+                next_available_date = user.username_updated_at + timedelta(days=365)
+                return False, f"Username can only be changed once every 365 days. Next change available after {next_available_date.date()}."
+
+        user.username = new_username
+        user.username_updated_at = now
+        self.db.add(user)
+        self.db.commit()
+        return True, "Username updated successfully"
 
     def change_password(self, user_id: str, current_password: str, new_password: str) -> Tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)

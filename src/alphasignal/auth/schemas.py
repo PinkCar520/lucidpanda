@@ -5,10 +5,12 @@ from datetime import datetime, date
 
 class UserBase(BaseModel):
     email: EmailStr
+    username: Optional[str] = Field(None, min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
     name: Optional[str] = None # Changed from full_name to name to match model
     full_name: Optional[str] = None # Keep for backward compatibility if needed, or deprecate
 
 class UserCreate(UserBase):
+    username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
     password: str = Field(..., min_length=8)
 
 class UserOut(UserBase):
@@ -17,6 +19,7 @@ class UserOut(UserBase):
     is_active: bool
     is_verified: bool
     created_at: datetime
+    username_updated_at: Optional[datetime] = None
     
     # New fields
     avatar_url: Optional[str] = None
@@ -71,6 +74,9 @@ class UserUpdate(BaseModel):
 class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8)
+
+class UsernameUpdate(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
 
 class EmailChangeInitiateRequest(BaseModel):
     new_email: EmailStr

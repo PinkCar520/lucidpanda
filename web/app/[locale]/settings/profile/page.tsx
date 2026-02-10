@@ -6,13 +6,14 @@ import { useSession } from 'next-auth/react';
 import { useParams } from 'next/navigation';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { User, Mail, Calendar, ShieldCheck, Loader2, Camera, MapPin, Globe } from 'lucide-react';
+import { User, Mail, Calendar, ShieldCheck, Loader2, Camera, MapPin, Globe, AtSign } from 'lucide-react';
 import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
 import Image from 'next/image';
 
 export default function ProfilePage() {
   const t = useTranslations('Settings');
+  const authT = useTranslations('Auth');
   const { data: session, update } = useSession();
   const { locale } = useParams(); // Get locale for date formatting
   
@@ -23,10 +24,12 @@ export default function ProfilePage() {
     birthday: '',
     location: '',
     timezone: '',
-    language_preference: ''
+    language_preference: '',
+    username: ''
   });
   
   const [loading, setLoading] = useState(false);
+  const [usernameLoading, setUsernameLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -54,7 +57,8 @@ export default function ProfilePage() {
         birthday: birthdayStr,
         location: session.user.location || '',
         timezone: session.user.timezone || 'UTC',
-        language_preference: session.user.language_preference || 'en'
+        language_preference: session.user.language_preference || 'en',
+        username: session.user.username || ''
       });
     }
   }, [session]);
@@ -110,6 +114,45 @@ export default function ProfilePage() {
       setToast({ message: error.message || t('profileUpdateError'), type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateUsername = async () => {
+    if (!formData.username || formData.username === session?.user?.username) return;
+    setUsernameLoading(true);
+
+    try {
+      const res = await authenticatedFetch('/api/v1/auth/me/username', session, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || t('usernameUpdateError'));
+      }
+
+      // Update session with new username
+      await update({
+        ...session,
+        user: {
+          ...session?.user,
+          username: formData.username,
+          username_updated_at: new Date().toISOString()
+        },
+      });
+
+      setToast({ message: t('usernameUpdateSuccess'), type: 'success' });
+    } catch (error: any) {
+      setToast({ message: error.message, type: 'error' });
+    } finally {
+      setUsernameLoading(false);
     }
   };
 
@@ -358,6 +401,37 @@ export default function ProfilePage() {
                     </select>
                 </div>
                 </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                {authT('usernameLabel')}
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder={authT('usernamePlaceholder')}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUpdateUsername}
+                  disabled={usernameLoading || !formData.username || formData.username === session.user?.username}
+                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {usernameLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {t('initiateChange')}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 italic">
+                {authT('usernameChangeHint')}
+              </p>
             </div>
 
             <div className="flex flex-col gap-2">

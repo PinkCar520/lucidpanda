@@ -129,10 +129,10 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             const json = await res.json();
             return json.data;
         },
-        { 
+        {
             refreshInterval: 60000, // 延长至 60 秒刷新一次
             dedupingInterval: 20000,
-            revalidateOnFocus: false 
+            revalidateOnFocus: false
         }
     );
 
@@ -328,7 +328,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                             try {
                                                 const res = await authenticatedFetch('/api/watchlist', session, {
                                                     method: 'POST',
-                                                    headers: { 
+                                                    headers: {
                                                         'Content-Type': 'application/json'
                                                     },
                                                     body: JSON.stringify({ code, name })
@@ -388,16 +388,14 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                         {/* Risk Grades */}
                                                         {item.stats && (
                                                             <div className="flex gap-1 shrink-0">
-                                                                <span className={`text-[8px] font-black px-1 rounded-sm ${
-                                                                    item.stats.sharpe_grade === 'S' ? 'bg-amber-500/10 text-amber-600' :
+                                                                <span className={`text-[8px] font-black px-1 rounded-sm ${item.stats.sharpe_grade === 'S' ? 'bg-amber-500/10 text-amber-600' :
                                                                     item.stats.sharpe_grade === 'A' ? 'bg-blue-500/10 text-blue-600' :
-                                                                    'bg-slate-500/10 text-slate-500'
-                                                                }`} title={`Sharpe: ${item.stats.sharpe_grade}`}>S:{item.stats.sharpe_grade}</span>
-                                                                <span className={`text-[8px] font-black px-1 rounded-sm ${
-                                                                    item.stats.drawdown_grade === 'S' ? 'bg-emerald-500/10 text-emerald-600' :
+                                                                        'bg-slate-500/10 text-slate-500'
+                                                                    }`} title={`Sharpe: ${item.stats.sharpe_grade}`}>S:{item.stats.sharpe_grade}</span>
+                                                                <span className={`text-[8px] font-black px-1 rounded-sm ${item.stats.drawdown_grade === 'S' ? 'bg-emerald-500/10 text-emerald-600' :
                                                                     item.stats.drawdown_grade === 'A' ? 'bg-cyan-500/10 text-cyan-600' :
-                                                                    'bg-slate-500/10 text-slate-500'
-                                                                }`} title={`Drawdown: ${item.stats.drawdown_grade}`}>D:{item.stats.drawdown_grade}</span>
+                                                                        'bg-slate-500/10 text-slate-500'
+                                                                    }`} title={`Drawdown: ${item.stats.drawdown_grade}`}>D:{item.stats.drawdown_grade}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -430,12 +428,12 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                             </div>
                                                         )}
                                                     </div>
-                                                    
+
                                                     {/* Sparkline */}
                                                     {item.stats?.sparkline_data && (
-                                                        <FundSparkline 
-                                                            data={item.stats.sparkline_data} 
-                                                            width={60} 
+                                                        <FundSparkline
+                                                            data={item.stats.sparkline_data}
+                                                            width={60}
                                                             height={16}
                                                             isPositive={item.stats.return_1m >= 0}
                                                             className="opacity-60 group-hover:opacity-100 transition-opacity"

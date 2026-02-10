@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl';
 export default function RegisterPage() {
   const t = useTranslations('Auth');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [error, setError] = useState('');
@@ -29,7 +30,7 @@ export default function RegisterPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password, full_name: fullName }),
+        body: JSON.stringify({ email, username, password, full_name: fullName }),
       });
 
       const data = await res.json();
@@ -89,6 +90,20 @@ export default function RegisterPage() {
               required
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
               placeholder={t('emailPlaceholder')}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+              {t('usernameLabel')}
+            </label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+              placeholder={t('usernamePlaceholder')}
             />
           </div>
 

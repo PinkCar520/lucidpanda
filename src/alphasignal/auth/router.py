@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from src.alphasignal.auth.schemas import (
     UserCreate, UserOut, Token, RefreshTokenRequest, 
     ForgotPasswordRequest, ResetPasswordRequest, MessageResponse,
-    UserUpdate, PasswordChangeRequest, EmailChangeInitiateRequest, EmailChangeVerifyRequest,
+    UserUpdate, UsernameUpdate, PasswordChangeRequest, EmailChangeInitiateRequest, EmailChangeVerifyRequest,
     AvatarUploadResponse, SessionOut, PhoneNumberPayload, PhoneVerificationPayload,
     TwoFASetupResponse, TwoFAVerifyPayload, NotificationPreferencesOut, NotificationPreferencesUpdate,
     InSiteMessageOut, APIKeyCreate, APIKeyOut, APIKeyUpdate, APIKeyCreateResponse,
@@ -19,6 +19,18 @@ import uuid
 import shutil
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+@router.patch("/me/username", response_model=MessageResponse)
+def update_username(
+    body: UsernameUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    auth_service = AuthService(db)
+    success, message = auth_service.update_username(str(current_user.id), body.username)
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {"message": message}
 
 @router.get("/audit-log", response_model=List[AuditLogOut])
 def get_audit_log(
@@ -211,14 +223,22 @@ def revoke_session(
 @router.post("/register", response_model=UserOut)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     auth_service = AuthService(db)
-    user = auth_service.get_user_by_email(user_in.email)
-    if user:
+    
+    if auth_service.get_user_by_email(user_in.email):
         raise HTTPException(
             status_code=400,
             detail="The user with this email already exists in the system.",
         )
+        
+    if auth_service.get_user_by_username(user_in.username):
+        raise HTTPException(
+            status_code=400,
+            detail="This username is already taken.",
+        )
+
     return auth_service.create_user(
         email=user_in.email,
+        username=user_in.username,
         password=user_in.password,
         full_name=user_in.name or user_in.full_name
     )
@@ -232,11 +252,11 @@ def login(
     auth_service = AuthService(db)
     user = auth_service.authenticate_user(form_data.username, form_data.password)
     if not user:
-        auth_service.log_audit(None, "FAILED_LOGIN", request.client.host, details={"email": form_data.username})
+        auth_service.log_audit(None, "FAILED_LOGIN", request.client.host, details={"identifier": form_data.username})
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Incorrect identifier or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     

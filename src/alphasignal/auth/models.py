@@ -11,6 +11,7 @@ class User(Base):
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    username = Column(String(50), unique=True, nullable=True, index=True)
     hashed_password = Column(String(255), nullable=False)
     name = Column(String(100))  # Renamed from full_name
     avatar_url = Column(String(255), nullable=True)
@@ -29,6 +30,7 @@ class User(Base):
     role = Column(String(20), default="user")
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
+    username_updated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
