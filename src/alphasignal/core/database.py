@@ -1094,6 +1094,28 @@ class IntelligenceDB:
             logger.error(f"Get Valuation History Failed: {e}")
             return []
 
+    def get_recent_bias(self, fund_code, days=7):
+        """Calculate the average deviation for a fund over the last N days to use as a dynamic calibration offset."""
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            # We take the average deviation from the last N records where official_growth was reconciled
+            cursor.execute("""
+                SELECT AVG(deviation) 
+                FROM fund_valuation_archive 
+                WHERE fund_code = %s 
+                AND official_growth IS NOT NULL
+                AND trade_date > CURRENT_DATE - INTERVAL '%s days'
+            """, (fund_code, days))
+            res = cursor.fetchone()
+            conn.close()
+            
+            # Return the bias if exists, otherwise 0
+            return float(res[0]) if res and res[0] is not None else 0.0
+        except Exception as e:
+            logger.error(f"Get Recent Bias Failed for {fund_code}: {e}")
+            return 0.0
+
     def get_watchlist_all_codes(self):
         """Internal helper to get all unique codes across all users for batch snapshots."""
         try:

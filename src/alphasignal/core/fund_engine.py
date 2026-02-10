@@ -130,6 +130,49 @@ class FundEngine:
             
         return None
 
+    def _identify_index_proxy(self, fund_code, fund_name):
+        """
+        Heuristic to map passive index funds to benchmark market indices.
+        Example: '天弘沪深300指数C' -> '沪深300' -> 'sh000300'
+        """
+        if not fund_name or "指数" not in fund_name:
+            return None, 0.95
+            
+        # Avoid 'enhanced' (增强) index funds as they deviate from benchmark
+        if "增强" in fund_name:
+            return None, 0.95
+
+        # Registry of common indices
+        INDEX_REGISTRY = {
+            "沪深300": "sh000300",
+            "中证500": "sh000905",
+            "中证1000": "sh000852",
+            "上证50": "sh000016",
+            "创业板": "sz399006",
+            "科创50": "sh000688",
+            "科创100": "sh000698",
+            "恒生指数": "hkHSI",
+            "恒生科技": "hkHSTECH",
+            "纳斯达克100": "sh513100", # Using major ETF as proxy
+            "纳斯达克": "sh513100",
+            "标普500": "sh513500",
+            "医疗器械": "sz159883",
+            "中证白酒": "sz161725",
+            "半导体": "sh512480",
+            "芯片": "sh512760",
+            "红利": "sh000015",
+            "恒生互联网": "sh513330"
+        }
+
+        for keyword, index_code in INDEX_REGISTRY.items():
+            if keyword in fund_name:
+                logger.info(f"📊 Index Proxy Match: '{fund_name}' -> Index: {keyword} ({index_code})")
+                # Save relationship
+                self.db.save_fund_relationship(fund_code, index_code, "INDEX_PROXY", ratio=0.95)
+                return index_code, 0.95
+                
+        return None, 0.95
+
     def _get_fund_name(self, fund_code):
         """Fetch Fund Name with Redis Cache and Local DB fallback."""
         if self.redis:
@@ -252,14 +295,19 @@ class FundEngine:
         
         if relationship:
             parent_code = relationship['parent_code']
+            rel_type = relationship.get('relation_type', 'ETF_FEEDER')
             ratio = relationship.get('ratio', 0.95)
-            logger.info(f"🕶️ Using Shadow Mapping for {fund_code}: Parent {parent_code}")
+            logger.info(f"🕶️ Using {rel_type} for {fund_code}: Parent {parent_code}")
             
-            # Fetch parent ETF price (using efficient SecID logic)
-            # ETFs are field traded, so we use the same batch quote logic but for one item
+            # Fetch parent ETF/Index price (using efficient SecID logic)
             secid = None
-            if parent_code.startswith(('5', '9')): secid = f"sh{parent_code}"
-            else: secid = f"sz{parent_code}"
+            if parent_code.startswith(('5', '9', '000', 'sh')): 
+                if parent_code.startswith('sh'): secid = parent_code
+                else: secid = f"sh{parent_code}"
+            elif parent_code.startswith(('sz', 'hk')):
+                secid = parent_code
+            else: 
+                secid = f"sz{parent_code}"
             
             try:
                 import requests
@@ -275,6 +323,13 @@ class FundEngine:
                         pct = float(parts[32])
                         est_growth = pct * ratio
                         
+                        # --- Dynamic Auto-Calibration for Shadow/Proxy ---
+                        dynamic_bias = self.db.get_recent_bias(fund_code, days=7)
+                        calibration_note = ""
+                        if abs(dynamic_bias) > 0.001:
+                            est_growth -= dynamic_bias
+                            calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
+
                         result = {
                             "fund_code": fund_code,
                             "fund_name": fund_name,
@@ -283,7 +338,7 @@ class FundEngine:
                             "total_weight": ratio * 100,
                             "components": [{
                                 "code": parent_code,
-                                "name": self._get_fund_name(parent_code),
+                                "name": self._get_fund_name(parent_code) if rel_type == 'ETF_FEEDER' else f"Benchmark: {parent_code}",
                                 "price": price,
                                 "change_pct": pct,
                                 "impact": est_growth,
@@ -291,14 +346,20 @@ class FundEngine:
                             }],
                             "sector_attribution": {},
                             "timestamp": datetime.now().isoformat(),
-                            "source": f"Shadow Mapping ({parent_code})"
+                            "source": f"{rel_type} ({parent_code}){calibration_note}"
                         }
                         if self.redis:
                             self.redis.setex(f"fund:valuation:{fund_code}", 180, json.dumps(result))
                         return result
             except Exception as e:
-                logger.error(f"Shadow price fetch failed: {e}")
-        # --- END Shadow Mapping ---
+                logger.error(f"Shadow/Proxy price fetch failed: {e}")
+        
+        # 2. If no relationship, try Index Proxy heuristic
+        p_code, ratio = self._identify_index_proxy(fund_code, fund_name)
+        if p_code:
+            # Re-run valuation with the new relationship
+            return self.calculate_realtime_valuation(fund_code)
+        # --- END Shadow Mapping & Index Proxy ---
 
         # Force disable proxy for reliability with Market Data
         old_proxies = {}
@@ -565,16 +626,13 @@ class FundEngine:
             import pytz
             tz_cn = pytz.timezone('Asia/Shanghai')
 
-            # --- Manual Calibration ---
-            BIAS_MAP = {
-                "018927": 0.62, "018125": 0.56, "018123": 0.65, "023754": 0.42,
-                "015790": -0.71, "011068": -0.48, "025209": -0.65
-            }
+            # --- Dynamic Auto-Calibration ---
+            # Fetch the average bias from the last 7 days to auto-correct "style drift"
+            dynamic_bias = self.db.get_recent_bias(fund_code, days=7)
             calibration_note = ""
-            if fund_code in BIAS_MAP:
-                bias = BIAS_MAP[fund_code]
-                final_est += bias
-                calibration_note = f" (Incl. Calibration {bias:+.2f}%)"
+            if abs(dynamic_bias) > 0.001: # Only apply if significant (>0.01%)
+                final_est -= dynamic_bias # Subtract bias because deviation = est - official
+                calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
 
             result = {
                 "fund_code": fund_code,
@@ -642,17 +700,28 @@ class FundEngine:
         for f_code in fund_codes:
             rel = self.db.get_fund_relationship(f_code)
             if not rel:
-                # Try heuristic sync
+                # 1. Try shadow ETF heuristic
                 p_code = self._identify_shadow_etf(f_code, fund_name_map.get(f_code))
-                if p_code: rel = {"parent_code": p_code, "ratio": 0.95}
+                if p_code: 
+                    rel = {"parent_code": p_code, "ratio": 0.95, "relation_type": "ETF_FEEDER"}
+                else:
+                    # 2. Try index proxy heuristic
+                    p_code, ratio = self._identify_index_proxy(f_code, fund_name_map.get(f_code))
+                    if p_code:
+                        rel = {"parent_code": p_code, "ratio": ratio, "relation_type": "INDEX_PROXY"}
             
             if rel:
                 shadow_map[f_code] = rel
-                # Add parent ETF to stock_map for batch quoting
+                # Add parent ETF/Index to stock_map for batch quoting
                 p_code = rel['parent_code']
                 secid = None
-                if p_code.startswith(('5', '9')): secid = f"sh{p_code}"
-                else: secid = f"sz{p_code}"
+                if p_code.startswith(('5', '9', '000', 'sh')): 
+                    if p_code.startswith('sh'): secid = p_code
+                    else: secid = f"sh{p_code}"
+                elif p_code.startswith(('sz', 'hk')):
+                    secid = p_code
+                else: 
+                    secid = f"sz{p_code}"
                 stock_map[p_code] = secid
 
         # Collect holdings for NON-shadow funds
@@ -764,23 +833,34 @@ class FundEngine:
             if f_code in shadow_map:
                 rel = shadow_map[f_code]
                 p_code = rel['parent_code']
+                rel_type = rel.get('relation_type', 'ETF_FEEDER')
                 ratio = rel.get('ratio', 0.95)
                 q = quotes.get(p_code)
                 
                 if q:
                     est_growth = q['change_pct'] * ratio
+                    
+                    # --- Dynamic Auto-Calibration for Shadow/Proxy Batch ---
+                    dynamic_bias = self.db.get_recent_bias(f_code, days=7)
+                    calibration_note = ""
+                    if abs(dynamic_bias) > 0.001:
+                        est_growth -= dynamic_bias
+                        calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
+
                     res_obj = {
                         "fund_code": f_code,
                         "fund_name": fund_name_map.get(f_code, f_code),
                         "estimated_growth": round(est_growth, 4),
                         "total_weight": ratio * 100,
                         "components": [] if summary else [{
-                            "code": p_code, "name": self._get_fund_name(p_code), "price": q['price'], 
+                            "code": p_code, 
+                            "name": self._get_fund_name(p_code) if rel_type == 'ETF_FEEDER' else f"Benchmark: {p_code}", 
+                            "price": q['price'], 
                             "change_pct": q['change_pct'], "impact": est_growth, "weight": ratio * 100
                         }],
                         "sector_attribution": {},
                         "timestamp": datetime.now().isoformat(),
-                        "source": f"Shadow Batch ({p_code})"
+                        "source": f"{'Shadow' if rel_type == 'ETF_FEEDER' else 'Proxy'} Batch ({p_code}){calibration_note}"
                     }
                     if self.redis:
                         self.redis.setex(f"fund:valuation:{f_code}", 180, json.dumps(res_obj))
@@ -871,24 +951,12 @@ class FundEngine:
             # Get cached name
             fund_name = fund_name_map.get(f_code, f_code)
             
-            # --- Manual Calibration (2026-02-04) ---
-            # Based on 2026-02-03 Verification
-            BIAS_MAP = {
-                "018927": 0.62,
-                "018125": 0.56,
-                "018123": 0.65,
-                "023754": 0.42,
-                "015790": -0.71,
-                "011068": -0.48,
-                "025209": -0.65,
-                # "007114": 2.46 # Extreme miss, maybe add later
-            }
-            
+            # --- Dynamic Auto-Calibration ---
+            dynamic_bias = self.db.get_recent_bias(f_code, days=7)
             calibration_note = ""
-            if f_code in BIAS_MAP:
-                bias = BIAS_MAP[f_code]
-                final_est += bias
-                calibration_note = f" (Incl. Calibration {bias:+.2f}%)"
+            if abs(dynamic_bias) > 0.001:
+                final_est -= dynamic_bias
+                calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
             
             res_obj = {
                 "fund_code": f_code,
