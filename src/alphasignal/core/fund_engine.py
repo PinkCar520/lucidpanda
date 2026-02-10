@@ -2,7 +2,6 @@ import os
 import threading
 import akshare as ak
 import pandas as pd
-import yfinance as yf
 import json
 import redis
 from datetime import datetime, timedelta
@@ -23,10 +22,10 @@ class FundEngine:
             self.redis = None
 
     def update_fund_holdings(self, fund_code):
-        """Fetch latest holdings from AkShare and save to DB."""
+        """Fetch latest holdings from Market Provider and save to DB."""
         logger.info(f"🔍 Fetching holdings for fund: {fund_code}")
         
-        # Temporary disable proxy for AkShare (EastMoney often fails with proxies)
+        # Temporary disable proxy for data fetching (some sources often fail with proxies)
         original_http = os.environ.get('HTTP_PROXY')
         original_https = os.environ.get('HTTPS_PROXY')
         os.environ['HTTP_PROXY'] = ''
@@ -96,9 +95,9 @@ class FundEngine:
             if names.get(fund_code):
                 fund_name = names[fund_code]
             
-            # 2. Only if DB missing, try Xueqiu API
+            # 2. Only if DB missing, try Public API
             if not fund_name:
-                # Force disable proxy for AkShare
+                # Force disable proxy for reliability
                 if "HTTP_PROXY" in os.environ: del os.environ["HTTP_PROXY"]
                 if "HTTPS_PROXY" in os.environ: del os.environ["HTTPS_PROXY"]
                 
@@ -184,7 +183,7 @@ class FundEngine:
             return {}
 
     def calculate_realtime_valuation(self, fund_code):
-        """Calculate live estimated NAV growth based on holdings (Source: EastMoney/AkShare)."""
+        """Calculate live estimated NAV growth based on holdings (Source: Market Data)."""
         # 0. Check Cache (Fund Valuation Result)
         if self.redis:
             cached_val = self.redis.get(f"fund:valuation:{fund_code}")
@@ -192,7 +191,7 @@ class FundEngine:
                 logger.info(f"⚡️ Using cached valuation for {fund_code}")
                 return json.loads(cached_val)
         
-        # Force disable proxy for reliability with AkShare/EastMoney
+        # Force disable proxy for reliability with Market Data
         old_proxies = {}
         for k in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "all_proxy", "ALL_PROXY"]:
             if k in os.environ:
@@ -218,11 +217,14 @@ class FundEngine:
                     "fund_name": self._get_fund_name(fund_code),
                     "status": "syncing",
                     "estimated_growth": 0,
+                    "total_weight": 0,
+                    "components": [],
+                    "sector_attribution": {},
                     "message": "Holdings missing. Syncing in background...",
                     "source": "System"
                 }
                     
-            logger.info(f"📈 Calculating valuation for {fund_code} ({len(holdings)} stocks) using EastMoney")
+            logger.info(f"📈 Calculating valuation for {fund_code} ({len(holdings)} stocks) using Market Data")
 
             # 2. Identify Markets (A-Share vs HK)
             need_ashare = False
@@ -473,7 +475,7 @@ class FundEngine:
                 "components": components, 
                 "sector_attribution": sector_stats,
                 "timestamp": datetime.now(tz_cn).isoformat(),
-                "source": "EastMoney" + calibration_note
+                "source": "System Engine" + calibration_note
             }
             
             # Save to DB history
@@ -496,7 +498,7 @@ class FundEngine:
 
     def calculate_batch_valuation(self, fund_codes: list, summary: bool = False):
         """
-        Calculate valuations for multiple funds in a single batch request using efficient EastMoney API.
+        Calculate valuations for multiple funds in a single batch request using efficient Market API.
         summary: If True, skip components and sector stats for speed.
         """
         import requests
@@ -547,8 +549,8 @@ class FundEngine:
                 s_code = h.get('stock_code') or h.get('code')
                 if not s_code: continue
                 
-                # Determine SecID for Tencent
-                # Tencent: sh6xxxx, sz0xxxx/3xxxx, bj8xxxx/4xxxx, hk0xxxx, usXXXX
+                # Determine SecID for Market API
+                # Logic: sh6xxxx, sz0xxxx/3xxxx, bj8xxxx/4xxxx, hk0xxxx, usXXXX
                 secid = None
                 if len(s_code) == 6:
                     if s_code.startswith('6') or s_code.startswith('9'): secid = f"sh{s_code}"
@@ -566,9 +568,9 @@ class FundEngine:
         if not stock_map:
             return [{"fund_code": f, "estimated_growth": 0, "error": "No holdings"} for f in fund_codes]
 
-        # 2. Batch Fetch Quotes (Tencent)
+        # 2. Batch Fetch Quotes (Market Node)
         secids_list = list(set(stock_map.values()))
-        chunk_size = 60 # Tencent can handle more, but keep safe
+        chunk_size = 60 # Handle more, but keep safe
         quotes = {} # code -> {price, change_pct}
         
         for i in range(0, len(secids_list), chunk_size):
@@ -576,7 +578,7 @@ class FundEngine:
             url = f"http://qt.gtimg.cn/q={','.join(chunk)}"
             
             try:
-                # Tencent doesn't need complex headers
+                # Market Node doesn't need complex headers
                 res = requests.get(url, timeout=3)
                 # Response is GBK
                 content = res.content.decode('gbk', errors='ignore')
@@ -591,9 +593,6 @@ class FundEngine:
                     
                     key_part, val_part = line.split('=', 1)
                     # key_part: v_sh600519 -> code is sh600519 (remove v_)
-                    # But we need Original Code. We can rely on Index 2 in value which is usually the code?
-                    # Or map back. Let's map back using `stock_map` inverse? 
-                    # Actually Tencent response value Index 2 is the code "600519".
                     
                     val_part = val_part.strip('"')
                     parts = val_part.split('~')
@@ -601,18 +600,10 @@ class FundEngine:
                     if len(parts) > 32:
                         try:
                             t_code = parts[2] # Pure code like 600519
-                            # For US stocks, parts[2] is like NVDA.OQ, we need NVDA.
-                            # Better: use the market prefix from key to find original s_code
                             
                             price = float(parts[3])
                             # Change Pct is usually index 32
                             pct = float(parts[32])
-                            
-                            # HK stocks might be different scaling? No, usually raw.
-                            
-                            # Store by pure code if possible, but map back is safer
-                            # Since we don't know which s_code generated this if code is ambiguous (e.g. 000001 SH vs SZ - wait codes are unique with market)
-                            # Let's use t_code.
                             
                             # Handle US stock code names
                             if '.' in t_code and not t_code.replace('.','').isdigit():
@@ -649,6 +640,9 @@ class FundEngine:
                     "fund_name": fund_name_map.get(f_code, f_code),
                     "estimated_growth": 0,
                     "status": "syncing",
+                    "total_weight": 0,
+                    "components": [],
+                    "sector_attribution": {},
                     "message": "Fetching holdings in background...",
                     "source": "System"
                 })
@@ -747,7 +741,7 @@ class FundEngine:
                 "components": components,
                 "sector_attribution": sector_stats,
                 "timestamp": datetime.now().isoformat(),
-                "source": "EastMoney Batch" + calibration_note
+                "source": "System Batch" + calibration_note
             }
             
             # Update cache
@@ -760,7 +754,7 @@ class FundEngine:
 
     def search_funds(self, query: str, limit: int = 20):
         """
-        Search for funds by code or name using local DB first, fallback to akshare.
+        Search for funds by code or name using local DB first, fallback to Market API.
         """
         q_strip = query.strip()
         if not q_strip:
@@ -771,7 +765,6 @@ class FundEngine:
             local_results = self.db.search_funds_metadata(q_strip, limit)
             
             # If we found ANYTHING locally, trust it and return immediately.
-            # We have 26k+ funds synced, so local coverage is excellent for A-shares.
             if local_results:
                 logger.info(f"🚀 [Local Hit] Found {len(local_results)} funds for query: {q_strip}")
                 return local_results
@@ -782,7 +775,7 @@ class FundEngine:
         # 2. Hard Fallback (0 results locally)
         # This only happens for brand-new funds or non-A-share funds not in metadata.
 
-        # 2. Fallback to API/AkShare for missing or niche funds
+        # 2. Fallback to API for missing or niche funds
         # Check cache first (24 hour TTL for fund list)
         cache_key = f"fund:search:{query.lower()}"
         if self.redis:
@@ -795,17 +788,16 @@ class FundEngine:
                 logger.warning(f"Redis cache read failed: {e}")
         
         try:
-            logger.info(f"🔍 Falling back to AkShare search: {query}")
+            logger.info(f"🔍 Falling back to Market search: {query}")
             
-            # Disable proxy for akshare
+            # Disable proxy for data fetching
             original_http = os.environ.get('HTTP_PROXY')
             original_https = os.environ.get('HTTPS_PROXY')
             os.environ['HTTP_PROXY'] = ''
             os.environ['HTTPS_PROXY'] = ''
             
             try:
-                # Get all open-end funds from akshare
-                # fund_name_em returns all fund codes and names
+                # Get all open-end funds from remote source
                 df = ak.fund_name_em()
                 
                 # Restore proxy
@@ -815,10 +807,10 @@ class FundEngine:
                     os.environ['HTTPS_PROXY'] = original_https
                 
                 if df.empty:
-                    logger.warning("akshare returned empty dataframe")
+                    logger.warning("Remote source returned empty dataframe")
                     return local_results # Return whatever we found locally
                 
-                # Detect column names (akshare may use different names)
+                # Detect column names (data source may use different names)
                 code_col = None
                 name_col = None
                 type_col = None
@@ -836,7 +828,7 @@ class FundEngine:
                         company_col = col
                 
                 if not code_col or not name_col:
-                    logger.error(f"Cannot find code/name columns in AkShare response")
+                    logger.error(f"Cannot find code/name columns in remote response")
                     return local_results
                 
                 # Filter by query (code or name)
@@ -882,7 +874,7 @@ class FundEngine:
                     os.environ['HTTP_PROXY'] = original_http
                 if original_https:
                     os.environ['HTTPS_PROXY'] = original_https
-                logger.error(f"AkShare search failed: {e}")
+                logger.error(f"Market search failed: {e}")
                 return local_results
                 
         except Exception as e:

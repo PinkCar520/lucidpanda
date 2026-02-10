@@ -313,7 +313,12 @@
         "colorIsImpact": "颜色 = 回报贡献",
         "currentlyViewing": "当前查看",
         "dataVisualization": "数据分析",
-        "loading": "正在计算实时净值..."
+        "loading": "正在计算实时净值...",
+        "syncing": "同步中",
+        "syncingData": "正在同步持仓数据...",
+        "noComponents": "暂无持仓详情",
+        "syncingMsg": "正在从数据中心同步持仓数据...",
+        "noData": "暂无可用数据"
     },
     "Settings": {
         "title": "账户设置",

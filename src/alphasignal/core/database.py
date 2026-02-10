@@ -1,8 +1,9 @@
 import json
 import logging
-import yfinance as yf
 from datetime import datetime, timedelta
 import pytz
+import akshare as ak
+import pandas as pd
 from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 
@@ -729,57 +730,54 @@ class IntelligenceDB:
             return 0, 0.0
 
     def get_market_snapshot(self, ticker_symbol, target_time):
-        """Unified snapshot fetcher for Gold, DXY, US10Y, GVZ"""
+        """Unified snapshot fetcher for domestic-friendly environment"""
         try:
-            ticker = yf.Ticker(ticker_symbol)
-            import pytz
-            now = datetime.now(pytz.utc)
+            # Normalize target_time to UTC
+            if target_time.tzinfo is None:
+                target_time = pytz.utc.localize(target_time)
+            else:
+                target_time = target_time.astimezone(pytz.utc)
             
-            # For very recent events, use fast_info
-            if (now - target_time).total_seconds() < 1800:
-                price = ticker.fast_info.last_price
-                if price: return round(price, 3)
+            # Map Ticker to Data Source logic
+            if ticker_symbol == "GC=F": # International Gold Spot (London Gold)
+                try:
+                    df = ak.gold_zh_spot_qhkd()
+                    row = df[df['名称'].str.contains('伦敦金|London Gold', case=False, na=False)]
+                    if not row.empty:
+                        return round(float(row.iloc[0]['最新价']), 3)
+                except:
+                    pass
             
-            # Fallback to history for older or missing fast_info
-            start = target_time - timedelta(days=1)
-            end = target_time + timedelta(days=1)
-            hist = ticker.history(start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), interval="1h")
-            if hist.empty: return None
+            elif ticker_symbol == "DX-Y.NYB": # DXY (USD Index)
+                try:
+                    df = ak.fx_spot_quote()
+                    row = df[df['外汇名称'].str.contains('美元指数|USD Index', case=False, na=False)]
+                    if not row.empty:
+                        return round(float(row.iloc[0]['最新价']), 3)
+                except:
+                    pass
             
-            hist.index = hist.index.tz_convert('UTC')
-            idx = hist.index.get_indexer([target_time], method='nearest')[0]
-            price = hist.iloc[idx]['Close']
-            return round(price, 3)
+            elif ticker_symbol == "^TNX": # US10Y Yield
+                try:
+                    df = ak.bond_zh_us_rate()
+                    if not df.empty:
+                        return round(float(df.iloc[-1]['10年']), 3)
+                except:
+                    pass
+
+            return None
         except Exception as e:
             logger.warning(f"Market Snapshot Failed for {ticker_symbol}: {e}")
             return None
 
     def get_historical_gold_price(self, target_time=None):
+        """Fetch gold price using domestic sources."""
         try:
-            ticker = yf.Ticker("GC=F")
-            is_recent = True
-            if target_time:
-                import pytz
-                now = datetime.now(pytz.utc)
-                if target_time.tzinfo is None:
-                    target_time = pytz.utc.localize(target_time)
-                if (now - target_time).total_seconds() > 1800:
-                    is_recent = False
-
-            if is_recent:
-                price = ticker.fast_info.last_price
-                if price: return round(price, 2)
-                data = ticker.history(period="1d")
-                if not data.empty: return round(data['Close'].iloc[-1], 2)
-            else:
-                start = target_time - timedelta(days=1)
-                end = target_time + timedelta(days=1)
-                hist = ticker.history(start=start.strftime("%Y-%m-%d"), end=end.strftime("%Y-%m-%d"), interval="1h")
-                if hist.empty: return None
-                hist.index = hist.index.tz_convert('UTC')
-                idx = hist.index.get_indexer([target_time], method='nearest')[0]
-                price = hist.iloc[idx]['Close']
-                return round(price, 2)
+            # Provide the London Gold spot from domestic sources via Market API
+            df = ak.gold_zh_spot_qhkd()
+            row = df[df['名称'].str.contains('伦敦金|London Gold', case=False, na=False)]
+            if not row.empty:
+                return round(float(row.iloc[0]['最新价']), 2)
         except Exception as e:
             logger.warning(f"Gold Price Fetch Failed: {e}")
         return None

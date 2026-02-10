@@ -295,7 +295,12 @@
     "colorIsImpact": "Color = Contr. to Return",
     "currentlyViewing": "CURRENTLY VIEWING",
     "dataVisualization": "Data Analysis",
-    "loading": "Calculating real-time NAV..."
+    "loading": "Calculating real-time NAV...",
+    "syncing": "Syncing",
+    "syncingData": "Synchronizing holdings...",
+    "noComponents": "No holding details",
+    "syncingMsg": "Holdings are being synchronized from Data Center...",
+    "noData": "No data available"
   },
   "Settings": {
     "title": "Account Settings",

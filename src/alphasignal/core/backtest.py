@@ -1,4 +1,5 @@
-import yfinance as yf
+import akshare as ak
+import pandas as pd
 from datetime import datetime, timedelta
 import pytz
 import psycopg2
@@ -101,27 +102,31 @@ class BacktestEngine:
         logger.info(f"📈 获取行情数据范围: {fetch_start} 至 {fetch_end}")
         
         try:
-            ticker = yf.Ticker("GC=F")
-            hist = ticker.history(start=fetch_start, end=fetch_end, interval="1h")
-            
-            if hist.empty:
+            # Using Market Hub to get Gold Futures (GC) historical data
+            # Note: Data source mainly provides daily data for foreign futures.
+            # This is a domestic-friendly alternative.
+            df = ak.futures_foreign_hist(symbol="GC")
+            if df.empty:
                 logger.warning("未能获取到行情数据，跳过本次同步")
                 return
 
-            if hist.index.tz is None:
-                hist.index = hist.index.tz_localize('UTC')
+            # Format to match expectations: Index as UTC datetime, 'Close' column
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.rename(columns={'close': 'Close', 'date': 'timestamp'})
+            df = df.set_index('timestamp')
+            
+            if df.index.tz is None:
+                df.index = df.index.tz_localize('UTC')
             else:
-                hist.index = hist.index.tz_convert('UTC')
-                
+                df.index = df.index.tz_convert('UTC')
+            
+            hist = df[['Close']]
+            
             # 同步成功，恢复较短的冷却时间
             self.sync_cooldown_minutes = 15
                 
         except Exception as e:
-            if "Too Many Requests" in str(e) or "429" in str(e):
-                logger.error("🚫 Yahoo Finance 限流，进入 60 分钟冷却保护期")
-                self.sync_cooldown_minutes = 60
-            else:
-                logger.warning(f"获取历史行情失败: {e}")
+            logger.warning(f"获取历史行情失败: {e}")
             return
 
         # 3. 逐条匹配 (Next Trading Candle)

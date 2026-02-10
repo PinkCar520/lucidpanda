@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     return authResponse;
   }
 
-  // Apply rate limiting (10 req/min to protect Yahoo Finance)
+  // Apply rate limiting (10 req/min to protect primary data source)
   const rateLimitResponse = await applyRateLimit(request, marketRateLimiter);
   if (rateLimitResponse) {
     return rateLimitResponse;
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
       });
 
     } catch (fetchError: any) {
-      console.error(`[Market API] ✗ Yahoo Finance error:`, fetchError.message);
+      console.error(`[Market API] ✗ Data source error:`, fetchError.message);
 
       // Graceful degradation: serve stale cache if available
       if (cachedEntry && (Date.now() - cachedEntry.timestamp < STALE_CACHE_MAX_AGE)) {

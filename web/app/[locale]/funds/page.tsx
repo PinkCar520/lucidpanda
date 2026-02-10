@@ -28,6 +28,8 @@ interface FundValuation {
     fund_name: string;
     estimated_growth: number;
     total_weight: number;
+    status?: string;
+    message?: string;
     components: ComponentStock[];
     sector_attribution?: Record<string, {
         impact: number;
@@ -87,8 +89,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             return json.data as WatchlistItem[];
         },
         {
-            revalidateOnFocus: true,
-            dedupingInterval: 5000,
+            revalidateOnFocus: false, // 禁用失去焦点重新验证
+            dedupingInterval: 30000, // 30秒内不重复请求
             onSuccess: (data) => {
                 if (data.length > 0 && !selectedFund) {
                     const stored = localStorage.getItem('fund_selected');
@@ -111,7 +113,11 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             const json = await res.json();
             return json.data;
         },
-        { refreshInterval: 30000, dedupingInterval: 10000 } // Auto refresh every 30s
+        { 
+            refreshInterval: 60000, // 延长至 60 秒刷新一次
+            dedupingInterval: 20000,
+            revalidateOnFocus: false 
+        }
     );
 
     // 3. Fetch Selected Fund Detail
@@ -123,7 +129,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
         },
         {
             revalidateOnFocus: false,
-            dedupingInterval: 60000,
+            dedupingInterval: 60000, // 详情数据 60 秒内不重复请求
             onSuccess: () => setLastUpdated(new Date())
         }
     );
@@ -135,6 +141,10 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             const res = await authenticatedFetch(url, session);
             const json = await res.json();
             return json.data as ValuationHistory[];
+        },
+        {
+            revalidateOnFocus: false,
+            dedupingInterval: 300000 // 历史记录 5 分钟内不重复请求
         }
     );
 
@@ -438,13 +448,25 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                 >
                                                     <RefreshCw className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform ${loading ? 'animate-spin' : ''}`} />
                                                 </button>
-                                                <Badge variant={valuation.estimated_growth >= 0 ? 'bullish' : 'bearish'}>
-                                                    {t('live')}
-                                                </Badge>
+                                                {valuation.status === 'syncing' ? (
+                                                    <Badge variant="warning">
+                                                        {t('syncing') || 'Syncing'}
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant={valuation.estimated_growth >= 0 ? 'bullish' : 'bearish'}>
+                                                        {t('live')}
+                                                    </Badge>
+                                                )}
                                             </div>
                                         </div>
+                                        {valuation.status === 'syncing' && (
+                                            <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1.5 animate-pulse">
+                                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                                {valuation.message || 'Fetching holdings in background...'}
+                                            </div>
+                                        )}
                                         <div className="mt-4 text-[10px] lg:text-xs text-slate-500 dark:text-slate-400 font-mono">
-                                            {t('basedOn', { count: valuation.components.length, weight: valuation.total_weight.toFixed(1) })}
+                                            {t('basedOn', { count: valuation.components?.length || 0, weight: valuation.total_weight?.toFixed(1) || '0.0' })}
                                             <br />
                                             {t('lastUpdated', { time: lastUpdated ? lastUpdated.toLocaleTimeString() : '' })}
                                             {/* Source & Calibration Note */}
@@ -462,20 +484,26 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                 <Card>
                                     <h2 className="text-sm font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">{t('topDrivers')}</h2>
                                     <div className="flex flex-col gap-2">
-                                        {valuation.components
-                                            .sort((a: ComponentStock, b: ComponentStock) => Math.abs(b.impact) - Math.abs(a.impact))
-                                            .slice(0, 3)
-                                            .map((comp: ComponentStock) => (
-                                                <div key={comp.code} className="flex justify-between items-center text-xs border-b border-slate-100 dark:border-slate-800/50 pb-2 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 rounded">
-                                                    <div className="flex gap-2">
-                                                        <span className="font-mono text-slate-500 dark:text-slate-600">{comp.code}</span>
-                                                        <span className="text-slate-700 dark:text-slate-300 truncate max-w-[100px] font-medium">{comp.name}</span>
+                                        {valuation.components?.length > 0 ? (
+                                            valuation.components
+                                                .sort((a: ComponentStock, b: ComponentStock) => Math.abs(b.impact) - Math.abs(a.impact))
+                                                .slice(0, 3)
+                                                .map((comp: ComponentStock) => (
+                                                    <div key={comp.code} className="flex justify-between items-center text-xs border-b border-slate-100 dark:border-slate-800/50 pb-2 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 p-1 rounded">
+                                                        <div className="flex gap-2">
+                                                            <span className="font-mono text-slate-500 dark:text-slate-600">{comp.code}</span>
+                                                            <span className="text-slate-700 dark:text-slate-300 truncate max-w-[100px] font-medium">{comp.name}</span>
+                                                        </div>
+                                                        <span className={`font-mono font-bold ${comp.impact >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                                                            {comp.impact > 0 ? "+" : ""}{comp.impact.toFixed(3)}%
+                                                        </span>
                                                     </div>
-                                                    <span className={`font-mono font-bold ${comp.impact >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
-                                                        {comp.impact > 0 ? "+" : ""}{comp.impact.toFixed(3)}%
-                                                    </span>
-                                                </div>
-                                            ))}
+                                                ))
+                                        ) : (
+                                            <div className="text-xs text-slate-400 dark:text-slate-600 italic py-2">
+                                                {valuation.status === 'syncing' ? t('syncingData') || 'Synchronizing holdings...' : t('noComponents') || 'No data'}
+                                            </div>
+                                        )}
                                     </div>
                                 </Card>
                             </div>
@@ -521,31 +549,44 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                                                    {valuation.components
-                                                        .slice()
-                                                        .sort((a: ComponentStock, b: ComponentStock) => b.weight - a.weight)
-                                                        .map((comp: ComponentStock) => (
-                                                            <tr key={comp.code} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                                <td className="p-3 sticky left-0 z-10 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur border-r border-slate-100 dark:border-slate-800/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                                                                    <div className="flex flex-col">
-                                                                        <span className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm whitespace-nowrap">{comp.name}</span>
-                                                                        <span className="text-[9px] sm:text-[10px] font-mono text-slate-500 dark:text-slate-500">{comp.code}</span>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="p-3 text-right font-mono text-slate-600 dark:text-slate-400">
-                                                                    {comp.price.toFixed(2)}
-                                                                </td>
-                                                                <td className={`p-3 text-right font-mono font-bold ${comp.change_pct >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
-                                                                    {comp.change_pct > 0 ? "+" : ""}{comp.change_pct.toFixed(2)}%
-                                                                </td>
-                                                                <td className="p-3 text-right font-mono text-slate-500 dark:text-slate-500">
-                                                                    {comp.weight.toFixed(2)}%
-                                                                </td>
-                                                                <td className={`p-3 text-right font-mono font-bold ${comp.impact >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
-                                                                    {comp.impact > 0 ? "+" : ""}{comp.impact.toFixed(3)}%
-                                                                </td>
-                                                            </tr>
-                                                        ))}
+                                                    {valuation.components?.length > 0 ? (
+                                                        valuation.components
+                                                            .slice()
+                                                            .sort((a: ComponentStock, b: ComponentStock) => b.weight - a.weight)
+                                                            .map((comp: ComponentStock) => (
+                                                                <tr key={comp.code} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                                    <td className="p-3 sticky left-0 z-10 bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur border-r border-slate-100 dark:border-slate-800/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="font-bold text-slate-800 dark:text-slate-200 text-xs sm:text-sm whitespace-nowrap">{comp.name}</span>
+                                                                            <span className="text-[9px] sm:text-[10px] font-mono text-slate-500 dark:text-slate-500">{comp.code}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-3 text-right font-mono text-slate-600 dark:text-slate-400">
+                                                                        {comp.price.toFixed(2)}
+                                                                    </td>
+                                                                    <td className={`p-3 text-right font-mono font-bold ${comp.change_pct >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                                                                        {comp.change_pct > 0 ? "+" : ""}{comp.change_pct.toFixed(2)}%
+                                                                    </td>
+                                                                    <td className="p-3 text-right font-mono text-slate-500 dark:text-slate-500">
+                                                                        {comp.weight.toFixed(2)}%
+                                                                    </td>
+                                                                    <td className={`p-3 text-right font-mono font-bold ${comp.impact >= 0 ? 'text-rose-600 dark:text-rose-500' : 'text-emerald-600 dark:text-emerald-500'}`}>
+                                                                        {comp.impact > 0 ? "+" : ""}{comp.impact.toFixed(3)}%
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                    ) : (
+                                                        <tr>
+                                                            <td colSpan={5} className="p-12 text-center text-slate-400 dark:text-slate-600">
+                                                                <div className="flex flex-col items-center gap-2">
+                                                                    <RefreshCw className={`w-6 h-6 ${valuation.status === 'syncing' ? 'animate-spin' : ''} opacity-20`} />
+                                                                    <p className="text-sm">
+                                                                        {valuation.status === 'syncing' ? t('syncingMsg') || 'Holdings are being synchronized from Market Source...' : t('noData') || 'No components available'}
+                                                                    </p>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
                                                 </tbody>
                                             </table>
                                         </div>)}

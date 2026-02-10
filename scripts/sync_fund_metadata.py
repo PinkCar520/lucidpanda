@@ -14,24 +14,23 @@ def get_pinyin_shorthand(name):
     return "".join([item[0].upper() for item in letters if item[0].isalnum()])
 
 def sync_all_funds():
-    """Fetch all fund codes and basic info from EastMoney and sync to DB."""
+    """Fetch all fund codes and basic info from Market Source and sync to DB."""
     logger.info("🚀 Starting full fund metadata sync...")
     
-    # EastMoney fund list JS interface
+    # Market fund list interface
     # FORMAT: ["000001","HXCZHH","华夏成长混合","混合型","HUAXIACHENGZHANGHUNHE"]
     url = "http://fund.eastmoney.com/js/fundcode_search.js"
     
     try:
         response = requests.get(url, timeout=30)
         # Extract the JSON-like array from the JS variable
-        # var r = [["000001","HXCZHH","华夏成长混合","混合型","HUAXIACHENGZHANGHUNHE"], ...];
         match = re.search(r'\[\[.*\]\]', response.text)
         if not match:
-            logger.error("❌ Failed to parse EastMoney fund list JS.")
+            logger.error("❌ Failed to parse market fund list.")
             return
 
         fund_list = json.loads(match.group())
-        logger.info(f"📊 Found {len(fund_list)} funds from EastMoney.")
+        logger.info(f"📊 Found {len(fund_list)} funds from Market Source.")
 
         db = IntelligenceDB()
         conn = db.get_connection()

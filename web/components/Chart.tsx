@@ -19,7 +19,7 @@ const RANGES = [
   { label: 'day', range: '1mo', interval: '1d' },
   { label: 'week', range: '2y', interval: '1wk' },
   { label: 'month', range: '5y', interval: '1mo' },
-  { label: 'quarter', range: '10y', interval: '3mo' }, // Yahoo limits might apply
+  { label: 'quarter', range: '10y', interval: '3mo' }, // Provider limits might apply
   { label: 'year', range: 'max', interval: '3mo' }, // 1y interval often unstable
   { label: 'all', range: 'max', interval: '1mo' },
 ];

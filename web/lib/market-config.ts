@@ -6,11 +6,11 @@
  */
 
 export const MARKET_DATA_CONFIG = {
-    // Current provider: 'yahoo' | 'polygon' | 'alphavantage' | 'binance'
-    PROVIDER: 'yahoo' as const,
+    // Current provider: 'primary' | 'polygon' | 'alphavantage' | 'binance'
+    PROVIDER: 'primary' as const,
 
-    // Yahoo Finance (current - free but unreliable)
-    YAHOO: {
+    // Primary Data Source (current - free but unreliable)
+    PRIMARY: {
         enabled: true,
         baseUrl: 'https://query1.finance.yahoo.com',
         rateLimit: {
