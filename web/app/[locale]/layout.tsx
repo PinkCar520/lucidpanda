@@ -6,6 +6,7 @@ import { getMessages, getTranslations } from 'next-intl/server';
 import { SessionProvider } from 'next-auth/react'; // Import SessionProvider
 import Shell from '@/components/Shell';
 import NextTopLoader from 'nextjs-toploader';
+import QueryProvider from '@/components/providers/QueryProvider';
 
 export async function generateMetadata({
     params
@@ -49,9 +50,11 @@ export default async function LocaleLayout({
                 />
                 <NextIntlClientProvider messages={messages}>
                     <SessionProvider> {/* Wrap children with SessionProvider */}
-                        <Shell>
-                            {children}
-                        </Shell>
+                        <QueryProvider>
+                            <Shell>
+                                {children}
+                            </Shell>
+                        </QueryProvider>
                     </SessionProvider>
                 </NextIntlClientProvider>
             </body>

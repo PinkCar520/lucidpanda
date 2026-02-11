@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/Badge';
 import { Search, RefreshCw, ArrowUp, ArrowDown, PieChart, X, Target, Scale, Anchor, AlertTriangle } from 'lucide-react';
 import FundSearch from '@/components/FundSearch';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
-import { authenticatedFetch } from '@/lib/api-client';
-import useSWR, { mutate } from 'swr';
+import { useWatchlistQuery, useBatchValuationQuery, useFundValuationQuery, useFundHistoryQuery, useWatchlistMutations } from '@/hooks/api/use-fund-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { fundKeys } from '@/lib/query-keys';
 
 import { SectorAttribution } from '@/components/SectorAttribution';
 import { FundSparkline } from '@/components/FundSparkline';
@@ -87,82 +88,47 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     const t = useTranslations('Funds');
     const tApp = useTranslations('App');
 
+    const queryClient = useQueryClient();
+
     // State management - UI and sorting
     const [selectedFund, setSelectedFund] = useState<string>('');
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-    const [sortOrder, setSortOrder] = useState<'desc' | 'asc' | 'none'>('desc');
+    const [sortOrder, setSortOrder] = useState<'desc' | 'asc' | 'none'>('none');
     const [activeTab, setActiveTab] = useState<'attribution' | 'sector' | 'history'>('attribution');
     const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
 
-    // --- SWR Data Fetching ---
+    // --- TanStack Query Data Fetching ---
 
     // 1. Fetch Watchlist
-    const { data: watchlistData, mutate: mutateWatchlist, isValidating: watchlistValidating } = useSWR(
-        status === 'authenticated' ? '/api/watchlist' : null,
-        async (url) => {
-            const res = await authenticatedFetch(url, session);
-            const json = await res.json();
-            return json.data as WatchlistItem[];
-        },
-        {
-            revalidateOnFocus: false, // 禁用失去焦点重新验证
-            dedupingInterval: 30000, // 30秒内不重复请求
-            onSuccess: (data) => {
-                if (data.length > 0 && !selectedFund) {
-                    const stored = localStorage.getItem('fund_selected');
-                    if (stored && data.some(i => i.code === stored)) {
-                        setSelectedFund(stored);
-                    } else {
-                        setSelectedFund(data[0].code);
-                    }
-                }
-            }
-        }
-    );
+    const { data: watchlistData, isLoading: watchlistLoading, isFetching: watchlistFetching } = useWatchlistQuery();
+    const { addFund, removeFund } = useWatchlistMutations();
 
     // 2. Fetch Batch Valuation (Growth only)
-    const watchlistCodes = watchlistData?.map(w => w.code).join(',');
-    const { data: batchData } = useSWR(
-        status === 'authenticated' && watchlistCodes ? `/api/funds/batch-valuation?codes=${watchlistCodes}&mode=summary` : null,
-        async (url) => {
-            const res = await authenticatedFetch(url, session);
-            const json = await res.json();
-            return json.data;
-        },
-        {
-            refreshInterval: 60000, // 延长至 60 秒刷新一次
-            dedupingInterval: 20000,
-            revalidateOnFocus: false
-        }
-    );
+    const watchlistCodes = useMemo(() => watchlistData?.map(w => w.code) || [], [watchlistData]);
+    const { data: batchData } = useBatchValuationQuery(watchlistCodes);
 
     // 3. Fetch Selected Fund Detail
-    const { data: valuation, error: valError, isValidating: loading } = useSWR(
-        status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/valuation` : null,
-        async (url) => {
-            const res = await authenticatedFetch(url, session);
-            return await res.json();
-        },
-        {
-            revalidateOnFocus: false,
-            dedupingInterval: 60000, // 详情数据 60 秒内不重复请求
-            onSuccess: () => setLastUpdated(new Date())
-        }
-    );
+    const { data: valuation, isLoading: valLoading, isFetching: valFetching } = useFundValuationQuery(selectedFund);
 
     // 4. Fetch History
-    const { data: historyData, isValidating: historyLoading } = useSWR(
-        status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/history` : null,
-        async (url) => {
-            const res = await authenticatedFetch(url, session);
-            const json = await res.json();
-            return json.data as ValuationHistory[];
-        },
-        {
-            revalidateOnFocus: false,
-            dedupingInterval: 300000 // 历史记录 5 分钟内不重复请求
+    const { data: historyData, isLoading: historyLoading } = useFundHistoryQuery(selectedFund);
+
+    // Sync last updated time
+    useEffect(() => {
+        if (valuation) setLastUpdated(new Date());
+    }, [valuation]);
+
+    // Initialize selected fund
+    useEffect(() => {
+        if (watchlistData && watchlistData.length > 0 && !selectedFund) {
+            const stored = localStorage.getItem('fund_selected');
+            if (stored && watchlistData.some(i => i.code === stored)) {
+                setSelectedFund(stored);
+            } else {
+                setSelectedFund(watchlistData[0].code);
+            }
         }
-    );
+    }, [watchlistData, selectedFund]);
 
     const watchlist = useMemo(() => {
         if (!watchlistData) return [];
@@ -178,79 +144,56 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     }, [watchlistData, batchData]);
 
     const history = historyData || [];
+    const loading = valLoading || valFetching;
+    const watchlistValidating = watchlistFetching;
 
+    // --- Selection Persistence & Initialization ---
 
-    // Load selected fund preference from URL
+    // 1. Initialize from URL or LocalStorage
     useEffect(() => {
-        if (typeof window !== 'undefined') {
+        if (watchlistData && watchlistData.length > 0 && !selectedFund) {
             const queryCode = searchParams.get('code');
-            if (queryCode) {
+            const stored = localStorage.getItem('fund_selected');
+
+            if (queryCode && watchlistData.some(i => i.code === queryCode)) {
                 setSelectedFund(queryCode);
+            } else if (stored && watchlistData.some(i => i.code === stored)) {
+                setSelectedFund(stored);
+            } else {
+                setSelectedFund(watchlistData[0].code);
             }
         }
-    }, [searchParams]);
+    }, [watchlistData, searchParams, selectedFund]);
 
-    // Persist selected fund to localStorage
+    // 2. Persist to LocalStorage whenever selection changes
     useEffect(() => {
         if (selectedFund) {
             localStorage.setItem('fund_selected', selectedFund);
         }
     }, [selectedFund]);
 
-
-
-
-    // Persist selected fund to localStorage
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                localStorage.setItem('fund_selected', selectedFund);
-            } catch (e) {
-                console.error('Failed to save selected fund to localStorage:', e);
-            }
-        }
-    }, [selectedFund]);
-
-    // Auto refresh every 3 minutes (matching cache TTL)
-
-
     // Manual refresh for the entire watchlist
     const handleWatchlistRefresh = async () => {
-        // Trigger SWR revalidation
-        mutate(status === 'authenticated' && watchlistCodes ? `/api/funds/batch-valuation?codes=${watchlistCodes}&mode=summary` : null);
-        if (selectedFund) {
-            mutate(status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/valuation` : null);
-            mutate(status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/history` : null);
-        }
+        queryClient.invalidateQueries({ queryKey: fundKeys.watchlists() });
+        queryClient.invalidateQueries({ queryKey: fundKeys.all });
     };
 
     const handleDelete = async (e: React.MouseEvent, codeToDelete: string) => {
         e.stopPropagation();
-
-        if (!session?.accessToken) return;
-
-        try {
-            const res = await authenticatedFetch(`/api/watchlist/${codeToDelete}`, session, {
-                method: 'DELETE'
-            });
-            const data = await res.json();
-            if (data.success) {
-                // Optimistically update watchlist
-                mutateWatchlist(watchlistData?.filter(i => i.code !== codeToDelete), false);
+        removeFund.mutate(codeToDelete, {
+            onSuccess: () => {
                 if (selectedFund === codeToDelete) {
                     const remaining = watchlistData?.filter(i => i.code !== codeToDelete);
                     if (remaining && remaining.length > 0) setSelectedFund(remaining[0].code);
                     else setSelectedFund("");
                 }
             }
-        } catch (err) {
-            console.error('Failed to delete from watchlist:', err);
-        }
+        });
     };
 
     const handleManualRefresh = async () => {
         if (selectedFund) {
-            mutate(status === 'authenticated' && selectedFund ? `/api/funds/${selectedFund}/valuation` : null);
+            queryClient.invalidateQueries({ queryKey: fundKeys.valuation(selectedFund) });
         }
     };
 
@@ -320,29 +263,13 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                             <div className="mb-4 shrink-0 relative z-20">
                                 <FundSearch
                                     onAddFund={async (code, name) => {
-                                        if (!session?.accessToken) {
-                                            console.warn("No access token available to add to watchlist.");
-                                            return;
-                                        }
                                         if (!watchlist.some(i => i.code === code)) {
-                                            try {
-                                                const res = await authenticatedFetch('/api/watchlist', session, {
-                                                    method: 'POST',
-                                                    headers: {
-                                                        'Content-Type': 'application/json'
-                                                    },
-                                                    body: JSON.stringify({ code, name })
-                                                });
-                                                const data = await res.json();
-                                                if (data.success) {
-                                                    // Optimistically update watchlist
-                                                    mutateWatchlist([{ code, name }, ...(watchlistData || [])], false);
+                                            addFund.mutate({ code, name }, {
+                                                onSuccess: () => {
                                                     setSelectedFund(code);
-                                                    setIsWatchlistOpen(false); // Auto-close on selection
+                                                    setIsWatchlistOpen(false);
                                                 }
-                                            } catch (err) {
-                                                console.error('Failed to add to watchlist:', err);
-                                            }
+                                            });
                                         } else {
                                             setSelectedFund(code);
                                             setIsWatchlistOpen(false);
