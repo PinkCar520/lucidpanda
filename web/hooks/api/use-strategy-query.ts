@@ -4,22 +4,20 @@ import { authenticatedFetch } from '@/lib/api-client';
 import { intelligenceKeys } from '@/lib/query-keys';
 
 /**
- * Hook for fetching intelligence news with infinite scrolling
- * Handles thousands of items efficiently with TanStack Query's pagination
+ * Hook for fetching strategy matrix data with infinite scrolling
  */
-export function useIntelligenceInfiniteQuery(filters: any = {}) {
+export function useStrategyInfiniteQuery() {
   const { data: session } = useSession();
-  const limit = 50;
+  const limit = 50; // Larger limit for table view to ensure smooth scrolling
   
   return useInfiniteQuery({
-    queryKey: intelligenceKeys.infinite(filters),
+    queryKey: ['intelligence', 'strategy-matrix', 'infinite'],
     queryFn: async ({ pageParam = 0 }) => {
-      // Use offset instead of page index
       const res = await authenticatedFetch(
         `/api/intelligence?limit=${limit}&offset=${pageParam}`, 
         session
       );
-      if (!res.ok) throw new Error('Failed to fetch intelligence');
+      if (!res.ok) throw new Error('Failed to fetch strategy matrix');
       return res.json();
     },
     initialPageParam: 0,
@@ -34,6 +32,6 @@ export function useIntelligenceInfiniteQuery(filters: any = {}) {
       return undefined;
     },
     enabled: !!session,
-    staleTime: 1000 * 60 * 2,
+    staleTime: 1000 * 60 * 5, // Strategy data can be cached longer
   });
 }

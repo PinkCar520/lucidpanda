@@ -19,11 +19,16 @@ import TradingViewTickerTape from '@/components/TradingViewTickerTape';
 import TradingViewMiniCharts from '@/components/TradingViewMiniCharts';
 import BacktestStats from '@/components/BacktestStats';
 import { useSSE } from '@/hooks/useSSE';
-import IntelligenceCard from '@/components/IntelligenceCard';
+import VirtualizedIntelligenceList from '@/components/VirtualizedIntelligenceList';
+import VirtualizedStrategyTable from '@/components/VirtualizedStrategyTable';
 import Paginator from '@/components/Paginator';
 import { Link } from '@/i18n/navigation';
 import { Settings, Terminal } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
+import { useIntelligenceInfiniteQuery } from '@/hooks/api/use-intelligence-query';
+import { useStrategyInfiniteQuery } from '@/hooks/api/use-strategy-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { intelligenceKeys } from '@/lib/query-keys';
 
 
 export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
@@ -31,43 +36,72 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const focusedCode = searchParams.get('code');
+  const queryClient = useQueryClient();
 
   const t = useTranslations('Dashboard');
   const tTable = useTranslations('Table');
   const tSentiment = useTranslations('Sentiment');
   const tApp = useTranslations('App');
 
-  const [liveIntelligence, setLiveIntelligence] = useState<Intelligence[]>([]);
-  const [tableIntelligence, setTableIntelligence] = useState<Intelligence[]>([]);
+  // Sidebar Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterMode, setFilterMode] = useState<'all' | 'essential' | 'bearish'>('all');
+
+  // --- TanStack Query for Intelligence ---
+  const {
+    data: infiniteIntelData,
+    fetchNextPage: fetchNextIntelPage,
+    hasNextPage: hasNextIntelPage,
+    isFetchingNextPage: isFetchingNextIntelPage,
+    isLoading: intelLoading
+  } = useIntelligenceInfiniteQuery({ mode: filterMode, search: searchQuery });
+
+  // --- TanStack Query for Strategy Matrix ---
+  const {
+    data: infiniteStrategyData,
+    fetchNextPage: fetchNextStrategyPage,
+    hasNextPage: hasNextStrategyPage,
+    isFetchingNextPage: isFetchingNextStrategyPage,
+  } = useStrategyInfiniteQuery();
+
+  // Flatten the pages into a single items array
+  const allIntelligence = useMemo(() => {
+    return infiniteIntelData?.pages.flatMap(page => page.data) || [];
+  }, [infiniteIntelData]);
+
+  const allStrategies = useMemo(() => {
+    return infiniteStrategyData?.pages.flatMap(page => page.data) || [];
+  }, [infiniteStrategyData]);
+
   const [marketData, setMarketData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [globalHighUrgency, setGlobalHighUrgency] = useState(0);
 
-  // 分页状态
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalItems, setTotalItems] = useState(0);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
-
   const [chartConfig, setChartConfig] = useState({ range: '1mo', interval: '60m' });
   const [activeTab, setActiveTab] = useState<'feed' | 'charts'>('feed');
+
+  // --- Scroll Position Persistence ---
+  // We use this for the intelligence feed container
+  const isDataLoaded = !!infiniteIntelData && !intelLoading;
 
   // SSE callbacks - memoized to prevent infinite reconnection loop
   const handleSSEMessage = useCallback((newItems: Intelligence[]) => {
     if (newItems.length > 0) {
-      // 1. 始终更新实时流 (只保留最新的 100 条)
-      setLiveIntelligence(prev => {
-        const merged = [...newItems, ...prev];
-        return merged.slice(0, 100);
+      // 1. Update Intelligence Stream Cache
+      queryClient.setQueryData(intelligenceKeys.infinite({ mode: filterMode, search: searchQuery }), (old: any) => {
+        if (!old || !old.pages || old.pages.length === 0) return old;
+        const newPages = [...old.pages];
+        newPages[0] = { ...newPages[0], data: [...newItems, ...newPages[0].data] };
+        return { ...old, pages: newPages };
       });
 
-      // 2. 如果在第一页，也更新表格 (维持无感实时更新)
-      if (currentPage === 1) {
-        setTableIntelligence(prev => {
-          const merged = [...newItems, ...prev];
-          return merged.slice(0, itemsPerPage);
-        });
-      }
+      // 2. Update Strategy Matrix Cache
+      queryClient.setQueryData(['intelligence', 'strategy-matrix', 'infinite'], (old: any) => {
+        if (!old || !old.pages || old.pages.length === 0) return old;
+        const newPages = [...old.pages];
+        newPages[0] = { ...newPages[0], data: [...newItems, ...newPages[0].data] };
+        return { ...old, pages: newPages };
+      });
 
       // 3. 更新全局高分警报数
       const newUrgencyCount = newItems.filter(i => i.urgency_score >= 8).length;
@@ -77,7 +111,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
       console.log(`[SSE] Received ${newItems.length} new intelligence items`);
     }
-  }, [currentPage, itemsPerPage]);
+  }, [queryClient, filterMode, searchQuery]);
 
   const handleSSEError = useCallback((err: Event) => {
     console.error('[SSE] Connection error:', err);
@@ -90,10 +124,6 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     onMessage: handleSSEMessage,
     onError: handleSSEError
   });
-
-  // Sidebar Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterMode, setFilterMode] = useState<'all' | 'essential' | 'bearish'>('all');
 
   // Helper function to extract localized text from JSON strings or objects
   const getLocalizedText = useCallback((input: any, currentLocale: string) => {
@@ -130,176 +160,26 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     return bearishKeywords.some(keyword => sentimentStr.includes(keyword));
   }, []);
 
-  // Filter Logic with useMemo (只过滤实时流)
-  const filteredLiveIntelligence = useMemo(() => {
-    const now = Date.now();
-    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-    return liveIntelligence.filter(item => {
-      // 0. Smart Archiving (Quant Standard)
-      // Rule: Hide items > 24h UNLESS urgency >= 8 (Major Macro Context)
-      const itemTime = new Date(item.timestamp).getTime();
-      const isOld = (now - itemTime) > ONE_DAY_MS;
-      const isMajor = item.urgency_score >= 8;
-
-      if (isOld && !isMajor) return false;
-
-      // 1. Text Search
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const summaryText = getLocalizedText(item.summary, locale).toLowerCase();
-        const contentText = getLocalizedText(item.content, locale).toLowerCase();
-        const authorText = item.author.toLowerCase();
-        const sentimentText = getLocalizedText(item.sentiment, locale).toLowerCase();
-
-        const textMatch =
-          summaryText.includes(q) ||
-          contentText.includes(q) ||
-          authorText.includes(q) ||
-          sentimentText.includes(q);
-
-        if (!textMatch) return false;
-      }
-
-      // 2. Mode Filter
-      if (filterMode === 'essential') return item.urgency_score >= 8;
-      if (filterMode === 'bearish') return isBearishSentiment(item.sentiment);
-
-      return true;
-    });
-  }, [liveIntelligence, searchQuery, filterMode, locale, getLocalizedText, isBearishSentiment]);
-
-
 
   const [latestIntelId, setLatestIntelId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
+  // Separate effect for Market Data
   useEffect(() => {
-    async function fetchData(isInitialLoad = false, currentSession: any) {
+    async function fetchMarketData() {
       try {
-        // Build intelligence API URL with incremental update support
-        const intelUrl = isInitialLoad || !latestIntelId
-          ? '/api/intelligence?limit=100'
-          : `/api/intelligence?since_id=${latestIntelId}&limit=50`;
-
-        const [intelRes, marketRes] = await Promise.all([
-          authenticatedFetch(intelUrl, currentSession),
-          authenticatedFetch(`/api/market?symbol=GC=F&range=${chartConfig.range}&interval=${chartConfig.interval}`, currentSession)
-        ]);
-
-        const intelResponse = await intelRes.json();
-        const mData = await marketRes.json();
-
-        // Handle intelligence data (now returns {data, latest_id, count})
-        if (intelResponse.data) {
-          if (isInitialLoad || !latestIntelId) {
-            // 初始加载：同时填充实时流和表格第一页
-            setLiveIntelligence(intelResponse.data.slice(0, 100));
-            setTableIntelligence(intelResponse.data.slice(0, itemsPerPage));
-          } else if (intelResponse.count > 0) {
-            // 增量更新 (轮询回退)
-            setLiveIntelligence(prev => [...intelResponse.data, ...prev].slice(0, 100));
-            if (currentPage === 1) {
-              setTableIntelligence(prev => [...intelResponse.data, ...prev].slice(0, itemsPerPage));
-            }
-          }
-
-          // Update latest ID tracker
-          if (intelResponse.latest_id) {
-            setLatestIntelId(intelResponse.latest_id);
-          }
-        }
-
+        const res = await authenticatedFetch(`/api/market?symbol=GC=F&range=${chartConfig.range}&interval=${chartConfig.interval}`, session);
+        const mData = await res.json();
         setMarketData(mData);
-      } catch (err: any) {
-        console.error('Fetch error:', err);
-        const errorMessage = err.message || tApp('failedToLoadData');
-        setError(errorMessage);
-
-        // Auto-retry logic (max 3 attempts)
-        if (retryCount < 3) {
-          console.log(`[Error] Auto-retry ${retryCount + 1}/3 in 5 seconds...`);
-          setTimeout(() => {
-            setRetryCount(prev => prev + 1);
-            setError(null);
-            fetchData(isInitialLoad, currentSession);
-          }, 5000);
-        }
+      } catch (err) {
+        console.error('Market fetch error:', err);
       } finally {
         setLoading(false);
       }
     }
-
-    fetchData(true, session); // Initial load
-    const intervalId = setInterval(() => fetchData(false, session), 30000); // Poll every 30s (reduced from 60s)
-    return () => clearInterval(intervalId);
-  }, [chartConfig, latestIntelId, retryCount, tApp, session]);
-
-  const handlePageChange = useCallback(async (page: number) => {
-    try {
-      setLoading(true);
-      const offset = (page - 1) * itemsPerPage;
-      const response = await authenticatedFetch(`/api/intelligence?limit=${itemsPerPage}&offset=${offset}`, session);
-
-      if (!response.ok) {
-        throw new Error(tApp('error.fetchPageData'));
-      }
-
-      const data = await response.json();
-      setTableIntelligence(data.data || []);
-      setTotalPages(data.total_pages || 0);
-      setTotalItems(data.total || 0);
-      setCurrentPage(data.page || page);
-
-      // 滚动到表格顶部
-      document.getElementById('tactical-matrix')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (error) {
-      console.error('Error fetching page:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [itemsPerPage]);
-
-  // 处理每页条数变化
-  const handleItemsPerPageChange = useCallback(async (newLimit: number) => {
-    setItemsPerPage(newLimit);
-    setCurrentPage(1); // 切换条数时重置到第一页
-    // 这里不需要手动 fetch，因为 handlePageChange 或 initial useEffect 之后会处理
-    // 但是我们需要确保 fetchData 或 handlePageChange 使用最新的 limit
-  }, []);
-
-  // 初始加载时获取分页信息以及全局高分总数
-  useEffect(() => {
-    if (liveIntelligence.length > 0 && totalItems === 0) {
-      // 1. 分页基本信息
-      authenticatedFetch(`/api/intelligence?limit=${itemsPerPage}`, session)
-        .then(res => res.json())
-        .then(data => {
-          setTotalPages(data.total_pages || 0);
-          setTotalItems(data.total || 0);
-        })
-        .catch(err => console.error('Failed to fetch pagination info:', err));
-
-      // 2. 获取 24h 内的高分预警数
-      authenticatedFetch('/api/alerts/24h', session)
-        .then(res => res.json())
-        .then(data => {
-          if (data.count !== undefined) {
-            setGlobalHighUrgency(data.count);
-          }
-        })
-        .catch(err => console.error('Failed to fetch 24h alerts:', err));
-    }
-  }, [liveIntelligence.length, totalItems, itemsPerPage]);
-
-  // 当 itemsPerPage 变化时重新加载第一页
-  useEffect(() => {
-    if (totalPages > 0) {
-      handlePageChange(1);
-    }
-  }, [itemsPerPage, handlePageChange]);
-
+    fetchMarketData();
+  }, [chartConfig, session]);
 
   // Manual retry function
   const handleRetry = useCallback(() => {
@@ -476,30 +356,22 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
               <h2 className="text-[10px] font-mono text-slate-500 flex items-center gap-1">
                 <Radio className="w-3 h-3 text-blue-500 dark:text-emerald-500" /> {t('liveFeedLabel')}
               </h2>
-              <Badge variant="neutral" className="text-[10px] h-5">{filteredLiveIntelligence.length} / {liveIntelligence.length}</Badge>
+              <Badge variant="neutral" className="text-[10px] h-5">{allIntelligence.length}</Badge>
             </div>
           </div>
 
-          {/* Native List with Scroll */}
-          <div className="flex-1 min-h-0 w-full overflow-y-auto custom-scrollbar">
-            {filteredLiveIntelligence.map((item: Intelligence) => (
-              <IntelligenceCard
-                key={item.id}
-                item={item}
-                locale={locale}
-                getLocalizedText={getLocalizedText}
-                t={t}
-                tSentiment={tSentiment}
-                isBearish={isBearishSentiment(item.sentiment)}
-              />
-            ))}
-            {/* Empty State */}
-            {filteredLiveIntelligence.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-10 text-slate-500">
-                <p className="text-sm">{t('noIntelligence')}</p>
-              </div>
-            )}
-          </div>
+          {/* Virtualized Infinite List */}
+          <VirtualizedIntelligenceList
+            items={allIntelligence}
+            hasNextPage={hasNextIntelPage}
+            isFetchingNextPage={isFetchingNextIntelPage}
+            fetchNextPage={fetchNextIntelPage}
+            locale={locale}
+            getLocalizedText={getLocalizedText}
+            t={t}
+            tSentiment={tSentiment}
+            isBearishSentiment={isBearishSentiment}
+          />
         </div>
 
         {/* Right: Visualization & Data */}
@@ -507,88 +379,24 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           }`}>
           <Chart
             marketData={marketData}
-            intelligence={liveIntelligence}
+            intelligence={allIntelligence}
             onRangeChange={(range, interval) => setChartConfig({ range, interval })}
           />
 
           {/* AI Backtest Stats - Minimal Contextual Insight Mode */}
-          <BacktestStats intelligence={liveIntelligence} marketData={marketData} minimal={true} />
+          <BacktestStats intelligence={allIntelligence} marketData={marketData} minimal={true} />
 
-          {/* Strategy Matrix (Integrated into Right Column) */}
-          <Card title={tTable('title')} className="min-h-[300px]" id="tactical-matrix">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[600px] md:min-w-0">
-                <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 text-[10px] uppercase tracking-wider">
-                    <th className="p-2 md:p-4 font-semibold whitespace-nowrap">{tTable('time')}</th>
-                    <th className="p-2 md:p-4 font-semibold w-[40%]">{tTable('context')}</th>
-                    <th className="p-2 md:p-4 font-semibold w-[30%]">{tTable('strategy')}</th>
-                    <th className="p-2 md:p-4 font-semibold text-right whitespace-nowrap">{tTable('goldRef')}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 text-sm">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={4} className="p-8 text-center text-slate-500">
-                        {t('loading')}
-                      </td>
-                    </tr>
-                  ) : tableIntelligence.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="p-8 text-center text-slate-500">
-                        {tTable('noData')}
-                      </td>
-                    </tr>
-                  ) : (
-                    tableIntelligence.map((item: Intelligence) => (
-                      <tr key={item.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
-                        <td className="p-2 md:p-4 font-mono text-slate-400 dark:text-slate-500 text-[10px] md:text-xs whitespace-nowrap">
-                          {(() => {
-                            const date = new Date(item.timestamp);
-                            const year = date.getUTCFullYear();
-                            const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-                            const day = String(date.getUTCDate()).padStart(2, '0');
-                            const hours = String(date.getUTCHours()).padStart(2, '0');
-                            const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-                            const seconds = String(date.getUTCSeconds()).padStart(2, '0');
-                            // Mobile: Compact Date, Desktop: Full
-                            return (
-                              <>
-                                <span className="md:hidden">{month}/{day} {hours}:{minutes}</span>
-                                <span className="hidden md:inline">{year}/{month}/{day} {hours}:{minutes}:{seconds} (UTC)</span>
-                              </>
-                            );
-                          })()}
-                        </td>
-                        <td className="p-2 md:p-4 text-slate-700 dark:text-slate-300 text-xs md:text-sm">
-                          {getLocalizedText(item.summary, locale)}
-                        </td>
-                        <td className="p-2 md:p-4 text-blue-600 dark:text-emerald-400 font-mono text-xs">
-                          {getLocalizedText(item.actionable_advice, locale)}
-                        </td>
-                        <td className="p-2 md:p-4 text-right font-mono text-slate-500 dark:text-slate-400 text-xs">
-                          ${item.gold_price_snapshot?.toFixed(1) || '-'}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* 分页器 */}
-            {!loading && totalPages > 1 && (
-              <div className="mt-6">
-                <Paginator
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalItems={totalItems}
-                  itemsPerPage={itemsPerPage}
-                  onPageChange={handlePageChange}
-                  onItemsPerPageChange={handleItemsPerPageChange}
-                />
-              </div>
-            )}
+          {/* Strategy Matrix (Virtualized Infinite Log) */}
+          <Card title={tTable('title')} id="tactical-matrix">
+            <VirtualizedStrategyTable
+                items={allStrategies}
+                hasNextPage={hasNextStrategyPage}
+                isFetchingNextPage={isFetchingNextStrategyPage}
+                fetchNextPage={fetchNextStrategyPage}
+                locale={locale}
+                getLocalizedText={getLocalizedText}
+                tTable={tTable}
+            />
           </Card>
         </div>
       </div>
