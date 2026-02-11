@@ -7,6 +7,7 @@ from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.core.database import IntelligenceDB
 
+
 class BacktestEngine:
     def __init__(self, db: IntelligenceDB):
         self.db = db
