@@ -18,6 +18,7 @@ class NewsDeduplicator:
         self.simhash_history = [] # List of Simhash objects
         self.vec_history = []     # List of numpy arrays (vectors)
         self.id_history = []      # List of IDs corresponding to the history
+        self.last_vector = None   # Store the last calculated vector for caching
 
     @property
     def model(self):
@@ -113,10 +114,13 @@ class NewsDeduplicator:
         if self.model: # Check if model is available (not False/None)
             try:
                 current_vector = self.model.encode(clean_text)
+                self.last_vector = current_vector # Store for external persistence
                 if self.semantic_duplicate(current_vector):
                     return True
             except Exception as e:
                 logger.warning(f"Semantic encoding failed: {e}")
+        else:
+            self.last_vector = None
 
         # 3. Not duplicate -> Add to history
         self.add_to_history(current_simhash, current_vector, record_id)

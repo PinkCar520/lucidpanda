@@ -127,7 +127,7 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
             // Set new timeout
             searchTimeoutRef.current = setTimeout(() => {
                 performSearch(val);
-            }, 300);
+            }, 360);
         } else {
             setSearchResults([]);
             setIsLoading(false);

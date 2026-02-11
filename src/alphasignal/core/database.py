@@ -7,6 +7,7 @@ import pandas as pd
 from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 
+
 try:
     import psycopg2
     from psycopg2.extras import Json, DictCursor
@@ -89,6 +90,7 @@ class IntelligenceDB:
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS dxy_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS us10y_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS gvz_snapshot DOUBLE PRECISION;")
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding BYTEA;")
             
             # Migration
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS clustering_score INTEGER DEFAULT 0;")
@@ -459,13 +461,19 @@ class IntelligenceDB:
             conn = self._get_conn()
             cursor = conn.cursor()
             
+            # Handle Embedding Serialization
+            embedding_binary = None
+            if 'embedding' in raw_data and raw_data['embedding'] is not None:
+                import pickle
+                embedding_binary = psycopg2.Binary(pickle.dumps(raw_data['embedding']))
+
             cursor.execute("""
                 INSERT INTO intelligence (
                     source_id, author, content, url, timestamp, 
                     market_session, clustering_score, exhaustion_score,
                     dxy_snapshot, us10y_snapshot, gvz_snapshot, gold_price_snapshot,
-                    fed_regime
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    fed_regime, embedding
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (source_id) DO NOTHING
                 RETURNING id
             """, (
@@ -481,7 +489,8 @@ class IntelligenceDB:
                 float(us10y) if us10y is not None else None,
                 float(gvz) if gvz is not None else None,
                 float(gold) if gold is not None else None,
-                float(raw_data.get('fed_val', 0.0))
+                float(raw_data.get('fed_val', 0.0)),
+                embedding_binary
             ))
             
             row = cursor.fetchone()
@@ -519,6 +528,12 @@ class IntelligenceDB:
             conn = self._get_conn()
             cursor = conn.cursor()
             
+            # Handle Embedding Serialization
+            embedding_binary = None
+            if 'embedding' in analysis_result and analysis_result['embedding'] is not None:
+                import pickle
+                embedding_binary = psycopg2.Binary(pickle.dumps(analysis_result['embedding']))
+
             cursor.execute("""
                 UPDATE intelligence SET
                     summary = %s,
@@ -527,7 +542,8 @@ class IntelligenceDB:
                     market_implication = %s,
                     actionable_advice = %s,
                     sentiment_score = %s,
-                    macro_adjustment = %s
+                    macro_adjustment = %s,
+                    embedding = COALESCE(%s, embedding)
                 WHERE source_id = %s
             """, (
                 to_jsonb(analysis_result.get('summary')),
@@ -537,6 +553,7 @@ class IntelligenceDB:
                 to_jsonb(analysis_result.get('actionable_advice')),
                 float(sentiment_score),
                 float(macro_adj),
+                embedding_binary,
                 source_id
             ))
             

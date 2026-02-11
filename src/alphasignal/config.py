@@ -10,7 +10,7 @@ class Settings:
     """
     # 基础配置
     SIMULATION_MODE = os.getenv("SIMULATION_MODE", "false").lower() == "true"
-    CHECK_INTERVAL_MINUTES = int(os.getenv("CHECK_INTERVAL_MINUTES", 30))
+    CHECK_INTERVAL_MINUTES = int(os.getenv("CHECK_INTERVAL_MINUTES", 2))
     AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini")
 
     # Gemini

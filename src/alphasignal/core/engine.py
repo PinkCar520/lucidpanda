@@ -57,8 +57,20 @@ class AlphaEngine:
                         if clean_text:
                             from simhash import Simhash
                             sh = Simhash(clean_text)
+                            
+                            # --- Persistent Embedding Cache Logic ---
                             vec = None
-                            if self.deduplicator.model:
+                            db_vec_binary = item.get('embedding')
+                            
+                            if db_vec_binary:
+                                try:
+                                    import pickle
+                                    vec = pickle.loads(db_vec_binary)
+                                except Exception as e:
+                                    logger.warning(f"Failed to deserialize embedding for ID {item.get('id')}: {e}")
+                            
+                            # Fallback if no cache in DB
+                            if vec is None and self.deduplicator.model:
                                 try:
                                     vec = self.deduplicator.model.encode(clean_text)
                                 except Exception as e:
@@ -130,6 +142,10 @@ class AlphaEngine:
         if self.deduplicator.is_duplicate(full_text, record_id=None):
             logger.info(f"🚫 发现语义重复情报 (BERT级别)，直接丢弃: {raw_data.get('title') or news_content[:50]}...")
             return
+            
+        # Capture the vector calculated during deduplication
+        cached_vector = self.deduplicator.last_vector
+        raw_data['embedding'] = cached_vector
 
         # 2. 保存原始情报入库 (Save Raw)
         # 这将返回 ID，如果因 URL/SourceID 冲突返回 None，则为重复
@@ -174,6 +190,7 @@ class AlphaEngine:
         clean_content = raw_data.get('content').replace(context_str, "")
         analysis_result['original_content'] = clean_content
         analysis_result['url'] = raw_data.get('url')
+        analysis_result['embedding'] = cached_vector
         
         # Update existing record
         self.db.update_intelligence_analysis(raw_data.get('id'), analysis_result, raw_data)
