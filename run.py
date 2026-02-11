@@ -1,5 +1,4 @@
-import schedule
-import time
+import asyncio
 import sys
 import os
 
@@ -10,27 +9,30 @@ from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.core.engine import AlphaEngine
 
-def main():
+async def main_loop():
     logger.info("==========================================")
-    logger.info("   AlphaSignal 2.0 - 智能情报监控系统启动")
+    logger.info("   AlphaSignal 2.0 - 智能情报流处理系统启动")
     logger.info("==========================================")
-    logger.info(f"监控间隔: {settings.CHECK_INTERVAL_MINUTES} 分钟")
-    logger.info(f"AI 模型: {settings.GEMINI_MODEL} (备用: {settings.DEEPSEEK_MODEL})")
+    logger.info(f"流式轮询间隔: {settings.CHECK_INTERVAL_MINUTES} 分钟 (异步)")
+    logger.info(f"AI 引擎并发数: 5")
 
     engine = AlphaEngine()
 
-    # 立即执行一次
-    engine.run_once()
-
-    # 定时任务
-    schedule.every(settings.CHECK_INTERVAL_MINUTES).minutes.do(engine.run_once)
-
-    try:
-        while True:
-            schedule.run_pending()
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("系统停止运行")
+    while True:
+        try:
+            # 执行异步扫描
+            await engine.run_once_async()
+        except Exception as e:
+            logger.error(f"主循环异常: {e}")
+        
+        # 即使间隔设为 2 分钟，我们也可以让它更频繁地检查“补课”记录
+        # 如果有待补课记录，缩短 sleep 时间
+        sleep_time = settings.CHECK_INTERVAL_MINUTES * 60
+        logger.debug(f"等候 {sleep_time} 秒进行下一轮扫描...")
+        await asyncio.sleep(sleep_time)
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main_loop())
+    except KeyboardInterrupt:
+        logger.info("系统停止运行")

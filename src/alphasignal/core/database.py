@@ -91,6 +91,9 @@ class IntelligenceDB:
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS us10y_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS gvz_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding BYTEA;")
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'PENDING';")
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS last_error TEXT;")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_status ON intelligence(status);")
             
             # Migration
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS clustering_score INTEGER DEFAULT 0;")
@@ -474,7 +477,8 @@ class IntelligenceDB:
                     dxy_snapshot, us10y_snapshot, gvz_snapshot, gold_price_snapshot,
                     fed_regime, embedding
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (source_id) DO NOTHING
+                ON CONFLICT (source_id) DO UPDATE SET 
+                    author = EXCLUDED.author -- Minimal update to trigger RETURNING
                 RETURNING id
             """, (
                 raw_data.get('id'),
@@ -543,7 +547,9 @@ class IntelligenceDB:
                     actionable_advice = %s,
                     sentiment_score = %s,
                     macro_adjustment = %s,
-                    embedding = COALESCE(%s, embedding)
+                    embedding = COALESCE(%s, embedding),
+                    status = 'COMPLETED',
+                    last_error = NULL
                 WHERE source_id = %s
             """, (
                 to_jsonb(analysis_result.get('summary')),
@@ -911,6 +917,51 @@ class IntelligenceDB:
         except Exception as e:
             logger.error(f"Get Recent Failed: {e}")
             return []
+
+    def get_pending_intelligence(self, limit=20):
+        """Fetch records that need AI analysis or retries."""
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            # Fetch PENDING or FAILED records
+            cursor.execute("""
+                SELECT * FROM intelligence 
+                WHERE status IN ('PENDING', 'FAILED') 
+                ORDER BY timestamp DESC LIMIT %s
+            """, (limit,))
+            rows = cursor.fetchall()
+            conn.close()
+            return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Get Pending Failed: {e}")
+            return []
+
+    def update_intelligence_status(self, source_id, status, error=None):
+        """Update the lifecycle status of an intelligence item."""
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE intelligence 
+                SET status = %s, last_error = %s 
+                WHERE source_id = %s
+            """, (status, error, source_id))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.error(f"Update Status Failed: {e}")
+
+    def check_analysis_exists(self, source_id):
+        """Check if a record already has AI analysis data."""
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM intelligence WHERE source_id = %s AND summary IS NOT NULL LIMIT 1", (source_id,))
+            exists = cursor.fetchone() is not None
+            conn.close()
+            return exists
+        except:
+            return False
 
     def is_duplicate(self, new_url, new_content, new_summary=None) -> bool:
         """

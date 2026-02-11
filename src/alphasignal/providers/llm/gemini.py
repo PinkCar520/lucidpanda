@@ -5,6 +5,11 @@ from src.alphasignal.core.logger import logger
 from src.alphasignal.providers.llm.base import BaseLLM
 
 class GeminiLLM(BaseLLM):
+    async def analyze_async(self, raw_data):
+        """异步版本的分析方法"""
+        import asyncio
+        return await asyncio.to_thread(self.analyze, raw_data)
+
     def analyze(self, raw_data):
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)

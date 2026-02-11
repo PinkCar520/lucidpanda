@@ -34,3 +34,4 @@ sqlalchemy
 resend
 pyotp
 qrcode[pil]
+httpx>=0.24.0

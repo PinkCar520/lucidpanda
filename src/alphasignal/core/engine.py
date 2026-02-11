@@ -1,5 +1,6 @@
 import time
 import json
+import asyncio
 from datetime import datetime
 import pytz
 from src.alphasignal.config import settings
@@ -29,6 +30,9 @@ class AlphaEngine:
         self.backtester = BacktestEngine(self.db)
         self.deduplicator = NewsDeduplicator()
         
+        # Concurrency Control
+        self.ai_semaphore = asyncio.Semaphore(5) # Limit to 5 concurrent AI calls
+        
         # Bootstrap deduplicator history from DB
         self._bootstrap_deduplicator()
         
@@ -51,8 +55,6 @@ class AlphaEngine:
                     
                     text = summary_text if len(summary_text) > 20 else (item.get('content') or "")
                     if text:
-                        # We don't use is_duplicate here to avoid redundant checks, 
-                        # just populate the internal history
                         clean_text = self.deduplicator.normalize(text)
                         if clean_text:
                             from simhash import Simhash
@@ -82,130 +84,113 @@ class AlphaEngine:
         except Exception as e:
             logger.error(f"❌ 初始化去重引擎失败: {e}")
 
+    async def run_once_async(self):
+        """
+        核心异步流水线：
+        1. 发现新情报 (Discovery)
+        2. 全文抓取 (Enrichment)
+        3. 状态检查与补课 (Reconciliation)
+        4. 并行 AI 分析 (Analysis)
+        """
+        logger.info(">>> 启动流式情报扫描...")
         
-    def run_once(self):
-        logger.info(">>> 开始一轮新的情报扫描...")
-        
-        # 0. 数据回填
-        self.backtester.sync_outcomes()
+        # 0. 异步同步收益率
+        await asyncio.to_thread(self.backtester.sync_outcomes)
 
-        # 1. 获取所有数据源的新情报
-        new_items = []
+        # 1. 同步发现新情报 (Discovery Phase)
+        discovered_items = []
         for source in self.sources:
             try:
-                items = source.fetch()
+                items = await asyncio.to_thread(source.fetch)
                 if items:
-                    if isinstance(items, list):
-                        new_items.extend(items)
-                    else:
-                        new_items.append(items)
+                    discovered_items.extend(items if isinstance(items, list) else [items])
             except Exception as e:
-                logger.error(f"数据源扫描异常: {e}")
+                logger.error(f"数据源发现异常: {e}")
 
-        if not new_items:
-            logger.info("无新情报，本轮结束。")
+        # 2. 初始入库并标记为 PENDING
+        for item in discovered_items:
+            await asyncio.to_thread(self.db.save_raw_intelligence, item)
+
+        # 3. 补课机制：获取所有未完成分析的记录 (PENDING/FAILED)
+        pending_records = await asyncio.to_thread(self.db.get_pending_intelligence, limit=20)
+        
+        if not pending_records:
+            logger.info("无待分析情报，本轮结束。")
             return
 
-        logger.info(f"本轮共发现 {len(new_items)} 条新情报，开始逐一处理...")
+        # 4. 深度提取全文 (只针对待分析的)
+        from src.alphasignal.utils.crawler import AsyncRichCrawler
+        crawler = AsyncRichCrawler()
+        enriched_items = await crawler.batch_crawl(pending_records)
 
-        # 2. 逐条处理
-        for raw_data in new_items:
-            self._process_single_item(raw_data)
-            
-        logger.info("<<< 本轮扫描完成。")
-
-    def _process_single_item(self, raw_data):
-        """处理单条情报的核心流程"""
-        # 0. 去重检查 (新增)
-        news_url = raw_data.get('url')
-        news_content = raw_data.get('content')
-        news_summary = raw_data.get('summary')
+        # 5. 并行并发 AI 分析
+        logger.info(f"🚀 并行分析中 (并发数: 5, 任务数: {len(enriched_items)})...")
+        tasks = []
+        for item in enriched_items:
+            tasks.append(self._process_single_item_async(item))
         
-        # 1.5 获取市场上下文与历史置信度 (Dimension A-C)
-        context_str = self._enrich_market_context(raw_data)
-        
-        # 简单提取关键词作为上下文回测搜索
-        keyword = "Trump" 
-        if "Fed" in raw_data.get('content', ''): keyword = "Fed"
-        
-        stats = self.backtester.get_confidence_stats(keyword)
-        if stats:
-            bt_str = f"\n[历史回测面板]: 过去 {stats['count']} 次相关事件中 (关键词:{keyword})，黄金上涨概率 {stats['win_rate']}%, 平均波幅 {stats['avg_return']}%." 
-            raw_data['content'] += bt_str
-            context_str += bt_str
+        await asyncio.gather(*tasks)
+        logger.info("<<< 本轮流式扫描完成。")
 
-        # 1. 语义去重 (SimHash + BERT)
-        # 提前检查，若语义重复，直接丢弃且不入库
-        full_text = news_summary if (news_summary and len(str(news_summary)) > 20) else news_content
+    async def _process_single_item_async(self, raw_data):
+        """单条情报的异步处理状态机"""
+        source_id = raw_data.get('source_id') or raw_data.get('id')
         
-        # 此时还没有入库 ID，record_id 传 None (仅做内存记录)
-        if self.deduplicator.is_duplicate(full_text, record_id=None):
-            logger.info(f"🚫 发现语义重复情报 (BERT级别)，直接丢弃: {raw_data.get('title') or news_content[:50]}...")
-            return
-            
-        # Capture the vector calculated during deduplication
-        cached_vector = self.deduplicator.last_vector
-        raw_data['embedding'] = cached_vector
-
-        # 2. 保存原始情报入库 (Save Raw)
-        # 这将返回 ID，如果因 URL/SourceID 冲突返回 None，则为重复
-        # 注意: save_raw_intelligence 使用 raw_data['content']
-        db_id = self.db.save_raw_intelligence(raw_data)
-        if not db_id:
-            logger.info(f"🚫 发现重复情报 (SourceID冲突)，已存在，跳过: URL: {news_url}")
-            return
-
-        # 3. AI 分析
-        analysis_result = None
-        try:
-            logger.info(f"正在分析情报: {raw_data.get('source')} - {raw_data.get('id')}")
-            analysis_result = self.primary_llm.analyze(raw_data)
-        except Exception:
-            logger.warning("首选模型失败，尝试备用模型...")
+        async with self.ai_semaphore:
             try:
-                analysis_result = self.fallback_llm.analyze(raw_data)
-            except Exception:
-                logger.error(f"AI 分析失败，跳过: {raw_data.get('id')}")
-                return
+                # 标记为 PROCESSING 防止竞争
+                await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'PROCESSING')
+                
+                # 1. 注入上下文 (同步方法转异步)
+                context_str = await asyncio.to_thread(self._enrich_market_context, raw_data)
+                
+                # 2. 语义去重 (BERT级别)
+                if self.deduplicator.is_duplicate(raw_data.get('content')):
+                    logger.info(f"🚫 语义重复，标记为已过滤: {source_id}")
+                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', 'Deduplicated')
+                    return
 
-        if not analysis_result:
-            return
+                # 3. AI 分析 (异步)
+                logger.info(f"🤖 正在分析({raw_data.get('extraction_method', 'UNKNOWN')}): {source_id}")
+                try:
+                    analysis_result = await self.primary_llm.analyze_async(raw_data)
+                except Exception as e:
+                    logger.warning(f"Primary LLM failed for {source_id}, trying fallback: {e}")
+                    analysis_result = await self.fallback_llm.analyze_async(raw_data)
 
-        # 4. 结果更新与存储 (Update Analysis)
-        # 去掉注入的上下文，保持纯净 (raw_data已在 save_raw 时使用了 dirty content? 
-        # save_raw 使用了 raw_data['content']。
-        # 这里我们需要 clean content 吗? 
-        # engine.py 150 original logic: saved clean_content.
-        # save_raw saved raw_data['content'] which includes bt_str context.
-        # Ideally we should strictly save original content.
-        # But 'raw_data' passed to save_raw had bt_str appended.
-        # To fix this, we should clean raw_data['content'] AFTER analysis, or before save_raw passing a copy?
-        # Simpler: remove context_str from raw_data['content'] before save_raw?
-        # But we need context for AI analysis.
-        # It's fine if Raw Data in DB has context string appended, it shows what AI saw.
-        # User might prefer clean. 
-        # Let's clean it for 'original_content' field usage in save_raw if possible.
-        # raw_data['original_content'] is usually not set yet.
-        
-        clean_content = raw_data.get('content').replace(context_str, "")
-        analysis_result['original_content'] = clean_content
-        analysis_result['url'] = raw_data.get('url')
-        analysis_result['embedding'] = cached_vector
-        
-        # Update existing record
-        self.db.update_intelligence_analysis(raw_data.get('id'), analysis_result, raw_data)
+                # 4. 存储分析结果并标记为 COMPLETED
+                if analysis_result:
+                    analysis_result['embedding'] = self.deduplicator.last_vector
+                    await asyncio.to_thread(self.db.update_intelligence_analysis, source_id, analysis_result, raw_data)
 
-        # Apply Intraday Directional Deduplication
+                    # 5. 交易逻辑与分发
+                    await self._trigger_trade_and_dispatch(analysis_result, raw_data)
+                else:
+                    raise ValueError("AI analysis returned empty result")
+                
+            except Exception as e:
+                logger.error(f"处理条目失败 {source_id}: {e}")
+                await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'FAILED', str(e))
+
+    async def _trigger_trade_and_dispatch(self, analysis_result, raw_data):
+        """异步化的交易触发与分发"""
         signal_direction = self._parse_sentiment(analysis_result.get('sentiment'))
         if signal_direction in ['Long', 'Short']:
-            trade_initiated = self.backtester.process_signal(signal_direction)
+            trade_initiated = await asyncio.to_thread(self.backtester.process_signal, signal_direction)
             if trade_initiated:
-                logger.info(f"✅ 触发交易信号: {signal_direction} (来自 intelligence ID: {raw_data.get('id')})")
-            else:
-                logger.info(f"ℹ️ 未触发交易: 信号 {signal_direction} 被日内同向去重跳过 (来自 intelligence ID: {raw_data.get('id')})")
+                logger.info(f"✅ 触发交易信号: {signal_direction} (ID: {raw_data.get('id')})")
 
-        # 4. 多渠道分发
-        self._dispatch(analysis_result)
+        # 多渠道分发
+        await asyncio.to_thread(self._dispatch, analysis_result)
+
+    def run_once(self):
+        """兼容性包装器，调用异步方法"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(self.run_once_async())
+        finally:
+            loop.close()
 
     def _enrich_market_context(self, raw_data):
         """注入多维度市场背景数据 (DXY, GVZ, COT)"""
@@ -236,7 +221,6 @@ class AlphaEngine:
 - 美联储宏观基调 (Regime): {fed_context}
 """
         raw_data['context'] = context
-        # 同时也临时存入 raw_data 方便数据库保存时复用
         raw_data['dxy_snapshot'] = dxy
         raw_data['gvz_snapshot'] = gvz
         raw_data['fed_val'] = fed['value'] if fed else 0
@@ -244,17 +228,24 @@ class AlphaEngine:
         return context
 
     def _dispatch(self, data):
-        title = f"【AlphaSignal】{data.get('sentiment', '情报警报')}"
+        sentiment_text = ""
+        sentiment = data.get('sentiment')
+        if isinstance(sentiment, dict):
+            sentiment_text = sentiment.get('zh') or sentiment.get('en') or "情报分析"
+        else:
+            sentiment_text = str(sentiment)
+
+        title = f"【AlphaSignal】{sentiment_text}"
         body = self._format_message(data)
         
         for channel in self.channels:
-            channel.send(title, body)
+            try:
+                channel.send(title, body)
+            except Exception as e:
+                logger.warning(f"Failed to dispatch to {channel.__class__.__name__}: {e}")
 
     def _parse_sentiment(self, sentiment_json) -> str:
-        """
-        根据情绪文本确定交易方向。
-        Returns: 'Long', 'Short', or 'Neutral'
-        """
+        """根据情绪文本确定交易方向"""
         try:
             if isinstance(sentiment_json, str):
                 try:
@@ -277,27 +268,37 @@ class AlphaEngine:
             return 'Neutral'
 
     def _format_message(self, data):
-        # 格式化市场影响部分
         market_impact_str = ""
         market_implication = data.get('market_implication', {})
         
         if isinstance(market_implication, dict):
-            for asset, impact in market_implication.items():
-                market_impact_str += f"🔹 {asset}: {impact}\n"
+            # Try to get localized version or iterate
+            zh_impact = market_implication.get('zh')
+            if zh_impact:
+                market_impact_str = zh_impact
+            else:
+                for asset, impact in market_implication.items():
+                    market_impact_str += f"🔹 {asset}: {impact}\n"
         else:
             market_impact_str = str(market_implication)
+
+        summary = data.get('summary', '')
+        if isinstance(summary, dict): summary = summary.get('zh') or summary.get('en')
+
+        advice = data.get('actionable_advice', '')
+        if isinstance(advice, dict): advice = advice.get('zh') or advice.get('en')
 
         return f"""
 🚨 【AlphaSignal 投资快报】
 --------------------------------------------
 📌 [核心摘要]
-{data.get('summary')}
+{summary}
 
 📊 [市场深度影响]
 {market_impact_str.strip()}
 
 💡 [实战策略建议]
-{data.get('actionable_advice')}
+{advice}
 
 🔗 [原文来源及链接]
 {data.get('url')}

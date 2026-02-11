@@ -87,8 +87,27 @@ class GoogleNewsSource(BaseDataSource):
             
             logger.info(f"Fetching Google News RSS: {rss_url}")
             
-            # 3. Parse RSS Feed
-            feed = feedparser.parse(rss_url)
+            # 3. Parse RSS Feed with Retries and requests for stability
+            import requests
+            content = None
+            for attempt in range(3):
+                try:
+                    # Use requests instead of feedparser directly to handle network errors better
+                    response = requests.get(rss_url, timeout=20)
+                    if response.status_code == 200:
+                        content = response.content
+                        break
+                    else:
+                        logger.warning(f"Google News RSS returned status {response.status_code}, attempt {attempt+1}/3")
+                except Exception as e:
+                    logger.warning(f"Attempt {attempt+1}/3 failed to fetch Google News RSS: {e}")
+                    if attempt < 2: time.sleep(2)
+            
+            if not content:
+                logger.error("Failed to fetch Google News RSS after 3 attempts.")
+                return None
+
+            feed = feedparser.parse(content)
             if not feed.entries:
                 logger.info("No new entries found in RSS.")
                 return None
@@ -116,38 +135,19 @@ class GoogleNewsSource(BaseDataSource):
                 # ID for deduplication
                 news_id = getattr(entry, 'id', link)
 
+                # Skip processed_ids check if we are in repair mode
+                # But keep it here for normal operation to avoid unnecessary crawling
                 if news_id in self.processed_ids: continue
 
-                # SimHash Dedupe
-                text_content = f"{clean_title}. {entry.get('summary', '')}"
-                # Remove HTML from summary if present
-                text_content = re.sub(r'<[^>]+>', '', text_content)
-                
-                current_hash = self._get_simhash(text_content)
-                is_duplicate = False
-                for existing_hash_str, _ in self.processed_hashes.items():
-                    from simhash import Simhash
-                    existing_hash = Simhash(int(existing_hash_str))
-                    if current_hash.distance(existing_hash) < 3:
-                        is_duplicate = True
-                        break
-                
-                if is_duplicate: continue
-                
-                self._save_state(news_id, str(current_hash.value))
-                
-                # Handle Timestamps (RSS provides structured parsed time)
-                timestamp = entry.get('published_parsed')
-                if not timestamp:
-                    # Fallback to parsing string
-                    parsed = dateparser.parse(entry.get('published', ''))
-                    timestamp = parsed.timetuple() if parsed else time.gmtime()
+                # RSS Summary as baseline
+                summary = re.sub(r'<[^>]+>', '', entry.get('summary', ''))
 
                 new_items.append({
                     "source": f"Google News ({source_name})",
                     "author": source_name,
-                    "timestamp": timestamp,
-                    "content": text_content,
+                    "timestamp": entry.get('published_parsed') or time.gmtime(),
+                    "content": f"{clean_title}. {summary}", # Baseline content
+                    "summary_raw": summary,
                     "url": link,
                     "id": news_id,
                     "title": clean_title,
@@ -155,7 +155,7 @@ class GoogleNewsSource(BaseDataSource):
                     "urgency_multiplier": multiplier
                 })
             
-            logger.info(f"Parsed {len(new_items)} items from RSS.")
+            logger.info(f"Discovery: Found {len(new_items)} potential new items from Google News.")
             return new_items
             
         except Exception as e:
