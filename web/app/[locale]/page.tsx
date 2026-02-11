@@ -27,6 +27,7 @@ import { Settings, Terminal } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useIntelligenceInfiniteQuery } from '@/hooks/api/use-intelligence-query';
 import { useStrategyInfiniteQuery } from '@/hooks/api/use-strategy-query';
+import { useMarketQuery } from '@/hooks/api/use-market-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { intelligenceKeys } from '@/lib/query-keys';
 
@@ -64,6 +65,11 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     isFetchingNextPage: isFetchingNextStrategyPage,
   } = useStrategyInfiniteQuery();
 
+  const [chartConfig, setChartConfig] = useState({ range: '1mo', interval: '60m' });
+
+  // --- TanStack Query for Market Data ---
+  const { data: marketData, isLoading: marketLoading } = useMarketQuery('GC=F', chartConfig.range, chartConfig.interval);
+
   // Flatten the pages into a single items array
   const allIntelligence = useMemo(() => {
     return infiniteIntelData?.pages.flatMap(page => page.data) || [];
@@ -73,11 +79,9 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     return infiniteStrategyData?.pages.flatMap(page => page.data) || [];
   }, [infiniteStrategyData]);
 
-  const [marketData, setMarketData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [globalHighUrgency, setGlobalHighUrgency] = useState(0);
 
-  const [chartConfig, setChartConfig] = useState({ range: '1mo', interval: '60m' });
   const [activeTab, setActiveTab] = useState<'feed' | 'charts'>('feed');
 
   // --- Scroll Position Persistence ---
@@ -161,25 +165,15 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   }, []);
 
 
-  const [latestIntelId, setLatestIntelId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Separate effect for Market Data
+  // Sync global loading state
   useEffect(() => {
-    async function fetchMarketData() {
-      try {
-        const res = await authenticatedFetch(`/api/market?symbol=GC=F&range=${chartConfig.range}&interval=${chartConfig.interval}`, session);
-        const mData = await res.json();
-        setMarketData(mData);
-      } catch (err) {
-        console.error('Market fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
+    if (!marketLoading && !intelLoading) {
+      setLoading(false);
     }
-    fetchMarketData();
-  }, [chartConfig, session]);
+  }, [marketLoading, intelLoading]);
 
   // Manual retry function
   const handleRetry = useCallback(() => {
