@@ -32,10 +32,8 @@ class AsyncRichCrawler:
                     if response.status_code == 200:
                         content = response.text
                         # 简单的清洗：去除 Jina Reader 的页眉页脚（如有）
-                        content = re.sub(r'URL Source:.*
-', '', content)
-                        content = re.sub(r'Published Time:.*
-', '', content)
+                        content = re.sub(r'URL Source:.*\n', '', content)
+                        content = re.sub(r'Published Time:.*\n', '', content)
                         if len(content.strip()) > 200: # 长度校验，确保不是空页面
                             return content.strip()
                     elif response.status_code == 429:
