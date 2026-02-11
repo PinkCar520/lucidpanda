@@ -29,6 +29,8 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
   const [activeLabel, setActiveLabel] = useState('day');
   const [isDark, setIsDark] = useState(false);
 
+  const indicators = marketData?.indicators;
+
   // Sync with document theme class
   useEffect(() => {
     const checkTheme = () => {
@@ -47,25 +49,49 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
     onRangeChange(range, interval);
   };
 
-  const RangeSelector = (
-    <div className="flex bg-slate-100 dark:bg-slate-900/50 rounded-lg p-0.5 border border-slate-200 dark:border-slate-800/50 overflow-x-auto max-w-[180px] md:max-w-none no-scrollbar">
-      {RANGES.map((r) => (
-        <button
-          key={r.label}
-          onClick={() => handleRangeClick(r.range, r.interval, r.label)}
-          className={`flex-shrink-0 px-2 md:px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 ${activeLabel === r.label
-            ? 'bg-blue-600 dark:bg-emerald-500/20 text-white dark:text-emerald-400 shadow-sm border border-blue-700 dark:border-emerald-500/20'
-            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white dark:hover:bg-slate-800/50'
-            }`}
-        >
-          {t(r.label)}
-        </button>
-      ))}
+  const ChartHeader = (
+    <div className="flex flex-col md:flex-row md:items-center gap-4">
+      {indicators && (
+        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900/50 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-800/50">
+          <div className="flex flex-col">
+            <span className="text-[8px] uppercase font-bold text-slate-400 tracking-tight">Gold Spread (CNY/g)</span>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-sm font-black font-mono ${indicators.spread >= 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                {indicators.spread > 0 ? '+' : ''}{indicators.spread.toFixed(2)}
+              </span>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                ({indicators.spread_pct > 0 ? '+' : ''}{indicators.spread_pct.toFixed(2)}%)
+              </span>
+            </div>
+          </div>
+          <div className="w-px h-6 bg-slate-200 dark:border-slate-800/50 mx-1"></div>
+          <div className="flex flex-col">
+            <span className="text-[8px] uppercase font-bold text-slate-400 tracking-tight">AU9999 Spot</span>
+            <span className="text-sm font-black font-mono text-slate-700 dark:text-slate-300">
+              {indicators.domestic_spot.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      )}
+      <div className="flex bg-slate-100 dark:bg-slate-900/50 rounded-lg p-0.5 border border-slate-200 dark:border-slate-800/50 overflow-x-auto max-w-[180px] md:max-w-none no-scrollbar">
+        {RANGES.map((r) => (
+          <button
+            key={r.label}
+            onClick={() => handleRangeClick(r.range, r.interval, r.label)}
+            className={`flex-shrink-0 px-2 md:px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 ${activeLabel === r.label
+              ? 'bg-blue-600 dark:bg-emerald-500/20 text-white dark:text-emerald-400 shadow-sm border border-blue-700 dark:border-emerald-500/20'
+              : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white dark:hover:bg-slate-800/50'
+              }`}
+          >
+            {t(r.label)}
+          </button>
+        ))}
+      </div>
     </div>
   );
 
   if (!marketData || !marketData.quotes) return (
-    <Card className="h-[450px] p-0 border-slate-200 dark:border-slate-800" title={t('title')} action={RangeSelector}>
+    <Card className="h-[450px] p-0 border-slate-200 dark:border-slate-800" title={t('title')} action={ChartHeader}>
       <div className="h-full flex flex-col justify-between p-6 animate-pulse">
         {/* Skeleton: Y-axis labels */}
         <div className="flex justify-between items-start mb-4">
@@ -150,7 +176,7 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
   ];
 
   return (
-    <Card className="h-[350px] md:h-[450px] p-0 border-slate-200 dark:border-slate-800" title={t('title')} action={RangeSelector}>
+    <Card className="h-[350px] md:h-[450px] p-0 border-slate-200 dark:border-slate-800" title={t('title')} action={ChartHeader}>
       <Plot
         data={traces}
         layout={{

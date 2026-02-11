@@ -180,9 +180,10 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     setError(null);
     setRetryCount(0);
     setLoading(true);
-    // Trigger re-fetch by updating a dependency
-    setLatestIntelId(null);
-  }, []);
+    // Trigger re-fetch for all major data sources
+    queryClient.invalidateQueries({ queryKey: ['market'] });
+    queryClient.invalidateQueries({ queryKey: intelligenceKeys.all });
+  }, [queryClient]);
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#020617]">

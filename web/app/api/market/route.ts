@@ -49,6 +49,43 @@ async function fetchMarketData(symbol: string, queryOptions: any, retries = MAX_
   }
 }
 
+/**
+ * Fetch real-time domestic gold spot price (AU9999) from Sina Finance
+ */
+async function fetchDomesticSpot(): Promise<number | null> {
+  try {
+    const response = await fetch('https://hq.sinajs.cn/list=gds_AU9999', {
+      headers: { 'Referer': 'https://finance.sina.com.cn' },
+      next: { revalidate: 30 } // Cache for 30s
+    });
+    const text = await response.text();
+    const match = text.match(/\"(.*)\"/);
+    if (match && match[1]) {
+      const parts = match[1].split(',');
+      const price = parseFloat(parts[1]);
+      return isNaN(price) ? null : price;
+    }
+    return null;
+  } catch (err) {
+    console.error('[Market API] Failed to fetch domestic spot:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch USD/CNH exchange rate from Yahoo Finance
+ */
+async function fetchExchangeRate(): Promise<number | null> {
+  try {
+    const yahooFinance = new YahooFinance();
+    const result = await yahooFinance.quote('USDCNH=X');
+    return result.regularMarketPrice || null;
+  } catch (err) {
+    console.error('[Market API] Failed to fetch FX rate:', err);
+    return null;
+  }
+}
+
 export async function GET(request: Request) {
   // Check authentication
   const authResponse = requireAuth(request);
@@ -78,7 +115,7 @@ export async function GET(request: Request) {
 
     // Check if we have fresh cache
     if (cachedEntry && (Date.now() - cachedEntry.timestamp < ttl)) {
-      console.log(`[Market API] ✓ Cache hit for ${cacheKey} (age: ${Math.round((Date.now() - cachedEntry.timestamp) / 1000)}s)`);
+      console.log(`[Market API] ✓ Cache hit for ${cacheKey}`);
       return NextResponse.json({
         ...cachedEntry.data,
         _cached: true,
@@ -109,22 +146,48 @@ export async function GET(request: Request) {
     console.log(`[Market API] ⟳ Fetching fresh data for ${cacheKey}...`);
 
     try {
-      const result = await fetchMarketData(symbol, queryOptions);
+      // Parallel fetch for chart data, domestic spot, and FX rate
+      const [chartResult, domesticSpot, fxRate] = await Promise.all([
+        fetchMarketData(symbol, queryOptions),
+        symbol === 'GC=F' ? fetchDomesticSpot() : Promise.resolve(null),
+        symbol === 'GC=F' ? fetchExchangeRate() : Promise.resolve(null)
+      ]);
 
-      // Save to cache with metadata
+      // Calculate Indicators (Spread)
+      let indicators = null;
+      if (symbol === 'GC=F' && domesticSpot && fxRate && chartResult.meta?.regularMarketPrice) {
+        const intlPriceUsd = chartResult.meta.regularMarketPrice;
+        const intlPriceCnyPerGram = (intlPriceUsd * fxRate) / 31.1034768;
+        const spread = domesticSpot - intlPriceCnyPerGram;
+        const spreadPct = (spread / intlPriceCnyPerGram) * 100;
+
+        indicators = {
+          domestic_spot: domesticSpot,
+          intl_spot_cny: intlPriceCnyPerGram,
+          spread: spread,
+          spread_pct: spreadPct,
+          fx_rate: fxRate,
+          last_updated: new Date().toISOString()
+        };
+      }
+
+      const responseData = {
+        ...chartResult,
+        indicators,
+        _cached: false,
+        _fetchedAt: new Date().toISOString()
+      };
+
+      // Save to cache
       cache.set(cacheKey, {
-        data: result,
+        data: responseData,
         timestamp: Date.now(),
         fetchedAt: new Date().toISOString()
       });
 
       console.log(`[Market API] ✓ Fresh data cached for ${cacheKey}`);
 
-      return NextResponse.json({
-        ...result,
-        _cached: false,
-        _fetchedAt: new Date().toISOString()
-      });
+      return NextResponse.json(responseData);
 
     } catch (fetchError: any) {
       console.error(`[Market API] ✗ Data source error:`, fetchError.message);
