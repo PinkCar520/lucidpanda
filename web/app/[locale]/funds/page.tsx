@@ -368,7 +368,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                         )}
                                                         {item.risk_level && (
                                                             <span 
-                                                                className={`text-[8px] font-bold px-1 rounded-sm border ${
+                                                                className={`text-[8px] font-bold px-1 rounded-sm border cursor-help border-b border-dashed ${
                                                                     item.risk_level === 'R1' || item.risk_level === 'R2' ? 'bg-blue-500/5 text-blue-500 border-blue-500/20' :
                                                                     item.risk_level === 'R3' ? 'bg-amber-500/5 text-amber-500 border-amber-500/20' :
                                                                     item.risk_level === 'R4' ? 'bg-orange-500/5 text-orange-600 border-orange-500/20' :
