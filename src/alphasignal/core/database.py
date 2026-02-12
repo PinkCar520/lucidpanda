@@ -1028,6 +1028,54 @@ class IntelligenceDB:
             
     # --- Fund Valuation Methods ---
 
+    def get_fund_performance_metrics(self, fund_code, days=5):
+        """Fetch average absolute deviation and sample count for the last N days."""
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT AVG(abs_deviation), COUNT(*) 
+                    FROM fund_valuation_archive 
+                    WHERE fund_code = %s 
+                    AND official_growth IS NOT NULL
+                    AND trade_date > CURRENT_DATE - INTERVAL '%s days'
+                """, (fund_code, days))
+                res = cursor.fetchone()
+                return {
+                    'avg_mae': float(res[0]) if res and res[0] is not None else None,
+                    'sample_count': int(res[1]) if res else 0
+                }
+        except Exception as e:
+            logger.error(f"Failed to fetch performance metrics: {e}")
+            return {'avg_mae': None, 'sample_count': 0}
+        finally:
+            conn.close()
+
+    def remove_non_trading_zombies(self, days=30):
+        """Physically remove weekend/holiday records that have no official growth data."""
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                # We target Saturdays (6) and Sundays (0) specifically for now 
+                # as they are the most common 'zombies'.
+                cursor.execute("""
+                    DELETE FROM fund_valuation_archive 
+                    WHERE official_growth IS NULL 
+                    AND (
+                        EXTRACT(DOW FROM trade_date) = 0 OR 
+                        EXTRACT(DOW FROM trade_date) = 6
+                    )
+                    AND trade_date > CURRENT_DATE - INTERVAL '%s days'
+                """, (days,))
+                count = cursor.rowcount
+                conn.commit()
+                return count
+        except Exception as e:
+            logger.error(f"Failed to remove non-trading zombies: {e}")
+            return 0
+        finally:
+            conn.close()
+
     def get_fund_metadata_batch(self, fund_codes: list):
         """Fetch multiple fund metadata (name, type) in one query."""
         if not fund_codes: return {}

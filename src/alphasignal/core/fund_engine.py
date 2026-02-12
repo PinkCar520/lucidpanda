@@ -7,6 +7,7 @@ import redis
 from datetime import datetime, timedelta
 from src.alphasignal.core.database import IntelligenceDB
 from src.alphasignal.core.logger import logger
+from src.alphasignal.utils.market_calendar import is_market_open
 
 class FundEngine:
     def __init__(self, db: IntelligenceDB = None):
@@ -1300,6 +1301,11 @@ class FundEngine:
 
     def take_all_funds_snapshot(self):
         """Batch take snapshots for all funds in various users' watchlists."""
+        # 1. Mature Gatekeeping: Skip if today is not a trading day
+        if not is_market_open():
+            logger.info("⛱️ Market is closed today. Skipping valuation snapshot.")
+            return
+
         codes = self.db.get_watchlist_all_codes()
         if not codes:
             logger.info("No funds in watchlist to snapshot.")
@@ -1333,6 +1339,11 @@ class FundEngine:
         their historical NAV series. Targeted and precise.
         Now supports a sliding window to automatically catch QDII and missed dates.
         """
+        # 0. Routine Maintenance: Remove weekend 'zombie' records from the archive
+        cleaned_count = self.db.remove_non_trading_zombies(days=14)
+        if cleaned_count > 0:
+            logger.info(f"🧹 Cleaned up {cleaned_count} weekend zombie records from archive.")
+
         # 1. Get the list of pending reconciliation tasks
         conn = self.db.get_connection()
         pending_tasks = [] # List of (date, code)
