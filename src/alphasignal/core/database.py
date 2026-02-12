@@ -1051,6 +1051,47 @@ class IntelligenceDB:
         finally:
             conn.close()
 
+    def get_reconciliation_stats(self, days=14):
+        """Fetch aggregate stats for the monitoring dashboard."""
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=DictCursor) as cursor:
+                # 1. Daily Success Rate and MAE
+                cursor.execute("""
+                    SELECT 
+                        trade_date,
+                        COUNT(*) as total_count,
+                        COUNT(official_growth) as reconciled_count,
+                        AVG(ABS(deviation)) as avg_mae
+                    FROM fund_valuation_archive
+                    WHERE trade_date > CURRENT_DATE - INTERVAL '%s days'
+                    GROUP BY trade_date
+                    ORDER BY trade_date DESC
+                """, (days,))
+                daily_stats = [dict(row) for row in cursor.fetchall()]
+
+                # 2. Recent Anomalies (Deviation > 1.0%)
+                cursor.execute("""
+                    SELECT fund_code, trade_date, frozen_est_growth, official_growth, deviation, tracking_status
+                    FROM fund_valuation_archive
+                    WHERE ABS(deviation) >= 1.0
+                    AND trade_date > CURRENT_DATE - INTERVAL '7 days'
+                    ORDER BY trade_date DESC, ABS(deviation) DESC
+                    LIMIT 20
+                """)
+                anomalies = [dict(row) for row in cursor.fetchall()]
+
+                return {
+                    "daily": daily_stats,
+                    "anomalies": anomalies,
+                    "updated_at": datetime.now().isoformat()
+                }
+        except Exception as e:
+            logger.error(f"Failed to fetch reconciliation stats: {e}")
+            return {"daily": [], "anomalies": [], "error": str(e)}
+        finally:
+            conn.close()
+
     def delete_valuation_records_by_dates(self, dates: list):
         """Physically remove records for specific dates that have no official growth data."""
         if not dates: return 0

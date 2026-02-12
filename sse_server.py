@@ -277,6 +277,13 @@ class WatchlistItem(BaseModel):
     code: str
     name: str
 
+@app.get("/api/admin/funds/monitor")
+async def get_fund_monitor_stats(current_user: User = Depends(get_current_user)):
+    """Admin: Get reconciliation performance and system health stats."""
+    db = IntelligenceDB()
+    stats = db.get_reconciliation_stats()
+    return stats
+
 @app.get("/api/watchlist")
 async def get_watchlist(current_user: User = Depends(get_current_user)):
     from src.alphasignal.core.database import IntelligenceDB

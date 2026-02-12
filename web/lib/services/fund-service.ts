@@ -105,5 +105,14 @@ export const fundService = {
     });
     if (!res.ok) throw new Error('Failed to remove from watchlist');
     return await res.json();
+  },
+
+  /**
+   * Fetch admin monitor stats
+   */
+  async getMonitorStats(session: Session | null): Promise<any> {
+    const res = await authenticatedFetch('/api/admin/funds/monitor', session);
+    if (!res.ok) throw new Error('Failed to fetch monitor stats');
+    return await res.json();
   }
 };
