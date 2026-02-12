@@ -349,10 +349,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                                 {item.source.includes('ETF') && (
                                                                     <Anchor className="w-3 h-3 text-blue-500" />
                                                                 )}
-                                                                {(item.code === '002207' || item.code === '022365') && (
-                                                                    <AlertTriangle className="w-3 h-3 text-amber-500" />
-                                                                )}
-                                                                {!item.source.includes('Calibration') && !item.source.includes('ETF') && item.code !== '002207' && item.code !== '022365' && (
+                                                                {!item.source.includes('Calibration') && !item.source.includes('ETF') && (
                                                                     <Target className="w-3 h-3 text-emerald-500" />
                                                                 )}
                                                             </div>
