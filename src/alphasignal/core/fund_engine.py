@@ -1476,7 +1476,7 @@ class FundEngine:
                         time.sleep(random.uniform(0.5, 1.5))
                         
                         df = pd.DataFrame()
-                        # Retry logic for network issues
+                        # Retry logic for primary source (EastMoney)
                         for attempt in range(2):
                             try:
                                 df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
@@ -1485,11 +1485,36 @@ class FundEngine:
                                 if attempt == 0: 
                                     time.sleep(2)
                                     continue
-                                else: raise req_err
+                                else:
+                                    logger.warning(f"Primary source failed for {code}, trying backup source...")
+                                    # --- BACKUP SOURCE: Direct Mobile API ---
+                                    try:
+                                        # This mobile API is extremely stable and less prone to TLS issues
+                                        back_url = f"https://fundmobapi.eastmoney.com/FundMApi/FundVarietieBackStageData.ashx?FCODE={code}&deviceid=AlphaSignal&plat=Android&product=EFUND&version=6.5.5"
+                                        back_resp = requests.get(back_url, timeout=10)
+                                        back_json = back_resp.json()
+                                        if back_json.get('Datas'):
+                                            # Mock a dataframe-like match for consistency
+                                            official_growth = float(back_json['Datas'].get('JZL', 0))
+                                            # We also need to check the date
+                                            api_date = back_json['Datas'].get('FSRQ')
+                                            if api_date == trade_date.strftime('%Y-%m-%d'):
+                                                self.db.update_official_nav(trade_date, code, official_growth)
+                                                count += 1
+                                                logger.info(f"🎯 Matched {code} (Backup Source): Est vs Official applied.")
+                                                # Mark as found to skip the standard df processing below
+                                                df = pd.DataFrame([{'done': True}]) 
+                                                break
+                                    except Exception as backup_err:
+                                        logger.error(f"Backup source also failed for {code}: {backup_err}")
+                                        raise req_err
                         
                         if df.empty:
                             logger.warning(f"No NAV history found for {code}")
                             continue
+                        
+                        # If df was marked as 'done' by backup, move to next fund
+                        if 'done' in df.columns: continue
                         
                         # df usually has columns: ['净值日期', '单位净值', '日增长率', ...]
                         # Convert '净值日期' to date objects for comparison
