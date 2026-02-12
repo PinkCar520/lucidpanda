@@ -426,19 +426,6 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                             <div>
                                                 <h2 className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('estimatedGrowth')}</h2>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    {valuation.risk_level && (
-                                                        <Badge 
-                                                            variant="outline" 
-                                                            className={`text-[10px] py-0 px-1.5 font-bold ${
-                                                                valuation.risk_level === 'R1' || valuation.risk_level === 'R2' ? 'bg-blue-500/5 text-blue-500 border-blue-500/20' :
-                                                                valuation.risk_level === 'R3' ? 'bg-amber-500/5 text-amber-500 border-amber-500/20' :
-                                                                valuation.risk_level === 'R4' ? 'bg-orange-500/5 text-orange-600 border-orange-500/20' :
-                                                                'bg-rose-500/5 text-rose-600 border-rose-500/20'
-                                                            }`}
-                                                        >
-                                                            {t(`riskLevelLabel.${valuation.risk_level}`)}
-                                                        </Badge>
-                                                    )}
                                                     {valuation.is_qdii && (
                                                         <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 border-blue-200 dark:border-blue-800">QDII</Badge>
                                                     )}
@@ -454,22 +441,37 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                     </span>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <button
-                                                    onClick={handleManualRefresh}
-                                                    disabled={loading}
-                                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                    title={t('refreshData')}
-                                                >
-                                                    <RefreshCw className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform ${loading ? 'animate-spin' : ''}`} />
-                                                </button>
-                                                {valuation.status === 'syncing' ? (
-                                                    <Badge variant="warning">
-                                                        {t('syncing') || 'Syncing'}
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant={valuation.estimated_growth >= 0 ? 'bullish' : 'bearish'}>
-                                                        {t('live')}
+                                            <div className="flex flex-col items-end gap-2 shrink-0">
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={handleManualRefresh}
+                                                        disabled={loading}
+                                                        className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                        title={t('refreshData')}
+                                                    >
+                                                        <RefreshCw className={`w-4 h-4 text-slate-400 dark:text-slate-500 transition-transform ${loading ? 'animate-spin' : ''}`} />
+                                                    </button>
+                                                    {valuation.status === 'syncing' ? (
+                                                        <Badge variant="warning">
+                                                            {t('syncing') || 'Syncing'}
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant={valuation.estimated_growth >= 0 ? 'bullish' : 'bearish'}>
+                                                            {t('live')}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                {valuation.risk_level && (
+                                                    <Badge 
+                                                        variant="outline" 
+                                                        className={`text-[10px] py-0.5 px-2 font-bold whitespace-nowrap ${
+                                                            valuation.risk_level === 'R1' || valuation.risk_level === 'R2' ? 'bg-blue-500/5 text-blue-500 border-blue-500/20' :
+                                                            valuation.risk_level === 'R3' ? 'bg-amber-500/5 text-amber-500 border-amber-500/20' :
+                                                            valuation.risk_level === 'R4' ? 'bg-orange-500/5 text-orange-600 border-orange-500/20' :
+                                                            'bg-rose-500/5 text-rose-600 border-rose-500/20'
+                                                        }`}
+                                                    >
+                                                        {t(`riskLevelLabel.${valuation.risk_level}`)}
                                                     </Badge>
                                                 )}
                                             </div>
