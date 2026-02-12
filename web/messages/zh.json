@@ -40,7 +40,8 @@
         "sidebar": {
             "terminal": "智能终端",
             "alphaFunds": "Alpha 基金",
-            "backtest": "策略回测"
+            "backtest": "策略回测",
+            "monitor": "对账监控"
         },
         "shell": {
             "breadcrumb": {
@@ -575,6 +576,7 @@
     "Breadcrumbs": {
         "terminal": "智能终端",
         "funds": "Alpha 基金",
+        "monitor": "对账监控",
         "backtest": "策略回测",
         "settings": "设置",
         "account": "账户总览",

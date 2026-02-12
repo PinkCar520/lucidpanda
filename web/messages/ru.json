@@ -40,7 +40,8 @@
     "sidebar": {
       "terminal": "Терминал",
       "alphaFunds": "AlphaFunds",
-      "backtest": "Бэктест"
+      "backtest": "Бэктест",
+      "monitor": "Мониторинг"
     },
     "shell": {
       "breadcrumb": {
@@ -550,6 +551,7 @@
   "Breadcrumbs": {
     "terminal": "Терминал",
     "funds": "AlphaFunds",
+    "monitor": "Мониторинг",
     "backtest": "Бэктест",
     "settings": "Настройки",
     "account": "Обзор аккаунта",
