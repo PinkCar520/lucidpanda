@@ -21,7 +21,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
 // Dynamic import for Plotly to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false });
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as any;
 
 export default function FundMonitorPage() {
     const t = useTranslations('Funds');
