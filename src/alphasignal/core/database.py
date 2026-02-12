@@ -7,7 +7,6 @@ import pandas as pd
 from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 
-
 try:
     import psycopg2
     from psycopg2.extras import Json, DictCursor
