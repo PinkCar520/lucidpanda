@@ -328,9 +328,6 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                                     }`} title={`Drawdown: ${item.stats.drawdown_grade}`}>D:{item.stats.drawdown_grade}</span>
                                                             </div>
                                                         )}
-                                                        {item.is_qdii && (
-                                                            <Badge variant="outline" className="text-[9px] py-0 px-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 border-blue-200 dark:border-blue-800">QDII</Badge>
-                                                        )}
                                                     </div>
                                                     {item.estimated_growth !== undefined && (
                                                         <div className="flex items-center gap-1 shrink-0">
@@ -359,6 +356,9 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                                     <Target className="w-3 h-3 text-emerald-500" />
                                                                 )}
                                                             </div>
+                                                        )}
+                                                        {item.is_qdii && (
+                                                            <Badge variant="outline" className="text-[8px] py-0 px-1 bg-blue-50/50 dark:bg-blue-900/20 text-blue-500/80 border-blue-200/50 dark:border-blue-800/50 ml-0.5">QDII</Badge>
                                                         )}
                                                     </div>
 
