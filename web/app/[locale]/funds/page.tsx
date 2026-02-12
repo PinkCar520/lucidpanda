@@ -315,9 +315,6 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div className="flex items-center gap-2 overflow-hidden">
                                                         <span className="font-bold text-sm truncate">{item.name || item.code}</span>
-                                                        {item.is_qdii && (
-                                                            <Badge variant="outline" className="text-[9px] py-0 px-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 border-blue-200 dark:border-blue-800">QDII</Badge>
-                                                        )}
                                                         {/* Risk Grades */}
                                                         {item.stats && (
                                                             <div className="flex gap-1 shrink-0">
@@ -330,6 +327,9 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                                         'bg-slate-500/10 text-slate-500'
                                                                     }`} title={`Drawdown: ${item.stats.drawdown_grade}`}>D:{item.stats.drawdown_grade}</span>
                                                             </div>
+                                                        )}
+                                                        {item.is_qdii && (
+                                                            <Badge variant="outline" className="text-[9px] py-0 px-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 border-blue-200 dark:border-blue-800">QDII</Badge>
                                                         )}
                                                     </div>
                                                     {item.estimated_growth !== undefined && (
