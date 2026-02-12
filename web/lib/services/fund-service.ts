@@ -1,6 +1,12 @@
 import { Session } from 'next-auth';
 import { authenticatedFetch } from '@/lib/api-client';
 
+export interface FundConfidence {
+  level: 'high' | 'medium' | 'low';
+  score: number;
+  reasons: string[];
+}
+
 export interface WatchlistItem {
   code: string;
   name: string;
@@ -8,6 +14,8 @@ export interface WatchlistItem {
   estimated_growth?: number;
   previous_growth?: number;
   source?: string;
+  confidence?: FundConfidence;
+  risk_level?: string;
   stats?: any;
 }
 
@@ -17,6 +25,8 @@ export interface FundValuation {
   estimated_growth: number;
   total_weight: number;
   is_qdii?: boolean;
+  confidence?: FundConfidence;
+  risk_level?: string;
   status?: string;
   message?: string;
   components: any[];

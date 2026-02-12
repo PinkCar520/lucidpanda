@@ -51,6 +51,7 @@ interface FundValuation {
     total_weight: number;
     is_qdii?: boolean;
     confidence?: FundConfidence;
+    risk_level?: string;
     status?: string;
     message?: string;
     components: ComponentStock[];
@@ -87,6 +88,7 @@ interface WatchlistItem {
     previous_growth?: number; // For trend arrows (↑↓)
     source?: string; // For confidence indicators
     confidence?: FundConfidence;
+    risk_level?: string;
     stats?: FundStats;
 }
 
@@ -149,6 +151,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                 estimated_growth: val?.estimated_growth ?? item.estimated_growth,
                 is_qdii: val?.is_qdii ?? (val?.fund_name?.includes('QDII')),
                 confidence: val?.confidence ?? item.confidence,
+                risk_level: val?.risk_level ?? item.risk_level,
                 source: val?.source ?? item.source,
                 stats: val?.stats ?? item.stats
             };
@@ -363,6 +366,19 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                                 )}
                                                             </div>
                                                         )}
+                                                        {item.risk_level && (
+                                                            <span 
+                                                                className={`text-[8px] font-bold px-1 rounded-sm border ${
+                                                                    item.risk_level === 'R1' || item.risk_level === 'R2' ? 'bg-blue-500/5 text-blue-500 border-blue-500/20' :
+                                                                    item.risk_level === 'R3' ? 'bg-amber-500/5 text-amber-500 border-amber-500/20' :
+                                                                    item.risk_level === 'R4' ? 'bg-orange-500/5 text-orange-600 border-orange-500/20' :
+                                                                    'bg-rose-500/5 text-rose-600 border-rose-500/20'
+                                                                }`}
+                                                                title={t(`riskLevelDesc.${item.risk_level}`)}
+                                                            >
+                                                                {item.risk_level}
+                                                            </span>
+                                                        )}
                                                         {item.is_qdii && (
                                                             <Badge variant="outline" className="text-[8px] py-0 px-1 bg-blue-50/50 dark:bg-blue-900/20 text-blue-500/80 border-blue-200/50 dark:border-blue-800/50 ml-0.5">QDII</Badge>
                                                         )}
@@ -410,6 +426,19 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                             <div>
                                                 <h2 className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('estimatedGrowth')}</h2>
                                                 <div className="flex items-center gap-2 mt-1">
+                                                    {valuation.risk_level && (
+                                                        <Badge 
+                                                            variant="outline" 
+                                                            className={`text-[10px] py-0 px-1.5 font-bold ${
+                                                                valuation.risk_level === 'R1' || valuation.risk_level === 'R2' ? 'bg-blue-500/5 text-blue-500 border-blue-500/20' :
+                                                                valuation.risk_level === 'R3' ? 'bg-amber-500/5 text-amber-500 border-amber-500/20' :
+                                                                valuation.risk_level === 'R4' ? 'bg-orange-500/5 text-orange-600 border-orange-500/20' :
+                                                                'bg-rose-500/5 text-rose-600 border-rose-500/20'
+                                                            }`}
+                                                        >
+                                                            {t(`riskLevelLabel.${valuation.risk_level}`)}
+                                                        </Badge>
+                                                    )}
                                                     {valuation.is_qdii && (
                                                         <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 border-blue-200 dark:border-blue-800">QDII</Badge>
                                                     )}

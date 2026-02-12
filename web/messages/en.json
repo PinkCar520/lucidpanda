@@ -324,6 +324,20 @@
       "coverage_low": "Low holdings visibility",
       "qdii_lag": "QDII time lag impact",
       "fof_complexity": "Complex FOF structure"
+    },
+    "riskLevelLabel": {
+      "R1": "Low Risk R1",
+      "R2": "Mid-Low Risk R2",
+      "R3": "Medium Risk R3",
+      "R4": "Mid-High Risk R4",
+      "R5": "High Risk R5"
+    },
+    "riskLevelDesc": {
+      "R1": "Suitable for ultra-conservative investors. Very low capital risk.",
+      "R2": "Suitable for conservative investors. Low volatility, steady returns.",
+      "R3": "Suitable for balanced investors. Moderate volatility expected.",
+      "R4": "Suitable for aggressive investors. High volatility, seeks higher returns.",
+      "R5": "Suitable for speculative investors. High asset volatility, extreme risk."
     }
   },
   "Settings": {

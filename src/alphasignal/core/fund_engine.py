@@ -693,6 +693,98 @@ class FundEngine:
             for k, v in old_proxies.items():
                 os.environ[k] = v
 
+    def _infer_risk_level(self, fund_meta):
+        """
+        Synthetic Risk Rating (SRR): Infers R1-R5 risk level based on investment_type.
+        Provides 100% coverage based on industry standard mappings.
+        """
+        # 1. Priority: DB value if exists
+        db_risk = fund_meta.get('risk_level')
+        if db_risk and db_risk.startswith('R'):
+            return db_risk
+
+        # 2. Inference: Logic based on investment_type
+        f_type = str(fund_meta.get('type', ''))
+        
+        # Mapping Rules
+        if any(k in f_type for k in ["货币", "理财", "避险"]):
+            return "R1"
+        if any(k in f_type for k in ["短债", "长债", "纯债", "一级"]):
+            return "R2"
+        if any(k in f_type for k in ["偏债", "混合二级", "平衡", "灵活"]):
+            return "R3"
+        if any(k in f_type for k in ["偏股", "普通股票", "标准指数", "指数型-股票", "Reits"]):
+            return "R4"
+        if any(k in f_type for k in ["QDII", "商品", "分级", "海外股票", "进取型"]):
+            return "R5"
+            
+        # Default fallback
+        return "R3"
+
+    def _get_confidence_level(self, fund_code, current_weight, fund_meta):
+        """
+        Mature Confidence Engine: Calculates a weighted score based on multiple dimensions.
+        Accuracy (60%) + Coverage (30%) + Freshness/Type (10%)
+        """
+        # 1. Accuracy Score (60 points max)
+        perf = self.db.get_fund_performance_metrics(fund_code, days=7)
+        mae = perf['avg_mae']
+        acc_score = 0
+        reasons = []
+        
+        if mae is None: 
+            acc_score = 40 # Neutral for new funds
+            reasons.append("new_fund")
+        elif mae < 0.2: 
+            acc_score = 60
+            reasons.append("accuracy_high")
+        elif mae < 0.5: 
+            acc_score = 45
+            reasons.append("accuracy_medium")
+        elif mae < 1.0: 
+            acc_score = 20
+            reasons.append("accuracy_low")
+        else:
+            acc_score = 0
+            reasons.append("accuracy_poor")
+
+        # 2. Coverage Score (30 points max)
+        cov_score = 0
+        if current_weight >= 90:
+            cov_score = 30
+            reasons.append("coverage_full")
+        elif current_weight >= 70:
+            cov_score = 20
+            reasons.append("coverage_high")
+        elif current_weight >= 40:
+            cov_score = 10
+            reasons.append("coverage_partial")
+        else:
+            cov_score = 0
+            reasons.append("coverage_low")
+
+        # 3. Type & Freshness (10 points max)
+        type_score = 10
+        f_type = str(fund_meta.get('type', ''))
+        if "QDII" in f_type:
+            type_score = 5
+            reasons.append("qdii_lag")
+        if "FOF" in f_type:
+            type_score = 0
+            reasons.append("fof_complexity")
+
+        total_score = acc_score + cov_score + type_score
+        
+        level = "medium"
+        if total_score >= 80: level = "high"
+        elif total_score < 50: level = "low"
+        
+        return {
+            "level": level,
+            "score": total_score,
+            "reasons": reasons
+        }
+
     def calculate_batch_valuation(self, fund_codes: list, summary: bool = False):
         """
         Calculate valuations for multiple funds in a single batch request using efficient Market API.
@@ -919,12 +1011,18 @@ class FundEngine:
                         est_growth += fx_impact
                         fx_note = f" (FX {currency} {fx_impact:+.2f}%)"
 
+                    # Get Confidence & Risk Level
+                    confidence = self._get_confidence_level(f_code, ratio * 100, fund_meta_map.get(f_code, {}))
+                    risk_level = self._infer_risk_level(fund_meta_map.get(f_code, {}))
+
                     res_obj = {
                         "fund_code": f_code,
                         "fund_name": fund_name_map.get(f_code, f_code),
                         "estimated_growth": round(est_growth, 4),
                         "total_weight": ratio * 100,
                         "is_qdii": "QDII" in str(fund_meta_map.get(f_code, {}).get('type', '')),
+                        "confidence": confidence,
+                        "risk_level": risk_level,
                         "components": [] if summary else [{
                             "code": p_code, 
                             "name": q.get('name', p_code), 
@@ -1045,12 +1143,18 @@ class FundEngine:
                 final_est += fx_impact
                 fx_note = f" (FX {currency} {fx_impact:+.2f}%)"
 
+            # Get Confidence & Risk Level
+            confidence = self._get_confidence_level(f_code, total_weight, fund_meta_map.get(f_code, {}))
+            risk_level = self._infer_risk_level(fund_meta_map.get(f_code, {}))
+
             res_obj = {
                 "fund_code": f_code,
                 "fund_name": fund_name,
                 "estimated_growth": round(final_est, 4),
                 "total_weight": total_weight,
                 "is_qdii": "QDII" in str(fund_meta_map.get(f_code, {}).get('type', '')),
+                "confidence": confidence,
+                "risk_level": risk_level,
                 "components": components,
                 "sector_attribution": sector_stats,
                 "timestamp": datetime.now().isoformat(),
