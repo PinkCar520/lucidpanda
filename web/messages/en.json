@@ -305,7 +305,25 @@
     "qdiiDelayNotice": "NAV update delayed 1-2 days",
     "noComponents": "No holding details",
     "syncingMsg": "Holdings are being synchronized from Data Center...",
-    "noData": "No data available"
+    "noData": "No data available",
+    "sharpeTooltip": "Sharpe Ratio (S): Measures risk-adjusted performance. S-grade indicates industry-leading returns per unit of risk.",
+    "drawdownTooltip": "Max Drawdown (D): Measures capital protection. S-grade indicates extreme stability even during market downturns.",
+    "confidence": {
+      "high": "Confidence: High ({score} pts). Highly accurate recently.",
+      "medium": "Confidence: Medium ({score} pts). Bias calibration applied.",
+      "low": "Confidence: Low ({score} pts). Low transparency or high volatility.",
+      "new_fund": "New fund, accumulating data",
+      "accuracy_high": "Minimal historical deviation",
+      "accuracy_medium": "Moderate historical deviation",
+      "accuracy_low": "Significant historical deviation",
+      "accuracy_poor": "Poor accuracy records",
+      "coverage_full": "Excellent holdings coverage",
+      "coverage_high": "Good holdings coverage",
+      "coverage_partial": "Partial holdings data",
+      "coverage_low": "Low holdings visibility",
+      "qdii_lag": "QDII time lag impact",
+      "fof_complexity": "Complex FOF structure"
+    }
   },
   "Settings": {
     "title": "Account Settings",

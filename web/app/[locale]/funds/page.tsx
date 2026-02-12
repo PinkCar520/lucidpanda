@@ -38,12 +38,19 @@ interface FundStats {
     sparkline_data: number[];
 }
 
+interface FundConfidence {
+    level: 'high' | 'medium' | 'low';
+    score: number;
+    reasons: string[];
+}
+
 interface FundValuation {
     fund_code: string;
     fund_name: string;
     estimated_growth: number;
     total_weight: number;
     is_qdii?: boolean;
+    confidence?: FundConfidence;
     status?: string;
     message?: string;
     components: ComponentStock[];
@@ -79,6 +86,7 @@ interface WatchlistItem {
     estimated_growth?: number; // For sorting by daily performance
     previous_growth?: number; // For trend arrows (↑↓)
     source?: string; // For confidence indicators
+    confidence?: FundConfidence;
     stats?: FundStats;
 }
 
@@ -140,6 +148,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                 ...item,
                 estimated_growth: val?.estimated_growth ?? item.estimated_growth,
                 is_qdii: val?.is_qdii ?? (val?.fund_name?.includes('QDII')),
+                confidence: val?.confidence ?? item.confidence,
                 source: val?.source ?? item.source,
                 stats: val?.stats ?? item.stats
             };
@@ -318,14 +327,14 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                         {/* Risk Grades */}
                                                         {item.stats && (
                                                             <div className="flex gap-1 shrink-0">
-                                                                <span className={`text-[8px] font-black px-1 rounded-sm ${item.stats.sharpe_grade === 'S' ? 'bg-amber-500/10 text-amber-600' :
+                                                                <span className={`text-[8px] font-black px-1 rounded-sm cursor-help border-b border-dashed border-current/30 ${item.stats.sharpe_grade === 'S' ? 'bg-amber-500/10 text-amber-600' :
                                                                     item.stats.sharpe_grade === 'A' ? 'bg-blue-500/10 text-blue-600' :
                                                                         'bg-slate-500/10 text-slate-500'
-                                                                    }`} title={`Sharpe: ${item.stats.sharpe_grade}`}>S:{item.stats.sharpe_grade}</span>
-                                                                <span className={`text-[8px] font-black px-1 rounded-sm ${item.stats.drawdown_grade === 'S' ? 'bg-emerald-500/10 text-emerald-600' :
+                                                                    }`} title={t('sharpeTooltip')}>S:{item.stats.sharpe_grade}</span>
+                                                                <span className={`text-[8px] font-black px-1 rounded-sm cursor-help border-b border-dashed border-current/30 ${item.stats.drawdown_grade === 'S' ? 'bg-emerald-500/10 text-emerald-600' :
                                                                     item.stats.drawdown_grade === 'A' ? 'bg-cyan-500/10 text-cyan-600' :
                                                                         'bg-slate-500/10 text-slate-500'
-                                                                    }`} title={`Drawdown: ${item.stats.drawdown_grade}`}>D:{item.stats.drawdown_grade}</span>
+                                                                    }`} title={t('drawdownTooltip')}>D:{item.stats.drawdown_grade}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -341,16 +350,16 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                 <div className="flex items-center justify-between gap-2 mt-0.5">
                                                     <div className="flex items-center gap-1">
                                                         <span className="font-mono text-[10px] opacity-60">{item.code}</span>
-                                                        {item.source && (
-                                                            <div className="flex gap-1" title={t('sourceLabel', { source: item.source })}>
-                                                                {item.source.includes('Calibration') && (
+                                                        {item.confidence && (
+                                                            <div className="flex gap-1" title={t(`confidence.${item.confidence.level}`, { score: item.confidence.score })}>
+                                                                {item.confidence.level === 'high' && (
+                                                                    <Target className="w-3 h-3 text-emerald-500" />
+                                                                )}
+                                                                {item.confidence.level === 'medium' && (
                                                                     <Scale className="w-3 h-3 text-blue-500" />
                                                                 )}
-                                                                {item.source.includes('ETF') && (
-                                                                    <Anchor className="w-3 h-3 text-blue-500" />
-                                                                )}
-                                                                {!item.source.includes('Calibration') && !item.source.includes('ETF') && (
-                                                                    <Target className="w-3 h-3 text-emerald-500" />
+                                                                {item.confidence.level === 'low' && (
+                                                                    <AlertTriangle className="w-3 h-3 text-rose-500" />
                                                                 )}
                                                             </div>
                                                         )}
