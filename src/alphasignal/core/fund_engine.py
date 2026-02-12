@@ -780,14 +780,16 @@ class FundEngine:
                 # Determine SecID for Market API
                 # Logic: sh6xxxx, sz0xxxx/3xxxx, bj8xxxx/4xxxx, hk0xxxx, usXXXX
                 secid = None
-                if len(s_code) == 6:
-                    if s_code.startswith('6') or s_code.startswith('9'): secid = f"sh{s_code}"
-                    elif s_code.startswith('0') or s_code.startswith('3'): secid = f"sz{s_code}"
-                    elif s_code.startswith('8') or s_code.startswith('4'): secid = f"bj{s_code}"
-                    else: secid = f"sz{s_code}" # Fallback
-                elif len(s_code) == 5:
-                    secid = f"hk{s_code}"
-                elif s_code.isalpha():
+                if s_code.isdigit():
+                    if len(s_code) == 6:
+                        if s_code.startswith('6') or s_code.startswith('9'): secid = f"sh{s_code}"
+                        elif s_code.startswith('0') or s_code.startswith('3'): secid = f"sz{s_code}"
+                        elif s_code.startswith('8') or s_code.startswith('4'): secid = f"bj{s_code}"
+                        else: secid = f"sz{s_code}" # Fallback
+                    elif len(s_code) == 5:
+                        secid = f"hk{s_code}"
+                else:
+                    # Non-numeric codes are treated as US stocks
                     secid = f"us{s_code}"
                     
                 if secid:
@@ -834,9 +836,22 @@ class FundEngine:
                             pct = float(parts[32])
                             
                             # Store by both pure code and market code for maximum compatibility
-                            t_code = parts[2] # e.g. 600519
+                            t_code = parts[2] # e.g. 600519 or NVDA.OQ
                             quotes[t_code] = {'price': price, 'change_pct': pct, 'name': real_name}
                             quotes[actual_market_code] = {'price': price, 'change_pct': pct, 'name': real_name}
+                            
+                            # --- US Stock Compatibility ---
+                            # US stocks from Tencent API often have suffixes like .OQ (Nasdaq), .N (NYSE)
+                            # but holdings DB often just stores the base code 'NVDA'
+                            if '.' in t_code and actual_market_code.startswith('us'):
+                                base_us_code = t_code.split('.')[0]
+                                quotes[base_us_code] = {'price': price, 'change_pct': pct, 'name': real_name}
+                            
+                            # General market-prefix removal for fallback (sh600519 -> 600519)
+                            if len(actual_market_code) > 2 and actual_market_code[:2] in ['sh', 'sz', 'hk', 'us']:
+                                base_code = actual_market_code[2:]
+                                if base_code not in quotes:
+                                    quotes[base_code] = {'price': price, 'change_pct': pct, 'name': real_name}
                         except: 
                             pass
             except Exception as e:

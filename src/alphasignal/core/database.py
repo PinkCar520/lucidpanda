@@ -845,8 +845,13 @@ class IntelligenceDB:
             }
             
             search_name = mapping.get(currency_pair, currency_pair)
-            # Find the row by partial name match
-            row = df[df['外汇名称'].str.contains(search_name, case=False, na=False)]
+            
+            # Find the name column dynamically
+            name_col = next((c for c in df.columns if '名称' in c or '外汇' in c or '货币对' in c), None)
+            if not name_col:
+                return 0.0
+                
+            row = df[df[name_col].str.contains(search_name, case=False, na=False)]
             
             if not row.empty:
                 # Some versions of AkShare use '涨跌幅', others might use different names
