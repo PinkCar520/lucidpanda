@@ -11,7 +11,8 @@ import {
 import { useRouter, usePathname, Link } from '@/i18n/navigation';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
+import { atomicSignOut } from '@/lib/auth-cleanup';
 import { authenticatedFetch } from '@/lib/api-client';
 
 interface FundResult {
@@ -224,7 +225,7 @@ export default function CommandMenu() {
                     {/* 4. System Actions */}
                     <Command.Group heading={tCommand('systemGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
                         <Command.Item
-                            onSelect={() => runCommand(() => signOut({ callbackUrl: `/${locale}/login` }))}
+                            onSelect={() => runCommand(() => atomicSignOut(locale as string))}
                             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors aria-selected:bg-red-50 dark:aria-selected:bg-red-900/30"
                         >
                             <LogOut className="w-4 h-4" />
