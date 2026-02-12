@@ -25,6 +25,12 @@ const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as any;
 export default function FundMonitorPage() {
     const t = useTranslations('Monitor');
     const { data: session } = useSession();
+    const [isMounted, setIsMounted] = React.useState(false);
+
+    // Ensure we only render time-sensitive UI on client
+    React.useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     const { data: stats, isLoading } = useQuery({
         queryKey: ['admin', 'fund-monitor'],
@@ -32,14 +38,6 @@ export default function FundMonitorPage() {
         refetchInterval: 1000 * 60 * 5, // 5 min
     });
 
-    if (isLoading) {
-        return <div className="p-8 text-center text-slate-500 animate-pulse">{t('initializing')}</div>;
-    }
-
-    const latest = stats?.daily?.[0];
-    const reconciliationRate = latest ? (latest.reconciled_count / latest.total_count) * 100 : 0;
-
-    // --- Heatmap Data Transformation ---
     const heatmapTraces = React.useMemo(() => {
         if (!stats?.heatmap || stats.heatmap.length === 0) return null;
 
@@ -70,6 +68,13 @@ export default function FundMonitorPage() {
         };
     }, [stats?.heatmap]);
 
+    if (isLoading || !isMounted) {
+        return <div className="p-8 text-center text-slate-500 animate-pulse">{t('initializing')}</div>;
+    }
+
+    const latest = stats?.daily?.[0];
+    const reconciliationRate = latest ? (latest.reconciled_count / latest.total_count) * 100 : 0;
+
     return (
         <div className="flex flex-col p-4 md:p-8 gap-8 min-h-screen bg-slate-50/30 dark:bg-[#020617] transition-colors">
             {/* Header */}
@@ -89,7 +94,7 @@ export default function FundMonitorPage() {
                     </p>
                 </div>
                 
-                {stats?.updated_at && (
+                {stats?.updated_at && isMounted && (
                     <Badge variant="outline" className="font-mono text-[10px] py-1 px-3 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                         <Clock className="w-3 h-3 mr-1.5 opacity-60" />
                         {t('lastSync', { time: new Date(stats.updated_at).toLocaleTimeString() })}
