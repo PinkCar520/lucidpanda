@@ -302,6 +302,7 @@
     "loading": "Calculating real-time NAV...",
     "syncing": "Syncing",
     "syncingData": "Synchronizing holdings...",
+    "qdiiDelayNotice": "NAV update delayed 1-2 days",
     "noComponents": "No holding details",
     "syncingMsg": "Holdings are being synchronized from Data Center...",
     "noData": "No data available"

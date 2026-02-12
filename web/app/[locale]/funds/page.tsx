@@ -43,6 +43,7 @@ interface FundValuation {
     fund_name: string;
     estimated_growth: number;
     total_weight: number;
+    is_qdii?: boolean;
     status?: string;
     message?: string;
     components: ComponentStock[];
@@ -74,6 +75,7 @@ interface ValuationHistory {
 interface WatchlistItem {
     code: string;
     name: string;
+    is_qdii?: boolean;
     estimated_growth?: number; // For sorting by daily performance
     previous_growth?: number; // For trend arrows (↑↓)
     source?: string; // For confidence indicators
@@ -137,6 +139,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             return {
                 ...item,
                 estimated_growth: val?.estimated_growth ?? item.estimated_growth,
+                is_qdii: val?.is_qdii ?? (val?.fund_name?.includes('QDII')),
                 source: val?.source ?? item.source,
                 stats: val?.stats ?? item.stats
             };
@@ -312,6 +315,9 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                 <div className="flex items-center justify-between gap-2">
                                                     <div className="flex items-center gap-2 overflow-hidden">
                                                         <span className="font-bold text-sm truncate">{item.name || item.code}</span>
+                                                        {item.is_qdii && (
+                                                            <Badge variant="outline" className="text-[9px] py-0 px-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 border-blue-200 dark:border-blue-800">QDII</Badge>
+                                                        )}
                                                         {/* Risk Grades */}
                                                         {item.stats && (
                                                             <div className="flex gap-1 shrink-0">
@@ -397,6 +403,16 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <h2 className="text-xs font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">{t('estimatedGrowth')}</h2>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    {valuation.is_qdii && (
+                                                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 border-blue-200 dark:border-blue-800">QDII</Badge>
+                                                    )}
+                                                    {valuation.is_qdii && (
+                                                        <span className="text-[10px] text-slate-400 dark:text-slate-500 italic">
+                                                            {t('qdiiDelayNotice')}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="text-4xl lg:text-5xl font-black mt-2 tracking-tighter flex items-center gap-2">
                                                     <span className={valuation.estimated_growth >= 0 ? "text-rose-600 dark:text-rose-500" : "text-emerald-600 dark:text-emerald-500"}>
                                                         {valuation.estimated_growth > 0 ? "+" : ""}{valuation.estimated_growth.toFixed(2)}%

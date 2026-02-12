@@ -1028,6 +1028,18 @@ class IntelligenceDB:
             
     # --- Fund Valuation Methods ---
 
+    def get_fund_metadata_batch(self, fund_codes: list):
+        """Fetch multiple fund metadata (name, type) in one query."""
+        if not fund_codes: return {}
+        conn = self.get_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT fund_code, fund_name, investment_type FROM fund_metadata WHERE fund_code = ANY(%s)", (fund_codes,))
+                rows = cursor.fetchall()
+                return {r[0]: {'name': r[1], 'type': r[2]} for r in rows}
+        finally:
+            conn.close()
+
     def get_fund_names(self, fund_codes: list):
         """Fetch multiple fund names from metadata in one query."""
         if not fund_codes: return {}

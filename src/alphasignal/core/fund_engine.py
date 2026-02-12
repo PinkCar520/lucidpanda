@@ -700,22 +700,35 @@ class FundEngine:
         """
         import requests
         
-        # 0. Pre-fetch Fund Names in Bulk (Avoid serial DB/API calls)
+        # 0. Pre-fetch Fund Metadata in Bulk (Avoid serial DB/API calls)
+        fund_meta_map = {}
         fund_name_map = {}
-        missing_name_codes = []
+        missing_meta_codes = []
+        
         if self.redis:
-            cached_names = self.redis.mget([f"fund:name:{c}" for c in fund_codes])
-            for code, name in zip(fund_codes, cached_names):
-                if name: fund_name_map[code] = name
-                else: missing_name_codes.append(code)
+            cached_meta = self.redis.mget([f"fund:meta:{c}" for c in fund_codes])
+            for code, meta_json in zip(fund_codes, cached_meta):
+                if meta_json:
+                    try:
+                        meta = json.loads(meta_json)
+                        fund_meta_map[code] = meta
+                        fund_name_map[code] = meta['name']
+                    except:
+                        missing_meta_codes.append(code)
+                else:
+                    missing_meta_codes.append(code)
         else:
-            missing_name_codes = fund_codes
+            missing_meta_codes = fund_codes
             
-        if missing_name_codes:
-            db_names = self.db.get_fund_names(missing_name_codes)
-            for c, n in db_names.items():
-                fund_name_map[c] = n
-                if self.redis: self.redis.setex(f"fund:name:{c}", 86400 * 7, n)
+        if missing_meta_codes:
+            db_meta = self.db.get_fund_metadata_batch(missing_meta_codes)
+            for c, m in db_meta.items():
+                fund_meta_map[c] = m
+                fund_name_map[c] = m['name']
+                if self.redis: 
+                    self.redis.setex(f"fund:meta:{c}", 86400 * 7, json.dumps(m))
+                    # Legacy support for name cache
+                    self.redis.setex(f"fund:name:{c}", 86400 * 7, m['name'])
         
         # 1. Fetch Holdings for ALL funds
         # Use DB first, then fetch missing
@@ -911,6 +924,7 @@ class FundEngine:
                         "fund_name": fund_name_map.get(f_code, f_code),
                         "estimated_growth": round(est_growth, 4),
                         "total_weight": ratio * 100,
+                        "is_qdii": "QDII" in str(fund_meta_map.get(f_code, {}).get('type', '')),
                         "components": [] if summary else [{
                             "code": p_code, 
                             "name": q.get('name', p_code), 
@@ -1036,6 +1050,7 @@ class FundEngine:
                 "fund_name": fund_name,
                 "estimated_growth": round(final_est, 4),
                 "total_weight": total_weight,
+                "is_qdii": "QDII" in str(fund_meta_map.get(f_code, {}).get('type', '')),
                 "components": components,
                 "sector_attribution": sector_stats,
                 "timestamp": datetime.now().isoformat(),

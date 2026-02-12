@@ -322,6 +322,7 @@
         "syncingData": "正在同步持仓数据...",
         "noComponents": "暂无持仓详情",
         "syncingMsg": "正在从数据中心同步持仓数据...",
+        "qdiiDelayNotice": "净值更新滞后 1-2 天",
         "noData": "暂无可用数据"
     },
     "Settings": {
