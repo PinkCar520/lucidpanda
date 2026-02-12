@@ -4,6 +4,7 @@ import { authenticatedFetch } from '@/lib/api-client';
 export interface WatchlistItem {
   code: string;
   name: string;
+  is_qdii?: boolean;
   estimated_growth?: number;
   previous_growth?: number;
   source?: string;
@@ -15,6 +16,7 @@ export interface FundValuation {
   fund_name: string;
   estimated_growth: number;
   total_weight: number;
+  is_qdii?: boolean;
   status?: string;
   message?: string;
   components: any[];
