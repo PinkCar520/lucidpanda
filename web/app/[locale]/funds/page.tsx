@@ -15,6 +15,7 @@ import { fundKeys } from '@/lib/query-keys';
 
 import { SectorAttribution } from '@/components/SectorAttribution';
 import { FundSparkline } from '@/components/FundSparkline';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip';
 
 interface ComponentStock {
     code: string;
@@ -213,7 +214,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     };
 
     return (
-        <div className="flex flex-col p-4 md:p-6 lg:p-8 gap-6 lg:h-full lg:overflow-hidden min-h-screen">
+        <TooltipProvider delayDuration={100}>
+            <div className="flex flex-col p-4 md:p-6 lg:p-8 gap-6 lg:h-full lg:overflow-hidden min-h-screen">
             <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 flex-1 min-h-0">
                 {/* Left: Watchlist (Mobile: Toggleable, Desktop: Fixed Sidebar) */}
                 <div className="lg:col-span-4 flex flex-col gap-4 min-h-0">
@@ -330,14 +332,29 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                         {/* Risk Grades */}
                                                         {item.stats && (
                                                             <div className="flex gap-1 shrink-0">
-                                                                <span className={`text-[8px] font-black px-1 rounded-sm cursor-help border-b border-dashed border-current/30 ${item.stats.sharpe_grade === 'S' ? 'bg-amber-500/10 text-amber-600' :
-                                                                    item.stats.sharpe_grade === 'A' ? 'bg-blue-500/10 text-blue-600' :
-                                                                        'bg-slate-500/10 text-slate-500'
-                                                                    }`} title={t('sharpeTooltip')}>S:{item.stats.sharpe_grade}</span>
-                                                                <span className={`text-[8px] font-black px-1 rounded-sm cursor-help border-b border-dashed border-current/30 ${item.stats.drawdown_grade === 'S' ? 'bg-emerald-500/10 text-emerald-600' :
-                                                                    item.stats.drawdown_grade === 'A' ? 'bg-cyan-500/10 text-cyan-600' :
-                                                                        'bg-slate-500/10 text-slate-500'
-                                                                    }`} title={t('drawdownTooltip')}>D:{item.stats.drawdown_grade}</span>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <span className={`text-[8px] font-black px-1 rounded-sm cursor-help border-b border-dashed border-current/30 ${item.stats.sharpe_grade === 'S' ? 'bg-amber-500/10 text-amber-600' :
+                                                                            item.stats.sharpe_grade === 'A' ? 'bg-blue-500/10 text-blue-600' :
+                                                                                'bg-slate-500/10 text-slate-500'
+                                                                            }`}>S:{item.stats.sharpe_grade}</span>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="top">
+                                                                        {t('sharpeTooltip')}
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <span className={`text-[8px] font-black px-1 rounded-sm cursor-help border-b border-dashed border-current/30 ${item.stats.drawdown_grade === 'S' ? 'bg-emerald-500/10 text-emerald-600' :
+                                                                            item.stats.drawdown_grade === 'A' ? 'bg-cyan-500/10 text-cyan-600' :
+                                                                                'bg-slate-500/10 text-slate-500'
+                                                                            }`}>D:{item.stats.drawdown_grade}</span>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="top">
+                                                                        {t('drawdownTooltip')}
+                                                                    </TooltipContent>
+                                                                </Tooltip>
                                                             </div>
                                                         )}
                                                     </div>
@@ -354,30 +371,43 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                     <div className="flex items-center gap-1">
                                                         <span className="font-mono text-[10px] opacity-60">{item.code}</span>
                                                         {item.confidence && (
-                                                            <div className="flex gap-1" title={t(`confidence.${item.confidence.level}`, { score: item.confidence.score })}>
-                                                                {item.confidence.level === 'high' && (
-                                                                    <Target className="w-3 h-3 text-emerald-500" />
-                                                                )}
-                                                                {item.confidence.level === 'medium' && (
-                                                                    <Scale className="w-3 h-3 text-blue-500" />
-                                                                )}
-                                                                {item.confidence.level === 'low' && (
-                                                                    <AlertTriangle className="w-3 h-3 text-rose-500" />
-                                                                )}
-                                                            </div>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <div className="flex gap-1 cursor-help">
+                                                                        {item.confidence.level === 'high' && (
+                                                                            <Target className="w-3 h-3 text-emerald-500" />
+                                                                        )}
+                                                                        {item.confidence.level === 'medium' && (
+                                                                            <Scale className="w-3 h-3 text-blue-500" />
+                                                                        )}
+                                                                        {item.confidence.level === 'low' && (
+                                                                            <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                                                        )}
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top">
+                                                                    {t(`confidence.${item.confidence.level}`, { score: item.confidence.score })}
+                                                                </TooltipContent>
+                                                            </Tooltip>
                                                         )}
                                                         {item.risk_level && (
-                                                            <span 
-                                                                className={`text-[8px] font-bold px-1 rounded-sm border cursor-help border-b border-dashed ${
-                                                                    item.risk_level === 'R1' || item.risk_level === 'R2' ? 'bg-blue-500/5 text-blue-500 border-blue-500/20' :
-                                                                    item.risk_level === 'R3' ? 'bg-amber-500/5 text-amber-500 border-amber-500/20' :
-                                                                    item.risk_level === 'R4' ? 'bg-orange-500/5 text-orange-600 border-orange-500/20' :
-                                                                    'bg-rose-500/5 text-rose-600 border-rose-500/20'
-                                                                }`}
-                                                                title={t(`riskLevelDesc.${item.risk_level}`)}
-                                                            >
-                                                                {item.risk_level}
-                                                            </span>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span 
+                                                                        className={`text-[8px] font-bold px-1 rounded-sm border cursor-help border-b border-dashed ${
+                                                                            item.risk_level === 'R1' || item.risk_level === 'R2' ? 'bg-blue-500/5 text-blue-500 border-blue-500/20' :
+                                                                            item.risk_level === 'R3' ? 'bg-amber-500/5 text-amber-500 border-amber-500/20' :
+                                                                            item.risk_level === 'R4' ? 'bg-orange-500/5 text-orange-600 border-orange-500/20' :
+                                                                            'bg-rose-500/5 text-rose-600 border-rose-500/20'
+                                                                        }`}
+                                                                    >
+                                                                        {item.risk_level}
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="top">
+                                                                    {t(`riskLevelDesc.${item.risk_level}`)}
+                                                                </TooltipContent>
+                                                            </Tooltip>
                                                         )}
                                                         {item.is_qdii && (
                                                             <Badge variant="outline" className="text-[8px] py-0 px-1 bg-blue-50/50 dark:bg-blue-900/20 text-blue-500/80 border-blue-200/50 dark:border-blue-800/50 ml-0.5">QDII</Badge>
@@ -462,17 +492,24 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                     )}
                                                 </div>
                                                 {valuation.risk_level && (
-                                                    <Badge 
-                                                        variant="outline" 
-                                                        className={`text-[10px] py-0.5 px-2 font-bold whitespace-nowrap ${
-                                                            valuation.risk_level === 'R1' || valuation.risk_level === 'R2' ? 'bg-blue-500/5 text-blue-500 border-blue-500/20' :
-                                                            valuation.risk_level === 'R3' ? 'bg-amber-500/5 text-amber-500 border-amber-500/20' :
-                                                            valuation.risk_level === 'R4' ? 'bg-orange-500/5 text-orange-600 border-orange-500/20' :
-                                                            'bg-rose-500/5 text-rose-600 border-rose-500/20'
-                                                        }`}
-                                                    >
-                                                        {t(`riskLevelLabel.${valuation.risk_level}`)}
-                                                    </Badge>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <Badge 
+                                                                variant="outline" 
+                                                                className={`text-[10px] py-0.5 px-2 font-bold whitespace-nowrap cursor-help ${
+                                                                    valuation.risk_level === 'R1' || valuation.risk_level === 'R2' ? 'bg-blue-500/5 text-blue-500 border-blue-500/20' :
+                                                                    valuation.risk_level === 'R3' ? 'bg-amber-500/5 text-amber-500 border-amber-500/20' :
+                                                                    valuation.risk_level === 'R4' ? 'bg-orange-500/5 text-orange-600 border-orange-500/20' :
+                                                                    'bg-rose-500/5 text-rose-600 border-rose-500/20'
+                                                                }`}
+                                                            >
+                                                                {t(`riskLevelLabel.${valuation.risk_level}`)}
+                                                            </Badge>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent side="bottom" align="end">
+                                                            {t(`riskLevelDesc.${valuation.risk_level}`)}
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 )}
                                             </div>
                                         </div>
@@ -689,6 +726,6 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                     )}
                 </div>
             </div>
-        </div>
+        </TooltipProvider>
     );
 }
