@@ -304,6 +304,7 @@
     "syncingData": "Synchronizing holdings...",
     "qdiiDelayNotice": "NAV update delayed 1-2 days",
     "noComponents": "No holding details",
+    "legalDisclaimer": "Disclaimer: Past performance is not indicative of future results. Market involves risk; invest with caution. Real-time estimations are based on algorithmic simulations and provided for informational purposes only, not as investment advice.",
     "syncingMsg": "Holdings are being synchronized from Data Center...",
     "noData": "No data available",
     "sharpeTooltip": "Sharpe Ratio (S): Measures risk-adjusted performance. S-grade indicates industry-leading returns per unit of risk.",
