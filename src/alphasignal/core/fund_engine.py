@@ -1339,11 +1339,6 @@ class FundEngine:
         their historical NAV series. Targeted and precise.
         Now supports a sliding window to automatically catch QDII and missed dates.
         """
-        # 0. Routine Maintenance: Remove weekend 'zombie' records from the archive
-        cleaned_count = self.db.remove_non_trading_zombies(days=14)
-        if cleaned_count > 0:
-            logger.info(f"🧹 Cleaned up {cleaned_count} weekend zombie records from archive.")
-
         # 1. Get the list of pending reconciliation tasks
         conn = self.db.get_connection()
         pending_tasks = [] # List of (date, code)
@@ -1356,7 +1351,6 @@ class FundEngine:
                     """, (target_date,))
                 else:
                     # SLIDING WINDOW: Look back 5 days to catch QDII and missed A-shares
-                    # This is the "Automatic Patching" mechanism.
                     cursor.execute("""
                         SELECT trade_date, fund_code FROM fund_valuation_archive 
                         WHERE official_growth IS NULL 
@@ -1372,7 +1366,20 @@ class FundEngine:
             logger.info(f"No pending reconciliation found for {d_str}")
             return
 
-        # Group by date for efficient processing
+        # 2. Mature Zombie Cleanup: Filter out non-trading days (Weekends & Holidays)
+        unique_dates = sorted(list(set(d for d, c in pending_tasks)), reverse=True)
+        zombie_dates = [d for d in unique_dates if not is_market_open(d)]
+        
+        if zombie_dates:
+            cleaned_count = self.db.delete_valuation_records_by_dates(zombie_dates)
+            logger.info(f"🧹 Cleaned up {cleaned_count} zombie records across {len(zombie_dates)} non-trading dates: {zombie_dates}")
+            # Filter the task list to remove these dates
+            pending_tasks = [t for t in pending_tasks if t[0] not in zombie_dates]
+            if not pending_tasks:
+                logger.info("All pending tasks were zombies. Cleanup complete.")
+                return
+
+        # 3. Group by date for efficient processing
         tasks_by_date = {}
         for d, c in pending_tasks:
             if d not in tasks_by_date: tasks_by_date[d] = []

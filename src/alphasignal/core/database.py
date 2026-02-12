@@ -1051,27 +1051,22 @@ class IntelligenceDB:
         finally:
             conn.close()
 
-    def remove_non_trading_zombies(self, days=30):
-        """Physically remove weekend/holiday records that have no official growth data."""
+    def delete_valuation_records_by_dates(self, dates: list):
+        """Physically remove records for specific dates that have no official growth data."""
+        if not dates: return 0
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
-                # We target Saturdays (6) and Sundays (0) specifically for now 
-                # as they are the most common 'zombies'.
                 cursor.execute("""
                     DELETE FROM fund_valuation_archive 
                     WHERE official_growth IS NULL 
-                    AND (
-                        EXTRACT(DOW FROM trade_date) = 0 OR 
-                        EXTRACT(DOW FROM trade_date) = 6
-                    )
-                    AND trade_date > CURRENT_DATE - INTERVAL '%s days'
-                """, (days,))
+                    AND trade_date = ANY(%s)
+                """, (dates,))
                 count = cursor.rowcount
                 conn.commit()
                 return count
         except Exception as e:
-            logger.error(f"Failed to remove non-trading zombies: {e}")
+            logger.error(f"Failed to delete records for dates {dates}: {e}")
             return 0
         finally:
             conn.close()
