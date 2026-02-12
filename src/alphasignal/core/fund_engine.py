@@ -1220,36 +1220,98 @@ class FundEngine:
 
         logger.info(f"⚖️ Starting Targeted Reconciliation for {len(codes)} funds on {trade_date}...")
         
-        count = 0
-        for code in codes:
+        import time
+        import random
+
+        # --- 1. Batch Optimization: Try daily list first for recent dates ---
+        # fund_open_fund_daily_em returns latest NAVs for ALL funds in one request.
+        is_recent = (datetime.now().date() - trade_date).days <= 3
+        batch_results = {}
+        if is_recent:
             try:
-                # 2. Fetch the historical NAV series for this specific fund
-                # This is more robust than a daily dump as it allows historical backfilling
-                df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
-                
-                if df.empty:
-                    logger.warning(f"No NAV history found for {code}")
-                    continue
-                
-                # df usually has columns: ['净值日期', '单位净值', '日增长率', ...]
-                # Convert '净值日期' to date objects for comparison
-                df['净值日期'] = pd.to_datetime(df['净值日期']).dt.date
-                
-                # 3. Find the record matching our trade_date
-                match = df[df['净值日期'] == trade_date]
-                
-                if not match.empty:
-                    # '日增长率' is usually a string like "1.23" or "0.00"
-                    official_growth = float(match.iloc[0]['日增长率'])
-                    
-                    # 4. Update the archive with the official value and trigger grading
-                    self.db.update_official_nav(trade_date, code, official_growth)
-                    count += 1
-                    logger.info(f"🎯 Matched {code}: Est vs Official applied.")
-                else:
-                    logger.info(f"⏳ NAV for {code} on {trade_date} not yet released by fund company.")
-                    
+                logger.info(f"🚀 Attempting batch reconciliation for {trade_date}...")
+                df_daily = ak.fund_open_fund_daily_em()
+                if not df_daily.empty:
+                    # Check if the dataframe contains the target date (columns like 'YYYY-MM-DD-单位净值')
+                    date_str = trade_date.strftime('%Y-%m-%d')
+                    if any(date_str in col for col in df_daily.columns):
+                        # Filter for the codes we need to reconcile
+                        df_match = df_daily[df_daily['基金代码'].isin(codes)]
+                        for _, row in df_match.iterrows():
+                            c = row['基金代码']
+                            try:
+                                # '日增长率' in this table is usually the growth for the latest date
+                                val = row['日增长率']
+                                if val and str(val) != 'nan':
+                                    batch_results[c] = float(val)
+                            except:
+                                continue
+                        logger.info(f"✅ Found {len(batch_results)} matches in batch update.")
             except Exception as e:
-                logger.error(f"Failed to reconcile {code}: {e}")
+                logger.warning(f"Batch reconciliation failed, falling back to individual: {e}")
+
+        # --- 2. Process Remaining Codes ---
+        count = 0
+        
+        # Disable proxy for market data fetching (EastMoney often blocks proxy IPs)
+        original_http = os.environ.get('HTTP_PROXY')
+        original_https = os.environ.get('HTTPS_PROXY')
+        os.environ['HTTP_PROXY'] = ''
+        os.environ['HTTPS_PROXY'] = ''
+
+        try:
+            for code in codes:
+                # Use batch result if available
+                if code in batch_results:
+                    self.db.update_official_nav(trade_date, code, batch_results[code])
+                    count += 1
+                    logger.info(f"🎯 Matched {code} (Batch): Est vs Official applied.")
+                    continue
+
+                # Fallback: Fetch historical series for specific fund
+                try:
+                    # Anti-crawling: Random delay between 0.5s to 1.5s
+                    time.sleep(random.uniform(0.5, 1.5))
+                    
+                    df = pd.DataFrame()
+                    # Retry logic for network issues
+                    for attempt in range(2):
+                        try:
+                            df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
+                            if not df.empty: break
+                        except Exception as req_err:
+                            if attempt == 0: 
+                                time.sleep(2)
+                                continue
+                            else: raise req_err
+                    
+                    if df.empty:
+                        logger.warning(f"No NAV history found for {code}")
+                        continue
+                    
+                    # df usually has columns: ['净值日期', '单位净值', '日增长率', ...]
+                    # Convert '净值日期' to date objects for comparison
+                    df['净值日期'] = pd.to_datetime(df['净值日期']).dt.date
+                    
+                    # 3. Find the record matching our trade_date
+                    match = df[df['净值日期'] == trade_date]
+                    
+                    if not match.empty:
+                        # '日增长率' is usually a string like "1.23" or "0.00"
+                        official_growth = float(match.iloc[0]['日增长率'])
+                        
+                        # 4. Update the archive with the official value and trigger grading
+                        self.db.update_official_nav(trade_date, code, official_growth)
+                        count += 1
+                        logger.info(f"🎯 Matched {code}: Est vs Official applied.")
+                    else:
+                        logger.info(f"⏳ NAV for {code} on {trade_date} not yet released by fund company.")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to reconcile {code}: {e}")
+        finally:
+            # Restore proxy settings
+            if original_http: os.environ['HTTP_PROXY'] = original_http
+            if original_https: os.environ['HTTPS_PROXY'] = original_https
             
         logger.info(f"✨ Reconciliation session finished. {count}/{len(codes)} funds updated.")
