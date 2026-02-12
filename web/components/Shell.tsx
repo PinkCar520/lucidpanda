@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { 
     Terminal, BarChart3, Activity, 
     Settings, HelpCircle, ChevronRight,
-    Command, Menu, X, Globe, Check, User, LogOut, ChevronLeft, Target
+    Command, Menu, X, Globe, Check, User, LogOut, ChevronLeft, FlaskConical
 } from 'lucide-react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { useParams } from 'next/navigation';
@@ -55,7 +55,7 @@ export default function Shell({ children }: ShellProps) {
     const navItems = [
         { id: 'terminal', icon: Terminal, href: `/`, label: t('sidebar.terminal') },
         { id: 'funds', icon: BarChart3, href: `/funds`, label: t('sidebar.alphaFunds') },
-        { id: 'backtest', icon: Target, href: `/backtest`, label: t('sidebar.backtest') },
+        { id: 'backtest', icon: FlaskConical, href: `/backtest`, label: t('sidebar.backtest') },
         { id: 'monitor', icon: Activity, href: `/funds/monitor`, label: t('sidebar.monitor') },
     ];
 

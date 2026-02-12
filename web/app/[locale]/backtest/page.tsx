@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useRouter, usePathname } from '@/i18n/navigation';
 import { useSearchParams } from 'next/navigation';
 import BacktestStats from '@/components/BacktestStats';
-import { Activity, Play, Settings, History } from 'lucide-react';
+import { FlaskConical, Play, Settings, History } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 
 const STORAGE_KEY = 'backtest_config';
@@ -67,7 +67,7 @@ export default function BacktestPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex flex-col gap-1">
                     <h1 className="text-2xl font-black tracking-tight flex items-center gap-3">
-                        <Activity className="w-8 h-8 text-blue-600" />
+                        <FlaskConical className="w-8 h-8 text-blue-600" />
                         {t('sidebar.backtest')}
                     </h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm max-w-2xl">
@@ -112,7 +112,7 @@ export default function BacktestPage() {
                     
                     <Card className="p-12 flex flex-col items-center justify-center text-center gap-4 border-dashed">
                         <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                            <Activity className="w-8 h-8" />
+                            <FlaskConical className="w-8 h-8" />
                         </div>
                         <div className="flex flex-col gap-1">
                             <h3 className="font-bold">{tBacktest('noResultsYet')}</h3>
