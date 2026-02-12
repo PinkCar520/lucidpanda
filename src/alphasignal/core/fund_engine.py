@@ -1224,31 +1224,56 @@ class FundEngine:
         import random
 
         # --- 1. Batch Optimization: Try daily list first for recent dates ---
-        # fund_open_fund_daily_em returns latest NAVs for ALL funds in one request.
+        # We use a custom 'Stealth' request with headers to avoid WAF blocking on cloud servers.
         is_recent = (datetime.now().date() - trade_date).days <= 3
         batch_results = {}
         if is_recent:
             try:
-                logger.info(f"🚀 Attempting batch reconciliation for {trade_date}...")
-                df_daily = ak.fund_open_fund_daily_em()
-                if not df_daily.empty:
-                    # Check if the dataframe contains the target date (columns like 'YYYY-MM-DD-单位净值')
-                    date_str = trade_date.strftime('%Y-%m-%d')
-                    if any(date_str in col for col in df_daily.columns):
-                        # Filter for the codes we need to reconcile
-                        df_match = df_daily[df_daily['基金代码'].isin(codes)]
-                        for _, row in df_match.iterrows():
-                            c = row['基金代码']
+                logger.info(f"🚀 Attempting batch reconciliation (Stealth Mode) for {trade_date}...")
+                import requests
+                import re
+                
+                # EastMoney Daily NAV API with proper Referer
+                url = f"http://fund.eastmoney.com/Data/Fund_JJJZ_Data.aspx?t=1&page=1,20000&dt={int(time.time()*1000)}"
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Referer": "http://fund.eastmoney.com/fund.html"
+                }
+                
+                resp = requests.get(url, headers=headers, timeout=20)
+                if resp.status_code == 200:
+                    # Extract data from JS structure: ["001618","...", "nav", "acc_nav", "last_nav", "last_acc", "growth_val", "growth_rate", ...]
+                    data_rows = re.findall(r'\["(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)",', resp.text)
+                    for row in data_rows:
+                        f_code = row[0]
+                        if f_code in codes:
                             try:
-                                # '日增长率' in this table is usually the growth for the latest date
-                                val = row['日增长率']
-                                if val and str(val) != 'nan':
-                                    batch_results[c] = float(val)
+                                val = row[7] # index 7 is growth rate
+                                if val and val != "":
+                                    batch_results[f_code] = float(val)
                             except:
                                 continue
-                        logger.info(f"✅ Found {len(batch_results)} matches in batch update.")
+                    
+                    if batch_results:
+                        logger.info(f"✅ Stealth Batch matched {len(batch_results)} funds.")
+                
+                # Fallback to AkShare if stealth mode failed completely
+                if not batch_results:
+                    logger.info("Stealth Batch returned no results, trying AkShare as backup...")
+                    df_daily = ak.fund_open_fund_daily_em()
+                    if not df_daily.empty:
+                        date_str = trade_date.strftime('%Y-%m-%d')
+                        if any(date_str in col for col in df_daily.columns):
+                            df_match = df_daily[df_daily['基金代码'].isin(codes)]
+                            for _, row in df_match.iterrows():
+                                c = row['基金代码']
+                                try:
+                                    val = row['日增长率']
+                                    if val and str(val) != 'nan':
+                                        batch_results[c] = float(val)
+                                except: continue
             except Exception as e:
-                logger.warning(f"Batch reconciliation failed, falling back to individual: {e}")
+                logger.warning(f"Batch reconciliation failed: {e}")
 
         # --- 2. Process Remaining Codes ---
         count = 0
