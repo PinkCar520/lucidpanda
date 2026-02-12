@@ -341,7 +341,8 @@
             "coverage_partial": "部分持仓缺失",
             "coverage_low": "重仓覆盖度低",
             "qdii_lag": "QDII资产时差影响",
-            "fof_complexity": "FOF结构透明度低"
+            "fof_complexity": "FOF结构透明度低",
+            "portfolio_drift": "🚨 疑似发生重大调仓：由于连续 3 日预测偏差较大，系统判断当前持仓数据已过时。"
         },
         "riskLevelLabel": {
             "R1": "低风险 R1",

@@ -726,6 +726,7 @@ class FundEngine:
         """
         Mature Confidence Engine: Calculates a weighted score based on multiple dimensions.
         Accuracy (60%) + Coverage (30%) + Freshness/Type (10%)
+        Includes Portfolio Drift Detection (3-day consistency check).
         """
         # 1. Accuracy Score (60 points max)
         perf = self.db.get_fund_performance_metrics(fund_code, days=7)
@@ -733,6 +734,18 @@ class FundEngine:
         acc_score = 0
         reasons = []
         
+        # --- NEW: Portfolio Drift Detection ---
+        recent_history = self.db.get_recent_tracking_statuses(fund_code, limit=3)
+        is_suspected_rebalance = False
+        if len(recent_history) >= 3:
+            # If all last 3 statuses are NOT 'S' (Precise)
+            not_precise = all(h['status'] != 'S' for h in recent_history)
+            # And average deviation is significant
+            avg_drift = sum(abs(h['deviation']) for h in recent_history) / 3
+            if not_precise and avg_drift > 0.6:
+                is_suspected_rebalance = True
+                reasons.append("portfolio_drift")
+
         if mae is None: 
             acc_score = 40 # Neutral for new funds
             reasons.append("new_fund")
@@ -774,15 +787,19 @@ class FundEngine:
             type_score = 0
             reasons.append("fof_complexity")
 
-        total_score = acc_score + cov_score + type_score
+        # Apply Rebalance Penalty
+        final_score = acc_score + cov_score + type_score
+        if is_suspected_rebalance:
+            final_score = max(0, final_score - 30) # Heavy penalty
         
         level = "medium"
-        if total_score >= 80: level = "high"
-        elif total_score < 50: level = "low"
+        if final_score >= 80: level = "high"
+        elif final_score < 50: level = "low"
         
         return {
             "level": level,
-            "score": total_score,
+            "score": final_score,
+            "is_suspected_rebalance": is_suspected_rebalance,
             "reasons": reasons
         }
 

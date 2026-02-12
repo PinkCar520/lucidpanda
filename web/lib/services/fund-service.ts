@@ -4,6 +4,7 @@ import { authenticatedFetch } from '@/lib/api-client';
 export interface FundConfidence {
   level: 'high' | 'medium' | 'low';
   score: number;
+  is_suspected_rebalance?: boolean;
   reasons: string[];
 }
 

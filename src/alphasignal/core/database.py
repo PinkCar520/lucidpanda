@@ -1028,6 +1028,27 @@ class IntelligenceDB:
             
     # --- Fund Valuation Methods ---
 
+    def get_recent_tracking_statuses(self, fund_code, limit=3):
+        """Fetch the last N tracking statuses for rebalance detection."""
+        try:
+            conn = self.get_connection()
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT tracking_status, deviation
+                    FROM fund_valuation_archive
+                    WHERE fund_code = %s
+                    AND official_growth IS NOT NULL
+                    ORDER BY trade_date DESC
+                    LIMIT %s
+                """, (fund_code, limit))
+                rows = cursor.fetchall()
+                return [{'status': r[0], 'deviation': float(r[1])} for r in rows if r[0]]
+        except Exception as e:
+            logger.error(f"Failed to fetch recent statuses for {fund_code}: {e}")
+            return []
+        finally:
+            conn.close()
+
     def get_fund_performance_metrics(self, fund_code, days=5):
         """Fetch average absolute deviation and sample count for the last N days."""
         try:

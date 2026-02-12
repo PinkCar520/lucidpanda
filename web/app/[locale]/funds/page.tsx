@@ -42,6 +42,7 @@ interface FundStats {
 interface FundConfidence {
     level: 'high' | 'medium' | 'low';
     score: number;
+    is_suspected_rebalance?: boolean;
     reasons: string[];
 }
 
@@ -382,6 +383,9 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                                                         )}
                                                                         {item.confidence.level === 'low' && (
                                                                             <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                                                        )}
+                                                                        {item.confidence.is_suspected_rebalance && (
+                                                                            <RefreshCw className="w-2.5 h-2.5 text-purple-500 animate-spin-slow" />
                                                                         )}
                                                                     </div>
                                                                 </TooltipTrigger>

@@ -323,7 +323,8 @@
       "coverage_partial": "Partial holdings data",
       "coverage_low": "Low holdings visibility",
       "qdii_lag": "QDII time lag impact",
-      "fof_complexity": "Complex FOF structure"
+      "fof_complexity": "Complex FOF structure",
+      "portfolio_drift": "🚨 Suspected Rebalancing: Persistent high deviation detected over the last 3 days. Portfolio data may be outdated."
     },
     "riskLevelLabel": {
       "R1": "Low Risk R1",
