@@ -107,7 +107,8 @@
         "signOut": "退出登录",
         "sessionExpired": "您的登录会话已过期，请重新登录。",
         "sessionExpiredTitle": "登录已超时",
-        "sessionExpiredDesc": "请验证您的密码以继续，确保您的操作不会中断。"
+        "sessionExpiredDesc": "请验证您的密码以继续，确保您的操作不会中断。",
+        "confirmWithPassword": "确认密码"
     },
     "CommandMenu": {
         "placeholder": "搜索基金、操作或设置...",

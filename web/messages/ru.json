@@ -103,7 +103,8 @@
     "signOut": "Выйти",
     "sessionExpired": "Ваша сессия истекла. Пожалуйста, войдите снова.",
     "sessionExpiredTitle": "Сессия истекла",
-    "sessionExpiredDesc": "Пожалуйста, введите пароль, чтобы продолжить без потери данных."
+    "sessionExpiredDesc": "Пожалуйста, введите пароль, чтобы продолжить без потери данных.",
+    "confirmWithPassword": "Подтвердить паролем"
   },
   "Dashboard": {
     "title": "Alpha Signal",
