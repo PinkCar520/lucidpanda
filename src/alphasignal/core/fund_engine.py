@@ -1223,150 +1223,176 @@ class FundEngine:
             
         logger.info(f"✅ Successfully archived {count} snapshots for {trade_date}")
 
-    def reconcile_official_valuations(self, trade_date=None):
+    def reconcile_official_valuations(self, target_date=None):
         """
         Fetch real growth for specific funds in the archive by looking up 
         their historical NAV series. Targeted and precise.
+        Now supports a sliding window to automatically catch QDII and missed dates.
         """
-        if trade_date is None:
-            # Default to the most recent archive date that hasn't been reconciled
-            trade_date = datetime.now().date()
-            
-        # 1. Get the list of funds that need reconciliation for this date
+        # 1. Get the list of pending reconciliation tasks
         conn = self.db.get_connection()
+        pending_tasks = [] # List of (date, code)
         try:
             with conn.cursor() as cursor:
-                cursor.execute("""
-                    SELECT fund_code FROM fund_valuation_archive 
-                    WHERE trade_date = %s AND official_growth IS NULL
-                """, (trade_date,))
-                codes = [row[0] for row in cursor.fetchall()]
+                if target_date:
+                    cursor.execute("""
+                        SELECT trade_date, fund_code FROM fund_valuation_archive 
+                        WHERE trade_date = %s AND official_growth IS NULL
+                    """, (target_date,))
+                else:
+                    # SLIDING WINDOW: Look back 5 days to catch QDII and missed A-shares
+                    # This is the "Automatic Patching" mechanism.
+                    cursor.execute("""
+                        SELECT trade_date, fund_code FROM fund_valuation_archive 
+                        WHERE official_growth IS NULL 
+                        AND trade_date >= CURRENT_DATE - INTERVAL '5 days'
+                        ORDER BY trade_date DESC
+                    """)
+                pending_tasks = cursor.fetchall()
         finally:
             conn.close()
             
-        if not codes:
-            logger.info(f"No pending reconciliation found for {trade_date}")
+        if not pending_tasks:
+            d_str = str(target_date) if target_date else "the last 5 days"
+            logger.info(f"No pending reconciliation found for {d_str}")
             return
 
-        logger.info(f"⚖️ Starting Targeted Reconciliation for {len(codes)} funds on {trade_date}...")
-        
+        # Group by date for efficient processing
+        tasks_by_date = {}
+        for d, c in pending_tasks:
+            if d not in tasks_by_date: tasks_by_date[d] = []
+            tasks_by_date[d].append(c)
+
+        logger.info(f"⚖️ Starting Targeted Reconciliation for {len(pending_tasks)} tasks across {len(tasks_by_date)} dates...")
+
         import time
         import random
+        import requests
+        import re
 
-        # --- 1. Batch Optimization: Try daily list first for recent dates ---
-        # We use a custom 'Stealth' request with headers to avoid WAF blocking on cloud servers.
-        is_recent = (datetime.now().date() - trade_date).days <= 3
-        batch_results = {}
-        if is_recent:
-            try:
-                logger.info(f"🚀 Attempting batch reconciliation (Stealth Mode) for {trade_date}...")
-                import requests
-                import re
-                
-                # EastMoney Daily NAV API with proper Referer
-                url = f"http://fund.eastmoney.com/Data/Fund_JJJZ_Data.aspx?t=1&page=1,20000&dt={int(time.time()*1000)}"
-                headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Referer": "http://fund.eastmoney.com/fund.html"
-                }
-                
-                resp = requests.get(url, headers=headers, timeout=20)
-                if resp.status_code == 200:
-                    # Extract data from JS structure: ["001618","...", "nav", "acc_nav", "last_nav", "last_acc", "growth_val", "growth_rate", ...]
-                    data_rows = re.findall(r'\["(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)",', resp.text)
-                    for row in data_rows:
-                        f_code = row[0]
-                        if f_code in codes:
-                            try:
-                                val = row[7] # index 7 is growth rate
-                                if val and val != "":
-                                    batch_results[f_code] = float(val)
-                            except:
-                                continue
-                    
-                    if batch_results:
-                        logger.info(f"✅ Stealth Batch matched {len(batch_results)} funds.")
-                
-                # Fallback to AkShare if stealth mode failed completely
-                if not batch_results:
-                    logger.info("Stealth Batch returned no results, trying AkShare as backup...")
-                    df_daily = ak.fund_open_fund_daily_em()
-                    if not df_daily.empty:
-                        date_str = trade_date.strftime('%Y-%m-%d')
-                        if any(date_str in col for col in df_daily.columns):
-                            df_match = df_daily[df_daily['基金代码'].isin(codes)]
-                            for _, row in df_match.iterrows():
-                                c = row['基金代码']
-                                try:
-                                    val = row['日增长率']
-                                    if val and str(val) != 'nan':
-                                        batch_results[c] = float(val)
-                                except: continue
-            except Exception as e:
-                logger.warning(f"Batch reconciliation failed: {e}")
-
-        # --- 2. Process Remaining Codes ---
-        count = 0
-        
-        # Disable proxy for market data fetching (EastMoney often blocks proxy IPs)
-        original_http = os.environ.get('HTTP_PROXY')
-        original_https = os.environ.get('HTTPS_PROXY')
-        os.environ['HTTP_PROXY'] = ''
-        os.environ['HTTPS_PROXY'] = ''
-
-        try:
-            for code in codes:
-                # Use batch result if available
-                if code in batch_results:
-                    self.db.update_official_nav(trade_date, code, batch_results[code])
-                    count += 1
-                    logger.info(f"🎯 Matched {code} (Batch): Est vs Official applied.")
-                    continue
-
-                # Fallback: Fetch historical series for specific fund
-                try:
-                    # Anti-crawling: Random delay between 0.5s to 1.5s
-                    time.sleep(random.uniform(0.5, 1.5))
-                    
-                    df = pd.DataFrame()
-                    # Retry logic for network issues
-                    for attempt in range(2):
-                        try:
-                            df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
-                            if not df.empty: break
-                        except Exception as req_err:
-                            if attempt == 0: 
-                                time.sleep(2)
-                                continue
-                            else: raise req_err
-                    
-                    if df.empty:
-                        logger.warning(f"No NAV history found for {code}")
-                        continue
-                    
-                    # df usually has columns: ['净值日期', '单位净值', '日增长率', ...]
-                    # Convert '净值日期' to date objects for comparison
-                    df['净值日期'] = pd.to_datetime(df['净值日期']).dt.date
-                    
-                    # 3. Find the record matching our trade_date
-                    match = df[df['净值日期'] == trade_date]
-                    
-                    if not match.empty:
-                        # '日增长率' is usually a string like "1.23" or "0.00"
-                        official_growth = float(match.iloc[0]['日增长率'])
-                        
-                        # 4. Update the archive with the official value and trigger grading
-                        self.db.update_official_nav(trade_date, code, official_growth)
-                        count += 1
-                        logger.info(f"🎯 Matched {code}: Est vs Official applied.")
-                    else:
-                        logger.info(f"⏳ NAV for {code} on {trade_date} not yet released by fund company.")
-                        
-                except Exception as e:
-                    logger.error(f"Failed to reconcile {code}: {e}")
-        finally:
-            # Restore proxy settings
-            if original_http: os.environ['HTTP_PROXY'] = original_http
-            if original_https: os.environ['HTTPS_PROXY'] = original_https
+        for trade_date, codes in tasks_by_date.items():
+            logger.info(f"📅 Processing reconciliation for {trade_date} ({len(codes)} funds)...")
             
-        logger.info(f"✨ Reconciliation session finished. {count}/{len(codes)} funds updated.")
+            # --- 1. Batch Optimization: Try stealth list first for recent dates ---
+            is_recent = (datetime.now().date() - trade_date).days <= 3
+            batch_results = {}
+            if is_recent:
+                try:
+                    logger.info(f"🚀 Attempting batch reconciliation (Stealth Mode) for {trade_date}...")
+                    
+                    # EastMoney Daily NAV API with proper Referer
+                    url = f"http://fund.eastmoney.com/Data/Fund_JJJZ_Data.aspx?t=1&page=1,20000&dt={int(time.time()*1000)}"
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        "Referer": "http://fund.eastmoney.com/fund.html"
+                    }
+                    
+                    resp = requests.get(url, headers=headers, timeout=20)
+                    if resp.status_code == 200:
+                        # SECURITY: Verify the data date matches our target trade_date
+                        show_date_match = re.search(r'showDate:"(.*?)"', resp.text)
+                        api_date_str = show_date_match.group(1) if show_date_match else None
+                        
+                        if api_date_str == trade_date.strftime('%Y-%m-%d'):
+                            # Extract data from JS structure: ["001618","...", "nav", "acc_nav", "last_nav", "last_acc", "growth_val", "growth_rate", ...]
+                            data_rows = re.findall(r'\["(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)",', resp.text)
+                            for row in data_rows:
+                                f_code = row[0]
+                                if f_code in codes:
+                                    try:
+                                        val = row[7] # index 7 is growth rate
+                                        if val and val != "":
+                                            batch_results[f_code] = float(val)
+                                    except:
+                                        continue
+                            
+                            if batch_results:
+                                logger.info(f"✅ Stealth Batch matched {len(batch_results)} funds for {trade_date}.")
+                        else:
+                            logger.info(f"ℹ️ Stealth Batch date mismatch (API: {api_date_str}, Target: {trade_date}), skipping batch.")
+                    
+                    # Fallback to AkShare if stealth mode failed or didn't find results
+                    if not batch_results:
+                        logger.info("Trying AkShare as secondary batch backup...")
+                        df_daily = ak.fund_open_fund_daily_em()
+                        if not df_daily.empty:
+                            date_str = trade_date.strftime('%Y-%m-%d')
+                            if any(date_str in col for col in df_daily.columns):
+                                df_match = df_daily[df_daily['基金代码'].isin(codes)]
+                                for _, row in df_match.iterrows():
+                                    c = row['基金代码']
+                                    try:
+                                        val = row['日增长率']
+                                        if val and str(val) != 'nan':
+                                            batch_results[c] = float(val)
+                                    except: continue
+                                logger.info(f"✅ AkShare Batch matched {len(batch_results)} funds for {trade_date}.")
+                except Exception as e:
+                    logger.warning(f"Batch reconciliation failed for {trade_date}: {e}")
+
+            # --- 2. Process Remaining Codes for this date ---
+            count = 0
+            
+            # Disable proxy for market data fetching (EastMoney often blocks proxy IPs)
+            original_http = os.environ.get('HTTP_PROXY')
+            original_https = os.environ.get('HTTPS_PROXY')
+            os.environ['HTTP_PROXY'] = ''
+            os.environ['HTTPS_PROXY'] = ''
+
+            try:
+                for code in codes:
+                    # Use batch result if available
+                    if code in batch_results:
+                        self.db.update_official_nav(trade_date, code, batch_results[code])
+                        count += 1
+                        logger.info(f"🎯 Matched {code} (Batch): Est vs Official applied.")
+                        continue
+
+                    # Fallback: Fetch historical series for specific fund
+                    try:
+                        # Anti-crawling: Random delay between 0.5s to 1.5s
+                        time.sleep(random.uniform(0.5, 1.5))
+                        
+                        df = pd.DataFrame()
+                        # Retry logic for network issues
+                        for attempt in range(2):
+                            try:
+                                df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
+                                if not df.empty: break
+                            except Exception as req_err:
+                                if attempt == 0: 
+                                    time.sleep(2)
+                                    continue
+                                else: raise req_err
+                        
+                        if df.empty:
+                            logger.warning(f"No NAV history found for {code}")
+                            continue
+                        
+                        # df usually has columns: ['净值日期', '单位净值', '日增长率', ...]
+                        # Convert '净值日期' to date objects for comparison
+                        df['净值日期'] = pd.to_datetime(df['净值日期']).dt.date
+                        
+                        # 3. Find the record matching our trade_date
+                        match = df[df['净值日期'] == trade_date]
+                        
+                        if not match.empty:
+                            # '日增长率' is usually a string like "1.23" or "0.00"
+                            official_growth = float(match.iloc[0]['日增长率'])
+                            
+                            # 4. Update the archive with the official value and trigger grading
+                            self.db.update_official_nav(trade_date, code, official_growth)
+                            count += 1
+                            logger.info(f"🎯 Matched {code}: Est vs Official applied.")
+                        else:
+                            logger.info(f"⏳ NAV for {code} on {trade_date} not yet released by fund company.")
+                            
+                    except Exception as e:
+                        logger.error(f"Failed to reconcile {code}: {e}")
+            finally:
+                # Restore proxy settings
+                if original_http: os.environ['HTTP_PROXY'] = original_http
+                if original_https: os.environ['HTTPS_PROXY'] = original_https
+                
+            logger.info(f"✨ Session for {trade_date} finished. {count}/{len(codes)} updated.")
+
