@@ -726,6 +726,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                     )}
                 </div>
             </div>
+        </div>
         </TooltipProvider>
     );
 }
