@@ -39,6 +39,37 @@ export default function FundMonitorPage() {
     const latest = stats?.daily?.[0];
     const reconciliationRate = latest ? (latest.reconciled_count / latest.total_count) * 100 : 0;
 
+    // --- Heatmap Data Transformation ---
+    const heatmapTraces = React.useMemo(() => {
+        if (!stats?.heatmap || stats.heatmap.length === 0) return null;
+
+        const dates = Array.from(new Set(stats.heatmap.map((h: any) => h.trade_date))).sort().reverse();
+        const categories = Array.from(new Set(stats.heatmap.map((h: any) => h.category)));
+        
+        const zMatrix = dates.map(d => {
+            return categories.map(c => {
+                const match = stats.heatmap.find((h: any) => h.trade_date === d && h.category === c);
+                return match ? match.mae : null;
+            });
+        });
+
+        return {
+            x: categories,
+            y: dates,
+            z: zMatrix,
+            type: 'heatmap',
+            colorscale: [
+                [0, '#10b981'],   // Green (Perfect)
+                [0.2, '#3b82f6'], // Blue
+                [0.5, '#f59e0b'], // Amber (Warning)
+                [1.0, '#ef4444']  // Red (Danger)
+            ],
+            showscale: true,
+            hoverongaps: false,
+            hovertemplate: 'Category: %{x}<br>Date: %{y}<br>MAE: %{z:.4f}%<extra></extra>'
+        };
+    }, [stats?.heatmap]);
+
     return (
         <div className="flex flex-col p-4 md:p-8 gap-8 min-h-screen bg-slate-50/30 dark:bg-[#020617] transition-colors">
             {/* Header */}
@@ -101,6 +132,30 @@ export default function FundMonitorPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Accuracy Heatmap */}
+                <Card title={t('heatmapTitle') || "Accuracy Heatmap by Category"} className="lg:col-span-3 overflow-hidden">
+                    <div className="h-[300px] w-full">
+                        {heatmapTraces ? (
+                            <Plot
+                                data={[heatmapTraces]}
+                                layout={{
+                                    autosize: true,
+                                    margin: { l: 100, r: 20, t: 20, b: 80 },
+                                    paper_bgcolor: 'rgba(0,0,0,0)',
+                                    plot_bgcolor: 'rgba(0,0,0,0)',
+                                    xaxis: { tickangle: -45, tickfont: { size: 10, color: '#94a3b8' } },
+                                    yaxis: { tickfont: { size: 10, color: '#94a3b8' }, type: 'category' },
+                                    font: { family: 'inherit' }
+                                }}
+                                config={{ displayModeBar: false, responsive: true }}
+                                className="w-full h-full"
+                            />
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-slate-500 italic">Insufficient data for heatmap</div>
+                        )}
+                    </div>
+                </Card>
+
                 {/* Trend Chart */}
                 <Card title={t('trendTitle')} className="lg:col-span-2">
                     <div className="h-[350px] w-full">

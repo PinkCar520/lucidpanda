@@ -355,6 +355,7 @@
     "statusOptimal": "OPTIMAL",
     "fiveDays": "5 DAYS",
     "trendTitle": "Predictive Accuracy Trend (MAE)",
+    "heatmapTitle": "Accuracy Heatmap by Category",
     "maeLabel": "Mean Absolute Error",
     "errorPercent": "% Error",
     "anomaliesTitle": "High Deviation Anomalies (>1.0%)",

@@ -373,6 +373,7 @@
         "statusOptimal": "运行极佳",
         "fiveDays": "5 天内",
         "trendTitle": "预测准确率趋势 (MAE)",
+        "heatmapTitle": "分行业准确率热力图",
         "maeLabel": "平均绝对误差",
         "errorPercent": "误差百分比",
         "anomaliesTitle": "高偏差异常追踪 (>1.0%)",

@@ -1113,6 +1113,31 @@ class IntelligenceDB:
         finally:
             conn.close()
 
+    def get_heatmap_stats(self, days=10):
+        """Fetch MAE grouped by category and date for heatmap visualization."""
+        try:
+            conn = self.get_connection()
+            with conn.cursor(cursor_factory=DictCursor) as cursor:
+                cursor.execute("""
+                    SELECT 
+                        m.investment_type as category, 
+                        a.trade_date, 
+                        AVG(ABS(a.deviation)) as mae,
+                        COUNT(*) as sample_count
+                    FROM fund_valuation_archive a
+                    JOIN fund_metadata m ON a.fund_code = m.fund_code
+                    WHERE a.trade_date > CURRENT_DATE - INTERVAL '%s days'
+                    AND a.official_growth IS NOT NULL
+                    GROUP BY 1, 2
+                    ORDER BY a.trade_date DESC, mae DESC
+                """, (days,))
+                return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"Heatmap stats failed: {e}")
+            return []
+        finally:
+            conn.close()
+
     def delete_valuation_records_by_dates(self, dates: list):
         """Physically remove records for specific dates that have no official growth data."""
         if not dates: return 0
