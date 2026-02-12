@@ -1,14 +1,12 @@
-import akshare as ak
-import pandas as pd
-from datetime import datetime, date
+import pandas_market_calendars as mcal
+from datetime import datetime, date, timedelta
 import threading
 from src.alphasignal.core.logger import logger
 
 class MarketCalendar:
     _instance = None
     _lock = threading.Lock()
-    _trade_dates_cache = set()
-    _last_sync_year = None
+    _calendars = {}
 
     def __new__(cls):
         with cls._lock:
@@ -16,40 +14,58 @@ class MarketCalendar:
                 cls._instance = super(MarketCalendar, cls).__new__(cls)
             return cls._instance
 
-    def _sync_trade_dates(self):
-        """Fetch A-share trading dates from Sina via AkShare."""
-        current_year = datetime.now().year
-        if self._last_sync_year == current_year and self._trade_dates_cache:
-            return
+    def _get_calendar(self, market_code):
+        """Lazy load and cache calendars (SSE, NYSE, HKEX)."""
+        if market_code not in self._calendars:
+            try:
+                # SSE: Shanghai Stock Exchange
+                # NYSE: New York Stock Exchange
+                # HKEX: Hong Kong Stock Exchange
+                self._calendars[market_code] = mcal.get_calendar(market_code)
+            except Exception as e:
+                logger.error(f"Failed to load calendar for {market_code}: {e}")
+                return None
+        return self._calendars[market_code]
 
-        try:
-            logger.info("📅 Syncing market trade dates from source...")
-            # Fetch a broad range to cover recent and future dates
-            df = ak.tool_trade_date_hist_sina()
-            if not df.empty:
-                # df usually has a column 'trade_date'
-                dates = pd.to_datetime(df['trade_date']).dt.date.tolist()
-                self._trade_dates_cache = set(dates)
-                self._last_sync_year = current_year
-                logger.info(f"✅ Synced {len(dates)} trade dates.")
-        except Exception as e:
-            logger.error(f"❌ Failed to sync trade dates: {e}")
-
-    def is_trading_day(self, target_date=None):
-        """Check if a given date is a valid A-share trading day."""
+    def is_trading_day(self, region='CN', target_date=None):
+        """
+        Mature check if a given date is a valid trading day for a region.
+        CN: A-shares (SSE)
+        US: US-stocks (NYSE)
+        HK: HK-stocks (HKEX)
+        """
         if target_date is None:
             target_date = date.today()
         elif isinstance(target_date, datetime):
             target_date = target_date.date()
         
-        # 1. Quick check for weekends (obvious non-trading days)
-        if target_date.weekday() >= 5: # 5 is Sat, 6 is Sun
-            return False
+        # Mapping region to Exchange code
+        region_map = {
+            'CN': 'SSE',
+            'US': 'NYSE',
+            'HK': 'HKEX'
+        }
+        market_code = region_map.get(region, 'SSE')
+        
+        cal = self._get_calendar(market_code)
+        if cal is None:
+            # Fallback to weekday check if calendar failed to load
+            return target_date.weekday() < 5
 
-        # 2. Check against official calendar
-        self._sync_trade_dates()
-        return target_date in self._trade_dates_cache
+        # Check if target_date is in the list of valid market days
+        # We check a small range around the date for efficiency
+        schedule = cal.schedule(start_date=target_date, end_date=target_date)
+        return not schedule.empty
 
-# Global helper
-def is_market_open(target_date=None):
-    return MarketCalendar().is_trading_day(target_date)
+# Global helpers
+def is_market_open(region='CN', target_date=None):
+    return MarketCalendar().is_trading_day(region, target_date)
+
+def was_market_open_last_night(region='US', target_date=None):
+    """Specific for QDII: check if US/HK was open on the previous trading session relative to target_date."""
+    if target_date is None:
+        target_date = date.today()
+    
+    # Yesterday relative to our 15:00 check
+    yesterday = target_date - timedelta(days=1)
+    return is_market_open(region, yesterday)

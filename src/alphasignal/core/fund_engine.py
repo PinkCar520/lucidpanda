@@ -7,7 +7,7 @@ import redis
 from datetime import datetime, timedelta
 from src.alphasignal.core.database import IntelligenceDB
 from src.alphasignal.core.logger import logger
-from src.alphasignal.utils.market_calendar import is_market_open
+from src.alphasignal.utils.market_calendar import is_market_open, was_market_open_last_night
 
 class FundEngine:
     def __init__(self, db: IntelligenceDB = None):
@@ -1301,15 +1301,18 @@ class FundEngine:
 
     def take_all_funds_snapshot(self):
         """Batch take snapshots for all funds in various users' watchlists."""
-        # 1. Mature Gatekeeping: Skip if today is not a trading day
-        if not is_market_open():
-            logger.info("⛱️ Market is closed today. Skipping valuation snapshot.")
+        # 1. Mature Gatekeeping (Global): Skip if A-shares are closed today
+        if not is_market_open('CN'):
+            logger.info("⛱️ A-share market is closed today. Skipping all snapshots.")
             return
 
         codes = self.db.get_watchlist_all_codes()
         if not codes:
             logger.info("No funds in watchlist to snapshot.")
             return
+        
+        # 2. Pre-fetch Metadata to identify QDII markets
+        db_meta = self.db.get_fund_metadata_batch(codes)
         
         logger.info(f"📸 Starting 15:00 Valuation Snapshot for {len(codes)} funds...")
         
@@ -1322,9 +1325,29 @@ class FundEngine:
         for val in valuations:
             if 'error' in val: continue
             
+            f_code = val['fund_code']
+            
+            # --- CONSERVATIVE QDII GATEKEEPING ---
+            meta = db_meta.get(f_code, {})
+            f_name = meta.get('name', '')
+            f_type = meta.get('type', '')
+            
+            if "QDII" in f_type or "QDII" in f_name:
+                # Identify Primary Market
+                region = 'US' # Default for global/tech QDII
+                if any(k in f_name for k in ["恒生", "港", "HK", "H股"]):
+                    region = 'HK'
+                elif any(k in f_name for k in ["日", "东京", "东证"]):
+                    region = 'JP' # We could add JP calendar later, default to US for now
+                
+                # Check if the primary market was open last session
+                if not was_market_open_last_night(region):
+                    logger.info(f"🛌 Skipping QDII {f_code} because {region} market was closed last session.")
+                    continue
+            
             self.db.save_valuation_snapshot(
                 trade_date=trade_date,
-                fund_code=val['fund_code'],
+                fund_code=f_code,
                 est_growth=val['estimated_growth'],
                 components_json=val['components'],
                 sector_json=val.get('sector_attribution')
