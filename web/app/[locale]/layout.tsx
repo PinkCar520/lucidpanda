@@ -7,6 +7,7 @@ import { SessionProvider } from 'next-auth/react'; // Import SessionProvider
 import Shell from '@/components/Shell';
 import NextTopLoader from 'nextjs-toploader';
 import QueryProvider from '@/components/providers/QueryProvider';
+import { AuthManager } from '@/components/auth/AuthManager';
 
 export async function generateMetadata({
     params
@@ -51,9 +52,11 @@ export default async function LocaleLayout({
                 <NextIntlClientProvider messages={messages}>
                     <SessionProvider> {/* Wrap children with SessionProvider */}
                         <QueryProvider>
-                            <Shell>
-                                {children}
-                            </Shell>
+                            <AuthManager>
+                                <Shell>
+                                    {children}
+                                </Shell>
+                            </AuthManager>
                         </QueryProvider>
                     </SessionProvider>
                 </NextIntlClientProvider>

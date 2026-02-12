@@ -105,7 +105,9 @@
     "updatePassword": "Update Password",
     "resetSuccessful": "Password reset successful! Redirecting to login...",
     "signOut": "Sign Out",
-    "sessionExpired": "Your session has expired. Please log in again."
+    "sessionExpired": "Your session has expired. Please log in again.",
+    "sessionExpiredTitle": "Session Expired",
+    "sessionExpiredDesc": "Please enter your password to continue without losing your data."
   },
   "Dashboard": {
     "title": "Alpha Signal",

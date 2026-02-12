@@ -29,8 +29,10 @@ function stopProgress() {
   }
 }
 
+import { emitReauth, addToQueue, processQueue, setRefreshing, getIsRefreshing } from '@/lib/auth-events';
+
 interface AuthenticatedFetchOptions extends RequestInit {
-  // Custom options can be added here if needed
+  skipReauth?: boolean;
 }
 
 export async function authenticatedFetch(
@@ -40,15 +42,15 @@ export async function authenticatedFetch(
 ): Promise<Response> {
   const headers = new Headers(options?.headers);
 
+  // Helper to apply current session token to headers
+  const applyAuth = (token: string) => {
+    headers.set('Authorization', `Bearer ${token}`);
+  };
+
   if (session?.accessToken) {
-    headers.set('Authorization', `Bearer ${session.accessToken}`);
-  } else if (session) {
-    console.warn('[api-client] Session provided but accessToken is missing. This will likely result in 401.');
+    applyAuth(session.accessToken);
   }
 
-  // Determine base URL:
-  // - On client-side (browser): use relative URL to allow Next.js proxying and avoid CORS/Internal Hostname issues.
-  // - On server-side (SSR): use API_INTERNAL_URL to talk to the backend service directly.
   const isClient = typeof window !== 'undefined';
   const fullUrl = url.startsWith('http') ? url : (isClient ? url : `${API_INTERNAL_URL}${url}`);
 
@@ -60,16 +62,41 @@ export async function authenticatedFetch(
       headers,
     });
 
-    // Handle 401 Unauthorized
-    if (response.status === 401) {
-      console.error(`[api-client] Unauthorized request to ${url}. Token might be expired or invalid.`);
-      
-      // On client-side, if we get a 401, it means the session is likely dead (refresh failed)
-      if (isClient) {
-        const { signOut } = await import('next-auth/react');
-        // Force sign out and redirect to login with a specific error flag
-        signOut({ callbackUrl: `/${window.location.pathname.split('/')[1]}/login?error=session_expired` });
+    // Handle 401 Unauthorized - The core of Soft Expiry
+    if (response.status === 401 && isClient && !options?.skipReauth) {
+      console.warn(`[api-client] 401 detected for ${url}. Attempting recovery...`);
+
+      // 1. If we are already refreshing, just queue this request
+      if (getIsRefreshing()) {
+        return new Promise((resolve) => {
+          addToQueue((newToken: string) => {
+            applyAuth(newToken);
+            resolve(fetch(fullUrl, { ...options, headers }));
+          });
+        });
       }
+
+      setRefreshing(true);
+
+      // 2. Try to silently refresh via NextAuth first
+      const { getSession } = await import('next-auth/react');
+      const newSession = await getSession();
+
+      if (newSession?.accessToken) {
+        console.log('[api-client] Silent refresh successful.');
+        processQueue(newSession.accessToken);
+        applyAuth(newSession.accessToken);
+        return fetch(fullUrl, { ...options, headers });
+      }
+
+      // 3. Silent refresh failed, trigger the UI Modal
+      return new Promise((resolve, reject) => {
+        emitReauth((newToken: string) => {
+          console.log('[api-client] Re-auth successful, retrying original request.');
+          applyAuth(newToken);
+          fetch(fullUrl, { ...options, headers }).then(resolve).catch(reject);
+        });
+      });
     }
 
     return response;

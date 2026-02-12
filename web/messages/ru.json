@@ -101,7 +101,9 @@
     "updatePassword": "Обновить пароль",
     "resetSuccessful": "Пароль успешно сброшен! Перенаправление на вход...",
     "signOut": "Выйти",
-    "sessionExpired": "Ваша сессия истекла. Пожалуйста, войдите снова."
+    "sessionExpired": "Ваша сессия истекла. Пожалуйста, войдите снова.",
+    "sessionExpiredTitle": "Сессия истекла",
+    "sessionExpiredDesc": "Пожалуйста, введите пароль, чтобы продолжить без потери данных."
   },
   "Dashboard": {
     "title": "Alpha Signal",

@@ -107,11 +107,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       // Return previous token if the access token has not expired yet
-      if (Date.now() < (token.accessTokenExpires as number)) {
+      // Use a 30-second buffer to avoid race conditions near expiry
+      if (Date.now() < (token.accessTokenExpires as number) - 30000) {
         return token;
       }
 
-      // Access token has expired, try to update it
+      // Access token has expired or is about to expire, try to update it
+      console.log("[AUTH] Access Token expired or near expiry, rotating...");
       return refreshAccessToken(token);
     },
     async session({ session, token }) {
