@@ -32,6 +32,10 @@ const nextConfig: import("next").NextConfig = {
         destination: 'http://api:8001/api/funds/:path*',
       },
       {
+        source: '/api/admin/:path*',
+        destination: 'http://api:8001/api/admin/:path*',
+      },
+      {
         source: '/api/alerts/:path*',
         destination: 'http://api:8001/api/alerts/:path*',
       },
