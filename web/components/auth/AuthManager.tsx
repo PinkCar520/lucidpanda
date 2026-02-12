@@ -3,6 +3,7 @@
 import * as React from "react"
 import { useSession, signIn, signOut } from "next-auth/react"
 import { subscribeReauth, processQueue, setRefreshing } from "@/lib/auth-events"
+import { atomicSignOut } from "@/lib/auth-cleanup"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/Dialog"
 import { Input } from "@/components/ui/Input"
 import { Button } from "@/components/ui/Button"
@@ -89,7 +90,7 @@ export function AuthManager({ children }: { children: React.ReactNode }) {
 
   const handleLogout = () => {
     const locale = window.location.pathname.split('/')[1] || 'en';
-    signOut({ callbackUrl: `/${locale}/login` })
+    atomicSignOut(locale);
   }
 
   return (

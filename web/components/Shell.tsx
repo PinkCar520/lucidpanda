@@ -15,6 +15,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import CommandMenu from './CommandMenu';
 import { locales, localeNames } from '@/i18n/config';
 import Image from 'next/image';
+import { atomicSignOut } from '@/lib/auth-cleanup';
 
 interface ShellProps {
     children: React.ReactNode;
@@ -190,7 +191,7 @@ export default function Shell({ children }: ShellProps) {
                         })}
 
                         <button 
-                            onClick={() => signOut({ callbackUrl: `/${currentLocale}/login` })}
+                            onClick={() => atomicSignOut(currentLocale)}
                             className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
                         >
                             <LogOut className="w-5 h-5" />
