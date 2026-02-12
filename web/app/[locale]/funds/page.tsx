@@ -646,7 +646,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
 
                             {/* Legal Disclaimer / Boilerplate */}
                             <div className="mt-4 px-4 pb-8 text-center">
-                                <p className="text-[10px] leading-relaxed text-slate-400 dark:text-slate-500 max-w-2xl mx-auto opacity-80">
+                                <p className="text-xs leading-relaxed text-slate-400 dark:text-slate-500 max-w-2xl mx-auto opacity-80">
                                     {t('legalDisclaimer')}
                                 </p>
                             </div>
