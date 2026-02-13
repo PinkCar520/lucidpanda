@@ -1,12 +1,19 @@
 import json
 import requests
 import re
-from pypinyin import pinyin, Style
 from src.alphasignal.core.database import IntelligenceDB
 from src.alphasignal.core.logger import logger
 
+try:
+    from pypinyin import pinyin, Style
+    HAS_PYPINYIN = True
+except Exception:
+    HAS_PYPINYIN = False
+
 def get_pinyin_shorthand(name):
     """Convert Chinese name to pinyin shorthand (e.g., '招商中证白酒' -> 'ZSZBBJ')"""
+    if not HAS_PYPINYIN:
+        return ""
     if not name:
         return ""
     # Get the first letter of each pinyin
@@ -16,6 +23,8 @@ def get_pinyin_shorthand(name):
 def sync_all_funds():
     """Fetch all fund codes and basic info from Market Source and sync to DB."""
     logger.info("🚀 Starting full fund metadata sync...")
+    if not HAS_PYPINYIN:
+        logger.warning("⚠️ pypinyin is not installed, fallback to legacy shorthand from data source.")
     
     # Market fund list interface
     # FORMAT: ["000001","HXCZHH","华夏成长混合","混合型","HUAXIACHENGZHANGHUNHE"]
@@ -46,8 +55,8 @@ def sync_all_funds():
             name = fund[2]
             f_type = fund[3]
             
-            # Generate professional-grade pinyin initials
-            pinyin_idx = get_pinyin_shorthand(name)
+            # Prefer generated pinyin initials, fallback to legacy shorthand when needed.
+            pinyin_idx = get_pinyin_shorthand(name) or (shorthand_legacy or "")
             
             cursor.execute("""
                 INSERT INTO fund_metadata (fund_code, fund_name, pinyin_shorthand, investment_type)
