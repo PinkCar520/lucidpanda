@@ -44,7 +44,8 @@ export default function LoginPage() {
         const authResult = await authenticatePasskey();
         
         const result = await signIn('credentials', {
-            ...authResult,
+            auth_data: JSON.stringify(authResult.auth_data),
+            state: authResult.state,
             action: 'passkey',
             redirect: false,
         });

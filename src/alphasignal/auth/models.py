@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, JSON, Integer, Date, Uuid
+from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -93,7 +94,7 @@ class RefreshToken(Base):
     token_hash = Column(String(255), nullable=False, index=True)
     # device_name replaced by device_info
     device_info = Column(JSON, nullable=True)
-    ip_address = Column(String(45)) # Supports IPv6
+    ip_address = Column(INET) # Supports IPv6
     user_agent = Column(Text, nullable=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -113,7 +114,7 @@ class AuthAuditLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     action = Column(String(50), nullable=False)
-    ip_address = Column(String(45))
+    ip_address = Column(INET)
     user_agent = Column(Text)
     details = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -186,7 +187,7 @@ class APIKeyUsageLog(Base):
     api_key_id = Column(Uuid(as_uuid=True), ForeignKey("api_keys.id", ondelete="CASCADE"), nullable=False)
     endpoint = Column(String(255), nullable=False)
     http_method = Column(String(10), nullable=False)
-    ip_address = Column(String(45), nullable=True)
+    ip_address = Column(INET, nullable=True)
     status_code = Column(Integer, nullable=True)
     details = Column(JSON, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())

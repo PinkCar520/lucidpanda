@@ -26,12 +26,11 @@ from webauthn import (
     options_to_json,
 )
 from webauthn.helpers.structs import (
-    AttestationPreference,
+    AttestationConveyancePreference,
     AuthenticatorSelectionCriteria,
     UserVerificationRequirement,
     AuthenticatorAttachment,
-    RegistrationCredential,
-    AuthenticationCredential,
+    PublicKeyCredentialDescriptor,
 )
 from webauthn.helpers import bytes_to_base64url, base64url_to_bytes
 
@@ -532,17 +531,17 @@ class AuthService:
         # Get existing credentials to exclude them
         existing_passkeys = self.db.query(UserPasskey).filter(UserPasskey.user_id == user_uuid).all()
         exclude_credentials = [
-            RegistrationCredential(id=base64url_to_bytes(p.credential_id))
+            PublicKeyCredentialDescriptor(id=base64url_to_bytes(p.credential_id))
             for p in existing_passkeys
         ]
 
         options = generate_registration_options(
             rp_id=settings.RP_ID,
             rp_name=settings.RP_NAME,
-            user_id=str(user.id),
+            user_id=str(user.id).encode(),
             user_name=user.email,
             user_display_name=user.name or user.username or user.email,
-            attestation=AttestationPreference.NONE,
+            attestation=AttestationConveyancePreference.NONE,
             authenticator_selection=AuthenticatorSelectionCriteria(
                 authenticator_attachment=None, # Allow both platform and cross-platform
                 user_verification=UserVerificationRequirement.REQUIRED,
@@ -553,11 +552,11 @@ class AuthService:
 
         # Store challenge in Redis
         if self.redis:
-            self.redis.setex(f"webauthn:reg:challenge:{user.id}", 300, options.challenge)
+            self.redis.setex(f"webauthn:reg:challenge:{user.id}", 300, bytes_to_base64url(options.challenge))
 
         return json.loads(options_to_json(options))
 
-    def verify_registration_response(self, user_id: str, registration_data: dict, name: str = None) -> UserPasskey:
+    def verify_registration_response(self, user_id: str, registration_data: dict, name: str = None, ip_address: str = None) -> UserPasskey:
         user_uuid = self._to_uuid(user_id)
         challenge = None
         if self.redis:
@@ -580,7 +579,7 @@ class AuthService:
         passkey = UserPasskey(
             user_id=user_uuid,
             credential_id=bytes_to_base64url(verification.credential_id),
-            public_key=bytes_to_base64url(verification.public_key),
+            public_key=bytes_to_base64url(verification.credential_public_key),
             sign_count=verification.sign_count,
             name=name or "New Passkey",
             transports=registration_data.get("response", {}).get("transports", []),
@@ -589,7 +588,7 @@ class AuthService:
         self.db.commit()
         self.db.refresh(passkey)
         
-        self.log_audit(user_id, "PASSKEY_REGISTERED", details={"credential_id": verification.credential_id})
+        self.log_audit(user_id, "PASSKEY_REGISTERED", ip_address=ip_address, details={"credential_id": bytes_to_base64url(verification.credential_id)})
         return passkey
 
     def generate_authentication_options(self) -> dict:
@@ -603,13 +602,13 @@ class AuthService:
         # We'll use the challenge itself as part of the key or just a random state
         state = secrets.token_urlsafe(16)
         if self.redis:
-            self.redis.setex(f"webauthn:auth:challenge:{state}", 300, options.challenge)
+            self.redis.setex(f"webauthn:auth:challenge:{state}", 300, bytes_to_base64url(options.challenge))
 
         response_data = json.loads(options_to_json(options))
         response_data["state"] = state
         return response_data
 
-    def verify_authentication_response(self, auth_data: dict, state: str) -> Optional[User]:
+    def verify_authentication_response(self, auth_data: dict, state: str, ip_address: str = None) -> Optional[User]:
         challenge = None
         if self.redis:
             challenge = self.redis.get(f"webauthn:auth:challenge:{state}")
@@ -642,7 +641,7 @@ class AuthService:
 
         user = self.db.query(User).filter(User.id == passkey.user_id).first()
         if user:
-            self.log_audit(str(user.id), "PASSKEY_LOGIN", details={"credential_id": credential_id})
+            self.log_audit(str(user.id), "PASSKEY_LOGIN", ip_address=ip_address, details={"credential_id": credential_id})
         
         return user
 

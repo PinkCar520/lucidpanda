@@ -33,6 +33,7 @@ def get_passkey_registration_options(
 
 @router.post("/passkeys/register/verify", response_model=PasskeyOut)
 def verify_passkey_registration(
+    request: Request,
     body: PasskeyRegistrationVerify,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -42,7 +43,8 @@ def verify_passkey_registration(
         passkey = auth_service.verify_registration_response(
             str(current_user.id), 
             body.registration_data, 
-            body.name
+            body.name,
+            ip_address=request.client.host
         )
         return passkey
     except ValueError as e:
@@ -62,7 +64,7 @@ def verify_passkey_login(
     db: Session = Depends(get_db)
 ):
     auth_service = AuthService(db)
-    user = auth_service.verify_authentication_response(body.auth_data, body.state)
+    user = auth_service.verify_authentication_response(body.auth_data, body.state, ip_address=request.client.host)
     if not user:
         raise HTTPException(status_code=400, detail="Invalid passkey authentication")
     

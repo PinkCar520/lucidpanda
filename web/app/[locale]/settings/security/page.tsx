@@ -148,7 +148,7 @@ export default function SecurityPage() {
     try {
         // Simple prompt for device name
         const deviceName = prompt(t('enterDeviceName'), 'My Device') || 'My Device';
-        await registerPasskey(deviceName);
+        await registerPasskey(sessionData, deviceName);
         setToast({ message: t('passkeyRegistered'), type: 'success' });
         fetchPasskeys();
         fetchAuditLogs();

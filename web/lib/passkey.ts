@@ -1,11 +1,13 @@
 import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
+import { authenticatedFetch } from './api-client';
+import { Session } from 'next-auth';
 
 /**
  * Register a new Passkey
  */
-export async function registerPasskey(name: string = "My Device") {
+export async function registerPasskey(session: Session | null, name: string = "My Device") {
   // 1. Get registration options from server
-  const optionsRes = await fetch('/api/v1/auth/passkeys/register/options', {
+  const optionsRes = await authenticatedFetch('/api/v1/auth/passkeys/register/options', session, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -20,7 +22,7 @@ export async function registerPasskey(name: string = "My Device") {
   const regResp = await startRegistration({ optionsJSON: options });
 
   // 3. Verify registration on server
-  const verifyRes = await fetch('/api/v1/auth/passkeys/register/verify', {
+  const verifyRes = await authenticatedFetch('/api/v1/auth/passkeys/register/verify', session, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
