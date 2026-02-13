@@ -206,3 +206,23 @@ class AssetOverviewOut(BaseModel):
     pnl_percentage: float
     active_strategies: int
     watchlist_count: int
+
+# WebAuthn Schemas
+
+class PasskeyRegistrationVerify(BaseModel):
+    registration_data: dict
+    name: Optional[str] = "My Device"
+
+class PasskeyAuthenticationVerify(BaseModel):
+    auth_data: dict
+    state: str
+
+class PasskeyOut(BaseModel):
+    id: UUID
+    name: Optional[str]
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+    transports: Optional[List[str]] = None
+
+    class Config:
+        from_attributes = True

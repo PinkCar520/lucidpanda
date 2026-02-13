@@ -36,3 +36,4 @@ resend
 pyotp
 qrcode[pil]
 httpx>=0.24.0
+webauthn>=2.0.0

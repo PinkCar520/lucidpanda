@@ -108,7 +108,10 @@
     "sessionExpired": "Your session has expired. Please log in again.",
     "sessionExpiredTitle": "Session Expired",
     "sessionExpiredDesc": "Please enter your password to continue without losing your data.",
-    "confirmWithPassword": "Confirm with Password"
+    "confirmWithPassword": "Confirm with Password",
+    "signInWithPasskey": "Sign in with Passkey",
+    "passkeyLoginFailed": "Passkey authentication failed",
+    "orContinueWith": "or continue with"
   },
   "Dashboard": {
     "title": "Alpha Signal",
@@ -570,7 +573,21 @@
     "verificationDetails": "Verification Details",
     "verificationDesc": "Manage your verified email and phone number for security alerts.",
     "passwordModalDesc": "Update your account password. Use a strong and unique one.",
-    "twoFAModalDesc": "Add an extra layer of security to your account."
+    "twoFAModalDesc": "Add an extra layer of security to your account.",
+    "passkeys": "Passkeys",
+    "addPasskey": "Add Passkey",
+    "loadingPasskeys": "Loading passkeys...",
+    "noPasskeys": "No passkeys registered yet.",
+    "deviceName": "Device Name",
+    "created": "Created",
+    "lastUsed": "Last Used",
+    "never": "Never",
+    "delete": "Delete",
+    "confirmDeletePasskey": "Are you sure you want to delete this passkey?",
+    "passkeyDeleted": "Passkey deleted successfully.",
+    "enterDeviceName": "Enter device name",
+    "passkeyRegistered": "Passkey registered successfully!",
+    "passkeyRegisterFailed": "Failed to register passkey."
   },
   "IntelligenceDetail": {
     "loading": "Analyzing Geopolitical Signal...",

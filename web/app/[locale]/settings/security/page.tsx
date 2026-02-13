@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
+import { registerPasskey } from '@/lib/passkey';
 
 interface Session {
     id: number;
@@ -33,6 +34,14 @@ interface AuditLog {
     user_agent: string;
     details: any;
     created_at: string;
+}
+
+interface Passkey {
+    id: string;
+    name: string;
+    created_at: string;
+    last_used_at: string | null;
+    transports: string[];
 }
 
 export default function SecurityPage() {
@@ -65,6 +74,11 @@ export default function SecurityPage() {
   const [twoFALoading, setTwoFALoading] = useState(false);
   const [show2FASetup, setShow2FASetup] = useState(false);
 
+  // Passkey State
+  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
+  const [passkeysLoading, setPasskeysLoading] = useState(false);
+  const [isPasskeyRegistering, setIsPasskeyRegistering] = useState(false);
+
   // Sessions State
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
@@ -75,15 +89,7 @@ export default function SecurityPage() {
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  useEffect(() => {
-    if (sessionData) {
-        fetchSessions();
-        fetchAuditLogs();
-    }
-  }, [sessionData]);
-
-
-  const fetchSessions = async () => {
+  const fetchSessions = React.useCallback(async () => {
     setSessionsLoading(true);
     try {
         const res = await authenticatedFetch('/api/v1/auth/sessions', sessionData);
@@ -96,9 +102,24 @@ export default function SecurityPage() {
     } finally {
         setSessionsLoading(false);
     }
-  };
+  }, [sessionData]);
 
-  const fetchAuditLogs = async () => {
+  const fetchPasskeys = React.useCallback(async () => {
+    setPasskeysLoading(true);
+    try {
+        const res = await authenticatedFetch('/api/v1/auth/passkeys/me', sessionData);
+        if (res.ok) {
+            const data = await res.json();
+            setPasskeys(data);
+        }
+    } catch (error) {
+        console.error("Failed to fetch passkeys", error);
+    } finally {
+        setPasskeysLoading(false);
+    }
+  }, [sessionData]);
+
+  const fetchAuditLogs = React.useCallback(async () => {
       setAuditLogsLoading(true);
       try {
           const res = await authenticatedFetch('/api/v1/auth/audit-log', sessionData);
@@ -111,6 +132,49 @@ export default function SecurityPage() {
       } finally {
           setAuditLogsLoading(false);
       }
+  }, [sessionData]);
+
+  useEffect(() => {
+    if (sessionData) {
+        fetchSessions();
+        fetchAuditLogs();
+        fetchPasskeys();
+    }
+  }, [sessionData, fetchSessions, fetchAuditLogs, fetchPasskeys]);
+
+
+  const handleRegisterPasskey = async () => {
+    setIsPasskeyRegistering(true);
+    try {
+        // Simple prompt for device name
+        const deviceName = prompt(t('enterDeviceName'), 'My Device') || 'My Device';
+        await registerPasskey(deviceName);
+        setToast({ message: t('passkeyRegistered'), type: 'success' });
+        fetchPasskeys();
+        fetchAuditLogs();
+    } catch (error: any) {
+        if (error.name !== 'NotAllowedError') { // Ignore user cancel
+            setToast({ message: error.message || t('passkeyRegisterFailed'), type: 'error' });
+        }
+    } finally {
+        setIsPasskeyRegistering(false);
+    }
+  };
+
+  const handleDeletePasskey = async (passkeyId: string) => {
+    if (!confirm(t('confirmDeletePasskey'))) return;
+    try {
+        const res = await authenticatedFetch(`/api/v1/auth/passkeys/me/${passkeyId}`, sessionData, {
+            method: 'DELETE'
+        });
+        if (res.ok) {
+            setPasskeys(passkeys.filter(p => p.id !== passkeyId));
+            setToast({ message: t('passkeyDeleted'), type: 'success' });
+            fetchAuditLogs();
+        }
+    } catch (error: any) {
+        setToast({ message: error.message, type: 'error' });
+    }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -489,6 +553,84 @@ export default function SecurityPage() {
               </div>
           </div>
       </Card>
+
+      {/* Passkeys (WebAuthn) Management */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300">
+                <Fingerprint className="w-4 h-4 text-emerald-500" />
+                {t('passkeys')}
+            </div>
+            <button
+                onClick={handleRegisterPasskey}
+                disabled={isPasskeyRegistering}
+                className="px-3 py-1.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2"
+            >
+                {isPasskeyRegistering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Fingerprint className="w-3.5 h-3.5" />}
+                {t('addPasskey')}
+            </button>
+        </div>
+        <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-xs uppercase text-slate-500 font-bold tracking-wider">
+                        <tr>
+                            <th className="px-6 py-4">{t('deviceName')}</th>
+                            <th className="px-6 py-4">{t('created')}</th>
+                            <th className="px-6 py-4">{t('lastUsed')}</th>
+                            <th className="px-6 py-4 text-right">{t('action')}</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {passkeysLoading ? (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
+                                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                                    {t('loadingPasskeys')}
+                                </td>
+                            </tr>
+                        ) : passkeys.length === 0 ? (
+                            <tr>
+                                <td colSpan={4} className="px-6 py-8 text-center text-slate-500 italic">
+                                    {t('noPasskeys')}
+                                </td>
+                            </tr>
+                        ) : (
+                            passkeys.map((pk) => (
+                                <tr key={pk.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                                                <Fingerprint className="w-4 h-4" />
+                                            </div>
+                                            <div className="font-medium text-slate-900 dark:text-slate-100">
+                                                {pk.name}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-500">
+                                        {new Date(pk.created_at).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-500">
+                                        {pk.last_used_at ? new Date(pk.last_used_at).toLocaleString() : t('never')}
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button 
+                                            onClick={() => handleDeletePasskey(pk.id)}
+                                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded text-xs font-bold transition-colors inline-flex items-center gap-1.5"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                            {t('delete')}
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </Card>
+      </div>
 
       {/* Active Sessions */}
       <div className="flex flex-col gap-4">

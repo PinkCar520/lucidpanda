@@ -12,18 +12,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials) return null;
 
         try {
-          const formData = new URLSearchParams();
-          formData.append("username", credentials.email as string);
-          formData.append("password", credentials.password as string);
+          let res;
+          if (credentials.action === 'passkey') {
+            // WebAuthn Passkey Login
+            res = await fetch(`${API_URL}/api/v1/auth/passkeys/login/verify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                auth_data: credentials.auth_data || credentials, // Use auth_data or all credentials if flattened
+                state: credentials.state,
+              }),
+            });
+          } else {
+            // Traditional Password Login
+            if (!credentials.email || !credentials.password) return null;
+            
+            const formData = new URLSearchParams();
+            formData.append("username", credentials.email as string);
+            formData.append("password", credentials.password as string);
 
-          const res = await fetch(`${API_URL}/api/v1/auth/login`, {
-            method: "POST",
-            body: formData,
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          });
+            res = await fetch(`${API_URL}/api/v1/auth/login`, {
+              method: "POST",
+              body: formData,
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            });
+          }
 
           const data = await res.json();
 

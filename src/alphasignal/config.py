@@ -66,5 +66,10 @@ class Settings:
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", 60))
     FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
 
+    # WebAuthn (Passkeys)
+    RP_ID = os.getenv("RP_ID", "localhost")
+    RP_NAME = os.getenv("RP_NAME", "AlphaSignal")
+    ORIGIN = os.getenv("ORIGIN", "http://localhost:3000")
+
 # 实例化单例
 settings = Settings()

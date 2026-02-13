@@ -108,7 +108,10 @@
         "sessionExpired": "您的登录会话已过期，请重新登录。",
         "sessionExpiredTitle": "登录已超时",
         "sessionExpiredDesc": "请验证您的密码以继续，确保您的操作不会中断。",
-        "confirmWithPassword": "确认密码"
+        "confirmWithPassword": "确认密码",
+        "signInWithPasskey": "使用通行密钥登录 (Passkey)",
+        "passkeyLoginFailed": "通行密钥登录失败",
+        "orContinueWith": "或使用以下方式继续"
     },
     "CommandMenu": {
         "placeholder": "搜索基金、操作或设置...",
@@ -588,7 +591,21 @@
         "verificationDetails": "验证详情",
         "verificationDesc": "管理您的已验证邮箱和手机号码，用于接收安全警报。",
         "passwordModalDesc": "更新您的账户密码。请使用强密码以确保安全。",
-        "twoFAModalDesc": "为您的账户添加额外的安全防护。"
+        "twoFAModalDesc": "为您的账户添加额外的安全防护。",
+        "passkeys": "通行密钥 (Passkeys)",
+        "addPasskey": "添加通行密钥",
+        "loadingPasskeys": "正在加载通行密钥...",
+        "noPasskeys": "尚未注册任何通行密钥。",
+        "deviceName": "设备名称",
+        "created": "创建时间",
+        "lastUsed": "最后使用",
+        "never": "从未",
+        "delete": "删除",
+        "confirmDeletePasskey": "您确定要删除此通行密钥吗？",
+        "passkeyDeleted": "通行密钥已成功删除。",
+        "enterDeviceName": "请输入设备名称",
+        "passkeyRegistered": "通行密钥注册成功！",
+        "passkeyRegisterFailed": "通行密钥注册失败。"
     },
     "IntelligenceDetail": {
         "loading": "正在分析地缘政治信号...",

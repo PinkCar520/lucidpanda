@@ -8,17 +8,96 @@ from src.alphasignal.auth.schemas import (
     AvatarUploadResponse, SessionOut, PhoneNumberPayload, PhoneVerificationPayload,
     TwoFASetupResponse, TwoFAVerifyPayload, NotificationPreferencesOut, NotificationPreferencesUpdate,
     InSiteMessageOut, APIKeyCreate, APIKeyOut, APIKeyUpdate, APIKeyCreateResponse,
-    AssetOverviewOut, AuditLogOut
+    AssetOverviewOut, AuditLogOut,
+    PasskeyRegistrationVerify, PasskeyAuthenticationVerify, PasskeyOut
 )
 from src.alphasignal.auth.service import AuthService
 from src.alphasignal.auth.dependencies import get_db, get_current_user
 from src.alphasignal.config import settings
-from typing import List
+from typing import List, Any
 import os
 import uuid
 import shutil
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+# --- Passkey (WebAuthn) Endpoints ---
+
+@router.post("/passkeys/register/options", response_model=Any)
+def get_passkey_registration_options(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    auth_service = AuthService(db)
+    return auth_service.generate_registration_options(str(current_user.id))
+
+@router.post("/passkeys/register/verify", response_model=PasskeyOut)
+def verify_passkey_registration(
+    body: PasskeyRegistrationVerify,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    auth_service = AuthService(db)
+    try:
+        passkey = auth_service.verify_registration_response(
+            str(current_user.id), 
+            body.registration_data, 
+            body.name
+        )
+        return passkey
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/passkeys/login/options", response_model=Any)
+def get_passkey_login_options(
+    db: Session = Depends(get_db)
+):
+    auth_service = AuthService(db)
+    return auth_service.generate_authentication_options()
+
+@router.post("/passkeys/login/verify", response_model=Token)
+def verify_passkey_login(
+    request: Request,
+    body: PasskeyAuthenticationVerify,
+    db: Session = Depends(get_db)
+):
+    auth_service = AuthService(db)
+    user = auth_service.verify_authentication_response(body.auth_data, body.state)
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid passkey authentication")
+    
+    access_token, refresh_token = auth_service.create_session(
+        user_id=str(user.id),
+        device_name=request.headers.get("user-agent"),
+        ip_address=request.client.host
+    )
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user": user
+    }
+
+@router.get("/passkeys/me", response_model=List[PasskeyOut])
+def list_my_passkeys(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    auth_service = AuthService(db)
+    return auth_service.get_user_passkeys(str(current_user.id))
+
+@router.delete("/passkeys/me/{passkey_id}", response_model=MessageResponse)
+def delete_my_passkey(
+    passkey_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    auth_service = AuthService(db)
+    if auth_service.delete_passkey(str(current_user.id), passkey_id):
+        return {"message": "Passkey deleted successfully"}
+    raise HTTPException(status_code=404, detail="Passkey not found")
 
 @router.patch("/me/username", response_model=MessageResponse)
 def update_username(

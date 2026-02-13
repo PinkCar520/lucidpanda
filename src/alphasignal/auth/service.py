@@ -9,16 +9,40 @@ import io
 import base64
 import secrets
 import uuid
+import json
+import redis
+import os
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, text
-from src.alphasignal.auth.models import User, RefreshToken, AuthAuditLog, PasswordResetToken, EmailChangeRequest, PhoneVerificationToken, UserNotificationPreference, InSiteMessage, APIKey, APIKeyUsageLog
+from src.alphasignal.auth.models import User, RefreshToken, AuthAuditLog, PasswordResetToken, EmailChangeRequest, PhoneVerificationToken, UserNotificationPreference, InSiteMessage, APIKey, APIKeyUsageLog, UserPasskey
 from src.alphasignal.auth.security import get_password_hash, verify_password, create_access_token, create_refresh_token
 from src.alphasignal.config import settings
 from src.alphasignal.utils.email import send_email
+from webauthn import (
+    generate_registration_options,
+    verify_registration_response,
+    generate_authentication_options,
+    verify_authentication_response,
+    options_to_json,
+)
+from webauthn.helpers.structs import (
+    AttestationPreference,
+    AuthenticatorSelectionCriteria,
+    UserVerificationRequirement,
+    AuthenticatorAttachment,
+    RegistrationCredential,
+    AuthenticationCredential,
+)
+from webauthn.helpers import bytes_to_base64url, base64url_to_bytes
 
 class AuthService:
     def __init__(self, db: Session):
         self.db = db
+        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        try:
+            self.redis = redis.from_url(redis_url, decode_responses=True)
+        except Exception:
+            self.redis = None
 
     def _to_uuid(self, id_val: Union[str, uuid.UUID]) -> uuid.UUID:
         if isinstance(id_val, str):
@@ -496,3 +520,142 @@ class AuthService:
         self.db.delete(db_token)
         self.db.commit()
         return True
+
+    # --- WebAuthn (Passkeys) Methods ---
+
+    def generate_registration_options(self, user_id: str) -> dict:
+        user_uuid = self._to_uuid(user_id)
+        user = self.db.query(User).filter(User.id == user_uuid).first()
+        if not user:
+            raise ValueError("User not found")
+
+        # Get existing credentials to exclude them
+        existing_passkeys = self.db.query(UserPasskey).filter(UserPasskey.user_id == user_uuid).all()
+        exclude_credentials = [
+            RegistrationCredential(id=base64url_to_bytes(p.credential_id))
+            for p in existing_passkeys
+        ]
+
+        options = generate_registration_options(
+            rp_id=settings.RP_ID,
+            rp_name=settings.RP_NAME,
+            user_id=str(user.id),
+            user_name=user.email,
+            user_display_name=user.name or user.username or user.email,
+            attestation=AttestationPreference.NONE,
+            authenticator_selection=AuthenticatorSelectionCriteria(
+                authenticator_attachment=None, # Allow both platform and cross-platform
+                user_verification=UserVerificationRequirement.REQUIRED,
+                resident_key=None, # Better for broad compatibility, but 'required' for discoverable
+            ),
+            exclude_credentials=exclude_credentials,
+        )
+
+        # Store challenge in Redis
+        if self.redis:
+            self.redis.setex(f"webauthn:reg:challenge:{user.id}", 300, options.challenge)
+
+        return json.loads(options_to_json(options))
+
+    def verify_registration_response(self, user_id: str, registration_data: dict, name: str = None) -> UserPasskey:
+        user_uuid = self._to_uuid(user_id)
+        challenge = None
+        if self.redis:
+            challenge = self.redis.get(f"webauthn:reg:challenge:{user_id}")
+            if challenge:
+                self.redis.delete(f"webauthn:reg:challenge:{user_id}")
+        
+        if not challenge:
+            raise ValueError("Registration challenge not found or expired")
+
+        verification = verify_registration_response(
+            credential=registration_data,
+            expected_challenge=base64url_to_bytes(challenge),
+            expected_origin=settings.ORIGIN,
+            expected_rp_id=settings.RP_ID,
+            require_user_verification=True,
+        )
+
+        # Create new passkey record
+        passkey = UserPasskey(
+            user_id=user_uuid,
+            credential_id=bytes_to_base64url(verification.credential_id),
+            public_key=bytes_to_base64url(verification.public_key),
+            sign_count=verification.sign_count,
+            name=name or "New Passkey",
+            transports=registration_data.get("response", {}).get("transports", []),
+        )
+        self.db.add(passkey)
+        self.db.commit()
+        self.db.refresh(passkey)
+        
+        self.log_audit(user_id, "PASSKEY_REGISTERED", details={"credential_id": verification.credential_id})
+        return passkey
+
+    def generate_authentication_options(self) -> dict:
+        options = generate_authentication_options(
+            rp_id=settings.RP_ID,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        )
+
+        # Store challenge in Redis
+        # Since this can be for unknown user (discoverable credentials), we need a unique key
+        # We'll use the challenge itself as part of the key or just a random state
+        state = secrets.token_urlsafe(16)
+        if self.redis:
+            self.redis.setex(f"webauthn:auth:challenge:{state}", 300, options.challenge)
+
+        response_data = json.loads(options_to_json(options))
+        response_data["state"] = state
+        return response_data
+
+    def verify_authentication_response(self, auth_data: dict, state: str) -> Optional[User]:
+        challenge = None
+        if self.redis:
+            challenge = self.redis.get(f"webauthn:auth:challenge:{state}")
+            if challenge:
+                self.redis.delete(f"webauthn:auth:challenge:{state}")
+        
+        if not challenge:
+            return None
+
+        credential_id = auth_data.get("id")
+        passkey = self.db.query(UserPasskey).filter(UserPasskey.credential_id == credential_id).first()
+        if not passkey:
+            return None
+
+        verification = verify_authentication_response(
+            credential=auth_data,
+            expected_challenge=base64url_to_bytes(challenge),
+            expected_origin=settings.ORIGIN,
+            expected_rp_id=settings.RP_ID,
+            credential_public_key=base64url_to_bytes(passkey.public_key),
+            credential_current_sign_count=passkey.sign_count,
+            require_user_verification=True,
+        )
+
+        # Update sign count and last used
+        passkey.sign_count = verification.new_sign_count
+        passkey.last_used_at = datetime.utcnow()
+        self.db.add(passkey)
+        self.db.commit()
+
+        user = self.db.query(User).filter(User.id == passkey.user_id).first()
+        if user:
+            self.log_audit(str(user.id), "PASSKEY_LOGIN", details={"credential_id": credential_id})
+        
+        return user
+
+    def get_user_passkeys(self, user_id: str) -> List[UserPasskey]:
+        user_uuid = self._to_uuid(user_id)
+        return self.db.query(UserPasskey).filter(UserPasskey.user_id == user_uuid).order_by(desc(UserPasskey.created_at)).all()
+
+    def delete_passkey(self, user_id: str, passkey_id: str) -> bool:
+        user_uuid = self._to_uuid(user_id)
+        passkey_uuid = self._to_uuid(passkey_id)
+        passkey = self.db.query(UserPasskey).filter(and_(UserPasskey.id == passkey_uuid, UserPasskey.user_id == user_uuid)).first()
+        if passkey:
+            self.db.delete(passkey)
+            self.db.commit()
+            return True
+        return False

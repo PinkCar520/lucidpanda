@@ -39,6 +39,26 @@ class User(Base):
     api_keys = relationship("APIKey", back_populates="user")
     refresh_tokens = relationship("RefreshToken", back_populates="user")
     audit_logs = relationship("AuthAuditLog", back_populates="user")
+    passkeys = relationship("UserPasskey", back_populates="user", cascade="all, delete-orphan")
+
+class UserPasskey(Base):
+    __tablename__ = "user_passkeys"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    
+    # FIDO2 Core Fields
+    credential_id = Column(String(512), unique=True, nullable=False, index=True) # Base64URL encoded
+    public_key = Column(Text, nullable=False)                                     # Base64URL encoded
+    sign_count = Column(Integer, default=0, nullable=False)
+    
+    # Metadata
+    name = Column(String(100), nullable=True)        # e.g., "My MacBook Pro"
+    transports = Column(JSON, nullable=True)          # e.g., ["internal", "hybrid"]
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User", back_populates="passkeys")
 
 class PasswordResetToken(Base):
     __tablename__ = "password_reset_tokens"

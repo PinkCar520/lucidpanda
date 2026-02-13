@@ -5,6 +5,8 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
+import { Fingerprint, Loader2 } from 'lucide-react';
+import { authenticatePasskey } from '@/lib/passkey';
 
 export default function LoginPage() {
   const t = useTranslations('Auth');
@@ -12,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -33,6 +36,33 @@ export default function LoginPage() {
       signOut({ redirect: false });
     }
   }, [session]);
+
+  const handlePasskeyLogin = async () => {
+    setPasskeyLoading(true);
+    setError('');
+    try {
+        const authResult = await authenticatePasskey();
+        
+        const result = await signIn('credentials', {
+            ...authResult,
+            action: 'passkey',
+            redirect: false,
+        });
+
+        if (result?.error) {
+            setError(t('passkeyLoginFailed'));
+        } else {
+            router.push(`/${locale}`);
+            router.refresh();
+        }
+    } catch (err: any) {
+        if (err.name !== 'NotAllowedError') {
+            setError(err.message || t('passkeyLoginFailed'));
+        }
+    } finally {
+        setPasskeyLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +145,32 @@ export default function LoginPage() {
           >
             {loading ? t('authenticating') : t('signIn')}
           </button>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white dark:bg-slate-900 px-2 text-slate-500 font-mono">
+                {t('orContinueWith')}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handlePasskeyLogin}
+            disabled={passkeyLoading || loading}
+            className="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+          >
+            {passkeyLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Fingerprint className="w-5 h-5 text-emerald-500" />
+            )}
+            {t('signInWithPasskey')}
+          </button>
+
           <div className="text-right">
             <Link href="/forgot-password" locale={locale} className="text-sm text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-medium">
               {t('forgotPassword')}
