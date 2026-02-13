@@ -10,29 +10,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email or Username", type: "text" },
         password: { label: "Password", type: "password" },
+        // Add hidden fields for WebAuthn/Passkeys to satisfy TypeScript
+        action: { type: "text" },
+        auth_data: { type: "text" },
+        state: { type: "text" },
       },
       async authorize(credentials) {
         if (!credentials) return null;
+        
+        // Cast to any to access dynamic Passkey fields safely
+        const creds = credentials as any;
 
         try {
           let res;
-          if (credentials.action === 'passkey') {
+          if (creds.action === 'passkey') {
             // WebAuthn Passkey Login
             res = await fetch(`${API_URL}/api/v1/auth/passkeys/login/verify`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                auth_data: credentials.auth_data || credentials, // Use auth_data or all credentials if flattened
-                state: credentials.state,
+                auth_data: creds.auth_data,
+                state: creds.state,
               }),
             });
           } else {
             // Traditional Password Login
-            if (!credentials.email || !credentials.password) return null;
+            if (!creds.email || !creds.password) return null;
             
             const formData = new URLSearchParams();
-            formData.append("username", credentials.email as string);
-            formData.append("password", credentials.password as string);
+            formData.append("username", creds.email as string);
+            formData.append("password", creds.password as string);
 
             res = await fetch(`${API_URL}/api/v1/auth/login`, {
               method: "POST",
