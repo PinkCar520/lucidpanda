@@ -92,7 +92,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#020617] p-6">
-      <div className="w-full max-w-[680px] bg-white dark:bg-slate-900 rounded-3xl shadow-lg shadow-slate-200/60 dark:shadow-black/40 border border-slate-200/70 dark:border-slate-800 p-10">
+      <div className="w-full max-w-[700px] bg-white dark:bg-slate-900 rounded-3xl shadow-lg shadow-slate-200/60 dark:shadow-black/40 border border-slate-200/70 dark:border-slate-800 p-10">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400">
             {t('loginTitle')}
@@ -108,7 +108,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-8 md:gap-10 items-start md:items-center">
           {/* Left column: email/password */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -151,7 +151,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all shadow-lg shadow-blue-500/20 ${loading ? 'opacity-50 cursor-not-allowed' : ''
+              className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-3xl transition-all shadow-lg shadow-blue-500/20 ${loading ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
             >
               {loading ? t('authenticating') : t('signIn')}
@@ -165,8 +165,13 @@ export default function LoginPage() {
             </p>
           </form>
 
+          {/* Center divider */}
+          <div className="hidden md:flex h-full items-center justify-center">
+            <div className="w-px h-28 rounded-full bg-slate-200 dark:bg-slate-700/70" />
+          </div>
+
           {/* Right column: Passkey elevated */}
-          <div className="space-y-4">
+          <div className="space-y-4 self-center">
             <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-6 shadow-inner">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
                 {t('orContinueWith')}
