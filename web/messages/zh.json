@@ -109,7 +109,7 @@
         "sessionExpiredTitle": "登录已超时",
         "sessionExpiredDesc": "请验证您的密码以继续，确保您的操作不会中断。",
         "confirmWithPassword": "确认密码",
-        "signInWithPasskey": "使用通行密钥登录 (Passkey)",
+        "signInWithPasskey": "使用通行密钥登录",
         "passkeyLoginFailed": "通行密钥登录失败",
         "orContinueWith": "或使用以下方式继续"
     },
