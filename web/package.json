@@ -24,7 +24,7 @@
     "@tanstack/react-query-persist-client": "^5.90.22",
     "@tanstack/react-virtual": "^3.13.18",
     "@types/pg": "^8.16.0",
-    "@simplewebauthn/browser": "^13.1.1",
+    "@simplewebauthn/browser": "^10.0.0",
     "cmdk": "^1.1.1",
     "framer-motion": "^12.33.0",
     "lodash": "^4.17.23",
