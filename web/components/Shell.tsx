@@ -294,7 +294,7 @@ export default function Shell({ children }: ShellProps) {
 
                 {/* Page Content */}
                 <div className={`flex-1 overflow-y-auto custom-scrollbar ${isAuthPage ? 'flex items-center justify-center bg-slate-50 dark:bg-slate-950' : ''}`}>
-                    <div className={`${isAuthPage ? 'container mx-auto w-full p-4' : 'w-full min-h-full'}`}>
+                    <div className={`${isAuthPage ? 'container mx-auto w-full p-4' : 'w-full min-h-full my-12 mx-auto'}`}>
                         {children}
                     </div>
                 </div>
