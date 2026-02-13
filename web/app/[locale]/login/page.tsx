@@ -91,8 +91,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#020617] p-4">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-8">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#020617] p-6">
+      <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-lg shadow-slate-200/60 dark:shadow-black/40 border border-slate-200/70 dark:border-slate-800 p-10">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400">
             {t('loginTitle')}
@@ -135,6 +135,15 @@ export default function LoginPage() {
               className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
               placeholder={t('passwordPlaceholder')}
             />
+            <div className="mt-2">
+              <Link
+                href="/forgot-password"
+                locale={locale}
+                className="text-sm text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-medium"
+              >
+                {t('forgotPassword')}
+              </Link>
+            </div>
           </div>
 
           <button
@@ -172,11 +181,6 @@ export default function LoginPage() {
             {t('signInWithPasskey')}
           </button>
 
-          <div className="text-right">
-            <Link href="/forgot-password" locale={locale} className="text-sm text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-medium">
-              {t('forgotPassword')}
-            </Link>
-          </div>
         </form>
 
         <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center">
