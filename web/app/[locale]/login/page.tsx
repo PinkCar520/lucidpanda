@@ -91,28 +91,28 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#020617] p-6">
-      <div className="w-full max-w-[700px] bg-white dark:bg-slate-900 rounded-3xl shadow-lg shadow-slate-200/60 dark:shadow-black/40 border border-slate-200/70 dark:border-slate-800 p-10">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#020617] p-4 md:p-6">
+      <div className="w-full max-w-[720px] bg-white dark:bg-slate-900 rounded-[2rem] md:rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-black/40 border border-slate-200/70 dark:border-slate-800 p-6 md:p-12">
+        <div className="text-center mb-6 md:mb-10">
+          <h1 className="text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-400">
             {t('loginTitle')}
           </h1>
-          <p className="text-slate-500 text-sm mt-2 font-mono uppercase tracking-widest">
+          <p className="text-slate-500 text-[10px] md:text-sm mt-1.5 font-mono uppercase tracking-widest">
             {t('identityTerminal')}
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-600 dark:text-red-400 text-sm">
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
             {error}
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-8 md:gap-10 items-start md:items-center">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-6 md:gap-10 items-start md:items-center">
           {/* Left column: email/password */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">
                 {t('emailLabel')}
               </label>
               <input
@@ -120,13 +120,13 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
                 placeholder={t('emailPlaceholder')}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">
                 {t('passwordLabel')}
               </label>
               <input
@@ -134,14 +134,14 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-blue-500 transition-colors"
                 placeholder={t('passwordPlaceholder')}
               />
-              <div className="mt-2">
+              <div className="mt-2 ml-1">
                 <Link
                   href="/forgot-password"
                   locale={locale}
-                  className="text-sm text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-medium"
+                  className="text-xs text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-medium"
                 >
                   {t('forgotPassword')}
                 </Link>
@@ -151,51 +151,52 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-3xl transition-all shadow-lg shadow-blue-500/20 ${loading ? 'opacity-50 cursor-not-allowed' : ''
+              className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl md:rounded-3xl transition-all shadow-lg shadow-blue-500/20 text-sm md:text-base ${loading ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
             >
               {loading ? t('authenticating') : t('signIn')}
             </button>
 
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 text-center md:text-left">
               {t('dontHaveAccount')}{' '}
-              <Link href="/register" locale={locale} className="text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-medium">
+              <Link href="/register" locale={locale} className="text-blue-600 hover:text-blue-500 dark:text-emerald-500 dark:hover:text-emerald-400 font-bold">
                 {t('signUp')}
               </Link>
             </p>
           </form>
 
           {/* Center divider */}
-          <div className="hidden md:flex h-full items-center justify-center">
-            <div className="w-px h-28 rounded-full bg-slate-200 dark:bg-slate-700/70" />
+          <div className="flex md:h-full items-center justify-center py-2 md:py-0">
+            <div className="w-full h-px md:w-px md:h-28 rounded-full bg-slate-100 dark:bg-slate-800" />
           </div>
 
           {/* Right column: Passkey elevated */}
           <div className="space-y-4 self-center">
-            <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 p-6 shadow-inner">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
+            <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 p-5 md:p-6 shadow-sm">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4">
                 {t('orContinueWith')}
               </p>
               <button
                 type="button"
                 onClick={handlePasskeyLogin}
                 disabled={passkeyLoading || loading}
-                className="w-full bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-3 border border-slate-200 dark:border-slate-700 shadow-lg shadow-emerald-500/10"
+                className="w-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold py-3 md:py-4 px-3 rounded-xl transition-all flex items-center justify-center gap-2 md:gap-3 border border-slate-200 dark:border-slate-700 shadow-sm whitespace-nowrap text-sm md:text-base"
               >
                 {passkeyLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  <Fingerprint className="w-5 h-5 text-emerald-500" />
+                  <Fingerprint className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                 )}
-                {t('signInWithPasskey')}
+                <span className="truncate">{t('signInWithPasskey')}</span>
               </button>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 leading-relaxed">
-                Use your device-backed passkey for faster, phishing-resistant sign-in. No password required.
+              <p className="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 mt-3 leading-relaxed">
+                Use your device-backed passkey for faster, phishing-resistant sign-in.
               </p>
             </div>
           </div>
         </div>
       </div>
     </div>
+
   );
 }
