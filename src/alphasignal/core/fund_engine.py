@@ -685,6 +685,14 @@ class FundEngine:
             if self.redis:
                 self.redis.setex(f"fund:valuation:{fund_code}", 180, json.dumps(result))
             
+            # --- V1 Production Broadcast ---
+            try:
+                import asyncio
+                from src.alphasignal.infra.stream.broadcaster import hub
+                # Fire and forget publication
+                asyncio.create_task(hub.publish("fund_updates", result))
+            except: pass
+            
             return result
             
         except Exception as e:

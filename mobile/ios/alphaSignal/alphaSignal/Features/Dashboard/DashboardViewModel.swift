@@ -3,7 +3,6 @@ import Observation
 import AlphaCore
 import AlphaData
 import SwiftUI
-
 import SwiftData
 
 @Observable
@@ -75,11 +74,11 @@ class DashboardViewModel {
             let tokenData = try? KeychainManager.shared.read(key: "access_token")
             let token = tokenData != nil ? String(data: tokenData!, encoding: .utf8) : nil
             
-            // 订阅流 (指向 FastAPI SSE 端口)
-            let streamURL = URL(string: "http://127.0.0.1:8001/api/intelligence/stream")!
+            // 订阅 V1 高性能实时流 (基于 Redis Pub/Sub)
+            let streamURL = URL(string: "http://127.0.0.1:8001/api/v1/intelligence/stream")!
             let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)
             
-            connectionStatus = "实时同步中"
+            connectionStatus = "V1 实时同步中"
             
             for try await jsonString in stream {
                 guard let data = jsonString.data(using: .utf8) else { continue }
@@ -90,7 +89,7 @@ class DashboardViewModel {
                 }
             }
         } catch {
-            print("❌ Stream failed: \(error)")
+            print("❌ V1 Stream failed: \(error)")
             connectionStatus = "连接断开"
             isStreaming = false
             
@@ -103,13 +102,25 @@ class DashboardViewModel {
     @MainActor
     private func fetchInitialHistory() async {
         do {
-            // 对齐 sse_server.py: @app.get("/api/intelligence")
-            let response: IntelligenceHistoryResponse = try await APIClient.shared.fetch(path: "/api/intelligence?limit=50")
-            if let data = response.data {
-                processNewItems(data)
+            // 切换至 V1 Mobile BFF 接口：字段更精简，流量更省
+            let response: [IntelligenceMobileReadDTO] = try await APIClient.shared.fetch(path: "/api/v1/mobile/intelligence?limit=50")
+            
+            // 转换为 UI 模型
+            let items = response.map { dto in
+                IntelligenceItem(
+                    id: dto.id,
+                    timestamp: dto.timestamp,
+                    author: "AlphaSignal", 
+                    summary: dto.summary,
+                    content: "", // V1 列表页不返回正文以节省流量
+                    sentiment: dto.sentiment_label,
+                    urgencyScore: dto.urgency_score,
+                    goldPriceSnapshot: nil
+                )
             }
+            processNewItems(items)
         } catch {
-            print("❌ Failed to fetch history: \(error)")
+            print("❌ Failed to fetch V1 history: \(error)")
         }
     }
     
@@ -136,6 +147,15 @@ class DashboardViewModel {
             }
         }
     }
+}
+
+// 补充 DTO 定义以匹配 V1 Mobile BFF
+struct IntelligenceMobileReadDTO: Codable {
+    let id: Int
+    let timestamp: Date
+    let summary: String
+    let urgency_score: Int
+    let sentiment_label: String
 }
 
 struct IntelligenceHistoryResponse: Codable {

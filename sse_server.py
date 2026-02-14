@@ -117,6 +117,11 @@ async def database_poller():
                 msg = f"data: {json.dumps(event_data, default=sse_json_serializer)}\n\n"
                 
                 await manager.broadcast(msg)
+                
+                # --- V1 Production Broadcast ---
+                from src.alphasignal.infra.stream.broadcaster import hub
+                await hub.publish("intelligence_updates", event_data)
+                
                 print(f"[Broadcaster] Broadcasted {len(items_data)} new items")
 
         except Exception as e:
@@ -164,6 +169,10 @@ app.mount("/static", StaticFiles(directory=upload_dir), name="static")
 
 # Register Routers
 app.include_router(auth_router)
+
+# V1 Production Architecture
+from src.alphasignal.api.v1.main import api_v1_router
+app.include_router(api_v1_router)
 
 # --- Endpoints ---
 
@@ -799,6 +808,34 @@ async def get_24h_alerts_count():
     except Exception as e:
         print(f"[API] 24h Alerts error: {e}")
         return {"error": str(e)}
+
+@app.get("/api/v1/intelligence/stream")
+async def v1_intelligence_stream(request: Request):
+    """
+    V1 Production SSE Endpoint using Redis Pub/Sub.
+    Supports low-latency broadcasting and multi-instance scaling.
+    """
+    from src.alphasignal.infra.stream.broadcaster import hub
+    
+    async def event_generator():
+        # A. Initial Connection Msg
+        yield f"data: {json.dumps({'type': 'connected', 'v': '1.0'})}\n\n"
+        
+        # B. Redis Subscription
+        async for data in hub.subscribe("intelligence_updates"):
+            if await request.is_disconnected():
+                break
+            yield f"data: {data}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 @app.get("/api/intelligence/stream")
 async def intelligence_stream(request: Request):
