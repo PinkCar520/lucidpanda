@@ -67,8 +67,8 @@ struct MainDashboardView: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("dashboard.title")
-                    .font(.system(size: 24, weight: .black, design: .rounded))
-                    .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.primary)
                 
                 HStack(spacing: 6) {
                     Circle()
@@ -76,7 +76,7 @@ struct MainDashboardView: View {
                         .frame(width: 6, height: 6)
                     
                     Text("\(t("dashboard.realtime_status")): \(t(viewModel.connectionStatus))")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(viewModel.isStreaming ? .green : .red)
                         .opacity(0.8)
                 }
@@ -86,12 +86,12 @@ struct MainDashboardView: View {
                 isSettingsPresented = true
             } label: {
                 Circle()
-                    .fill(Color.blue.opacity(0.2))
+                    .fill(Color(uiColor: .secondarySystemFill))
                     .frame(width: 36, height: 36)
                     .overlay(
                         Text("A")
                             .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.primary)
                     )
             }
             .buttonStyle(.plain)
@@ -107,18 +107,24 @@ struct MainDashboardView: View {
             // 搜索框
             HStack {
                 Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.gray)
+                    .foregroundStyle(.secondary)
                 TextField(t("dashboard.search.placeholder"), text: $viewModel.searchQuery)
                     .font(.subheadline)
                 if !viewModel.searchQuery.isEmpty {
                     Button { viewModel.searchQuery = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.gray)
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                     }
                 }
             }
             .padding(10)
-            .background(Color.black.opacity(0.03))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color(uiColor: .separator).opacity(0.2), lineWidth: 0.5)
+            )
             .padding(.horizontal)
             
             // 过滤器切换
@@ -141,8 +147,8 @@ struct MainDashboardView: View {
                 .font(.system(size: 10, weight: .bold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(viewModel.filterMode == mode ? Color.blue : Color.black.opacity(0.03))
-                .foregroundStyle(viewModel.filterMode == mode ? .white : .gray)
+                .background(viewModel.filterMode == mode ? Color(uiColor: .label) : Color(uiColor: .tertiarySystemFill))
+                .foregroundStyle(viewModel.filterMode == mode ? .white : .secondary)
                 .clipShape(Capsule())
         }
     }
@@ -151,7 +157,7 @@ struct MainDashboardView: View {
         VStack(spacing: 16) {
             Spacer(minLength: 100)
             if viewModel.items.isEmpty && viewModel.isStreaming {
-                ProgressView().tint(.blue)
+                ProgressView().tint(.primary)
                 Text("dashboard.loading_feed")
             } else {
                 Image(systemName: "tray.and.arrow.down")

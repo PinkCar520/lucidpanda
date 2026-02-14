@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Header
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from src.alphasignal.auth.schemas import (
-    UserCreate, UserOut, Token, RefreshTokenRequest, 
+    UserCreate, UserOut, Token, TokenRefresh, RefreshTokenRequest, LogoutRequest,
     ForgotPasswordRequest, ResetPasswordRequest, MessageResponse,
     UserUpdate, UsernameUpdate, PasswordChangeRequest, EmailChangeInitiateRequest, EmailChangeVerifyRequest,
     AvatarUploadResponse, SessionOut, PhoneNumberPayload, PhoneVerificationPayload,
@@ -14,7 +14,7 @@ from src.alphasignal.auth.schemas import (
 from src.alphasignal.auth.service import AuthService
 from src.alphasignal.auth.dependencies import get_db, get_current_user
 from src.alphasignal.config import settings
-from typing import List, Any
+from typing import List, Any, Optional
 import os
 import uuid
 import shutil
@@ -71,7 +71,8 @@ def verify_passkey_login(
     access_token, refresh_token = auth_service.create_session(
         user_id=str(user.id),
         device_name=request.headers.get("user-agent"),
-        ip_address=request.client.host
+        ip_address=request.client.host,
+        user_agent=request.headers.get("user-agent")
     )
     
     return {
@@ -282,12 +283,24 @@ def unbind_phone(
 
 @router.get("/sessions", response_model=List[SessionOut])
 def get_sessions(
+    x_refresh_token: Optional[str] = Header(default=None, alias="X-Refresh-Token"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
     auth_service = AuthService(db)
+    current_token_hash = auth_service.hash_refresh_token(x_refresh_token) if x_refresh_token else None
     sessions = auth_service.get_active_sessions(str(current_user.id))
-    return sessions
+    result = []
+    for session in sessions:
+        result.append({
+            "id": session.id,
+            "device_info": session.device_info,
+            "ip_address": str(session.ip_address) if session.ip_address else None,
+            "created_at": session.created_at,
+            "last_active_at": session.last_active_at,
+            "is_current": current_token_hash == session.token_hash if current_token_hash else False
+        })
+    return result
 
 @router.delete("/sessions/{session_id}", response_model=MessageResponse)
 def revoke_session(
@@ -300,6 +313,22 @@ def revoke_session(
     if not success:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"message": "Session revoked successfully"}
+
+@router.post("/logout", response_model=MessageResponse)
+def logout(
+    request: Request,
+    body: LogoutRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user)
+):
+    auth_service = AuthService(db)
+    auth_service.revoke_session_by_refresh_token(
+        str(current_user.id),
+        body.refresh_token,
+        ip_address=request.client.host,
+        user_agent=request.headers.get("user-agent")
+    )
+    return {"message": "Logged out successfully"}
 
 @router.post("/register", response_model=UserOut)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
@@ -344,7 +373,8 @@ def login(
     access_token, refresh_token = auth_service.create_session(
         user_id=str(user.id),
         device_name=request.headers.get("user-agent"),
-        ip_address=request.client.host
+        ip_address=request.client.host,
+        user_agent=request.headers.get("user-agent")
     )
     
     return {
@@ -355,14 +385,18 @@ def login(
         "user": user
     }
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh", response_model=TokenRefresh)
 def refresh_token(
     request: Request,
     refresh_in: RefreshTokenRequest,
     db: Session = Depends(get_db)
 ):
     auth_service = AuthService(db)
-    tokens = auth_service.refresh_session(refresh_in.refresh_token, ip_address=request.client.host)
+    tokens = auth_service.refresh_session(
+        refresh_in.refresh_token,
+        ip_address=request.client.host,
+        user_agent=request.headers.get("user-agent")
+    )
     if not tokens:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -15,7 +15,7 @@ struct LoginView: View {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
                         .font(.system(size: 42))
-                        .foregroundStyle(.tint)
+                        .foregroundStyle(.primary)
 
                     Text("AlphaSignal")
                         .font(.largeTitle.bold())
@@ -97,17 +97,15 @@ struct LoginView: View {
                         } label: {
                             HStack {
                                 if viewModel.isLoading {
-                                    ProgressView().tint(.white)
+                                    ProgressView().tint(Color(uiColor: .systemBackground))
                                 } else {
                                     Text("auth.action.login")
                                         .fontWeight(.semibold)
                                 }
                             }
                             .frame(maxWidth: .infinity)
-                            .frame(height: 50)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                        .buttonStyle(FintechPrimaryButtonStyle())
                         .disabled(viewModel.isLoading || viewModel.isPasskeyLoading || !viewModel.canSubmit)
                         
                         Button {
@@ -116,7 +114,7 @@ struct LoginView: View {
                             HStack(spacing: 8) {
                                 if viewModel.isPasskeyLoading {
                                     ProgressView()
-                                        .tint(.blue)
+                                        .tint(.primary)
                                 } else {
                                     Image(systemName: "person.badge.key.fill")
                                         .font(.system(size: 14, weight: .semibold))
@@ -125,10 +123,8 @@ struct LoginView: View {
                                     .font(.system(size: 15, weight: .semibold))
                             }
                             .frame(maxWidth: .infinity)
-                            .frame(height: 46)
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
+                        .buttonStyle(FintechSecondaryButtonStyle())
                         .disabled(viewModel.isLoading || viewModel.isPasskeyLoading)
                         
                         Text("auth.passkey.hint")

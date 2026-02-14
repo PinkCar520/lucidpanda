@@ -1,6 +1,5 @@
 import Foundation
 import Observation
-import AlphaData
 import SwiftUI
 
 @Observable
@@ -20,12 +19,11 @@ public class AppRootViewModel {
         // 预留 1 秒展示液态加载动画，提升品牌感
         try? await Task.sleep(nanoseconds: 1_000_000_000)
         
-        do {
-            _ = try KeychainManager.shared.read(key: "access_token")
+        if AuthTokenStore.accessToken() != nil || AuthTokenStore.refreshToken() != nil {
             withAnimation(.spring()) {
                 currentState = .authenticated
             }
-        } catch {
+        } else {
             withAnimation(.spring()) {
                 currentState = .unauthenticated
             }
@@ -35,7 +33,7 @@ public class AppRootViewModel {
     @MainActor
     public func updateState(to newState: AppState) {
         if newState == .unauthenticated {
-            try? KeychainManager.shared.delete(key: "access_token")
+            AuthTokenStore.clear()
         }
         
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {

@@ -375,6 +375,22 @@
         }
       }
     },
+    "auth.login.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign In"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录账户"
+          }
+        }
+      }
+    },
     "auth.passkey.failed" : {
       "localizations" : {
         "en" : {
@@ -419,22 +435,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "当前设备不支持 Passkey。"
-          }
-        }
-      }
-    },
-    "auth.login.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sign In"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "登录账户"
           }
         }
       }
@@ -1279,6 +1279,9 @@
       }
     },
     "Count" : {
+
+    },
+    "Current" : {
 
     },
     "dashboard.action.open_settings" : {
@@ -2434,10 +2437,16 @@
     "Item at %@" : {
 
     },
+    "Loading sessions..." : {
+
+    },
     "n=%lld" : {
 
     },
     "Name" : {
+
+    },
+    "No active sessions" : {
 
     },
     "pincar@alphasignal.com" : {
@@ -2587,13 +2596,22 @@
         }
       }
     },
+    "Refresh Session List" : {
+
+    },
     "Returns" : {
+
+    },
+    "Revoke" : {
 
     },
     "Select an item" : {
 
     },
     "Session" : {
+
+    },
+    "Session Security" : {
 
     },
     "settings.action.change_password" : {
@@ -2901,6 +2919,7 @@
       }
     },
     "settings.summary.asset" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2917,6 +2936,7 @@
       }
     },
     "settings.summary.pnl" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2933,6 +2953,7 @@
       }
     },
     "settings.summary.risk" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -34,8 +34,8 @@ class LoginViewModel {
                 ]
             )
             
-            // 安全存储 Token 到 Keychain
-            try storeToken(result.accessToken)
+            // 安全存储会话 Token 到 Keychain
+            try storeSession(from: result)
             
             print("Login Success for: \(result.user.email)")
             onSuccess?()
@@ -75,7 +75,7 @@ class LoginViewModel {
             let endpoint = RawEndpoint(path: "/api/v1/auth/passkeys/login/verify", method: .post, body: body)
             
             let result: LoginResponseDTO = try await APIClient.shared.request(endpoint)
-            try storeToken(result.accessToken)
+            try storeSession(from: result)
             onSuccess?()
         } catch PasskeyAuthError.cancelled {
             // Keep silent on user-cancelled passkey sheet.
@@ -89,10 +89,12 @@ class LoginViewModel {
         isPasskeyLoading = false
     }
     
-    private func storeToken(_ token: String) throws {
-        if let tokenData = token.data(using: .utf8) {
-            try KeychainManager.shared.save(key: "access_token", data: tokenData)
-        }
+    private func storeSession(from result: LoginResponseDTO) throws {
+        try AuthTokenStore.saveSession(
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            expiresIn: result.expiresIn
+        )
     }
 }
 

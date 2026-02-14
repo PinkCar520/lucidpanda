@@ -84,25 +84,39 @@ class AuthService:
     def _hash_token(self, token: str) -> str:
         return hashlib.sha256(token.encode()).hexdigest()
 
-    def create_session(self, user_id: str, device_name: str = None, ip_address: str = None) -> Tuple[str, str]:
+    def create_session(
+        self,
+        user_id: str,
+        device_name: str = None,
+        ip_address: str = None,
+        user_agent: str = None
+    ) -> Tuple[str, str]:
         user_uuid = self._to_uuid(user_id)
         access_token = create_access_token(user_id)
         refresh_token = create_refresh_token(user_id)
         
         expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        resolved_device_name = device_name or user_agent
         db_refresh_token = RefreshToken(
             user_id=user_uuid,
             token_hash=self._hash_token(refresh_token),
-            device_info={"name": device_name} if device_name else None,
+            device_info={"name": resolved_device_name} if resolved_device_name else None,
             ip_address=ip_address,
+            user_agent=user_agent,
             expires_at=expires_at
         )
         self.db.add(db_refresh_token)
-        self.log_audit(user_id, "LOGIN", ip_address, details={"device": device_name})
+        self.log_audit(
+            user_id,
+            "LOGIN",
+            ip_address,
+            user_agent=user_agent,
+            details={"device": resolved_device_name}
+        )
         self.db.commit()
         return access_token, refresh_token
 
-    def refresh_session(self, refresh_token: str, ip_address: str = None) -> Optional[Tuple[str, str]]:
+    def refresh_session(self, refresh_token: str, ip_address: str = None, user_agent: str = None) -> Optional[Tuple[str, str]]:
         token_hash = self._hash_token(refresh_token)
         db_token = self.db.query(RefreshToken).filter(
             and_(
@@ -116,6 +130,19 @@ class AuthService:
             return None
 
         user_id = str(db_token.user_id)
+        is_risky, risk_details = self._evaluate_refresh_risk(db_token, ip_address, user_agent)
+        if is_risky:
+            db_token.revoked_at = datetime.utcnow()
+            self.log_audit(
+                user_id,
+                "REFRESH_BLOCKED_RISK",
+                ip_address,
+                user_agent=user_agent,
+                details=risk_details
+            )
+            self.db.commit()
+            return None
+
         new_access_token = create_access_token(user_id)
         new_refresh_token = create_refresh_token(user_id)
         
@@ -128,11 +155,36 @@ class AuthService:
             token_hash=self._hash_token(new_refresh_token),
             device_info=db_token.device_info,
             ip_address=ip_address,
+            user_agent=user_agent or db_token.user_agent,
             expires_at=new_expires_at
         )
         self.db.add(new_db_token)
+        self.log_audit(user_id, "TOKEN_REFRESH", ip_address, user_agent=user_agent)
         self.db.commit()
         return new_access_token, new_refresh_token
+
+    def hash_refresh_token(self, refresh_token: str) -> str:
+        return self._hash_token(refresh_token)
+
+    def revoke_session_by_refresh_token(
+        self,
+        user_id: str,
+        refresh_token: str,
+        ip_address: str = None,
+        user_agent: str = None
+    ) -> bool:
+        user_uuid = self._to_uuid(user_id)
+        token_hash = self._hash_token(refresh_token)
+        token = self.db.query(RefreshToken).filter(
+            and_(RefreshToken.token_hash == token_hash, RefreshToken.user_id == user_uuid)
+        ).first()
+        if not token:
+            return False
+        if token.revoked_at is None:
+            token.revoked_at = datetime.utcnow()
+        self.log_audit(user_id, "LOGOUT", ip_address, user_agent=user_agent, details={"session_id": token.id})
+        self.db.commit()
+        return True
 
     def update_user(self, user_id: str, 
                     name: Optional[str] = None,
@@ -478,21 +530,73 @@ class AuthService:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(RefreshToken).filter(
             and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at == None, RefreshToken.expires_at > datetime.utcnow())
-        ).all()
+        ).order_by(desc(RefreshToken.created_at)).all()
 
     def revoke_session(self, user_id: str, session_id: int) -> bool:
         user_uuid = self._to_uuid(user_id)
         token = self.db.query(RefreshToken).filter(and_(RefreshToken.id == session_id, RefreshToken.user_id == user_uuid)).first()
         if token:
-            token.revoked_at = datetime.utcnow()
+            if token.revoked_at is None:
+                token.revoked_at = datetime.utcnow()
+            self.log_audit(user_id, "SESSION_REVOKED", details={"session_id": session_id})
             self.db.commit()
             return True
         return False
+
+    def revoke_all_sessions(self, user_id: str, exclude_token_hash: str = None) -> int:
+        user_uuid = self._to_uuid(user_id)
+        query = self.db.query(RefreshToken).filter(
+            and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at == None, RefreshToken.expires_at > datetime.utcnow())
+        )
+        if exclude_token_hash:
+            query = query.filter(RefreshToken.token_hash != exclude_token_hash)
+
+        sessions = query.all()
+        now = datetime.utcnow()
+        for session in sessions:
+            session.revoked_at = now
+
+        if sessions:
+            self.log_audit(user_id, "SESSIONS_REVOKED_BULK", details={"count": len(sessions)})
+        self.db.commit()
+        return len(sessions)
 
     def log_audit(self, user_id: str, action: str, ip_address: str = None, user_agent: str = None, details: dict = None):
         user_uuid = self._to_uuid(user_id) if user_id else None
         log = AuthAuditLog(user_id=user_uuid, action=action, ip_address=ip_address, user_agent=user_agent, details=details)
         self.db.add(log)
+
+    def _evaluate_refresh_risk(self, db_token: RefreshToken, ip_address: str = None, user_agent: str = None) -> Tuple[bool, dict]:
+        previous_ip = str(db_token.ip_address) if db_token.ip_address else None
+        previous_device = None
+        if isinstance(db_token.device_info, dict):
+            previous_device = db_token.device_info.get("name")
+        previous_user_agent = db_token.user_agent
+
+        device_mismatch_enforced = getattr(settings, "RISK_DEVICE_MISMATCH_FORCE_REAUTH", True)
+        ip_change_window_minutes = getattr(settings, "RISK_IP_CHANGE_WINDOW_MINUTES", 10)
+        ip_mismatch_enforced = getattr(settings, "RISK_IP_CHANGE_FORCE_REAUTH", True)
+
+        details = {
+            "previous_ip": previous_ip,
+            "current_ip": ip_address,
+            "previous_device": previous_device,
+            "current_device": user_agent,
+            "previous_user_agent": previous_user_agent,
+        }
+
+        if device_mismatch_enforced and previous_device and user_agent and previous_device != user_agent:
+            details["reason"] = "device_mismatch"
+            return True, details
+
+        if ip_mismatch_enforced and previous_ip and ip_address and previous_ip != ip_address:
+            if db_token.last_active_at:
+                recent_window = datetime.utcnow() - timedelta(minutes=ip_change_window_minutes)
+                if db_token.last_active_at >= recent_window:
+                    details["reason"] = "rapid_ip_change"
+                    return True, details
+
+        return False, details
 
     def get_audit_logs(self, user_id: str, limit: int = 50) -> List[AuthAuditLog]:
         user_uuid = self._to_uuid(user_id)

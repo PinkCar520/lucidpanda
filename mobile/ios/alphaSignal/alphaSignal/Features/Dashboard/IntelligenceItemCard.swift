@@ -16,33 +16,33 @@ struct IntelligenceItemCard: View {
                     .font(.system(size: 10, weight: .black, design: .monospaced))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(item.urgencyScore >= 8 ? Color.red.opacity(0.1) : Color.blue.opacity(0.1))
-                    .foregroundStyle(item.urgencyScore >= 8 ? Color.red : Color.blue)
+                    .background(item.urgencyScore >= 8 ? Color.red.opacity(0.12) : Color(uiColor: .secondarySystemFill))
+                    .foregroundStyle(item.urgencyScore >= 8 ? Color.red : Color.primary)
                     .clipShape(Capsule())
                     
                     Spacer()
                     
                     Text(item.timestamp.formatted(.relative(presentation: .numeric, unitsStyle: .narrow)))
                         .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.gray.opacity(0.6))
+                        .foregroundStyle(.secondary)
                 }
                 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(item.summary)
                         .font(.headline)
-                        .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                     
                     Text(item.content)
                         .font(.caption)
-                        .foregroundStyle(.gray)
+                        .foregroundStyle(.secondary)
                         .lineLimit(3)
                         .multilineTextAlignment(.leading)
                 }
                 
                 HStack {
                     Label(item.author, systemImage: "person.circle.fill")
-                        .foregroundStyle(.gray.opacity(0.7))
+                        .foregroundStyle(.secondary)
                     
                     Spacer()
                     
@@ -52,13 +52,13 @@ struct IntelligenceItemCard: View {
                                 .font(.system(size: 8, weight: .bold))
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
-                                .background(Color.black.opacity(0.03))
+                                .background(Color(uiColor: .tertiarySystemFill))
                                 .cornerRadius(4)
                             
                             Text("$\(String(format: "%.1f", price))")
                                 .fontWeight(.black)
                         }
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.primary)
                     }
                 }
                 .font(.system(size: 10, design: .monospaced))

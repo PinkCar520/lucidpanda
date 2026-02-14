@@ -37,12 +37,14 @@ public struct UserDTO: Codable {
 
 public struct LoginResponseDTO: Codable {
     public let accessToken: String
+    public let refreshToken: String
     public let tokenType: String
     public let user: UserDTO
     public let expiresIn: Int?
     
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
+        case refreshToken = "refresh_token"
         case tokenType = "token_type"
         case user
         case expiresIn = "expires_in"

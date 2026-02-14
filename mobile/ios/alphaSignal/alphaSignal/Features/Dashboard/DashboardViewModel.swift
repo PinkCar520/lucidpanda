@@ -70,9 +70,8 @@ class DashboardViewModel {
         await fetchInitialHistory()
         
         do {
-            // 从 Keychain 获取 Token
-            let tokenData = try? KeychainManager.shared.read(key: "access_token")
-            let token = tokenData != nil ? String(data: tokenData!, encoding: .utf8) : nil
+            // 从会话存储获取最新 access token
+            let token = AuthTokenStore.accessToken()
             
             // 订阅 V1 高性能实时流 (基于 Redis Pub/Sub)
             let streamURL = URL(string: "http://127.0.0.1:8001/api/v1/intelligence/stream")!

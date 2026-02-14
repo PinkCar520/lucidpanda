@@ -38,11 +38,11 @@ struct alphaSignalApp: App {
                         LiquidBackground()
                         VStack(spacing: 20) {
                             ProgressView()
-                                .tint(.white)
+                                .tint(.primary)
                                 .scaleEffect(1.5)
                             Text("正在初始化安全链路...")
                                 .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.5))
+                                .foregroundStyle(.secondary)
                         }
                     }
                     
@@ -61,19 +61,28 @@ struct alphaSignalApp: App {
                 // 启动时检查身份
                 await rootViewModel.checkAuthentication()
             }
-            .preferredColorScheme(.light) // 强制浅色模式以符合 Web 纯净风格
         }
         .modelContainer(sharedModelContainer) // 注入容器
     }
     
     private func setupAPIClient() {
-        // 注入 Token 提供者
+        // 注入会话 Token 提供与更新逻辑
         Task {
             await APIClient.shared.setTokenProvider {
-                if let data = try? KeychainManager.shared.read(key: "access_token") {
-                    return String(data: data, encoding: .utf8)
-                }
-                return nil
+                AuthTokenStore.accessToken()
+            }
+            await APIClient.shared.setRefreshTokenProvider {
+                AuthTokenStore.refreshToken()
+            }
+            await APIClient.shared.setAccessTokenExpiryProvider {
+                AuthTokenStore.accessTokenExpiry()
+            }
+            await APIClient.shared.setSessionUpdater { accessToken, refreshToken, expiresIn in
+                try? AuthTokenStore.saveSession(
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                    expiresIn: expiresIn
+                )
             }
             
             // 注入 401 自动登出逻辑
