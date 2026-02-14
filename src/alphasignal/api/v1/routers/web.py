@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, Query, Request
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends, Query, Request, HTTPException
+from sqlmodel import Session, select, text
 from typing import List, Dict, Any, Optional
 from src.alphasignal.infra.database.connection import get_session
 from src.alphasignal.models.fund import FundMetadata, FundValuationArchive
@@ -8,6 +8,7 @@ from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
 from src.alphasignal.core.fund_engine import FundEngine
 from src.alphasignal.core.database import IntelligenceDB
+from src.alphasignal.utils import v1_prepare_json
 
 router = APIRouter()
 
@@ -20,11 +21,9 @@ async def get_web_watchlist(
     Get user's watchlist for Web.
     Maintains the {"data": [...]} wrapper for TanStack Query compatibility.
     """
-    # Reusing the existing IntelligenceDB logic for now to ensure consistency
-    # In a later phase, we can refactor this to pure SQLModel
     db_legacy = IntelligenceDB()
     rows = db_legacy.get_watchlist(str(current_user.id))
-    return {"data": [{"code": r['fund_code'], "name": r['fund_name']} for r in rows]}
+    return v1_prepare_json({"data": [{"code": r['fund_code'], "name": r['fund_name']} for r in rows]})
 
 @router.get("/funds/batch-valuation", response_model=Dict[str, Any])
 async def get_web_batch_valuations(
@@ -52,7 +51,7 @@ async def get_web_batch_valuations(
         if f_code in stats_map:
             res['stats'] = stats_map[f_code]
             
-    return decimal_to_float({"data": results})
+    return v1_prepare_json({"data": results})
 
 @router.get("/funds/{code}/valuation", response_model=Dict[str, Any])
 async def get_web_fund_valuation(code: str, current_user: User = Depends(get_current_user)):
@@ -66,7 +65,7 @@ async def get_web_fund_valuation(code: str, current_user: User = Depends(get_cur
         stats_map = db_legacy.get_fund_stats([code])
         if code in stats_map:
             results[0]['stats'] = stats_map[code]
-        return decimal_to_float(results[0])
+        return v1_prepare_json(results[0])
     return {"error": "Valuation failed"}
 
 @router.get("/funds/{code}/history", response_model=Dict[str, Any])
@@ -83,7 +82,7 @@ async def get_web_fund_history(code: str, limit: int = 30, current_user: User = 
         if 'trade_date' in item and hasattr(item['trade_date'], 'isoformat'):
             item['trade_date'] = item['trade_date'].isoformat()
         formatted_history.append(item)
-    return decimal_to_float({"data": formatted_history})
+    return v1_prepare_json({"data": formatted_history})
 
 @router.get("/intelligence/full", response_model=Dict[str, Any])
 async def get_web_intelligence_full(
@@ -95,7 +94,7 @@ async def get_web_intelligence_full(
     """
     statement = select(Intelligence).order_by(Intelligence.timestamp.desc()).limit(limit)
     results = db.exec(statement).all()
-    return {"data": results}
+    return v1_prepare_json({"data": results})
 
 from pydantic import BaseModel
 
@@ -132,20 +131,19 @@ async def get_web_intelligence_item(
     statement = select(Intelligence).where(Intelligence.id == item_id)
     result = db.exec(statement).first()
     if not result:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Item not found")
-    return result
+    return v1_prepare_json(result)
 
 @router.get("/funds/search", response_model=Dict[str, Any])
 async def search_web_funds(q: str = "", limit: int = 20):
     """Search for funds via Web BFF."""
     engine = FundEngine()
     results = engine.search_funds(q.strip(), limit)
-    return {
+    return v1_prepare_json({
         "results": results,
         "total": len(results),
         "query": q
-    }
+    })
 
 @router.get("/market", response_model=Dict[str, Any])
 async def get_web_market_data(
@@ -186,11 +184,11 @@ async def get_web_market_data(
         if symbol == "GC=F":
             indicators = market_service.get_gold_indicators()
             
-        return {
+        return v1_prepare_json({
             "symbol": symbol, 
-            "quotes": quotes, # Web Chart.tsx expects "quotes"
+            "quotes": quotes,
             "indicators": indicators
-        }
+        })
     except Exception as e:
         return {"error": str(e)}
 
@@ -205,9 +203,6 @@ async def get_web_backtest_stats(
     V1 Full Production Port of server-side backtesting logic.
     Restores all analytical modules for the professional reporting dashboard.
     """
-    import json
-    from sqlalchemy import text
-    
     try:
         # Determine columns based on window
         window_map = {"15m": "price_15m", "1h": "price_1h", "4h": "price_4h", "12h": "price_12h", "24h": "price_24h"}
@@ -323,8 +318,8 @@ async def get_web_backtest_stats(
         res_corr = db.execute(text(query_correlation), params).mappings().all()
         res_pos = db.execute(text(query_positioning), params).mappings().all()
         res_vol = db.execute(text(query_volatility), params).mappings().all()
-        res_dist = [dict(row) for row in db.execute(text(query_dist), params).mappings().all()]
-        res_items = [dict(row) for row in db.execute(text(query_items), params).mappings().all()]
+        res_dist = db.execute(text(query_dist), params).mappings().all()
+        res_items = db.execute(text(query_items), params).mappings().all()
 
         # Format Response
         session_stats = [{
@@ -337,7 +332,7 @@ async def get_web_backtest_stats(
         positioning_stats = {row['env']: {"count": row['count'], "winRate": (row['wins']/row['count'])*100} for row in res_pos}
         volatility_stats = {row['env']: {"count": row['count'], "winRate": (row['wins']/row['count'])*100} for row in res_vol}
 
-        return decimal_to_float({
+        return v1_prepare_json({
             "count": res_global['count'],
             "winRate": (res_global['wins'] / res_global['count']) * 100,
             "adjWinRate": res_global['adj_win_rate'] or 0,
@@ -362,21 +357,6 @@ async def get_web_backtest_stats(
         print(f"[API] Stats error: {traceback.format_exc()}")
         return {"error": str(e)}
 
-from decimal import Decimal
-from sqlalchemy.engine.row import RowMapping
-
-def decimal_to_float(obj):
-    """Recursively convert Decimal objects to float and RowMapping to dict."""
-    if isinstance(obj, Decimal):
-        return float(obj)
-    if isinstance(obj, RowMapping):
-        return {k: decimal_to_float(v) for k, v in obj.items()}
-    if isinstance(obj, dict):
-        return {k: decimal_to_float(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [decimal_to_float(i) for i in obj]
-    return obj
-
 @router.get("/admin/monitor", response_model=Dict[str, Any])
 async def get_web_monitor_stats(current_user: User = Depends(get_current_user)):
     """
@@ -385,4 +365,4 @@ async def get_web_monitor_stats(current_user: User = Depends(get_current_user)):
     db_legacy = IntelligenceDB()
     stats = db_legacy.get_reconciliation_stats()
     stats['heatmap'] = db_legacy.get_heatmap_stats()
-    return decimal_to_float(stats)
+    return v1_prepare_json(stats)

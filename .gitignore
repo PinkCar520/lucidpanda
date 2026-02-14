@@ -37,6 +37,7 @@ logs/
 
 # macOS
 .DS_Store
+.derivedData
 
 # Backups
 backups/

@@ -71,7 +71,7 @@ public actor ValuationActor {
     /// 计算 2σ 统计边界
     /// 基于过去 30 天历史收益率的真实计算
     public func calculateThreshold2Sigma(history: [ValuationHistory]) -> Double {
-        let returns = history.compactMap { $0.growth }
+        let returns = history.map { $0.officialGrowth }
         guard returns.count > 5 else { return 1.5 } // 数据不足时返回经验值
         
         let mean = returns.reduce(0, +) / Double(returns.count)
@@ -84,6 +84,47 @@ public actor ValuationActor {
 
 /// 补充 ValuationHistory 模型定义
 public struct ValuationHistory: Codable {
-    public let date: Date
-    public let growth: Double
+    public let tradeDate: String
+    public let frozenEstGrowth: Double
+    public let officialGrowth: Double
+    public let deviation: Double
+    public let trackingStatus: String
+
+    // Compatibility initializer for existing mock/test callers that still build history from date/growth.
+    public init(date: Date, growth: Double) {
+        let formatter = ISO8601DateFormatter()
+        self.tradeDate = formatter.string(from: date)
+        self.frozenEstGrowth = growth
+        self.officialGrowth = growth
+        self.deviation = 0
+        self.trackingStatus = "A"
+    }
+
+    // Compatibility accessors for older call sites using the previous model shape.
+    public var date: Date {
+        let isoFormatter = ISO8601DateFormatter()
+        if let parsed = isoFormatter.date(from: tradeDate) {
+            return parsed
+        }
+
+        let dateOnlyFormatter = DateFormatter()
+        dateOnlyFormatter.calendar = Calendar(identifier: .gregorian)
+        dateOnlyFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateOnlyFormatter.dateFormat = "yyyy-MM-dd"
+        if let parsed = dateOnlyFormatter.date(from: tradeDate) {
+            return parsed
+        }
+
+        return .distantPast
+    }
+
+    public var growth: Double { officialGrowth }
+    
+    enum CodingKeys: String, CodingKey {
+        case tradeDate = "trade_date"
+        case frozenEstGrowth = "frozen_est_growth"
+        case officialGrowth = "official_growth"
+        case deviation
+        case trackingStatus = "tracking_status"
+    }
 }

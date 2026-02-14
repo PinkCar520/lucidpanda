@@ -6,6 +6,7 @@ import akshare as ak
 import pandas as pd
 from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
+from src.alphasignal.utils import format_iso8601
 
 try:
     import psycopg2
@@ -1104,7 +1105,7 @@ class IntelligenceDB:
                 return {
                     "daily": daily_stats,
                     "anomalies": anomalies,
-                    "updated_at": datetime.now().isoformat()
+                    "updated_at": format_iso8601(datetime.now())
                 }
         except Exception as e:
             logger.error(f"Failed to fetch reconciliation stats: {e}")

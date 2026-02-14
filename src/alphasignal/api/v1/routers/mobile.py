@@ -6,6 +6,7 @@ from src.alphasignal.models.fund import FundMetadata, FundMobileSummary
 from src.alphasignal.models.intelligence import Intelligence, IntelligenceMobileRead
 from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
+from src.alphasignal.utils import v1_prepare_json
 
 router = APIRouter()
 
@@ -18,18 +19,11 @@ async def get_mobile_dashboard_summary(
     Production-grade Aggregated Endpoint for Mobile.
     Reduces RTT by combining watchlist, market status, and top alerts.
     """
-    # 1. Fetch User Watchlist Funds
-    # (Simplified for now, assumes a join or subquery)
-    # query = select(FundMetadata).join(Watchlist)...
-    
-    # 2. Mocking the real-time part which would come from Redis/FundEngine
-    # In V1, this will fetch from a 'live_valuations' Redis hash
-    
-    return {
+    return v1_prepare_json({
         "market_status": "OPEN",
         "watchlist": [], # List[FundMobileSummary]
         "critical_alerts": [] # List[IntelligenceMobileRead]
-    }
+    })
 
 @router.get("/intelligence", response_model=List[IntelligenceMobileRead])
 async def get_mobile_intelligence(
@@ -58,4 +52,4 @@ async def get_mobile_intelligence(
                 sentiment_label="Bearish" # Example logic
             )
         )
-    return mobile_items
+    return v1_prepare_json(mobile_items)

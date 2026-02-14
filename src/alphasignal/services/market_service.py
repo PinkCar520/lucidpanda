@@ -4,6 +4,7 @@ import pandas as pd
 import akshare as ak
 from datetime import datetime
 from src.alphasignal.core.logger import logger
+from src.alphasignal.utils import format_iso8601
 
 class MarketService:
     """
@@ -52,7 +53,7 @@ class MarketService:
                 "spread": round(spread, 2),
                 "spread_pct": round(spread_pct, 2),
                 "fx_rate": round(fx_rate, 4),
-                "last_updated": datetime.now().isoformat() + "Z"
+                "last_updated": format_iso8601(datetime.now())
             }
             
             self._cache["gold_indicators"] = {"data": data, "timestamp": now}

@@ -19,6 +19,10 @@ class FundDetailViewModel {
     // 关联情报列表
     var linkedIntelligence: [IntelligenceItem] = []
     
+    // 历史对账记录
+    var history: [ValuationHistory] = []
+    var isHistoryLoading: Bool = false
+    
     private let actor: ValuationActor
     private var subscriptionTask: Task<Void, Never>?
     
@@ -62,15 +66,18 @@ class FundDetailViewModel {
     
     @MainActor
     private func calculateDynamicThreshold() async {
+        isHistoryLoading = true
         do {
             let response: FundHistoryResponse = try await APIClient.shared.fetch(
-                path: "/api/v1/web/funds/\(valuation.fundCode)/history?limit=30"
+                path: "/api/v1/web/funds/\(valuation.fundCode)/history?limit=20"
             )
+            self.history = response.data
             let calculated = await actor.calculateThreshold2Sigma(history: response.data)
             self.threshold2Sigma = calculated
         } catch {
             self.threshold2Sigma = 1.5
         }
+        isHistoryLoading = false
     }
     
     @MainActor

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from src.alphasignal.core.database import IntelligenceDB
 from src.alphasignal.core.logger import logger
 from src.alphasignal.utils.market_calendar import is_market_open, was_market_open_last_night
+from src.alphasignal.utils import format_iso8601
 
 class FundEngine:
     def __init__(self, db: IntelligenceDB = None):
@@ -360,7 +361,7 @@ class FundEngine:
                                 "weight": ratio * 100
                             }],
                             "sector_attribution": {},
-                            "timestamp": datetime.now().isoformat(),
+                            "timestamp": format_iso8601(datetime.now()),
                             "source": f"{rel_type} ({parent_code}){calibration_note}{fx_note}"
                         }
                         if self.redis:
@@ -555,7 +556,7 @@ class FundEngine:
                                 "weight": 95.0
                             }],
                             "sector_attribution": {}, # ETF treated as single unit for now
-                            "timestamp": datetime.now().isoformat(),
+                            "timestamp": format_iso8601(datetime.now()),
                             "source": "ETF Feeder Penetration"
                         }
                          # Save and return immediately
@@ -1056,7 +1057,7 @@ class FundEngine:
                             "change_pct": q['change_pct'], "impact": est_growth, "weight": ratio * 100
                         }],
                         "sector_attribution": {},
-                        "timestamp": datetime.now().isoformat(),
+                        "timestamp": format_iso8601(datetime.now()),
                         "source": f"{'Shadow' if rel_type == 'ETF_FEEDER' else 'Proxy'} Batch ({p_code}){calibration_note}{fx_note}"
                     }
                     if self.redis:
@@ -1183,7 +1184,7 @@ class FundEngine:
                 "risk_level": risk_level,
                 "components": components,
                 "sector_attribution": sector_stats,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": format_iso8601(datetime.now()),
                 "source": "System Batch" + calibration_note + fx_note
             }
             

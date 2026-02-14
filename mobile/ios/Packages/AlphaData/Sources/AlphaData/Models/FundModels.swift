@@ -81,6 +81,28 @@ public struct FundConfidence: Codable {
     }
 }
 
+public struct SubSectorStat: Codable {
+    public let impact: Double
+    public let weight: Double
+    
+    public init(impact: Double, weight: Double) {
+        self.impact = impact
+        self.weight = weight
+    }
+}
+
+public struct SectorStat: Codable {
+    public let impact: Double
+    public let weight: Double
+    public let sub: [String: SubSectorStat]?
+    
+    public init(impact: Double, weight: Double, sub: [String: SubSectorStat]?) {
+        self.impact = impact
+        self.weight = weight
+        self.sub = sub
+    }
+}
+
 public struct FundValuation: Codable, Identifiable {
     public var id: String { fundCode }
     public let fundCode: String
@@ -93,8 +115,9 @@ public struct FundValuation: Codable, Identifiable {
     public let confidence: FundConfidence?
     public let riskLevel: String?
     public let stats: FundStats?
+    public let sectorAttribution: [String: SectorStat]?
     
-    public init(fundCode: String, fundName: String, estimatedGrowth: Double, totalWeight: Double, components: [FundComponent], timestamp: Date, isQdii: Bool? = nil, confidence: FundConfidence? = nil, riskLevel: String? = nil, stats: FundStats? = nil) {
+    public init(fundCode: String, fundName: String, estimatedGrowth: Double, totalWeight: Double, components: [FundComponent], timestamp: Date, isQdii: Bool? = nil, confidence: FundConfidence? = nil, riskLevel: String? = nil, stats: FundStats? = nil, sectorAttribution: [String: SectorStat]? = nil) {
         self.fundCode = fundCode
         self.fundName = fundName
         self.estimatedGrowth = estimatedGrowth
@@ -105,6 +128,7 @@ public struct FundValuation: Codable, Identifiable {
         self.confidence = confidence
         self.riskLevel = riskLevel
         self.stats = stats
+        self.sectorAttribution = sectorAttribution
     }
     
     enum CodingKeys: String, CodingKey {
@@ -114,6 +138,7 @@ public struct FundValuation: Codable, Identifiable {
         case totalWeight = "total_weight"
         case isQdii = "is_qdii"
         case riskLevel = "risk_level"
+        case sectorAttribution = "sector_attribution"
         case components, timestamp, confidence, stats
     }
 }
