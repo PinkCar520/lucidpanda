@@ -227,7 +227,7 @@ struct FundDetailView: View {
             if let attribution = viewModel.valuation.sectorAttribution, !attribution.isEmpty {
                 let sortedSectors = attribution.sorted { $0.value.weight > $1.value.weight }
                 
-                // Visual Overview (Interactive - CONTROLS INLINE FILTER)
+                // Visual Overview (Interactive - Precise Radial Trigger)
                 LiquidGlassCard {
                     Chart(sortedSectors, id: \.key) { name, stat in
                         SectorMark(
@@ -259,8 +259,6 @@ struct FundDetailView: View {
                                         guard distance >= innerR && distance <= outerR else { return }
                                         
                                         if let angleValue: Double = proxy.value(atAngle: .radians(atan2(dy, dx) + Double.pi / 2)) {
-                                            // Ensure the angle is normalized to 0-360 if necessary
-                                            // The proxy value is returned in the data domain (cumulative weights)
                                             let total = sortedSectors.reduce(0) { $0 + $1.value.weight }
                                             var current: Double = 0
                                             for (name, stat) in sortedSectors {

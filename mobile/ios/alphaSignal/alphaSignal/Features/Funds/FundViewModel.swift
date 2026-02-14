@@ -4,16 +4,51 @@ import AlphaCore
 import AlphaData
 import SwiftUI
 
+enum FundSortOrder {
+    case none
+    case highGrowthFirst  // 涨幅榜 (原本的 descending)
+    case highDropFirst    // 跌幅榜 (原本的 ascending)
+}
+
 @Observable
 class FundViewModel {
     var watchlist: [FundValuation] = []
+    var sortOrder: FundSortOrder = .none
+    var searchQuery: String = ""
     var isLoading = false
+    
+    var sortedWatchlist: [FundValuation] {
+        let base = watchlist.filter { fund in
+            searchQuery.isEmpty || 
+            fund.fundName.localizedCaseInsensitiveContains(searchQuery) ||
+            fund.fundCode.contains(searchQuery)
+        }
+        
+        switch sortOrder {
+        case .none:
+            return base
+        case .highGrowthFirst:
+            // 涨幅榜：大数在前 (+5%, +2%, -1%)
+            return base.sorted { $0.estimatedGrowth > $1.estimatedGrowth }
+        case .highDropFirst:
+            // 跌幅榜：小数（负数）在前 (-5%, -2%, +1%)
+            return base.sorted { $0.estimatedGrowth < $1.estimatedGrowth }
+        }
+    }
+    
+    @MainActor
+    func toggleSortOrder() {
+        switch sortOrder {
+        case .none: sortOrder = .highGrowthFirst
+        case .highGrowthFirst: sortOrder = .highDropFirst
+        case .highDropFirst: sortOrder = .none
+        }
+    }
     
     @MainActor
     func fetchWatchlist() async {
         isLoading = true
         do {
-            // 1. 获取用户的自选基金代码列表 (V1 BFF)
             let watchlistResponse: WatchlistDataResponse = try await APIClient.shared.fetch(path: "/api/v1/web/watchlist")
             let codes = watchlistResponse.data.map { $0.code }
             
@@ -23,7 +58,6 @@ class FundViewModel {
                 return
             }
             
-            // 2. 批量获取实时估值 (V1 BFF)
             let codesParam = codes.joined(separator: ",")
             let valuationResponse: BatchValuationResponse = try await APIClient.shared.fetch(
                 path: "/api/v1/web/funds/batch-valuation?codes=\(codesParam)"
@@ -41,7 +75,6 @@ class FundViewModel {
     @MainActor
     func addFund(code: String, name: String) async {
         do {
-            // 使用 V1 BFF 进行添加操作
             let item = WatchlistItemDTO(code: code, name: name)
             let _: SuccessResponse = try await APIClient.shared.send(
                 path: "/api/v1/web/watchlist",
@@ -56,7 +89,6 @@ class FundViewModel {
     @MainActor
     func deleteFund(code: String) async {
         do {
-            // 使用 V1 BFF 进行删除操作
             let _: SuccessResponse = try await APIClient.shared.fetch(
                 path: "/api/v1/web/watchlist/\(code)",
                 method: "DELETE"
@@ -68,7 +100,7 @@ class FundViewModel {
     }
 }
 
-// 补充 DTO 定义以匹配 V1 BFF
+// DTOs
 struct WatchlistDataResponse: Codable {
     let data: [WatchlistItemDTO]
 }

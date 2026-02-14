@@ -2,45 +2,36 @@ import SwiftUI
 import AlphaDesign
 
 struct MainTabView: View {
-    @State private var selectedTab: Tab = .intelligence
+    @State private var selectedTab: TabValue = .intelligence
+    @State private var searchText = "" // 提升搜索状态至根视图以支持 Tab 角色联动
     
-    enum Tab: Int {
-        case intelligence, funds, backtest, settings
+    enum TabValue: Hashable {
+        case intelligence, funds, backtest, search
     }
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Tab 1: Gold Tracking
-            MainDashboardView()
-                .tabItem {
-                    Label("黄金跟踪", systemImage: "antenna.radiowaves.left.and.right")
-                }
-                .tag(Tab.intelligence)
+            // Tab 1: 信号 (Dashboard)
+            Tab("信号", systemImage: "antenna.radiowaves.left.and.right", value: .intelligence) {
+                MainDashboardView()
+            }
             
-            // Tab 2: ALPHA Funds
-            FundDashboardView()
-                .tabItem {
-                    Label("ALPHA基金", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                .tag(Tab.funds)
+            // Tab 2: 基金 (Watchlist)
+            Tab("基金", systemImage: "chart.line.uptrend.xyaxis", value: .funds) {
+                FundDashboardView()
+            }
             
-            // Tab 3: Strategy Backtest
-            BacktestView()
-                .tabItem {
-                    Label("策略回测", systemImage: "chart.bar.doc.horizontal.fill")
-                }
-                .tag(Tab.backtest)
+            // Tab 3: 回测 (Strategy)
+            Tab("回测", systemImage: "chart.bar.doc.horizontal.fill", value: .backtest) {
+                BacktestView()
+            }
             
-            // Tab 4: Recon Monitoring
-            ReconciliationView()
-                .tabItem {
-                    Label("对账监控", systemImage: "checkmark.shield.fill")
-                }
-                .tag(Tab.settings)
+            // Tab 4: 搜索 (独立的搜索角色 Tab)
+            Tab("搜索", systemImage: "magnifyingglass", value: .search, role: .search) {
+                FundDiscoverView(searchText: $searchText)
+                    .searchable(text: $searchText, prompt: "搜索基金代码或名称")
+            }
         }
-        // Note: In Xcode 26 / iOS 19+, the .tabViewStyle(.sidebarAdaptable) or 
-        // default styles automatically render with the 'Liquid Glass' material
-        // when placed over a rich background like our LiquidBackground().
     }
 }
 

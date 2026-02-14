@@ -5,19 +5,20 @@ import AlphaCore
 
 struct FundDashboardView: View {
     @State private var viewModel = FundViewModel()
-    @State private var showSearch = false
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        NavigationStack {
+        @Bindable var viewModel = viewModel
+        return NavigationStack {
             ZStack {
                 LiquidBackground()
                 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
+                VStack(spacing: 0) {
+                    // 1. 顶部状态与操作
+                    VStack(alignment: .leading, spacing: 16) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("AlphaFunds 估值")
+                                Text("我的 ALPHA 基金")
                                     .font(.system(size: 24, weight: .black, design: .rounded))
                                     .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
                                 Text("实时持仓穿透与净值精算")
@@ -26,18 +27,19 @@ struct FundDashboardView: View {
                             }
                             Spacer()
                             
-                            HStack(spacing: 12) {
+                            HStack(spacing: 16) {
+                                // 排序切换按钮 (对齐视觉语义)
                                 Button {
-                                    showSearch.toggle()
+                                    withAnimation(.spring()) {
+                                        viewModel.toggleSortOrder()
+                                    }
                                 } label: {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 16, weight: .bold))
-                                        .foregroundStyle(.blue)
-                                        .padding(10)
-                                        .background(.blue.opacity(0.1))
-                                        .clipShape(Circle())
+                                    Image(systemName: sortIcon)
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(viewModel.sortOrder == .none ? .gray : .blue)
                                 }
                                 
+                                // 刷新按钮
                                 Button {
                                     Task { await viewModel.fetchWatchlist() }
                                 } label: {
@@ -47,35 +49,62 @@ struct FundDashboardView: View {
                                 }
                             }
                         }
-                        .padding(.horizontal)
-                        .padding(.top, 24)
                         
-                        if viewModel.watchlist.isEmpty {
-                            emptyStateView
-                        } else {
-                            VStack(spacing: 16) {
-                                ForEach(viewModel.watchlist) { valuation in
-                                    NavigationLink(destination: FundDetailView(valuation: valuation)) {
-                                        FundCompactCard(valuation: valuation)
-                                    }
-                                    .buttonStyle(.plain)
+                        // 2. 本地搜索框
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.gray)
+                            TextField("搜索我的自选...", text: $viewModel.searchQuery)
+                                .font(.subheadline)
+                                .submitLabel(.done)
+                            if !viewModel.searchQuery.isEmpty {
+                                Button { viewModel.searchQuery = "" } label: {
+                                    Image(systemName: "xmark.circle.fill").foregroundStyle(.gray)
                                 }
                             }
-                            .padding(.horizontal)
                         }
-                        
-                        Spacer(minLength: 100)
+                        .padding(10)
+                        .background(Color.black.opacity(0.03))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                }
-            }
-            .sheet(isPresented: $showSearch) {
-                FundSearchView { selectedFund in
-                    Task { await viewModel.addFund(code: selectedFund.code, name: selectedFund.name) }
+                    .padding(.horizontal)
+                    .padding(.top, 24)
+                    .padding(.bottom, 12)
+                    
+                    ScrollView(showsIndicators: false) {
+                        VStack(spacing: 16) {
+                            if viewModel.watchlist.isEmpty && !viewModel.isLoading {
+                                emptyStateView
+                            } else {
+                                VStack(spacing: 16) {
+                                    ForEach(viewModel.sortedWatchlist) { valuation in
+                                        NavigationLink(destination: FundDetailView(valuation: valuation)) {
+                                            FundCompactCard(valuation: valuation)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal)
+                            }
+                            
+                            Spacer(minLength: 100)
+                        }
+                        .padding(.top, 12)
+                    }
                 }
             }
         }
         .task {
             await viewModel.fetchWatchlist()
+        }
+    }
+    
+    private var sortIcon: String {
+        switch viewModel.sortOrder {
+        case .none: return "arrow.up.arrow.down"
+        case .highGrowthFirst: return "arrow.up.circle.fill"
+        case .highDropFirst: return "arrow.down.circle.fill"
         }
     }
     
@@ -88,8 +117,8 @@ struct FundDashboardView: View {
             Text("您的自选库为空")
                 .font(.headline)
                 .foregroundStyle(.gray)
-            Button("添加第一只基金") { showSearch = true }
-                .font(.subheadline.bold())
+            Text("前往底栏“搜索”发现资产")
+                .font(.subheadline)
                 .foregroundStyle(.blue)
         }
     }
