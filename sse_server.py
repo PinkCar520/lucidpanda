@@ -47,6 +47,12 @@ manager = ConnectionManager()
 # Global tracker for the broadcasting thread
 global_last_id = 0
 
+def sse_json_serializer(obj):
+    from datetime import datetime, date
+    if isinstance(obj, (datetime, date)):
+        return format_iso8601(obj)
+    return str(obj)
+
 async def database_poller():
     """
     Background task:
@@ -108,7 +114,7 @@ async def database_poller():
                     'count': len(items_data),
                     'latest_id': global_last_id
                 }
-                msg = f"data: {json.dumps(event_data, default=str)}\n\n"
+                msg = f"data: {json.dumps(event_data, default=sse_json_serializer)}\n\n"
                 
                 await manager.broadcast(msg)
                 print(f"[Broadcaster] Broadcasted {len(items_data)} new items")
@@ -130,6 +136,12 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 app = FastAPI(lifespan=lifespan)
+
+# Helper for iOS compatible ISO8601 strings
+def format_iso8601(dt):
+    if not dt: return None
+    # Ensure it's UTC and formatted as YYYY-MM-DDTHH:mm:ss.sssZ
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:23] + 'Z'
 
 # Add CORS middleware
 app.add_middleware(
@@ -172,6 +184,16 @@ async def get_fund_valuation(code: str):
             stats_map = db.get_fund_stats([code])
             if code in stats_map:
                 results[0]['stats'] = stats_map[code]
+            
+            # Format timestamp for iOS
+            if 'timestamp' in results[0] and results[0]['timestamp']:
+                from datetime import datetime
+                try:
+                    if isinstance(results[0]['timestamp'], str):
+                        dt = datetime.fromisoformat(results[0]['timestamp'].replace('Z', '+00:00'))
+                        results[0]['timestamp'] = format_iso8601(dt)
+                except: pass
+                
             return results[0]
         return {"error": "Valuation failed"}
     except AttributeError:
@@ -217,6 +239,16 @@ async def get_batch_valuations(codes: str, mode: str = "full"):
             f_code = res.get('fund_code')
             if f_code in stats_map:
                 res['stats'] = stats_map[f_code]
+            
+            # Format timestamp for iOS
+            if 'timestamp' in res and res['timestamp']:
+                from datetime import datetime
+                try:
+                    # If it's already a string, parse it first
+                    if isinstance(res['timestamp'], str):
+                        dt = datetime.fromisoformat(res['timestamp'].replace('Z', '+00:00'))
+                        res['timestamp'] = format_iso8601(dt)
+                except: pass
                 
         return {"data": results}
     except AttributeError:
@@ -238,12 +270,21 @@ async def get_fund_history(code: str, limit: int = 30):
     from src.alphasignal.core.database import IntelligenceDB
     db = IntelligenceDB()
     history = db.get_valuation_history(code, limit)
-    # Ensure date objects are serializable
+    # Ensure date objects are serializable and match iOS model
     formatted_history = []
     for h in history:
-        item = dict(h)
-        if 'trade_date' in item and hasattr(item['trade_date'], 'isoformat'):
-            item['trade_date'] = item['trade_date'].isoformat()
+        item = {}
+        # Map official_growth to growth for iOS model compatibility
+        item['growth'] = float(h.get('official_growth') or h.get('est_growth') or 0)
+        
+        # Format trade_date as full ISO8601 for Swift .iso8601 strategy
+        if 'trade_date' in h:
+            from datetime import datetime, time
+            td = h['trade_date']
+            # If it's a date object, combine with zero time
+            dt = datetime.combine(td, time.min)
+            item['date'] = format_iso8601(dt)
+            
         formatted_history.append(item)
     return {"data": formatted_history}
 
@@ -815,7 +856,7 @@ async def intelligence_stream(request: Request):
                         'count': len(items_data),
                         'latest_id': last_id
                     }
-                    yield f"data: {json.dumps(event_payload, default=str)}\n\n"
+                    yield f"data: {json.dumps(event_payload, default=sse_json_serializer)}\n\n"
         except Exception as e:
             print(f"[SSE] Initial fetch error: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': 'Initial fetch failed'})}\n\n"
@@ -841,6 +882,81 @@ async def intelligence_stream(request: Request):
             "X-Accel-Buffering": "no",
         }
     )
+
+@app.get("/api/intelligence")
+async def get_intelligence_history(limit: int = 50, since_id: int = None):
+    """Fetch intelligence history."""
+    try:
+        conn = psycopg2.connect(
+            host=settings.POSTGRES_HOST,
+            port=settings.POSTGRES_PORT,
+            user=settings.POSTGRES_USER,
+            password=settings.POSTGRES_PASSWORD,
+            dbname=settings.POSTGRES_DB
+        )
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        if since_id:
+            cursor.execute(
+                "SELECT * FROM intelligence WHERE id > %s ORDER BY id DESC LIMIT %s",
+                (since_id, limit)
+            )
+        else:
+            cursor.execute(
+                "SELECT * FROM intelligence ORDER BY id DESC LIMIT %s",
+                (limit,)
+            )
+            
+        items = cursor.fetchall()
+        conn.close()
+        
+        # Format dates for iOS
+        for item in items:
+            if 'timestamp' in item and item['timestamp']:
+                item['timestamp'] = format_iso8601(item['timestamp'])
+        
+        return {"data": items, "count": len(items)}
+    except Exception as e:
+        print(f"[API] Intelligence history error: {e}")
+        return {"error": str(e)}, 500
+
+@app.get("/api/market")
+async def get_market_data(symbol: str = "GC=F", range: str = "1d", interval: str = "5m"):
+    """Fetch market data for charts."""
+    import akshare as ak
+    import pandas as pd
+    import time
+    from datetime import datetime
+    
+    try:
+        if symbol == "GC=F":
+            df = ak.futures_foreign_hist_em(symbol="GC")
+        else:
+            df = ak.stock_zh_a_hist(symbol=symbol.replace("sh", "").replace("sz", ""), period="daily", adjust="qfq")
+            
+        if df.empty:
+            return {"symbol": symbol, "data": []}
+            
+        results = []
+        for _, row in df.tail(100).iterrows():
+            date_str = str(row.get('日期') or row.get('date'))
+            price_val = float(row.get('收盘') or row.get('close'))
+            
+            # Convert date_str to timestamp
+            try:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+                ts = dt.timestamp()
+                results.append({
+                    "timestamp": ts,
+                    "price": price_val
+                })
+            except:
+                continue
+        
+        return {"symbol": symbol, "data": results}
+    except Exception as e:
+        print(f"[API] Market data error: {e}")
+        return {"error": str(e)}, 500
 
 @app.get("/api/intelligence/{item_id}")
 async def get_intelligence_item(item_id: int):

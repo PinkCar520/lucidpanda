@@ -20,13 +20,18 @@ class FundSearchViewModel {
         isLoading = true
         do {
             let path = "/api/funds/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&limit=15"
-            let response: [String: [FundSearchResult]] = try await APIClient.shared.fetch(path: path)
-            if let searchResults = response["results"] {
-                self.results = searchResults
-            }
+            let response: FundSearchResponse = try await APIClient.shared.fetch(path: path)
+            self.results = response.results
         } catch {
-            print("Search failed: \(error)")
+            print("❌ Search failed: \(error)")
         }
         isLoading = false
     }
+}
+
+// 匹配 sse_server.py 的返回结构
+struct FundSearchResponse: Codable {
+    let results: [FundSearchResult]
+    let total: Int
+    let query: String
 }

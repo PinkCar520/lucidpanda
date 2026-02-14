@@ -25,6 +25,7 @@ struct alphaSignalApp: App {
     
     init() {
         setupAPIClient()
+        AlarmNotificationManager.shared.requestPermissions()
     }
     
     var body: some Scene {

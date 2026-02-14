@@ -34,6 +34,10 @@ public class AppRootViewModel {
     
     @MainActor
     public func updateState(to newState: AppState) {
+        if newState == .unauthenticated {
+            try? KeychainManager.shared.delete(key: "access_token")
+        }
+        
         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
             self.currentState = newState
         }

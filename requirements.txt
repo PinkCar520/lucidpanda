@@ -21,7 +21,7 @@ pandas
 GoogleNews
 sentence-transformers
 scikit-learn
-torch
+# torch
 socksio
 akshare
 pypinyin

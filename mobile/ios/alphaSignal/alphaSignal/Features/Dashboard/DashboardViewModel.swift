@@ -25,10 +25,10 @@ class DashboardViewModel {
         items.filter { item in
             // 1. 文本搜索
             if !searchQuery.isEmpty {
-                let q = searchQuery.toLowerCase()
-                let match = item.summary.toLowerCase().contains(q) || 
-                            item.content.toLowerCase().contains(q) || 
-                            item.author.toLowerCase().contains(q)
+                let q = searchQuery.lowercased()
+                let match = item.summary.lowercased().contains(q) || 
+                            item.content.lowercased().contains(q) || 
+                            item.author.lowercased().contains(q)
                 if !match { return false }
             }
             
@@ -38,13 +38,18 @@ class DashboardViewModel {
             case .essential: return item.urgencyScore >= 8
             case .bearish: 
                 let keywords = ["鹰", "利空", "下跌", "Bearish", "Hawkish", "Pressure"]
-                return keywords.some { item.sentiment.contains($0) }
+                return keywords.contains { item.sentiment.contains($0) }
             }
         }
     }
     
     // SwiftData 上下文
-    private var modelContext: ModelContext?
+    @ObservationIgnored
+    private var persistenceContext: ModelContext?
+    
+    public func setModelContext(_ context: ModelContext) {
+        self.persistenceContext = context
+    }
     
     private let jsonDecoder: JSONDecoder = {
         let decoder = JSONDecoder()
@@ -53,7 +58,7 @@ class DashboardViewModel {
     }()
     
     public init(modelContext: ModelContext? = nil) {
-        self.modelContext = modelContext
+        self.persistenceContext = modelContext
     }
     
     @MainActor
@@ -98,8 +103,8 @@ class DashboardViewModel {
     @MainActor
     private func fetchInitialHistory() async {
         do {
-            // 对齐 web 端，请求最近 50 条
-            let response: IntelligenceEvent = try await APIClient.shared.fetch(path: "/api/intelligence?limit=50")
+            // 对齐 sse_server.py: @app.get("/api/intelligence")
+            let response: IntelligenceHistoryResponse = try await APIClient.shared.fetch(path: "/api/intelligence?limit=50")
             if let data = response.data {
                 processNewItems(data)
             }
@@ -117,12 +122,12 @@ class DashboardViewModel {
                     
                     // 同步到数据库
                     let model = IntelligenceModel(from: item)
-                    modelContext?.insert(model)
+                    persistenceContext?.insert(model)
                 }
             }
             
             // 提交数据库更改
-            try? modelContext?.save()
+            try? persistenceContext?.save()
             
             self.items.sort { $0.timestamp > $1.timestamp }
             
@@ -131,4 +136,9 @@ class DashboardViewModel {
             }
         }
     }
+}
+
+struct IntelligenceHistoryResponse: Codable {
+    let data: [IntelligenceItem]?
+    let count: Int?
 }

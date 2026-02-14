@@ -13,13 +13,29 @@ class FundViewModel {
     func fetchWatchlist() async {
         isLoading = true
         do {
-            // 获取自选列表并批量估值
-            let response: [FundValuation] = try await APIClient.shared.fetch(path: "/api/funds/batch-valuation")
-            withAnimation {
-                self.watchlist = response
+            // 1. 获取用户的自选基金代码列表
+            // 对齐 sse_server.py: @app.get("/api/watchlist")
+            let watchlistResponse: WatchlistDataResponse = try await APIClient.shared.fetch(path: "/api/watchlist")
+            let codes = watchlistResponse.data.map { $0.code }
+            
+            guard !codes.isEmpty else {
+                self.watchlist = []
+                isLoading = false
+                return
+            }
+            
+            // 2. 批量获取实时估值
+            // 对齐 sse_server.py: @app.get("/api/funds/batch-valuation")
+            let codesParam = codes.joined(separator: ",")
+            let valuationResponse: BatchValuationResponse = try await APIClient.shared.fetch(
+                path: "/api/funds/batch-valuation?codes=\(codesParam)"
+            )
+            
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                self.watchlist = valuationResponse.data
             }
         } catch {
-            print("Failed to fetch valuations: \(error)")
+            print("❌ Failed to fetch watchlist or valuations: \(error)")
         }
         isLoading = false
     }
@@ -27,22 +43,49 @@ class FundViewModel {
     @MainActor
     func addFund(code: String, name: String) async {
         do {
-            let _: [String: Bool] = try await APIClient.shared.authRequest(
+            // 对齐 sse_server.py: @app.post("/api/watchlist")
+            // 使用新定义的 send 方法发送 JSON Body 并注入 Token
+            let item = WatchlistItemDTO(code: code, name: name)
+            let _: SuccessResponse = try await APIClient.shared.send(
                 path: "/api/watchlist",
-                formData: ["code": code, "name": name]
+                body: item
             )
             await fetchWatchlist()
         } catch {
-            print("Failed to add fund: \(error)")
+            print("❌ Failed to add fund: \(error)")
         }
     }
     
     @MainActor
     func deleteFund(code: String) async {
-        // 由于 APIClient 目前未显式支持 DELETE，我们临时补充
         do {
-            // 生产环境下应更新 APIClient 以支持更多动词
+            // 对齐 sse_server.py: @app.delete("/api/watchlist/{code}")
+            let _: SuccessResponse = try await APIClient.shared.fetch(
+                path: "/api/watchlist/\(code)",
+                method: "DELETE"
+            )
             await fetchWatchlist()
+        } catch {
+            print("❌ Failed to delete fund: \(error)")
         }
     }
 }
+
+// 补充 DTO 定义以匹配 sse_server.py
+struct WatchlistDataResponse: Codable {
+    let data: [WatchlistItemDTO]
+}
+
+struct WatchlistItemDTO: Codable {
+    let code: String
+    let name: String
+}
+
+struct BatchValuationResponse: Codable {
+    let data: [FundValuation]
+}
+
+struct SuccessResponse: Codable {
+    let success: Bool
+}
+

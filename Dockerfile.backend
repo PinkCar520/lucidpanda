@@ -1,32 +1,42 @@
-FROM python:3.11-slim
+# syntax=docker/dockerfile:1.7
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install system dependencies
-# gcc/python3-dev might be needed for some packages (like psutil or others if added)
-# libpq-dev is needed for psycopg2-binary if binary wheel fails or for psycopg2
 RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies (Force CPU version of Torch to save ~4-8GB)
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
-    pip install --no-cache-dir -r requirements.txt
+# pip cache mount，加速构建但不进镜像
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch \
+    --index-url https://download.pytorch.org/whl/cpu && \
+    pip install -r requirements.txt
 
-# Copy source code
+# --------------------
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 只装运行期需要的库（如果 psycopg2-binary 正常，这里甚至可以不要 libpq-dev）
+RUN apt-get update && apt-get install -y \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制 Python site-packages
+COPY --from=builder /usr/local/lib/python3.11 /usr/local/lib/python3.11
+COPY --from=builder /usr/local/bin /usr/local/bin
+
 COPY . .
 
-# Create logs directory
 RUN mkdir -p logs
 
-# Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-# Default command (overridden in docker-compose)
 CMD ["python", "run.py"]

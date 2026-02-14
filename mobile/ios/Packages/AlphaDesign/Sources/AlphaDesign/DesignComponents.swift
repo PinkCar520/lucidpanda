@@ -32,3 +32,14 @@ public struct LiquidGlassCard<Content: View>: View {
         }
     }
 }
+
+public struct GlassTextFieldStyle: TextFieldStyle {
+    public init() {}
+    public func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .padding()
+            .background(Color.black.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .font(.system(size: 14, weight: .medium, design: .monospaced))
+    }
+}

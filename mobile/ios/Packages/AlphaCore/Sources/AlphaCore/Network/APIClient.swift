@@ -52,10 +52,10 @@ public actor APIClient {
     }
     
     // 新增：支持直接传入路径的简易请求方法
-    public func fetch<T: Decodable>(path: String) async throws -> T {
+    public func fetch<T: Decodable>(path: String, method: String = "GET") async throws -> T {
         guard let url = URL(string: path, relativeTo: baseURL) else { throw APIError.invalidURL }
         var request = URLRequest(url: url)
-        request.httpMethod = "GET"
+        request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         if let token = await tokenProvider?() {
@@ -65,11 +65,36 @@ public actor APIClient {
         return try await perform(request)
     }
 
+    // 新增：支持 JSON Body 的泛型请求方法 (用于 POST/PUT/PATCH)
+    public func send<T: Encodable, U: Decodable>(path: String, method: String = "POST", body: T) async throws -> U {
+        guard let url = URL(string: path, relativeTo: baseURL) else { throw APIError.invalidURL }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        if let token = await tokenProvider?() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            request.httpBody = try encoder.encode(body)
+        } catch {
+            throw APIError.decodingError(error) // 借用 decodingError 表示序列化失败
+        }
+        
+        return try await perform(request)
+    }
+
     private func perform<T: Decodable>(_ request: URLRequest) async throws -> T {
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else { throw APIError.invalidResponse }
         
-        if httpResponse.statusCode == 401 { throw APIError.unauthorized }
+        if httpResponse.statusCode == 401 { 
+            await onUnauthorized?()
+            throw APIError.unauthorized 
+        }
         if httpResponse.statusCode != 200 { 
             let errorMsg = String(data: data, encoding: .utf8)
             throw APIError.serverError(httpResponse.statusCode, errorMsg) 

@@ -40,6 +40,11 @@ struct FundSearchView: View {
                                 Spacer()
                             }
                             .listRowBackground(Color.clear)
+                        } else if viewModel.results.isEmpty && viewModel.query.count >= 2 {
+                            Text("未找到相关基金")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .listRowBackground(Color.clear)
                         } else {
                             ForEach(viewModel.results) { fund in
                                 Button {

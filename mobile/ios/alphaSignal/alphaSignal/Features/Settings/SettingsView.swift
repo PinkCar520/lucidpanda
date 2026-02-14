@@ -151,7 +151,7 @@ struct Dialog<Content: View>: View {
     @Binding var isOpen: Bool
     let content: Content
     
-    init(isOpen: @Binding var Bool, @ViewBuilder content: () -> Content) {
+    init(isOpen: Binding<Bool>, @ViewBuilder content: () -> Content) {
         self._isOpen = isOpen
         self.content = content()
     }

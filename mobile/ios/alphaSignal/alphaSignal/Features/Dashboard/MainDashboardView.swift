@@ -5,18 +5,15 @@ import SwiftData
 
 struct MainDashboardView: View {
     @Environment(\.modelContext) private var modelContext
-    @Bindable private var viewModel: DashboardViewModel
+    @State private var viewModel = DashboardViewModel()
     @Environment(AppRootViewModel.self) private var rootViewModel
     
     @Query(sort: \IntelligenceModel.timestamp, order: .reverse) 
     private var cachedItems: [IntelligenceModel]
     
-    public init() {
-        _viewModel = Bindable(DashboardViewModel())
-    }
-    
     var body: some View {
-        NavigationStack {
+        @Bindable var viewModel = viewModel
+        return NavigationStack {
             ZStack {
                 LiquidBackground()
                 
@@ -53,7 +50,7 @@ struct MainDashboardView: View {
             }
         }
         .onAppear {
-            viewModel = DashboardViewModel(modelContext: modelContext)
+            viewModel.setModelContext(modelContext)
         }
         .task {
             await viewModel.startIntelligenceStream()
