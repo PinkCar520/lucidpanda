@@ -23,461 +23,27 @@ struct FundDetailView: View {
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 24) {
-                    // 1. 实时估值核心显示 (Intraday Estimation)
-                    VStack(spacing: 8) {
-                        HStack(alignment: .firstTextBaseline) {
-                            LiquidTicker(value: viewModel.liveGrowth, precision: 2, prefix: viewModel.liveGrowth >= 0 ? "+" : "")
-                                .foregroundStyle(viewModel.liveGrowth >= 0 ? .red : .green)
-                            
-                            Text("%")
-                                .font(.system(size: 16, weight: .black, design: .monospaced))
-                                .foregroundStyle(viewModel.liveGrowth >= 0 ? .red : .green)
-                        }
-                        
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(.green)
-                                .frame(width: 6, height: 6)
-                                .opacity(viewModel.isLive ? 1 : 0.3)
-                            
-                            Text(viewModel.isLive ? "LIVE 推算中 (Est.)" : "同步中...")
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 32)
+                    headerSection
                     
-                    // 2. 精算指标矩阵 (Actuarial Matrix)
                     if let stats = viewModel.valuation.stats {
-                        LiquidGlassCard {
-                            VStack(spacing: 16) {
-                                HStack {
-                                    actuarialStat(label: "夏普比率", value: String(format: "%.2f", stats.sharpeRatio ?? 0), grade: stats.sharpeGrade ?? "-", color: .orange)
-                                    Spacer()
-                                    Divider().frame(height: 30)
-                                    Spacer()
-                                    actuarialStat(label: "最大回撤", value: String(format: "%.2f", stats.maxDrawdown ?? 0) + "%", grade: stats.drawdownGrade ?? "-", color: .teal)
-                                }
-                                
-                                Divider()
-                                
-                                HStack(spacing: 0) {
-                                    periodReturn(label: "1周", value: stats.return1w)
-                                    Spacer()
-                                    periodReturn(label: "1月", value: stats.return1m)
-                                    Spacer()
-                                    periodReturn(label: "3月", value: stats.return3m)
-                                    Spacer()
-                                    periodReturn(label: "1年", value: stats.return1y)
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
+                        actuarialMatrixSection(stats: stats)
                     }
                     
-                    // 3. 智能波动报警 (Smart Alarm)
-                    LiquidGlassCard {
-                        VStack(alignment: .leading, spacing: 16) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("智能 2σ 波动报警")
-                                        .font(.system(size: 14, weight: .bold))
-                                    Text("基于过去 30 日波动率建议")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Toggle(
-                                    "",
-                                    isOn: Binding(
-                                        get: { viewModel.isAlarmEnabled },
-                                        set: { viewModel.isAlarmEnabled = $0 }
-                                    )
-                                )
-                                    .labelsHidden()
-                                    .tint(.orange)
-                            }
-                            
-                            HStack(spacing: 12) {
-                                Image(systemName: "bell.badge.fill")
-                                    .foregroundStyle(.orange)
-                                
-                                VStack(alignment: .leading) {
-                                    Text("报警阈值: ±\(String(format: "%.2f", viewModel.threshold2Sigma))%")
-                                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                    Text("当前属于 95% 置信区间外的异常波动")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .background(.orange.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        }
-                    }
-                    .padding(.horizontal)
+                    smartAlarmSection
                     
-                    // 4. 估值置信度说明 (Confidence Insights)
                     if let confidence = viewModel.valuation.confidence {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("估值分析报告")
-                                .font(.system(size: 14, weight: .bold))
-                                .padding(.horizontal)
-                            
-                            LiquidGlassCard {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    HStack {
-                                        Text("置信得分: \(confidence.score)")
-                                            .font(.system(size: 12, weight: .black, design: .monospaced))
-                                        Spacer()
-                                        Text(confidence.level.uppercased())
-                                            .font(.system(size: 10, weight: .bold))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(confidenceColor(confidence.level).opacity(0.1))
-                                            .foregroundStyle(confidenceColor(confidence.level))
-                                            .clipShape(Capsule())
-                                    }
-                                    
-                                    if let reasons = confidence.reasons, !reasons.isEmpty {
-                                        VStack(alignment: .leading, spacing: 6) {
-                                            ForEach(reasons, id: \.self) { reason in
-                                                HStack(spacing: 6) {
-                                                    Circle().fill(.gray.opacity(0.3)).frame(width: 4, height: 4)
-                                                    Text(reason)
-                                                        .font(.system(size: 11))
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    
-                                    if confidence.isSuspectedRebalance == true {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "exclamationmark.triangle.fill")
-                                            Text("检测到疑似重大调仓，当前持仓数据可能过时")
-                                        }
-                                        .font(.system(size: 10, weight: .bold))
-                                        .padding(10)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(Color.purple.opacity(0.1))
-                                        .foregroundStyle(.purple)
-                                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                                    }
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
+                        confidenceReportSection(confidence: confidence)
                     }
                     
-                    // 5. 行业分布 (Pie Chart + Inline Linked List)
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("行业权重分配")
-                            .font(.system(size: 14, weight: .bold))
-                            .padding(.horizontal)
-                        
-                        if let attribution = viewModel.valuation.sectorAttribution, !attribution.isEmpty {
-                            let sortedSectors = attribution.sorted { $0.value.weight > $1.value.weight }
-                            
-                            // Visual Overview (Interactive - CONTROLS INLINE FILTER)
-                            LiquidGlassCard {
-                                Chart(sortedSectors, id: \.key) { name, stat in
-                                    SectorMark(
-                                        angle: .value("Weight", stat.weight),
-                                        innerRadius: .ratio(0.6),
-                                        angularInset: filteredSector?.name == name ? 4 : 2
-                                    )
-                                    .foregroundStyle(by: .value("Name", name))
-                                    .opacity(filteredSector == nil || filteredSector?.name == name ? 1.0 : 0.3)
-                                    .cornerRadius(4)
-                                }
-                                .frame(height: 180)
-                                .chartLegend(position: .bottom, spacing: 12)
-                                .padding(.vertical, 8)
-                                .chartAngleSelection(value: Binding(
-                                    get: { 0.0 },
-                                    set: { angle in
-                                        if let angle = angle {
-                                            let total = sortedSectors.reduce(0) { $0 + $1.value.weight }
-                                            var current: Double = 0
-                                            for (name, stat) in sortedSectors {
-                                                current += stat.weight
-                                                if angle <= (current / total) * 360.0 {
-                                                    withAnimation(.spring()) {
-                                                        if filteredSector?.name == name {
-                                                            filteredSector = nil
-                                                        } else {
-                                                            filteredSector = (name, stat)
-                                                        }
-                                                    }
-                                                    break
-                                                }
-                                            }
-                                        }
-                                    }
-                                ))
-                            }
-                            .padding(.horizontal)
-                            
-                            // Dynamic Linked List
-                            VStack(spacing: 10) {
-                                if let selected = filteredSector {
-                                    // MODE A: Inline Drill-down (Stocks in selected sector)
-                                    VStack(alignment: .leading, spacing: 12) {
-                                        HStack {
-                                            Text(selected.name)
-                                                .font(.system(size: 12, weight: .black))
-                                                .foregroundStyle(.secondary)
-                                            Spacer()
-                                            Text("\(selected.stat.sub?.count ?? 0) 只成分股")
-                                                .font(.system(size: 10))
-                                                .foregroundStyle(.tertiary)
-                                        }
-                                        .padding(.horizontal, 4)
-                                        
-                                        if let subItems = selected.stat.sub, !subItems.isEmpty {
-                                            let sortedSubs = subItems.sorted { $0.value.impact > $1.value.impact }
-                                            ForEach(sortedSubs, id: \.key) { name, subStat in
-                                                Button {
-                                                    // Clicking a stock still triggers the sector detail for full context
-                                                    selectedSectorForSheet = selected
-                                                } label: {
-                                                    LiquidGlassCard {
-                                                        HStack {
-                                                            VStack(alignment: .leading, spacing: 2) {
-                                                                Text(name)
-                                                                    .font(.system(size: 13, weight: .bold))
-                                                                Text(String(format: "仓位 %.2f%%", subStat.weight))
-                                                                    .font(.system(size: 9))
-                                                                    .foregroundStyle(.secondary)
-                                                            }
-                                                            Spacer()
-                                                            Text(String(format: "%+.3f%%", subStat.impact))
-                                                                .font(.system(size: 13, weight: .black, design: .monospaced))
-                                                                .foregroundStyle(subStat.impact >= 0 ? .red : .green)
-                                                            
-                                                            Image(systemName: "chevron.right")
-                                                                .font(.system(size: 10, weight: .bold))
-                                                                .foregroundStyle(.tertiary)
-                                                        }
-                                                    }
-                                                }
-                                                .buttonStyle(.plain)
-                                            }
-                                        }
-                                    }
-                                    .transition(.opacity)
-                                } else {
-                                    // MODE B: Overview View (All sectors - CLICK TRIGGERS SHEET)
-                                    ForEach(sortedSectors, id: \.key) { name, stat in
-                                        Button {
-                                            selectedSectorForSheet = (name, stat)
-                                        } label: {
-                                            LiquidGlassCard {
-                                                HStack(spacing: 12) {
-                                                    RoundedRectangle(cornerRadius: 4)
-                                                        .fill(stat.impact >= 0 ? Color.red : Color.green)
-                                                        .frame(width: 4, height: 24)
-                                                        .opacity(0.8)
-                                                    
-                                                    VStack(alignment: .leading, spacing: 2) {
-                                                        Text(name)
-                                                            .font(.system(size: 13, weight: .bold))
-                                                        Text(String(format: "权重 %.1f%%", stat.weight))
-                                                            .font(.system(size: 9))
-                                                            .foregroundStyle(.secondary)
-                                                    }
-                                                    
-                                                    Spacer()
-                                                    
-                                                    Text(String(format: "%+.2f%%", stat.impact))
-                                                        .font(.system(size: 13, weight: .black, design: .monospaced))
-                                                        .foregroundStyle(stat.impact >= 0 ? .red : .green)
-                                                    
-                                                    Image(systemName: "chevron.right")
-                                                        .font(.system(size: 10, weight: .bold))
-                                                        .foregroundStyle(.tertiary)
-                                                }
-                                            }
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                    .transition(.opacity)
-                                }
-                            }
-                            .padding(.horizontal)
-                        } else {
-                            LiquidGlassCard {
-                                Text("暂无行业归因数据")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
+                    sectorAttributionSection
                     
-                    // 6. 关联地缘政治情报 (Intelligence Linkage)
                     if !viewModel.linkedIntelligence.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Image(systemName: "antenna.radiowaves.left.and.right")
-                                    .font(.system(size: 12))
-                                Text("关联地缘政治情报")
-                                    .font(.system(size: 14, weight: .bold))
-                                Spacer()
-                            }
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal)
-                            
-                            ForEach(viewModel.linkedIntelligence) { item in
-                                NavigationLink(destination: IntelligenceDetailView(item: item)) {
-                                    LiquidGlassCard {
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            HStack {
-                                                Text(item.urgencyScore >= 8 ? "极高紧迫性" : "重要情报")
-                                                    .font(.system(size: 10, weight: .bold))
-                                                    .padding(.horizontal, 6)
-                                                    .padding(.vertical, 2)
-                                                    .background(item.urgencyScore >= 8 ? .red.opacity(0.1) : .orange.opacity(0.1))
-                                                    .foregroundStyle(item.urgencyScore >= 8 ? .red : .orange)
-                                                    .clipShape(Capsule())
-                                                
-                                                Spacer()
-                                                Text("\(item.urgencyScore).0")
-                                                    .font(.system(size: 12, weight: .black, design: .monospaced))
-                                                    .foregroundStyle(item.urgencyScore >= 8 ? .red : .orange)
-                                            }
-                                            
-                                            Text(item.summary)
-                                                .font(.system(size: 13))
-                                                .foregroundStyle(colorScheme == .dark ? .white : .black)
-                                                .lineLimit(2)
-                                        }
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.horizontal)
-                        }
+                        linkedIntelligenceSection
                     }
                     
-                    // 7. 持仓归因列表 (Portfolio Penetration)
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("持仓穿透分析")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(colorScheme == .dark ? .white : .black)
-                            .padding(.horizontal)
-                        
-                        ForEach(viewModel.valuation.components) { component in
-                            LiquidGlassCard {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(component.name)
-                                            .font(.system(size: 14, weight: .bold))
-                                            .foregroundStyle(colorScheme == .dark ? .white : .black)
-                                        Text(component.code)
-                                            .font(.system(size: 10, design: .monospaced))
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    VStack(alignment: .trailing, spacing: 4) {
-                                        Text("\(component.changePct > 0 ? "+" : "")\(String(format: "%.2f", component.changePct))%")
-                                            .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                            .foregroundStyle(component.changePct >= 0 ? .red : .green)
-                                        
-                                        HStack(spacing: 4) {
-                                            Text("权重 \(String(format: "%.1f", component.weight))%")
-                                            Text("•")
-                                            Text("贡献 \(String(format: "%.3f", component.impact))%")
-                                        }
-                                        .font(.system(size: 8))
-                                        .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
+                    portfolioPenetrationSection
                     
-                    // 8. 历史对账明细 (Reconciliation Ledger)
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("历史对账明细")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(colorScheme == .dark ? .white : .black)
-                            .padding(.horizontal)
-                        
-                        if viewModel.isHistoryLoading {
-                            HStack {
-                                Spacer()
-                                ProgressView()
-                                    .padding()
-                                Spacer()
-                            }
-                        } else if viewModel.history.isEmpty {
-                            LiquidGlassCard {
-                                Text("暂无历史对账记录")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding()
-                            }
-                            .padding(.horizontal)
-                        } else {
-                            let historyRecords = viewModel.history
-                            LiquidGlassCard {
-                                VStack(spacing: 0) {
-                                    // Table Header
-                                    HStack {
-                                        Text("日期").frame(width: 70, alignment: .leading)
-                                        Spacer()
-                                        Text("估值").frame(width: 60, alignment: .trailing)
-                                        Text("实盘").frame(width: 60, alignment: .trailing)
-                                        Text("偏差").frame(width: 60, alignment: .trailing)
-                                        Text("精度").frame(width: 40, alignment: .trailing)
-                                    }
-                                    .font(.system(size: 9, weight: .bold))
-                                    .foregroundStyle(.secondary)
-                                    .padding(.bottom, 12)
-                                    
-                                    ForEach(historyRecords, id: \.tradeDate) { record in
-                                        VStack(spacing: 0) {
-                                            Divider().opacity(0.5)
-                                            HStack {
-                                                Text(formatDateString(record.tradeDate))
-                                                    .font(.system(size: 10, design: .monospaced))
-                                                    .frame(width: 70, alignment: .leading)
-                                                
-                                                Spacer()
-                                                
-                                                Text(formatPct(record.frozenEstGrowth))
-                                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                                    .foregroundStyle(record.frozenEstGrowth >= 0 ? .red : .green)
-                                                    .frame(width: 60, alignment: .trailing)
-                                                
-                                                Text(formatPct(record.officialGrowth))
-                                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                                    .foregroundStyle(record.officialGrowth >= 0 ? .red : .green)
-                                                    .frame(width: 60, alignment: .trailing)
-                                                
-                                                Text(formatPct(record.deviation))
-                                                    .font(.system(size: 10, design: .monospaced))
-                                                    .foregroundStyle(.secondary)
-                                                    .frame(width: 60, alignment: .trailing)
-                                                
-                                                accuracyBadge(record.trackingStatus)
-                                                    .frame(width: 40, alignment: .trailing)
-                                            }
-                                            .padding(.vertical, 10)
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
+                    historyLedgerSection
                     
                     Spacer(minLength: 40)
                 }
@@ -497,17 +63,497 @@ struct FundDetailView: View {
             set: { _ in selectedSectorForSheet = nil }
         )) { identifiableSector in
             SectorDetailView(sectorName: identifiableSector.name, stat: identifiableSector.stat)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
     }
     
+    // MARK: - Sub-View Sections
+    
+    private var headerSection: some View {
+        VStack(spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                LiquidTicker(value: viewModel.liveGrowth, precision: 2, prefix: viewModel.liveGrowth >= 0 ? "+" : "")
+                    .foregroundStyle(viewModel.liveGrowth >= 0 ? .red : .green)
+                
+                Text("%")
+                    .font(.system(size: 16, weight: .black, design: .monospaced))
+                    .foregroundStyle(viewModel.liveGrowth >= 0 ? .red : .green)
+            }
+            
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(.green)
+                    .frame(width: 6, height: 6)
+                    .opacity(viewModel.isLive ? 1 : 0.3)
+                
+                Text(viewModel.isLive ? "LIVE 推算中 (Est.)" : "同步中...")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 32)
+    }
+    
+    private func actuarialMatrixSection(stats: FundStats) -> some View {
+        LiquidGlassCard {
+            VStack(spacing: 16) {
+                HStack {
+                    actuarialStat(label: "夏普比率", value: String(format: "%.2f", stats.sharpeRatio ?? 0), grade: stats.sharpeGrade ?? "-", color: .orange)
+                    Spacer()
+                    Divider().frame(height: 30)
+                    Spacer()
+                    actuarialStat(label: "最大回撤", value: String(format: "%.2f", stats.maxDrawdown ?? 0) + "%", grade: stats.drawdownGrade ?? "-", color: .teal)
+                }
+                
+                Divider()
+                
+                HStack(spacing: 0) {
+                    periodReturn(label: "1周", value: stats.return1w)
+                    Spacer()
+                    periodReturn(label: "1月", value: stats.return1m)
+                    Spacer()
+                    periodReturn(label: "3月", value: stats.return3m)
+                    Spacer()
+                    periodReturn(label: "1年", value: stats.return1y)
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+    
+    private var smartAlarmSection: some View {
+        LiquidGlassCard {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("智能 2σ 波动报警")
+                            .font(.system(size: 14, weight: .bold))
+                        Text("基于过去 30 日波动率建议")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { viewModel.isAlarmEnabled },
+                            set: { viewModel.isAlarmEnabled = $0 }
+                        )
+                    )
+                    .labelsHidden()
+                    .tint(.orange)
+                }
+                
+                HStack(spacing: 12) {
+                    Image(systemName: "bell.badge.fill")
+                        .foregroundStyle(.orange)
+                    
+                    VStack(alignment: .leading) {
+                        Text("报警阈值: ±\(String(format: "%.2f", viewModel.threshold2Sigma))%")
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        Text("当前属于 95% 置信区间外的异常波动")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(.orange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+        }
+        .padding(.horizontal)
+    }
+    
+    private func confidenceReportSection(confidence: FundConfidence) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("估值分析报告")
+                .font(.system(size: 14, weight: .bold))
+                .padding(.horizontal)
+            
+            LiquidGlassCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("置信得分: \(confidence.score)")
+                            .font(.system(size: 12, weight: .black, design: .monospaced))
+                        Spacer()
+                        Text(confidence.level.uppercased())
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(confidenceColor(confidence.level).opacity(0.1))
+                            .foregroundStyle(confidenceColor(confidence.level))
+                            .clipShape(Capsule())
+                    }
+                    
+                    if let reasons = confidence.reasons, !reasons.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(reasons, id: \.self) { reason in
+                                HStack(spacing: 6) {
+                                    Circle().fill(.gray.opacity(0.3)).frame(width: 4, height: 4)
+                                    Text(reason)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    
+                    if confidence.isSuspectedRebalance == true {
+                        HStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text("检测到疑似重大调仓，当前持仓数据可能过时")
+                        }
+                        .font(.system(size: 10, weight: .bold))
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.purple.opacity(0.1))
+                        .foregroundStyle(.purple)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+    
+    private var sectorAttributionSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("行业权重分配")
+                .font(.system(size: 14, weight: .bold))
+                .padding(.horizontal)
+            
+            if let attribution = viewModel.valuation.sectorAttribution, !attribution.isEmpty {
+                let sortedSectors = attribution.sorted { $0.value.weight > $1.value.weight }
+                
+                // Visual Overview (Interactive - CONTROLS INLINE FILTER)
+                LiquidGlassCard {
+                    Chart(sortedSectors, id: \.key) { name, stat in
+                        SectorMark(
+                            angle: .value("Weight", stat.weight),
+                            innerRadius: .ratio(0.6),
+                            angularInset: filteredSector?.name == name ? 4 : 2
+                        )
+                        .foregroundStyle(by: .value("Name", name))
+                        .opacity(filteredSector == nil || filteredSector?.name == name ? 1.0 : 0.3)
+                        .cornerRadius(4)
+                    }
+                    .frame(height: 180)
+                    .chartLegend(position: .bottom, spacing: 12)
+                    .padding(.vertical, 8)
+                    .chartOverlay { proxy in
+                        GeometryReader { geometry in
+                            ZStack {
+                                Rectangle().fill(.clear).contentShape(Rectangle())
+                                    .onTapGesture { location in
+                                        let frame = geometry.frame(in: .local)
+                                        let center = CGPoint(x: frame.midX, y: frame.midY)
+                                        let dx = location.x - center.x
+                                        let dy = location.y - center.y
+                                        let distance = sqrt(dx*dx + dy*dy)
+                                        let chartRadius = min(frame.width, frame.height) / 2.0
+                                        let innerR = chartRadius * 0.5
+                                        let outerR = chartRadius * 1.1
+                                        
+                                        guard distance >= innerR && distance <= outerR else { return }
+                                        
+                                        if let angleValue: Double = proxy.value(atAngle: .radians(atan2(dy, dx) + Double.pi / 2)) {
+                                            // Ensure the angle is normalized to 0-360 if necessary
+                                            // The proxy value is returned in the data domain (cumulative weights)
+                                            let total = sortedSectors.reduce(0) { $0 + $1.value.weight }
+                                            var current: Double = 0
+                                            for (name, stat) in sortedSectors {
+                                                current += stat.weight
+                                                if angleValue <= (current / total) * total {
+                                                    withAnimation(.spring()) {
+                                                        if filteredSector?.name == name {
+                                                            filteredSector = nil
+                                                        } else {
+                                                            filteredSector = (name, stat)
+                                                        }
+                                                    }
+                                                    break
+                                                }
+                                            }
+                                        }
+                                    }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                
+                // Dynamic Linked List
+                VStack(spacing: 10) {
+                    if let selected = filteredSector {
+                        // MODE A: Inline Drill-down (Stocks in selected sector)
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text(selected.name)
+                                    .font(.system(size: 12, weight: .black))
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("\(selected.stat.sub?.count ?? 0) 只成分股")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 4)
+                            
+                            if let subItems = selected.stat.sub, !subItems.isEmpty {
+                                let sortedSubs = subItems.sorted { $0.value.impact > $1.value.impact }
+                                ForEach(sortedSubs, id: \.key) { name, subStat in
+                                    Button {
+                                        selectedSectorForSheet = selected
+                                    } label: {
+                                        LiquidGlassCard {
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(name)
+                                                        .font(.system(size: 13, weight: .bold))
+                                                    Text(String(format: "仓位 %.2f%%", subStat.weight))
+                                                        .font(.system(size: 9))
+                                                        .foregroundStyle(.secondary)
+                                                }
+                                                Spacer()
+                                                Text(String(format: "%+.3f%%", subStat.impact))
+                                                    .font(.system(size: 13, weight: .black, design: .monospaced))
+                                                    .foregroundStyle(subStat.impact >= 0 ? .red : .green)
+                                                
+                                                Image(systemName: "chevron.right")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundStyle(.tertiary)
+                                            }
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .transition(.opacity)
+                    } else {
+                        // MODE B: Overview View (All sectors)
+                        ForEach(sortedSectors, id: \.key) { name, stat in
+                            Button {
+                                selectedSectorForSheet = (name, stat)
+                            } label: {
+                                LiquidGlassCard {
+                                    HStack(spacing: 12) {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(stat.impact >= 0 ? Color.red : Color.green)
+                                            .frame(width: 4, height: 24)
+                                            .opacity(0.8)
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(name)
+                                                .font(.system(size: 13, weight: .bold))
+                                            Text(String(format: "权重 %.1f%%", stat.weight))
+                                                .font(.system(size: 9))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        Text(String(format: "%+.2f%%", stat.impact))
+                                            .font(.system(size: 13, weight: .black, design: .monospaced))
+                                            .foregroundStyle(stat.impact >= 0 ? .red : .green)
+                                        
+                                        Image(systemName: "chevron.right")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .padding(.horizontal)
+            } else {
+                LiquidGlassCard {
+                    Text("暂无行业归因数据")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+    
+    private var linkedIntelligenceSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                    .font(.system(size: 12))
+                Text("关联地缘政治情报")
+                    .font(.system(size: 14, weight: .bold))
+                Spacer()
+            }
+            .foregroundStyle(.blue)
+            .padding(.horizontal)
+            
+            ForEach(viewModel.linkedIntelligence) { item in
+                NavigationLink(destination: IntelligenceDetailView(item: item)) {
+                    LiquidGlassCard {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(item.urgencyScore >= 8 ? "极高紧迫性" : "重要情报")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(item.urgencyScore >= 8 ? .red.opacity(0.1) : .orange.opacity(0.1))
+                                    .foregroundStyle(item.urgencyScore >= 8 ? .red : .orange)
+                                    .clipShape(Capsule())
+                                
+                                Spacer()
+                                Text("\(item.urgencyScore).0")
+                                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                                    .foregroundStyle(item.urgencyScore >= 8 ? .red : .orange)
+                            }
+                            
+                            Text(item.summary)
+                                .font(.system(size: 13))
+                                .foregroundStyle(colorScheme == .dark ? .white : .black)
+                                .lineLimit(2)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal)
+        }
+    }
+    
+    private var portfolioPenetrationSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("持仓穿透分析")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
+                .padding(.horizontal)
+            
+            ForEach(viewModel.valuation.components) { component in
+                LiquidGlassCard {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(component.name)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(colorScheme == .dark ? .white : .black)
+                            Text(component.code)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text("\(component.changePct > 0 ? "+" : "")\(String(format: "%.2f", component.changePct))%")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundStyle(component.changePct >= 0 ? .red : .green)
+                            
+                            HStack(spacing: 4) {
+                                Text("权重 \(String(format: "%.1f", component.weight))%")
+                                Text("•")
+                                Text("贡献 \(String(format: "%.3f", component.impact))%")
+                            }
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+    
+    private var historyLedgerSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("历史对账明细")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
+                .padding(.horizontal)
+            
+            if viewModel.isHistoryLoading {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .padding()
+                    Spacer()
+                }
+            } else if viewModel.history.isEmpty {
+                LiquidGlassCard {
+                    Text("暂无历史对账记录")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding()
+                }
+                .padding(.horizontal)
+            } else {
+                let historyRecords = viewModel.history
+                LiquidGlassCard {
+                    VStack(spacing: 0) {
+                        // Table Header
+                        HStack {
+                            Text("日期").frame(width: 70, alignment: .leading)
+                            Spacer()
+                            Text("估值").frame(width: 60, alignment: .trailing)
+                            Text("实盘").frame(width: 60, alignment: .trailing)
+                            Text("偏差").frame(width: 60, alignment: .trailing)
+                            Text("精度").frame(width: 40, alignment: .trailing)
+                        }
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.bottom, 12)
+                        
+                        ForEach(historyRecords, id: \.tradeDate) { record in
+                            VStack(spacing: 0) {
+                                Divider().opacity(0.5)
+                                HStack {
+                                    Text(formatDateString(record.tradeDate))
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .frame(width: 70, alignment: .leading)
+                                    
+                                    Spacer()
+                                    
+                                    Text(formatPct(record.frozenEstGrowth))
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(record.frozenEstGrowth >= 0 ? .red : .green)
+                                        .frame(width: 60, alignment: .trailing)
+                                    
+                                    Text(formatPct(record.officialGrowth))
+                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(record.officialGrowth >= 0 ? .red : .green)
+                                        .frame(width: 60, alignment: .trailing)
+                                    
+                                    Text(formatPct(record.deviation))
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                        .frame(width: 60, alignment: .trailing)
+                                    
+                                    accuracyBadge(record.trackingStatus)
+                                        .frame(width: 40, alignment: .trailing)
+                                }
+                                .padding(.vertical, 10)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+    
+    // MARK: - Helper Types
+    
     // Identifiable wrapper for SectorStat to use with .sheet
     private struct IdentifiableSector: Identifiable {
-        let id = UUID()
+        var id: String { name }
         let name: String
         let stat: SectorStat
     }
     
-    // --- Subviews ---
+    // MARK: - Subviews Helpers
     
     private func accuracyBadge(_ status: String) -> some View {
         Text(status)
