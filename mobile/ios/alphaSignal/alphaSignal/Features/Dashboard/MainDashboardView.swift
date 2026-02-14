@@ -7,6 +7,7 @@ struct MainDashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var viewModel = DashboardViewModel()
     @Environment(AppRootViewModel.self) private var rootViewModel
+    @State private var isSettingsPresented = false
     
     @Query(sort: \IntelligenceModel.timestamp, order: .reverse) 
     private var cachedItems: [IntelligenceModel]
@@ -55,6 +56,11 @@ struct MainDashboardView: View {
         .task {
             await viewModel.startIntelligenceStream()
         }
+        .sheet(isPresented: $isSettingsPresented) {
+            SettingsView(showCloseButton: true)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
     
     private var headerSection: some View {
@@ -76,6 +82,20 @@ struct MainDashboardView: View {
                 }
             }
             Spacer()
+            Button {
+                isSettingsPresented = true
+            } label: {
+                Circle()
+                    .fill(Color.blue.opacity(0.2))
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Text("A")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.blue)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("dashboard.action.open_settings"))
         }
         .padding(.horizontal)
         .padding(.top, 24)
