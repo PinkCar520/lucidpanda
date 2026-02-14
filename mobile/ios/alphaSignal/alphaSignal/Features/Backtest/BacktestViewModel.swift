@@ -16,13 +16,13 @@ class BacktestViewModel {
     func fetchStats() async {
         isLoading = true
         do {
-            let path = "/api/stats?window=\(selectedWindow)&min_score=\(minScore)&sentiment=\(sentiment)"
+            let path = "/api/v1/web/stats?window=\(selectedWindow)&min_score=\(minScore)&sentiment=\(sentiment)"
             let response: BacktestStats = try await APIClient.shared.fetch(path: path)
             withAnimation {
                 self.stats = response
             }
         } catch {
-            print("Failed to fetch backtest stats: \(error)")
+            print("Failed to fetch V1 backtest stats: \(error)")
         }
         isLoading = false
     }

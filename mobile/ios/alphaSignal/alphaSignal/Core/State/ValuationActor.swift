@@ -71,11 +71,12 @@ public actor ValuationActor {
     /// 计算 2σ 统计边界
     /// 基于过去 30 天历史收益率的真实计算
     public func calculateThreshold2Sigma(history: [ValuationHistory]) -> Double {
-        let returns = history.map { $0.officialGrowth }
+        let returns = history.compactMap { $0.officialGrowth }
         guard returns.count > 5 else { return 1.5 } // 数据不足时返回经验值
         
-        let mean = returns.reduce(0, +) / Double(returns.count)
-        let sumOfSquaredDiff = returns.map { pow($0 - mean, 2) }.reduce(0, +)
+        let mean = returns.reduce(0.0, +)
+        let average = mean / Double(returns.count)
+        let sumOfSquaredDiff = returns.map { pow($0 - average, 2.0) }.reduce(0.0, +)
         let standardDeviation = sqrt(sumOfSquaredDiff / Double(returns.count))
         
         return standardDeviation * 2.0
@@ -85,10 +86,10 @@ public actor ValuationActor {
 /// 补充 ValuationHistory 模型定义
 public struct ValuationHistory: Codable {
     public let tradeDate: String
-    public let frozenEstGrowth: Double
-    public let officialGrowth: Double
-    public let deviation: Double
-    public let trackingStatus: String
+    public let frozenEstGrowth: Double?
+    public let officialGrowth: Double?
+    public let deviation: Double?
+    public let trackingStatus: String?
 
     // Compatibility initializer for existing mock/test callers that still build history from date/growth.
     public init(date: Date, growth: Double) {
@@ -118,7 +119,7 @@ public struct ValuationHistory: Codable {
         return .distantPast
     }
 
-    public var growth: Double { officialGrowth }
+    public var growth: Double { officialGrowth ?? 0 }
     
     enum CodingKeys: String, CodingKey {
         case tradeDate = "trade_date"

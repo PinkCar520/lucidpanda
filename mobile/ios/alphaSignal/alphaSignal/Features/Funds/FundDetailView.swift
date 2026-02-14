@@ -504,37 +504,39 @@ struct FundDetailView: View {
                         .foregroundStyle(.secondary)
                         .padding(.bottom, 12)
                         
-                        ForEach(historyRecords, id: \.tradeDate) { record in
-                            VStack(spacing: 0) {
-                                Divider().opacity(0.5)
-                                HStack {
-                                    Text(formatDateString(record.tradeDate))
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .frame(width: 70, alignment: .leading)
-                                    
-                                    Spacer()
-                                    
-                                    Text(formatPct(record.frozenEstGrowth))
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(record.frozenEstGrowth >= 0 ? .red : .green)
-                                        .frame(width: 60, alignment: .trailing)
-                                    
-                                    Text(formatPct(record.officialGrowth))
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                        .foregroundStyle(record.officialGrowth >= 0 ? .red : .green)
-                                        .frame(width: 60, alignment: .trailing)
-                                    
-                                    Text(formatPct(record.deviation))
-                                        .font(.system(size: 10, design: .monospaced))
-                                        .foregroundStyle(.secondary)
-                                        .frame(width: 60, alignment: .trailing)
-                                    
-                                    accuracyBadge(record.trackingStatus)
-                                        .frame(width: 40, alignment: .trailing)
-                                }
-                                .padding(.vertical, 10)
-                            }
-                        }
+                                    ForEach(historyRecords, id: \.tradeDate) { record in
+                                        VStack(spacing: 0) {
+                                            Divider().opacity(0.5)
+                                            HStack {
+                                                Text(formatDateString(record.tradeDate))
+                                                    .font(.system(size: 10, design: .monospaced))
+                                                    .frame(width: 70, alignment: .leading)
+                                                
+                                                Spacer()
+                                                
+                                                let est = record.frozenEstGrowth ?? 0.0
+                                                Text(formatPct(est))
+                                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                                    .foregroundStyle(est >= 0 ? .red : .green)
+                                                    .frame(width: 60, alignment: .trailing)
+                                                
+                                                let official = record.officialGrowth ?? 0.0
+                                                Text(formatPct(official))
+                                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                                    .foregroundStyle(official >= 0 ? .red : .green)
+                                                    .frame(width: 60, alignment: .trailing)
+                                                
+                                                Text(formatPct(record.deviation ?? 0.0))
+                                                    .font(.system(size: 10, design: .monospaced))
+                                                    .foregroundStyle(.secondary)
+                                                    .frame(width: 60, alignment: .trailing)
+                                                
+                                                accuracyBadge(record.trackingStatus ?? "-")
+                                                    .frame(width: 40, alignment: .trailing)
+                                            }
+                                            .padding(.vertical, 10)
+                                        }
+                                    }
                     }
                 }
                 .padding(.horizontal)

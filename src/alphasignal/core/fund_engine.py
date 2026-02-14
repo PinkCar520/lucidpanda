@@ -928,7 +928,17 @@ class FundEngine:
                     stock_map[s_code] = secid
 
         if not stock_map:
-            return [{"fund_code": f, "estimated_growth": 0, "error": "No holdings"} for f in fund_codes]
+            now_iso = format_iso8601(datetime.now())
+            return [{
+                "fund_code": f,
+                "fund_name": fund_name_map.get(f, f),
+                "estimated_growth": 0,
+                "total_weight": 0,
+                "components": [],
+                "sector_attribution": {},
+                "timestamp": now_iso,
+                "error": "No holdings"
+            } for f in fund_codes]
 
         # 2. Batch Fetch Quotes (Market Node)
         secids_list = list(set(stock_map.values()))
@@ -1078,6 +1088,7 @@ class FundEngine:
                     "total_weight": 0,
                     "components": [],
                     "sector_attribution": {},
+                    "timestamp": format_iso8601(datetime.now()),
                     "message": "Fetching holdings in background...",
                     "source": "System"
                 })
@@ -1088,6 +1099,10 @@ class FundEngine:
                     "fund_code": f_code, 
                     "fund_name": fund_name_map.get(f_code, f_code),
                     "estimated_growth": 0, 
+                    "total_weight": 0,
+                    "components": [],
+                    "sector_attribution": {},
+                    "timestamp": format_iso8601(datetime.now()),
                     "error": "No holdings data available"
                 })
                 continue
@@ -1591,4 +1606,3 @@ class FundEngine:
                 if original_https: os.environ['HTTPS_PROXY'] = original_https
                 
             logger.info(f"✨ Session for {trade_date} finished. {count}/{len(codes)} updated.")
-
