@@ -6,51 +6,102 @@ import Charts
 struct BacktestView: View {
     @State private var viewModel = BacktestViewModel()
     @State private var showConfig = false
+    @State private var hasInitializedConfig = false
+    @State private var selectedEvidence: BacktestStats.BacktestItem?
+    @State private var selectedIntelligence: IntelligenceItem?
+    @State private var loadingEvidenceDetailId: Int?
+    @State private var evidenceDetailError: String?
+    
+    @AppStorage("backtest.window") private var savedWindow = "1h"
+    @AppStorage("backtest.min_score") private var savedMinScore = 8
+    @AppStorage("backtest.sentiment") private var savedSentiment = "bearish"
     
     var body: some View {
-        ZStack {
-            LiquidBackground()
-            
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    headerSection
-                    
-                    if showConfig {
-                        configPanel.transition(.move(edge: .top).combined(with: .opacity))
-                    }
-                    
-                    if let stats = viewModel.stats {
-                        // 1. Core KPIs
-                        statsGrid(stats)
+        NavigationStack {
+            ZStack {
+                LiquidBackground()
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 24) {
+                        headerSection
                         
-                        // 2. Time-based Analysis
-                        sessionChart(stats)
-                        
-                        // 3. Environment Analysis (Macro Regimes)
-                        environmentSection(stats)
-                        
-                        // 4. Return Distribution
-                        if let dist = stats.distribution {
-                            distributionChart(dist)
+                        if showConfig {
+                            configPanel.transition(.move(edge: .top).combined(with: .opacity))
                         }
                         
-                        // 5. Evidence List (Trade Log)
-                        if let items = stats.items, !items.isEmpty {
-                            evidenceListSection(items)
+                        if let stats = viewModel.stats {
+                            ZStack {
+                                VStack(spacing: 20) {
+                                    statsGrid(stats)
+                                    hygieneSection(stats)
+                                    sessionChart(stats)
+                                    sessionBreakdownSection(stats)
+                                    environmentSection(stats)
+                                    
+                                    if let dist = stats.distribution, !dist.isEmpty {
+                                        distributionChart(dist)
+                                    }
+                                    
+                                    if let items = stats.items, !items.isEmpty {
+                                        evidenceListSection(items)
+                                    }
+                                }
+                                
+                                if stats.count == 0 {
+                                    noDataOverlay
+                                }
+                            }
+                            
+                        } else if viewModel.isLoading {
+                            ProgressView().tint(.blue).padding(.top, 40)
+                        } else {
+                            emptyStateView
                         }
                         
-                    } else if viewModel.isLoading {
-                        ProgressView().tint(.blue).padding(.top, 40)
-                    } else {
-                        emptyStateView
+                        if let errorMessage = viewModel.errorMessage {
+                            Text(errorMessage)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .padding(.horizontal)
+                        }
+                        
+                        Spacer(minLength: 100)
                     }
-                    
-                    Spacer(minLength: 100)
                 }
             }
-        }
-        .task {
-            await viewModel.fetchStats()
+            .navigationBarTitleDisplayMode(.inline)
+            .task {
+                if !hasInitializedConfig {
+                    viewModel.applySavedConfiguration(
+                        window: normalizedWindow(savedWindow),
+                        minScore: max(1, min(savedMinScore, 10)),
+                        sentiment: normalizedSentiment(savedSentiment)
+                    )
+                    hasInitializedConfig = true
+                }
+                await viewModel.fetchStats()
+            }
+            .onChange(of: viewModel.selectedWindow) {
+                guard hasInitializedConfig else { return }
+                savedWindow = viewModel.selectedWindow
+                viewModel.scheduleRefresh(.immediate)
+            }
+            .onChange(of: viewModel.sentiment) {
+                guard hasInitializedConfig else { return }
+                savedSentiment = viewModel.sentiment
+                viewModel.scheduleRefresh(.immediate)
+            }
+            .onChange(of: viewModel.minScore) {
+                guard hasInitializedConfig else { return }
+                savedMinScore = viewModel.minScore
+                viewModel.scheduleRefresh(.debounced)
+            }
+            .sheet(item: $selectedEvidence) { item in
+                evidenceDetailSheet(item)
+            }
+            .navigationDestination(item: $selectedIntelligence) { item in
+                IntelligenceDetailView(item: item)
+            }
         }
     }
     
@@ -59,11 +110,11 @@ struct BacktestView: View {
     private var headerSection: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("策略仿真回测")
+                Text("backtest.title")
                     .font(.system(size: 24, weight: .black, design: .rounded))
                     .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
                 
-                Text("基于 \(viewModel.selectedWindow == "1h" ? "1H" : "24H") 窗口的历史胜率建模")
+                Text("backtest.subtitle")
                     .font(.caption2)
                     .foregroundStyle(.gray)
             }
@@ -89,10 +140,10 @@ struct BacktestView: View {
             VStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("最低紧迫评分: \(viewModel.minScore)")
+                        Text("\(t("backtest.metric.min_score")): \(viewModel.minScore)")
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                         Spacer()
-                        Text("当前选择: \(viewModel.sentiment == "bearish" ? "看跌信号" : "看涨信号")")
+                        Text("\(t("backtest.metric.direction")): \(viewModel.sentiment == "bearish" ? t("backtest.direction.bearish") : t("backtest.direction.bullish"))")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -100,16 +151,23 @@ struct BacktestView: View {
                     
                     Slider(value: Binding(get: { Double(viewModel.minScore) }, set: { viewModel.minScore = Int($0) }), in: 1...10, step: 1)
                         .tint(.blue)
+                    
+                    if let hint = scoreHint {
+                        Text(hint)
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.orange)
+                    }
                 }
                 
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("预测窗口").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
-                        Picker("窗口", selection: $viewModel.selectedWindow) {
-                            Text("15分钟").tag("15m")
-                            Text("1小时").tag("1h")
-                            Text("4小时").tag("4h")
-                            Text("24小时").tag("24h")
+                        Text("backtest.metric.window").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
+                        Picker("backtest.metric.window", selection: $viewModel.selectedWindow) {
+                            Text("backtest.window.15m").tag("15m")
+                            Text("backtest.window.1h").tag("1h")
+                            Text("backtest.window.4h").tag("4h")
+                            Text("backtest.window.12h").tag("12h")
+                            Text("backtest.window.24h").tag("24h")
                         }
                         .pickerStyle(.segmented)
                     }
@@ -117,10 +175,10 @@ struct BacktestView: View {
                 
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("信号方向").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
-                        Picker("方向", selection: $viewModel.sentiment) {
-                            Text("看跌 (Bearish)").tag("bearish")
-                            Text("看涨 (Bullish)").tag("bullish")
+                        Text("backtest.metric.direction").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
+                        Picker("backtest.metric.direction", selection: $viewModel.sentiment) {
+                            Text("backtest.direction.bearish").tag("bearish")
+                            Text("backtest.direction.bullish").tag("bullish")
                         }
                         .pickerStyle(.segmented)
                     }
@@ -132,7 +190,7 @@ struct BacktestView: View {
                         await viewModel.fetchStats() 
                     }
                 } label: {
-                    Text("开始回测重算")
+                    Text("backtest.action.run")
                         .font(.subheadline.bold())
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -147,9 +205,27 @@ struct BacktestView: View {
     
     private func statsGrid(_ stats: BacktestStats) -> some View {
         HStack(spacing: 12) {
-            statItem(title: "样本量", value: "\(stats.count)", sub: "Events")
-            statItem(title: "修正胜率", value: String(format: "%.1f%%", stats.adjWinRate), sub: "Adjusted", color: .blue)
-            statItem(title: "平均跌幅", value: String(format: "%.2f%%", abs(stats.avgDrop)), sub: "Avg Gain/Drop", color: .red)
+            statItem(title: t("backtest.metric.sample_size"), value: "\(stats.count)", sub: "N")
+            statItem(title: t("backtest.metric.risk_adjusted_win_rate"), value: String(format: "%.1f%%", stats.adjWinRate), sub: "RAR", color: .blue)
+            statItem(title: t("backtest.metric.average_return"), value: String(format: "%.2f%%", abs(stats.avgDrop)), sub: "Return", color: .red)
+        }
+        .padding(.horizontal)
+    }
+    
+    private func hygieneSection(_ stats: BacktestStats) -> some View {
+        HStack(spacing: 12) {
+            statItem(
+                title: t("backtest.hygiene.clustering"),
+                value: String(format: "%.1f", stats.hygiene.avgClustering),
+                sub: "Clustering",
+                color: stats.hygiene.avgClustering > 2 ? .orange : .blue
+            )
+            statItem(
+                title: t("backtest.hygiene.exhaustion"),
+                value: String(format: "%.1f", stats.hygiene.avgExhaustion),
+                sub: "Exhaustion",
+                color: stats.hygiene.avgExhaustion > 4 ? .red : .blue
+            )
         }
         .padding(.horizontal)
     }
@@ -174,7 +250,7 @@ struct BacktestView: View {
     private func sessionChart(_ stats: BacktestStats) -> some View {
         LiquidGlassCard {
             VStack(alignment: .leading, spacing: 16) {
-                Text("市场时段胜率分布")
+                Text("backtest.section.session_distribution")
                     .font(.system(size: 12, weight: .bold))
                 
                 Chart(stats.sessionStats) { session in
@@ -197,29 +273,72 @@ struct BacktestView: View {
         .padding(.horizontal)
     }
     
+    private func sessionBreakdownSection(_ stats: BacktestStats) -> some View {
+        let focusedSessions = ["ASIA", "LONDON", "NEWYORK", "LATE_NY"]
+        let bestSession = stats.sessionStats.max(by: { $0.winRate < $1.winRate })?.session
+        
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("backtest.section.session_breakdown")
+                .font(.system(size: 12, weight: .bold))
+                .padding(.horizontal)
+            
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(focusedSessions, id: \.self) { name in
+                    let item = stats.sessionStats.first(where: { $0.session == name })
+                    let isBest = bestSession == name
+                    
+                    LiquidGlassCard {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(readableSessionName(name))
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(isBest ? .blue : .secondary)
+                                Spacer()
+                                if isBest {
+                                    Text("backtest.label.best")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                            
+                            HStack(alignment: .lastTextBaseline, spacing: 4) {
+                                Text(item.map { "\(Int($0.winRate))%" } ?? "-")
+                                    .font(.system(size: 16, weight: .black, design: .monospaced))
+                                Text("n=\(item?.count ?? 0)")
+                                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+    
     private func environmentSection(_ stats: BacktestStats) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("多维宏观环境对比")
+            Text("backtest.section.environment")
                 .font(.system(size: 12, weight: .bold))
                 .padding(.horizontal)
             
             VStack(spacing: 12) {
                 // 1. DXY Sensitivity
                 HStack(spacing: 12) {
-                    sensitivityCard(title: "美元走强", stats: stats.correlation["DXY_STRONG"])
-                    sensitivityCard(title: "美元走弱", stats: stats.correlation["DXY_WEAK"])
+                    sensitivityCard(title: t("backtest.env.dxy_strong"), stats: stats.correlation["DXY_STRONG"])
+                    sensitivityCard(title: t("backtest.env.dxy_weak"), stats: stats.correlation["DXY_WEAK"])
                 }
                 
                 // 2. Volatility (GVZ)
                 HStack(spacing: 12) {
-                    sensitivityCard(title: "高波动环境", stats: stats.volatility?["HIGH_VOL"])
-                    sensitivityCard(title: "低波动环境", stats: stats.volatility?["LOW_VOL"])
+                    sensitivityCard(title: t("backtest.env.high_vol"), stats: stats.volatility?["HIGH_VOL"])
+                    sensitivityCard(title: t("backtest.env.low_vol"), stats: stats.volatility?["LOW_VOL"])
                 }
                 
                 // 3. Positioning (COT)
                 HStack(spacing: 12) {
-                    sensitivityCard(title: "极度拥挤(多)", stats: stats.positioning?["OVERCROWDED_LONG"])
-                    sensitivityCard(title: "正常/极度(空)", stats: stats.positioning?["NEUTRAL_POSITION"])
+                    sensitivityCard(title: t("backtest.env.overcrowded_long"), stats: stats.positioning?["OVERCROWDED_LONG"])
+                    sensitivityCard(title: t("backtest.env.neutral_position"), stats: stats.positioning?["NEUTRAL_POSITION"])
                 }
             }
             .padding(.horizontal)
@@ -229,7 +348,7 @@ struct BacktestView: View {
     private func distributionChart(_ dist: [BacktestStats.DistributionBin]) -> some View {
         LiquidGlassCard {
             VStack(alignment: .leading, spacing: 16) {
-                Text("盈亏概率分布 (Histogram)")
+                Text("backtest.section.distribution")
                     .font(.system(size: 12, weight: .bold))
                 
                 Chart(dist) { bin in
@@ -257,35 +376,44 @@ struct BacktestView: View {
     
     private func evidenceListSection(_ items: [BacktestStats.BacktestItem]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("最近 50 条回测证据")
+            Text("backtest.section.evidence")
                 .font(.system(size: 12, weight: .bold))
                 .padding(.horizontal)
             
             VStack(spacing: 10) {
                 ForEach(items) { item in
-                    LiquidGlassCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(item.title)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .lineLimit(1)
-                                Spacer()
-                                Text(String(format: "%+.2f%%", item.changePct))
-                                    .font(.system(size: 12, weight: .black, design: .monospaced))
-                                    .foregroundStyle(item.isWin ? .blue : .secondary)
+                    Button {
+                        evidenceDetailError = nil
+                        selectedEvidence = item
+                    } label: {
+                        LiquidGlassCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text(item.title)
+                                        .font(.system(size: 12, weight: .bold))
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text(String(format: "%+.2f%%", item.changePct))
+                                        .font(.system(size: 12, weight: .black, design: .monospaced))
+                                        .foregroundStyle(item.isWin ? .blue : .secondary)
+                                }
+                                
+                                HStack {
+                                    Text("\(t("backtest.evidence.entry")): $\(String(format: "%.1f", item.entry))")
+                                    Text("→")
+                                    Text("\(t("backtest.evidence.exit")): $\(String(format: "%.1f", item.exit))")
+                                    Spacer()
+                                    Text(formatDate(item.timestamp))
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(.gray.opacity(0.5))
+                                }
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundStyle(.secondary)
                             }
-                            
-                            HStack {
-                                Text("入场: $\(String(format: "%.1f", item.entry))")
-                                Text("→")
-                                Text("出场: $\(String(format: "%.1f", item.exit))")
-                                Spacer()
-                                Text(formatDate(item.timestamp))
-                            }
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(.secondary)
                         }
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
@@ -304,13 +432,13 @@ struct BacktestView: View {
                         Text("\(Int(stats.winRate))%")
                             .font(.system(size: 16, weight: .black, design: .monospaced))
                             .foregroundStyle(.blue)
-                        Text("胜率")
+                        Text("backtest.metric.win_rate_short")
                             .font(.system(size: 7))
                             .foregroundStyle(.secondary)
                             .padding(.bottom, 2)
                     }
                 } else {
-                    Text("样本不足").font(.system(size: 10)).foregroundStyle(.tertiary)
+                    Text("backtest.state.insufficient_sample").font(.system(size: 10)).foregroundStyle(.tertiary)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -329,9 +457,159 @@ struct BacktestView: View {
             Image(systemName: "chart.bar.xaxis")
                 .font(.largeTitle)
                 .foregroundStyle(.gray.opacity(0.2))
-            Text("暂无回测数据")
+            Text("backtest.state.empty")
                 .font(.headline)
                 .foregroundStyle(.secondary)
         }
+    }
+    
+    private var scoreHint: String? {
+        guard let stats = viewModel.stats, !viewModel.isLoading else { return nil }
+        if stats.count == 0 { return t("backtest.state.no_data") }
+        if stats.count < 5 { return t("backtest.state.low_sample_hint") }
+        return nil
+    }
+    
+    private var noDataOverlay: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+            Text("backtest.state.no_data")
+                .font(.system(size: 12, weight: .bold))
+            Text("backtest.state.no_data_hint")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.9))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+    
+    private func evidenceDetailSheet(_ item: BacktestStats.BacktestItem) -> some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 14) {
+                    LiquidGlassCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(item.title)
+                                .font(.system(size: 16, weight: .black))
+                            
+                            HStack {
+                                Text(formatDate(item.timestamp))
+                                Spacer()
+                                Text("\(t("backtest.evidence.score")) \(item.score)/10")
+                            }
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            
+                            HStack {
+                                Text("\(t("backtest.evidence.entry")): \(String(format: "%.2f", item.entry))")
+                                Spacer()
+                                Text("\(t("backtest.evidence.exit")): \(String(format: "%.2f", item.exit))")
+                            }
+                            .font(.system(size: 11, design: .monospaced))
+                            
+                            Text("\(t("backtest.evidence.net_change")) \(String(format: "%+.3f%%", item.changePct))")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .foregroundStyle(item.isWin ? .blue : .red)
+                        }
+                    }
+                    .padding(.horizontal)
+                    
+                    if let evidenceDetailError = evidenceDetailError {
+                        Text(evidenceDetailError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .padding(.horizontal)
+                    }
+                    
+                    Button {
+                        Task { await openIntelligenceDetail(for: item) }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if loadingEvidenceDetailId == item.id {
+                                ProgressView().tint(.white)
+                            } else {
+                                Image(systemName: "arrow.up.right.square")
+                            }
+                            Text(loadingEvidenceDetailId == item.id ? t("common.loading") : t("backtest.detail.view_full_intelligence"))
+                        }
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .disabled(loadingEvidenceDetailId == item.id)
+                    .padding(.horizontal)
+                }
+                .padding(.top, 16)
+            }
+            .navigationTitle("backtest.detail.title")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("common.close") { selectedEvidence = nil }
+                }
+            }
+        }
+    }
+    
+    private func openIntelligenceDetail(for item: BacktestStats.BacktestItem) async {
+        loadingEvidenceDetailId = item.id
+        evidenceDetailError = nil
+        do {
+            let detail = try await viewModel.fetchIntelligenceDetail(id: item.id)
+            selectedEvidence = nil
+            selectedIntelligence = detail
+        } catch {
+            evidenceDetailError = t("error.network.generic")
+            print("Failed to fetch intelligence detail for backtest item \(item.id): \(error)")
+        }
+        loadingEvidenceDetailId = nil
+    }
+    
+    private func normalizedWindow(_ value: String) -> String {
+        switch value {
+        case "15m", "1h", "4h", "12h", "24h":
+            return value
+        default:
+            return "1h"
+        }
+    }
+    
+    private func normalizedSentiment(_ value: String) -> String {
+        switch value {
+        case "bearish", "bullish":
+            return value
+        default:
+            return "bearish"
+        }
+    }
+    
+    private func windowLabel(_ value: String) -> String {
+        switch value {
+        case "15m": return "15M"
+        case "1h": return "1H"
+        case "4h": return "4H"
+        case "12h": return "12H"
+        case "24h": return "24H"
+        default: return "1H"
+        }
+    }
+    
+    private func readableSessionName(_ name: String) -> String {
+        switch name {
+        case "ASIA": return t("backtest.session.asia")
+        case "LONDON": return t("backtest.session.london")
+        case "NEWYORK": return t("backtest.session.newyork")
+        case "LATE_NY": return t("backtest.session.late_ny")
+        default: return name
+        }
+    }
+
+    private func t(_ key: String) -> String {
+        NSLocalizedString(key, comment: "")
     }
 }

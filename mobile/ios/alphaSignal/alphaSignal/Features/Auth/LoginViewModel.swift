@@ -16,7 +16,7 @@ class LoginViewModel {
     @MainActor
     func performLogin() async {
         guard !email.isEmpty && !password.isEmpty else {
-            errorMessage = "请输入完整凭据"
+            errorMessage = NSLocalizedString("auth.validation.missing_credentials", comment: "")
             return
         }
         
@@ -41,7 +41,7 @@ class LoginViewModel {
             onSuccess?()
             
         } catch {
-            errorMessage = "身份验证失败，请检查邮箱或密码"
+            errorMessage = NSLocalizedString("auth.error.invalid_credentials", comment: "")
             print("Login error: \(error)")
         }
         

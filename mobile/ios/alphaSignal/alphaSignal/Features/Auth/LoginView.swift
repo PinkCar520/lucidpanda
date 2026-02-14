@@ -32,13 +32,13 @@ struct LoginView: View {
                 LiquidGlassCard {
                     VStack(spacing: 28) {
                         VStack(spacing: 8) {
-                            Text("身份验证终端")
+                            Text("auth.login.title")
                                 .font(.system(.caption, design: .monospaced))
                                 .fontWeight(.black)
                                 .foregroundStyle(.blue)
                                 .tracking(4)
                             
-                            Text("请输入您的安全凭证以连接")
+                            Text("auth.login.subtitle")
                                 .font(.caption2)
                                 .foregroundStyle(.black.opacity(0.4))
                         }
@@ -48,7 +48,7 @@ struct LoginView: View {
                                 Image(systemName: "envelope.fill")
                                     .foregroundStyle(.gray.opacity(0.5))
                                     .frame(width: 24)
-                                TextField("电子邮箱", text: $viewModel.email)
+                                TextField("auth.field.email", text: $viewModel.email)
                                     .textInputAutocapitalization(.never)
                                     .keyboardType(.emailAddress)
                                     .foregroundStyle(.black)
@@ -61,7 +61,7 @@ struct LoginView: View {
                                 Image(systemName: "lock.fill")
                                     .foregroundStyle(.gray.opacity(0.5))
                                     .frame(width: 24)
-                                SecureField("访问密码", text: $viewModel.password)
+                                SecureField("auth.field.password", text: $viewModel.password)
                                     .foregroundStyle(.black)
                             }
                             .padding()
@@ -82,7 +82,7 @@ struct LoginView: View {
                                 if viewModel.isLoading {
                                     ProgressView().tint(.white)
                                 } else {
-                                    Text("启动同步连接")
+                                    Text("auth.action.login")
                                         .fontWeight(.black)
                                 }
                             }
@@ -101,8 +101,8 @@ struct LoginView: View {
                 Spacer()
                 
                 VStack(spacing: 4) {
-                    Text("SECURE QUANTUM LINK ACTIVE")
-                    Text("V2.0.26 - AUTH_MODULE_SUCCESS")
+                    Text("auth.status.secure_channel")
+                    Text("auth.status.module_ready")
                 }
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(.gray.opacity(0.4))

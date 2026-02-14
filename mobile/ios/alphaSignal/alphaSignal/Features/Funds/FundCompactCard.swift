@@ -19,7 +19,7 @@ struct FundCompactCard: View {
                                 .lineLimit(1)
                             
                             if valuation.isQdii == true {
-                                Text("QDII")
+                                Text("funds.compact.badge.qdii")
                                     .font(.system(size: 8, weight: .black))
                                     .padding(.horizontal, 4)
                                     .padding(.vertical, 1)
@@ -70,7 +70,7 @@ struct FundCompactCard: View {
                             Circle()
                                 .fill(.orange)
                                 .frame(width: 4, height: 4)
-                            Text("LIVE")
+                            Text("funds.compact.live")
                                 .font(.system(size: 8, weight: .black, design: .monospaced))
                                 .foregroundStyle(.secondary)
                         }
@@ -94,7 +94,7 @@ struct FundCompactCard: View {
                         }
                     } else {
                         Spacer()
-                        Text("暂无精算数据")
+                        Text("funds.compact.no_data")
                             .font(.system(size: 8))
                             .foregroundStyle(.secondary.opacity(0.5))
                     }

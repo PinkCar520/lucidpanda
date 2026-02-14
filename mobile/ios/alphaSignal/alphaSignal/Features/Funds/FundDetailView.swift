@@ -87,7 +87,7 @@ struct FundDetailView: View {
                     .frame(width: 6, height: 6)
                     .opacity(viewModel.isLive ? 1 : 0.3)
                 
-                Text(viewModel.isLive ? "LIVE 推算中 (Est.)" : "同步中...")
+                Text(viewModel.isLive ? "funds.detail.status.live_estimate" : "funds.detail.status.syncing")
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -99,23 +99,23 @@ struct FundDetailView: View {
         LiquidGlassCard {
             VStack(spacing: 16) {
                 HStack {
-                    actuarialStat(label: "夏普比率", value: String(format: "%.2f", stats.sharpeRatio ?? 0), grade: stats.sharpeGrade ?? "-", color: .orange)
+                    actuarialStat(label: String(localized: "funds.detail.metric.sharpe_ratio"), value: String(format: "%.2f", stats.sharpeRatio ?? 0), grade: stats.sharpeGrade ?? "-", color: .orange)
                     Spacer()
                     Divider().frame(height: 30)
                     Spacer()
-                    actuarialStat(label: "最大回撤", value: String(format: "%.2f", stats.maxDrawdown ?? 0) + "%", grade: stats.drawdownGrade ?? "-", color: .teal)
+                    actuarialStat(label: String(localized: "funds.detail.metric.max_drawdown"), value: String(format: "%.2f", stats.maxDrawdown ?? 0) + "%", grade: stats.drawdownGrade ?? "-", color: .teal)
                 }
                 
                 Divider()
                 
                 HStack(spacing: 0) {
-                    periodReturn(label: "1周", value: stats.return1w)
+                    periodReturn(label: String(localized: "funds.detail.period.1w"), value: stats.return1w)
                     Spacer()
-                    periodReturn(label: "1月", value: stats.return1m)
+                    periodReturn(label: String(localized: "funds.detail.period.1m"), value: stats.return1m)
                     Spacer()
-                    periodReturn(label: "3月", value: stats.return3m)
+                    periodReturn(label: String(localized: "funds.detail.period.3m"), value: stats.return3m)
                     Spacer()
-                    periodReturn(label: "1年", value: stats.return1y)
+                    periodReturn(label: String(localized: "funds.detail.period.1y"), value: stats.return1y)
                 }
             }
         }
@@ -127,9 +127,9 @@ struct FundDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("智能 2σ 波动报警")
+                        Text("funds.detail.alarm.title")
                             .font(.system(size: 14, weight: .bold))
-                        Text("基于过去 30 日波动率建议")
+                        Text("funds.detail.alarm.subtitle")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -150,9 +150,14 @@ struct FundDetailView: View {
                         .foregroundStyle(.orange)
                     
                     VStack(alignment: .leading) {
-                        Text("报警阈值: ±\(String(format: "%.2f", viewModel.threshold2Sigma))%")
+                        Text(
+                            String(
+                                format: NSLocalizedString("funds.detail.alarm.threshold_format", comment: ""),
+                                String(format: "%.2f", viewModel.threshold2Sigma)
+                            )
+                        )
                             .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        Text("当前属于 95% 置信区间外的异常波动")
+                        Text("funds.detail.alarm.anomaly")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -168,14 +173,19 @@ struct FundDetailView: View {
     
     private func confidenceReportSection(confidence: FundConfidence) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("估值分析报告")
+            Text("funds.detail.report.title")
                 .font(.system(size: 14, weight: .bold))
                 .padding(.horizontal)
             
             LiquidGlassCard {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("置信得分: \(confidence.score)")
+                        Text(
+                            String(
+                                format: NSLocalizedString("funds.detail.report.confidence_score_format", comment: ""),
+                                confidence.score
+                            )
+                        )
                             .font(.system(size: 12, weight: .black, design: .monospaced))
                         Spacer()
                         Text(confidence.level.uppercased())
@@ -203,7 +213,7 @@ struct FundDetailView: View {
                     if confidence.isSuspectedRebalance == true {
                         HStack(spacing: 8) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                            Text("检测到疑似重大调仓，当前持仓数据可能过时")
+                            Text("funds.detail.report.rebalance_warning")
                         }
                         .font(.system(size: 10, weight: .bold))
                         .padding(10)
@@ -220,7 +230,7 @@ struct FundDetailView: View {
     
     private var sectorAttributionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("行业权重分配")
+            Text("funds.detail.sector.title")
                 .font(.system(size: 14, weight: .bold))
                 .padding(.horizontal)
             
@@ -292,7 +302,12 @@ struct FundDetailView: View {
                                     .font(.system(size: 12, weight: .black))
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                Text("\(selected.stat.sub?.count ?? 0) 只成分股")
+                                Text(
+                                    String(
+                                        format: NSLocalizedString("funds.detail.sector.components_count_format", comment: ""),
+                                        selected.stat.sub?.count ?? 0
+                                    )
+                                )
                                     .font(.system(size: 10))
                                     .foregroundStyle(.tertiary)
                             }
@@ -309,7 +324,12 @@ struct FundDetailView: View {
                                                 VStack(alignment: .leading, spacing: 2) {
                                                     Text(name)
                                                         .font(.system(size: 13, weight: .bold))
-                                                    Text(String(format: "仓位 %.2f%%", subStat.weight))
+                                                    Text(
+                                                        String(
+                                                            format: NSLocalizedString("funds.detail.sector.position_format", comment: ""),
+                                                            subStat.weight
+                                                        )
+                                                    )
                                                         .font(.system(size: 9))
                                                         .foregroundStyle(.secondary)
                                                 }
@@ -345,7 +365,12 @@ struct FundDetailView: View {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(name)
                                                 .font(.system(size: 13, weight: .bold))
-                                            Text(String(format: "权重 %.1f%%", stat.weight))
+                                            Text(
+                                                String(
+                                                    format: NSLocalizedString("funds.detail.sector.weight_format", comment: ""),
+                                                    stat.weight
+                                                )
+                                            )
                                                 .font(.system(size: 9))
                                                 .foregroundStyle(.secondary)
                                         }
@@ -370,7 +395,7 @@ struct FundDetailView: View {
                 .padding(.horizontal)
             } else {
                 LiquidGlassCard {
-                    Text("暂无行业归因数据")
+                    Text("funds.detail.sector.empty")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
@@ -386,7 +411,7 @@ struct FundDetailView: View {
             HStack {
                 Image(systemName: "antenna.radiowaves.left.and.right")
                     .font(.system(size: 12))
-                Text("关联地缘政治情报")
+                Text("funds.detail.intelligence.title")
                     .font(.system(size: 14, weight: .bold))
                 Spacer()
             }
@@ -398,7 +423,7 @@ struct FundDetailView: View {
                     LiquidGlassCard {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Text(item.urgencyScore >= 8 ? "极高紧迫性" : "重要情报")
+                                Text(item.urgencyScore >= 8 ? "funds.detail.intelligence.critical" : "funds.detail.intelligence.important")
                                     .font(.system(size: 10, weight: .bold))
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
@@ -427,7 +452,7 @@ struct FundDetailView: View {
     
     private var portfolioPenetrationSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("持仓穿透分析")
+            Text("funds.detail.holdings.title")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(colorScheme == .dark ? .white : .black)
                 .padding(.horizontal)
@@ -450,9 +475,19 @@ struct FundDetailView: View {
                                 .foregroundStyle(component.changePct >= 0 ? .red : .green)
                             
                             HStack(spacing: 4) {
-                                Text("权重 \(String(format: "%.1f", component.weight))%")
+                                Text(
+                                    String(
+                                        format: NSLocalizedString("funds.detail.holdings.weight_format", comment: ""),
+                                        String(format: "%.1f", component.weight)
+                                    )
+                                )
                                 Text("•")
-                                Text("贡献 \(String(format: "%.3f", component.impact))%")
+                                Text(
+                                    String(
+                                        format: NSLocalizedString("funds.detail.holdings.contribution_format", comment: ""),
+                                        String(format: "%.3f", component.impact)
+                                    )
+                                )
                             }
                             .font(.system(size: 8))
                             .foregroundStyle(.secondary)
@@ -466,7 +501,7 @@ struct FundDetailView: View {
     
     private var historyLedgerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("历史对账明细")
+            Text("funds.detail.history.title")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(colorScheme == .dark ? .white : .black)
                 .padding(.horizontal)
@@ -480,7 +515,7 @@ struct FundDetailView: View {
                 }
             } else if viewModel.history.isEmpty {
                 LiquidGlassCard {
-                    Text("暂无历史对账记录")
+                    Text("funds.detail.history.empty")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -493,12 +528,12 @@ struct FundDetailView: View {
                     VStack(spacing: 0) {
                         // Table Header
                         HStack {
-                            Text("日期").frame(width: 70, alignment: .leading)
+                            Text("funds.detail.history.header.date").frame(width: 70, alignment: .leading)
                             Spacer()
-                            Text("估值").frame(width: 60, alignment: .trailing)
-                            Text("实盘").frame(width: 60, alignment: .trailing)
-                            Text("偏差").frame(width: 60, alignment: .trailing)
-                            Text("精度").frame(width: 40, alignment: .trailing)
+                            Text("funds.detail.history.header.estimate").frame(width: 60, alignment: .trailing)
+                            Text("funds.detail.history.header.official").frame(width: 60, alignment: .trailing)
+                            Text("funds.detail.history.header.deviation").frame(width: 60, alignment: .trailing)
+                            Text("funds.detail.history.header.accuracy").frame(width: 40, alignment: .trailing)
                         }
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(.secondary)

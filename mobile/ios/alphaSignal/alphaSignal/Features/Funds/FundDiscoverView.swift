@@ -20,7 +20,7 @@ struct FundDiscoverView: View {
                         // 热门建议板块
                         Section {
                             VStack(alignment: .leading, spacing: 16) {
-                                Text("热门搜索建议")
+                                Text("funds.discover.hot_suggestions")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(.secondary)
                                 
@@ -52,7 +52,7 @@ struct FundDiscoverView: View {
                             Image(systemName: "doc.text.magnifyingglass")
                                 .font(.largeTitle)
                                 .foregroundStyle(.gray.opacity(0.3))
-                            Text("未找到匹配的基金")
+                            Text("funds.search.not_found")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -79,7 +79,7 @@ struct FundDiscoverView: View {
                                         HStack {
                                             Text(fund.code).font(.caption2.monospaced())
                                             Text("•").font(.caption2)
-                                            Text(fund.company ?? "未知机构").font(.caption2)
+                                            Text(fund.company ?? String(localized: "funds.company.unknown")).font(.caption2)
                                         }
                                         .foregroundStyle(.gray)
                                     }
@@ -107,7 +107,7 @@ struct FundDiscoverView: View {
                         Spacer()
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
-                            Text("已添加 \(lastAddedName) 到自选")
+                            Text("\(String(localized: "funds.toast.added_prefix")) \(lastAddedName)")
                         }
                         .font(.system(size: 12, weight: .bold))
                         .padding(.vertical, 12)
@@ -121,7 +121,7 @@ struct FundDiscoverView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .navigationTitle("资产探索")
+            .navigationTitle("funds.discover.title")
         }
     }
     

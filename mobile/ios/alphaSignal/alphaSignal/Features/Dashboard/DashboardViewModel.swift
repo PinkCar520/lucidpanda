@@ -9,7 +9,7 @@ import SwiftData
 class DashboardViewModel {
     var items: [IntelligenceItem] = []
     var isStreaming = false
-    var connectionStatus: String = "未连接"
+    var connectionStatus: String = "dashboard.connection.disconnected"
     
     // 搜索与过滤状态
     var searchQuery: String = ""
@@ -64,7 +64,7 @@ class DashboardViewModel {
     func startIntelligenceStream() async {
         guard !isStreaming else { return }
         isStreaming = true
-        connectionStatus = "连接中..."
+        connectionStatus = "dashboard.connection.connecting"
         
         // 1. 先通过 REST 获取历史数据，确保页面不为空
         await fetchInitialHistory()
@@ -78,7 +78,7 @@ class DashboardViewModel {
             let streamURL = URL(string: "http://127.0.0.1:8001/api/v1/intelligence/stream")!
             let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)
             
-            connectionStatus = "V1 实时同步中"
+            connectionStatus = "dashboard.connection.live"
             
             for try await jsonString in stream {
                 guard let data = jsonString.data(using: .utf8) else { continue }
@@ -90,7 +90,7 @@ class DashboardViewModel {
             }
         } catch {
             print("❌ V1 Stream failed: \(error)")
-            connectionStatus = "连接断开"
+            connectionStatus = "dashboard.connection.disconnected"
             isStreaming = false
             
             // 指数退避重连逻辑

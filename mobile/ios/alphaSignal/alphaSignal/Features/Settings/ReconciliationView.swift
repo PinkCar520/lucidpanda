@@ -25,7 +25,7 @@ struct ReconciliationView: View {
                             // 1. 误差走势图 (Accuracy Trend)
                             LiquidGlassCard {
                                 VStack(alignment: .leading, spacing: 16) {
-                                    Text("推算误差走势 (MAE)")
+                                    Text("reconciliation.chart.mae")
                                         .font(.system(size: 14, weight: .bold))
                                     
                                     Chart(history) { point in
@@ -49,14 +49,14 @@ struct ReconciliationView: View {
                             
                             // 2. 统计摘要
                             HStack(spacing: 16) {
-                                statsCard(title: "平均绝对误差", value: "0.12%", color: .green)
-                                statsCard(title: "对账成功率", value: "99.2%", color: .blue)
+                                statsCard(title: String(localized: "reconciliation.stats.mae"), value: "0.12%", color: .green)
+                                statsCard(title: String(localized: "reconciliation.stats.success_rate"), value: "99.2%", color: .blue)
                             }
                             .padding(.horizontal)
                             
                             // 3. 对账明细列表
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("历史对账明细")
+                                Text("reconciliation.history.title")
                                     .font(.system(size: 14, weight: .bold))
                                     .padding(.horizontal)
                                 
@@ -66,7 +66,12 @@ struct ReconciliationView: View {
                                             Text(point.date.formatted(date: .abbreviated, time: .omitted))
                                                 .font(.system(size: 12, weight: .medium))
                                             Spacer()
-                                            Text("误差 \(String(format: "%.3f", point.growth))%")
+                                            Text(
+                                                String(
+                                                    format: NSLocalizedString("reconciliation.history.error_format", comment: ""),
+                                                    String(format: "%.3f", point.growth)
+                                                )
+                                            )
                                                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                                                 .foregroundStyle(abs(point.growth) < 0.5 ? .green : .red)
                                         }
@@ -80,7 +85,7 @@ struct ReconciliationView: View {
                     }
                 }
             }
-            .navigationTitle("对账监控")
+            .navigationTitle("reconciliation.nav.title")
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 await fetchReconciliationData()
@@ -90,10 +95,10 @@ struct ReconciliationView: View {
     
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("推算准确度监控")
+            Text("reconciliation.header.title")
                 .font(.system(size: 24, weight: .black, design: .rounded))
                 .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
-            Text("实时推算净值与官方公告净值的误差对账")
+            Text("reconciliation.header.subtitle")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -118,7 +123,7 @@ struct ReconciliationView: View {
             Image(systemName: "checkmark.shield.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(.gray.opacity(0.2))
-            Text("暂无对账数据")
+            Text("reconciliation.empty")
                 .font(.headline)
                 .foregroundStyle(.gray)
         }

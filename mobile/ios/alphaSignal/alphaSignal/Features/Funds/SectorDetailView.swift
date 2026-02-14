@@ -17,7 +17,7 @@ struct SectorDetailView: View {
                         // Header Info
                         HStack(spacing: 16) {
                             VStack(alignment: .leading) {
-                                Text("行业权重")
+                                Text("funds.sector.metric.weight")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                                 Text(String(format: "%.2f%%", stat.weight))
@@ -27,7 +27,7 @@ struct SectorDetailView: View {
                             Divider().frame(height: 30)
                             
                             VStack(alignment: .leading) {
-                                Text("贡献度")
+                                Text("funds.sector.metric.contribution")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                                 Text(String(format: "%+.3f%%", stat.impact))
@@ -40,7 +40,7 @@ struct SectorDetailView: View {
                         .background(.ultraThinMaterial)
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                         
-                        Text("成分股穿透")
+                        Text("funds.sector.components.title")
                             .font(.system(size: 14, weight: .bold))
                             .padding(.top)
                         
@@ -54,7 +54,12 @@ struct SectorDetailView: View {
                                             VStack(alignment: .leading, spacing: 4) {
                                                 Text(name)
                                                     .font(.system(size: 14, weight: .bold))
-                                                Text(String(format: "仓位: %.2f%%", subStat.weight))
+                                                Text(
+                                                    String(
+                                                        format: NSLocalizedString("funds.sector.position_format", comment: ""),
+                                                        subStat.weight
+                                                    )
+                                                )
                                                     .font(.system(size: 10))
                                                     .foregroundStyle(.secondary)
                                             }
@@ -67,7 +72,7 @@ struct SectorDetailView: View {
                                 }
                             }
                         } else {
-                            Text("暂无底层成分数据")
+                            Text("funds.sector.empty")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .center)
@@ -81,7 +86,7 @@ struct SectorDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("关闭") { dismiss() }
+                    Button("common.close") { dismiss() }
                         .font(.subheadline.bold())
                 }
             }

@@ -48,7 +48,7 @@ struct IntelligenceItemCard: View {
                     
                     if let price = item.goldPriceSnapshot {
                         HStack(spacing: 4) {
-                            Text("GOLD")
+                            Text("dashboard.asset.gold")
                                 .font(.system(size: 8, weight: .bold))
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)

@@ -44,7 +44,7 @@ struct IntelligenceDetailView: View {
                         } label: {
                             HStack {
                                 Image(systemName: "sparkles")
-                                Text(isSummarizing ? "AI 正在分析..." : "生成 AI 洞察摘要")
+                                Text(isSummarizing ? "intelligence.summary.generating" : "intelligence.summary.generate")
                             }
                             .font(.footnote.bold())
                             .foregroundStyle(.blue)
@@ -76,7 +76,7 @@ struct IntelligenceDetailView: View {
                 .padding()
             }
         }
-        .navigationTitle("情报详情")
+        .navigationTitle("intelligence.detail.title")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await fetchMarketContext()
@@ -87,7 +87,7 @@ struct IntelligenceDetailView: View {
         withAnimation { isSummarizing = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             withAnimation {
-                summary = "【AI 核心摘要】本次信号指示地缘政治紧张局势进一步升级，金价在 1 小时内支撑位上移 $15。建议关注即将发布的央行会议纪要，市场已预埋看涨情绪。"
+                summary = NSLocalizedString("intelligence.summary.mock", comment: "")
                 isSummarizing = false
             }
         }

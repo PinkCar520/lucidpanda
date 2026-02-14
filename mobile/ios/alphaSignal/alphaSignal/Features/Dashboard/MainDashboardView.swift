@@ -60,7 +60,7 @@ struct MainDashboardView: View {
     private var headerSection: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("战术驾驶舱")
+                Text("dashboard.title")
                     .font(.system(size: 24, weight: .black, design: .rounded))
                     .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
                 
@@ -69,7 +69,7 @@ struct MainDashboardView: View {
                         .fill(viewModel.isStreaming ? .green : .red)
                         .frame(width: 6, height: 6)
                     
-                    Text("信号同步: \(viewModel.connectionStatus)")
+                    Text("\(t("dashboard.realtime_status")): \(t(viewModel.connectionStatus))")
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundStyle(viewModel.isStreaming ? .green : .red)
                         .opacity(0.8)
@@ -88,7 +88,7 @@ struct MainDashboardView: View {
             HStack {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.gray)
-                TextField("搜索情报关键词...", text: $viewModel.searchQuery)
+                TextField(t("dashboard.search.placeholder"), text: $viewModel.searchQuery)
                     .font(.subheadline)
                 if !viewModel.searchQuery.isEmpty {
                     Button { viewModel.searchQuery = "" } label: {
@@ -103,21 +103,21 @@ struct MainDashboardView: View {
             
             // 过滤器切换
             HStack(spacing: 8) {
-                filterButton(title: "全部", mode: .all)
-                filterButton(title: "评分 8+", mode: .essential)
-                filterButton(title: "看跌信号", mode: .bearish)
+                filterButton(titleKey: "dashboard.filter.all", mode: .all)
+                filterButton(titleKey: "dashboard.filter.score8", mode: .essential)
+                filterButton(titleKey: "dashboard.filter.bearish", mode: .bearish)
             }
             .padding(.horizontal)
         }
     }
     
-    private func filterButton(title: String, mode: DashboardViewModel.FilterMode) -> some View {
+    private func filterButton(titleKey: String, mode: DashboardViewModel.FilterMode) -> some View {
         Button {
             withAnimation(.spring(response: 0.3)) {
                 viewModel.filterMode = mode
             }
         } label: {
-            Text(title)
+            Text(t(titleKey))
                 .font(.system(size: 10, weight: .bold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -132,16 +132,20 @@ struct MainDashboardView: View {
             Spacer(minLength: 100)
             if viewModel.items.isEmpty && viewModel.isStreaming {
                 ProgressView().tint(.blue)
-                Text("正在从后端提取情报...")
+                Text("dashboard.loading_feed")
             } else {
                 Image(systemName: "tray.and.arrow.down")
                     .font(.system(size: 40))
                     .foregroundStyle(.gray.opacity(0.2))
-                Text("未找到匹配的情报")
+                Text("dashboard.empty.no_match")
             }
         }
         .font(.system(size: 12, weight: .bold, design: .monospaced))
         .foregroundStyle(.gray.opacity(0.5))
+    }
+
+    private func t(_ key: String) -> String {
+        NSLocalizedString(key, comment: "")
     }
 }
 

@@ -16,7 +16,7 @@ struct FundSearchView: View {
                     // 搜索输入
                     HStack {
                         Image(systemName: "magnifyingglass").foregroundStyle(.blue)
-                        TextField("输入基金代码或名称...", text: $viewModel.query)
+                        TextField("funds.search.input_placeholder", text: $viewModel.query)
                             .textFieldStyle(.plain)
                             .onChange(of: viewModel.query) {
                                 Task { await viewModel.performSearch() }
@@ -41,7 +41,7 @@ struct FundSearchView: View {
                             }
                             .listRowBackground(Color.clear)
                         } else if viewModel.results.isEmpty && viewModel.query.count >= 2 {
-                            Text("未找到相关基金")
+                            Text("funds.search.not_found")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .listRowBackground(Color.clear)
@@ -58,7 +58,7 @@ struct FundSearchView: View {
                                         HStack {
                                             Text(fund.code).font(.caption2.monospaced())
                                             Text("•").font(.caption2)
-                                            Text(fund.company ?? "未知机构").font(.caption2)
+                                            Text(fund.company ?? String(localized: "funds.company.unknown")).font(.caption2)
                                         }
                                         .foregroundStyle(.gray)
                                     }
@@ -71,11 +71,11 @@ struct FundSearchView: View {
                     .scrollContentBackground(.hidden)
                 }
             }
-            .navigationTitle("查找 Alpha 基金")
+            .navigationTitle("funds.search.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("关闭") { dismiss() }
+                    Button("common.close") { dismiss() }
                 }
             }
         }

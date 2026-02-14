@@ -18,10 +18,10 @@ struct FundDashboardView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("我的 ALPHA 基金")
+                                Text("funds.title")
                                     .font(.system(size: 24, weight: .black, design: .rounded))
                                     .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
-                                Text("实时持仓穿透与净值精算")
+                                Text("funds.subtitle")
                                     .font(.caption2)
                                     .foregroundStyle(.gray)
                             }
@@ -55,7 +55,7 @@ struct FundDashboardView: View {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 14, weight: .bold))
                                 .foregroundStyle(.gray)
-                            TextField("搜索我的自选...", text: $viewModel.searchQuery)
+                            TextField("funds.search.watchlist_placeholder", text: $viewModel.searchQuery)
                                 .font(.subheadline)
                                 .submitLabel(.done)
                             if !viewModel.searchQuery.isEmpty {
@@ -114,10 +114,10 @@ struct FundDashboardView: View {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 48))
                 .foregroundStyle(.gray.opacity(0.2))
-            Text("您的自选库为空")
+            Text("funds.empty.title")
                 .font(.headline)
                 .foregroundStyle(.gray)
-            Text("前往底栏“搜索”发现资产")
+            Text("funds.empty.hint")
                 .font(.subheadline)
                 .foregroundStyle(.blue)
         }
