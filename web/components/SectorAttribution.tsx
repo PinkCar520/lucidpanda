@@ -72,6 +72,7 @@ export function SectorAttribution({ data }: Props) {
       labels: labels,
       parents: parents,
       values: values,
+      customdata: customdata,
       marker: {
         colors: colors,
         center: 0,

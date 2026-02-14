@@ -123,7 +123,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
   // SSE Connection for real-time updates
   const { isConnected, error: sseError } = useSSE({
-    url: '/api/sse/intelligence/stream',
+    url: '/api/v1/intelligence/stream',
     enabled: !loading, // Only connect after initial load
     onMessage: handleSSEMessage,
     onError: handleSSEError

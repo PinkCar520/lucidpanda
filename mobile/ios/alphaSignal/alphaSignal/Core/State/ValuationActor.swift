@@ -39,7 +39,7 @@ public actor ValuationActor {
                         // 模拟从后端获取最新分片价格或直接获取推算结果
                         // 生产环境应为：for try await priceUpdate in SSEResolver.shared.subscribe(...)
                         let updatedValuation: FundValuation = try await APIClient.shared.fetch(
-                            path: "/api/funds/\(currentValuation.fundCode)/valuation"
+                            path: "/api/v1/web/funds/\(currentValuation.fundCode)/valuation"
                         )
                         
                         if !isRunning { break }

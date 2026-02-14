@@ -38,7 +38,7 @@ export default function IntelligenceDetailPage() {
             if (!id) return;
             setLoading(true);
             try {
-                const res = await fetch(`/api/intelligence/${id}`);
+                const res = await fetch(`/api/v1/web/intelligence/${id}`);
                 if (res.ok) {
                     const data = await res.json();
                     setItem(data);

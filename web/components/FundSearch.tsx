@@ -98,7 +98,7 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
         setIsLoading(true);
         try {
             const response = await authenticatedFetch(
-                `/api/funds/search?q=${encodeURIComponent(searchTerm)}&limit=20`,
+                `/api/v1/web/funds/search?q=${encodeURIComponent(searchTerm)}&limit=20`,
                 session
             );
             const data = await response.json();

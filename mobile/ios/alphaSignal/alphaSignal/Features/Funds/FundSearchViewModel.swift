@@ -19,7 +19,7 @@ class FundSearchViewModel {
         
         isLoading = true
         do {
-            let path = "/api/funds/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&limit=15"
+            let path = "/api/v1/web/funds/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&limit=15"
             let response: FundSearchResponse = try await APIClient.shared.fetch(path: path)
             self.results = response.results
         } catch {

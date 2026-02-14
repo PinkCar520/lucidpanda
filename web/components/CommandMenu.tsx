@@ -61,7 +61,7 @@ export default function CommandMenu() {
         const delayDebounceFn = setTimeout(async () => {
             setLoading(true);
             try {
-                const res = await fetch(`/api/funds/search?q=${encodeURIComponent(search)}&limit=5`);
+                const res = await fetch(`/api/v1/web/funds/search?q=${encodeURIComponent(search)}&limit=5`);
                 if (res.ok) {
                     const data = await res.json();
                     setFunds(data.results || []);

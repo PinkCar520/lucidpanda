@@ -10,7 +10,7 @@ export const marketService = {
    */
   async getMarketData(symbol: string, range: string, interval: string, session: Session | null) {
     const res = await authenticatedFetch(
-      `/api/market?symbol=${symbol}&range=${range}&interval=${interval}`, 
+      `/api/v1/web/market?symbol=${symbol}&range=${range}&interval=${interval}`, 
       session
     );
     if (!res.ok) {

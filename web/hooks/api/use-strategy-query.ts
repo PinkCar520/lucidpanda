@@ -14,7 +14,7 @@ export function useStrategyInfiniteQuery() {
     queryKey: ['intelligence', 'strategy-matrix', 'infinite'],
     queryFn: async ({ pageParam = 0 }) => {
       const res = await authenticatedFetch(
-        `/api/intelligence?limit=${limit}&offset=${pageParam}`, 
+        `/api/v1/web/intelligence/full?limit=${limit}&offset=${pageParam}`, 
         session
       );
       if (!res.ok) throw new Error('Failed to fetch strategy matrix');

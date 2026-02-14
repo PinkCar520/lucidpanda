@@ -37,6 +37,8 @@ export interface FundValuation {
   stats?: any;
 }
 
+const V1_BASE = '/api/v1/web';
+
 /**
  * Service for Fund related API calls
  */
@@ -45,7 +47,7 @@ export const fundService = {
    * Fetch user's watchlist
    */
   async getWatchlist(session: Session | null): Promise<WatchlistItem[]> {
-    const res = await authenticatedFetch('/api/watchlist', session);
+    const res = await authenticatedFetch(`${V1_BASE}/watchlist`, session);
     if (!res.ok) throw new Error('Failed to fetch watchlist');
     const json = await res.json();
     return json.data || [];
@@ -56,7 +58,7 @@ export const fundService = {
    */
   async getBatchValuation(codes: string[], session: Session | null): Promise<any[]> {
     if (!codes.length) return [];
-    const res = await authenticatedFetch(`/api/funds/batch-valuation?codes=${codes.join(',')}&mode=summary`, session);
+    const res = await authenticatedFetch(`${V1_BASE}/funds/batch-valuation?codes=${codes.join(',')}&mode=summary`, session);
     if (!res.ok) throw new Error('Failed to fetch batch valuation');
     const json = await res.json();
     return json.data || [];
@@ -67,7 +69,7 @@ export const fundService = {
    */
   async getFundValuation(code: string, session: Session | null): Promise<FundValuation> {
     if (!code) throw new Error('Fund code is required');
-    const res = await authenticatedFetch(`/api/funds/${code}/valuation`, session);
+    const res = await authenticatedFetch(`${V1_BASE}/funds/${code}/valuation`, session);
     if (!res.ok) throw new Error(`Failed to fetch valuation for ${code}`);
     const json = await res.json();
     return json; // Assuming the JSON structure matches FundValuation
@@ -78,7 +80,7 @@ export const fundService = {
    */
   async getFundHistory(code: string, session: Session | null): Promise<any[]> {
     if (!code) return [];
-    const res = await authenticatedFetch(`/api/funds/${code}/history`, session);
+    const res = await authenticatedFetch(`${V1_BASE}/funds/${code}/history`, session);
     if (!res.ok) throw new Error(`Failed to fetch history for ${code}`);
     const json = await res.json();
     return json.data || [];
@@ -88,7 +90,7 @@ export const fundService = {
    * Add a fund to watchlist
    */
   async addToWatchlist(code: string, name: string, session: Session | null): Promise<any> {
-    const res = await authenticatedFetch('/api/watchlist', session, {
+    const res = await authenticatedFetch(`${V1_BASE}/watchlist`, session, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, name }),
@@ -101,7 +103,7 @@ export const fundService = {
    * Remove a fund from watchlist
    */
   async removeFromWatchlist(code: string, session: Session | null): Promise<any> {
-    const res = await authenticatedFetch(`/api/watchlist/${code}`, session, {
+    const res = await authenticatedFetch(`${V1_BASE}/watchlist/${code}`, session, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Failed to remove from watchlist');
@@ -112,7 +114,7 @@ export const fundService = {
    * Fetch admin monitor stats
    */
   async getMonitorStats(session: Session | null): Promise<any> {
-    const res = await authenticatedFetch('/api/admin/funds/monitor', session);
+    const res = await authenticatedFetch(`${V1_BASE}/admin/monitor`, session);
     if (!res.ok) throw new Error('Failed to fetch monitor stats');
     return await res.json();
   }

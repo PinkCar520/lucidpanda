@@ -124,7 +124,7 @@ export default function BacktestStats({
         const fetchStats = async () => {
             setLoading(true);
             try {
-                const res = await fetch(`/api/stats?window=${window}&min_score=${debouncedMinScore}&sentiment=${sentiment}`);
+                const res = await fetch(`/api/v1/web/stats?window=${window}&min_score=${debouncedMinScore}&sentiment=${sentiment}`);
                 if (res.ok) {
                     const data = await res.json();
                     if (!data.error) {

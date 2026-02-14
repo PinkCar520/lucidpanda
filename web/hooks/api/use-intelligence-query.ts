@@ -14,9 +14,9 @@ export function useIntelligenceInfiniteQuery(filters: any = {}) {
   return useInfiniteQuery({
     queryKey: intelligenceKeys.infinite(filters),
     queryFn: async ({ pageParam = 0 }) => {
-      // Use offset instead of page index
+      // Use V1 Web BFF for full JSONB data
       const res = await authenticatedFetch(
-        `/api/intelligence?limit=${limit}&offset=${pageParam}`, 
+        `/api/v1/web/intelligence/full?limit=${limit}&offset=${pageParam}`, 
         session
       );
       if (!res.ok) throw new Error('Failed to fetch intelligence');

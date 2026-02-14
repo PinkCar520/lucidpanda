@@ -8,6 +8,10 @@ const nextConfig: import("next").NextConfig = {
   async rewrites() {
     return [
       {
+        source: '/api/v1/:path*',
+        destination: 'http://api:8001/api/v1/:path*',
+      },
+      {
         source: '/api/v1/auth/:path*',
         destination: 'http://api:8001/api/v1/auth/:path*',
       },

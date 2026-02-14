@@ -64,7 +64,7 @@ class FundDetailViewModel {
     private func calculateDynamicThreshold() async {
         do {
             let response: FundHistoryResponse = try await APIClient.shared.fetch(
-                path: "/api/funds/\(valuation.fundCode)/history?limit=30"
+                path: "/api/v1/web/funds/\(valuation.fundCode)/history?limit=30"
             )
             let calculated = await actor.calculateThreshold2Sigma(history: response.data)
             self.threshold2Sigma = calculated

@@ -24,7 +24,7 @@ export default function TacticalMatrixExample() {
         try {
             const offset = (page - 1) * ITEMS_PER_PAGE;
             const response = await fetch(
-                `/api/intelligence?limit=${ITEMS_PER_PAGE}&offset=${offset}`
+                `/api/v1/web/intelligence/full?limit=${ITEMS_PER_PAGE}&offset=${offset}`
             );
             const data = await response.json();
 
@@ -91,7 +91,7 @@ export default function TacticalMatrixExample() {
  * 2. 修改数据获取逻辑：
  *    const fetchData = async (page: number) => {
  *      const offset = (page - 1) * ITEMS_PER_PAGE;
- *      const res = await fetch(`/api/intelligence?limit=${ITEMS_PER_PAGE}&offset=${offset}`);
+ *      const res = await fetch(`/api/v1/web/intelligence/full?limit=${ITEMS_PER_PAGE}&offset=${offset}`);
  *      const data = await res.json();
  *      setPaginationMeta({ total: data.total, total_pages: data.total_pages });
  *    };

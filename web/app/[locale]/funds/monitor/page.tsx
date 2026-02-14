@@ -107,7 +107,7 @@ export default function FundMonitorPage() {
                 <Card className="border-l-4 border-l-blue-500">
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{t('successRate')}</p>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-black">{reconciliationRate.toFixed(1)}%</span>
+                        <span className="text-2xl font-black">{Number(reconciliationRate).toFixed(1)}%</span>
                         <Badge variant={reconciliationRate > 90 ? 'bullish' : 'warning'} className="text-[10px]">
                             {latest?.reconciled_count}/{latest?.total_count}
                         </Badge>
@@ -116,7 +116,7 @@ export default function FundMonitorPage() {
                 <Card className="border-l-4 border-l-emerald-500">
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{t('currentMae')}</p>
                     <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-black">{(latest?.avg_mae || 0).toFixed(3)}%</span>
+                        <span className="text-2xl font-black">{Number(latest?.avg_mae || 0).toFixed(3)}%</span>
                         <TrendingDown className="w-4 h-4 text-emerald-500" />
                     </div>
                 </Card>
@@ -204,11 +204,11 @@ export default function FundMonitorPage() {
                                             <span className="text-xs font-mono font-bold text-blue-500">{a.fund_code}</span>
                                             <span className="text-[10px] opacity-60 font-mono">{a.trade_date}</span>
                                         </div>
-                                        <Badge variant="bearish" className="text-[10px] px-1.5">{a.deviation.toFixed(2)}%</Badge>
+                                        <Badge variant="bearish" className="text-[10px] px-1.5">{Number(a.deviation).toFixed(2)}%</Badge>
                                     </div>
                                     <div className="flex justify-between items-center text-[10px] font-mono">
-                                        <span className="opacity-60">{t('estLabel')} {a.frozen_est_growth.toFixed(2)}%</span>
-                                        <span className="opacity-60">{t('actLabel')} {a.official_growth.toFixed(2)}%</span>
+                                        <span className="opacity-60">{t('estLabel')} {Number(a.frozen_est_growth).toFixed(2)}%</span>
+                                        <span className="opacity-60">{t('actLabel')} {Number(a.official_growth).toFixed(2)}%</span>
                                         <span className="font-bold text-rose-500">{t('gradeLabel')} {a.tracking_status}</span>
                                     </div>
                                 </div>
@@ -248,11 +248,11 @@ export default function FundMonitorPage() {
                                                 <div className="w-24 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                                                     <div className="h-full bg-blue-500" style={{ width: `${rate}%` }}></div>
                                                 </div>
-                                                <span className="font-mono">{d.reconciled_count} ({rate.toFixed(0)}%)</span>
+                                                <span className="font-mono">{d.reconciled_count} ({Number(rate).toFixed(0)}%)</span>
                                             </div>
                                         </td>
                                         <td className={`p-3 text-right font-mono font-bold ${d.avg_mae > 0.5 ? 'text-amber-500' : 'text-emerald-500'}`}>
-                                            {d.avg_mae ? `${d.avg_mae.toFixed(4)}%` : '--'}
+                                            {d.avg_mae ? `${Number(d.avg_mae).toFixed(4)}%` : '--'}
                                         </td>
                                         <td className="p-3 text-center">
                                             {rate >= 95 ? (
