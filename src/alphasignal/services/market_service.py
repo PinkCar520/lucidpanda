@@ -92,9 +92,9 @@ class MarketService:
         """Fetch COMEX Gold price via AkShare."""
         try:
             # Get latest quote
-            df = ak.futures_foreign_hist_em(symbol="GC")
+            df = ak.futures_global_hist_em(symbol="GC00Y")
             if not df.empty:
-                return float(df.iloc[-1]['收盘'])
+                return float(df.iloc[-1]['最新价'])
         except: pass
         return None
 

@@ -161,7 +161,7 @@ async def get_web_market_data(
     try:
         # 1. Fetch Chart Data
         if symbol == "GC=F":
-            df = ak.futures_foreign_hist_em(symbol="GC")
+            df = ak.futures_global_hist_em(symbol="GC00Y")
         else:
             df = ak.stock_zh_a_hist(symbol=symbol.replace("sh", "").replace("sz", ""), period="daily", adjust="qfq")
             
@@ -177,8 +177,8 @@ async def get_web_market_data(
                 "open": float(row.get('开盘') or 0),
                 "high": float(row.get('最高') or 0),
                 "low": float(row.get('最低') or 0),
-                "close": float(row.get('收盘') or 0),
-                "volume": float(row.get('成交量') or 0)
+                "close": float(row.get('收盘') or row.get('最新价') or 0),
+                "volume": float(row.get('成交量') or row.get('总量') or 0)
             })
             
         # 2. Fetch Calculated Indicators (Parity, Spread)
@@ -198,28 +198,22 @@ async def get_web_market_data(
 async def get_web_backtest_stats(
     window: str = "1h",
     min_score: int = 8,
-    sentiment: str = "bearish"
+    sentiment: str = "bearish",
+    db: Session = Depends(get_session)
 ):
     """
-    V1 Port of the complex server-side backtesting logic.
+    V1 Full Production Port of server-side backtesting logic.
+    Restores all analytical modules for the professional reporting dashboard.
     """
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-    from src.alphasignal.config import settings
+    import json
+    from sqlalchemy import text
     
     try:
-        conn = psycopg2.connect(
-            host=settings.POSTGRES_HOST,
-            port=settings.POSTGRES_PORT,
-            user=settings.POSTGRES_USER,
-            password=settings.POSTGRES_PASSWORD,
-            dbname=settings.POSTGRES_DB
-        )
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
+        # Determine columns based on window
         window_map = {"15m": "price_15m", "1h": "price_1h", "4h": "price_4h", "12h": "price_12h", "24h": "price_24h"}
         outcome_col = window_map.get(window, "price_1h")
         
+        # Define keywords and win condition
         if sentiment == 'bearish':
             keywords = "鹰|利空|下跌|风险|Bearish|Hawkish|Risk|Negative|Pressure"
             win_condition = "exit < entry"
@@ -229,59 +223,154 @@ async def get_web_backtest_stats(
 
         cluster_window = "30 minutes"
         
-        # 1. Global Stats
-        query_global = f"""
+        # Prepare Common SQL Fragments
+        base_cte = f"""
         WITH filtered_intelligence AS (
             SELECT *, LAG(timestamp) OVER (ORDER BY timestamp ASC) as prev_timestamp
             FROM intelligence
-            WHERE urgency_score >= %(min_score)s
-              AND (sentiment::text ~* %(keywords)s)
+            WHERE urgency_score >= :min_score
+              AND (sentiment::text ~* :keywords)
               AND gold_price_snapshot IS NOT NULL 
               AND {outcome_col} IS NOT NULL
         ),
         deduplicated_events AS (
-            SELECT * FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
-        ),
-        qualified_events AS (
-            SELECT gold_price_snapshot as entry, {outcome_col} as exit, clustering_score, exhaustion_score, dxy_snapshot, us10y_snapshot, gvz_snapshot
-            FROM deduplicated_events
+            SELECT *, 
+                   gold_price_snapshot as entry, 
+                   {outcome_col} as exit
+            FROM filtered_intelligence
+            WHERE prev_timestamp IS NULL 
+               OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         )
+        """
+
+        # 1. Global Stats
+        query_global = f"""
+        {base_cte}
         SELECT COUNT(*) as count, COUNT(CASE WHEN {win_condition} THEN 1 END) as wins,
             AVG((exit - entry) / entry) * 100 as avg_change_pct,
             AVG(clustering_score) as avg_clustering, AVG(exhaustion_score) as avg_exhaustion,
-            AVG(dxy_snapshot) as avg_dxy, AVG(us10y_snapshot) as avg_us10y,
+            AVG(dxy_snapshot) as avg_dxy, AVG(us10y_snapshot) as avg_us10y, AVG(gvz_snapshot) as avg_gvz,
             COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float / 
             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
-        FROM qualified_events;
+        FROM deduplicated_events;
         """
         
-        cursor.execute(query_global, {'keywords': keywords, 'min_score': min_score})
-        res_global = cursor.fetchone()
-        conn.close()
+        # 2. Session Stats
+        query_session = f"""
+        {base_cte}
+        SELECT market_session, COUNT(*) as count, COUNT(CASE WHEN {win_condition} THEN 1 END) as wins,
+            AVG((exit - entry) / entry) * 100 as avg_change_pct
+        FROM deduplicated_events
+        WHERE market_session IS NOT NULL
+        GROUP BY market_session;
+        """
+
+        # 3. Correlation (DXY)
+        query_correlation = f"""
+        {base_cte},
+        stats AS (SELECT AVG(dxy_snapshot) as mid FROM intelligence WHERE dxy_snapshot IS NOT NULL),
+        qualified AS (SELECT entry, exit, dxy_snapshot FROM deduplicated_events, stats)
+        SELECT CASE WHEN dxy_snapshot > (SELECT mid FROM stats) THEN 'DXY_STRONG' ELSE 'DXY_WEAK' END as env,
+            COUNT(*) as count, COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
+        FROM qualified GROUP BY env;
+        """
+
+        # 4. Positioning (COT)
+        query_positioning = f"""
+        {base_cte},
+        qualified AS (
+            SELECT i.entry, i.exit, i.timestamp,
+                (SELECT percentile FROM market_indicators WHERE indicator_name = 'COT_GOLD_NET' AND timestamp <= i.timestamp ORDER BY timestamp DESC LIMIT 1) as cot_pct
+            FROM deduplicated_events i
+        )
+        SELECT CASE WHEN cot_pct >= 85 THEN 'OVERCROWDED_LONG' WHEN cot_pct <= 15 THEN 'OVERCROWDED_SHORT' ELSE 'NEUTRAL_POSITION' END as env,
+            COUNT(*) as count, COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
+        FROM qualified WHERE cot_pct IS NOT NULL GROUP BY env;
+        """
+
+        # 5. Volatility (GVZ)
+        query_volatility = f"""
+        {base_cte}
+        SELECT CASE WHEN gvz_snapshot > 25 THEN 'HIGH_VOL' ELSE 'LOW_VOL' END as env,
+            COUNT(*) as count, COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
+        FROM deduplicated_events WHERE gvz_snapshot IS NOT NULL GROUP BY env;
+        """
+
+        # 6. Distribution
+        query_dist = f"""
+        {base_cte},
+        returns AS (SELECT ((CAST(exit AS FLOAT) - entry) / entry) * 100 as ret FROM deduplicated_events)
+        SELECT floor(ret / 0.5) * 0.5 as bin, COUNT(*) as count FROM returns GROUP BY bin ORDER BY bin ASC;
+        """
+
+        # 7. Evidence List (Items)
+        query_items = f"""
+        {base_cte}
+        SELECT id, summary as title, timestamp, urgency_score as score, entry, exit,
+            CASE WHEN {win_condition} THEN true ELSE false END as is_win,
+            ((CAST(exit AS FLOAT) - entry) / entry) * 100 as change_pct
+        FROM deduplicated_events ORDER BY timestamp DESC LIMIT 50;
+        """
+
+        # Execute all queries
+        params = {'keywords': keywords, 'min_score': min_score}
         
+        res_global = db.execute(text(query_global), params).mappings().first()
         if not res_global or res_global['count'] == 0:
             return {"count": 0, "winRate": 0, "avgDrop": 0}
+            
+        res_sessions = db.execute(text(query_session), params).mappings().all()
+        res_corr = db.execute(text(query_correlation), params).mappings().all()
+        res_pos = db.execute(text(query_positioning), params).mappings().all()
+        res_vol = db.execute(text(query_volatility), params).mappings().all()
+        res_dist = [dict(row) for row in db.execute(text(query_dist), params).mappings().all()]
+        res_items = [dict(row) for row in db.execute(text(query_items), params).mappings().all()]
 
-        return {
+        # Format Response
+        session_stats = [{
+            "session": s['market_session'], "count": s['count'],
+            "winRate": (s['wins'] / s['count']) * 100 if s['count'] > 0 else 0,
+            "avgDrop": -(s['avg_change_pct'] or 0)
+        } for s in res_sessions]
+
+        correlation_stats = {row['env']: {"count": row['count'], "winRate": (row['wins']/row['count'])*100} for row in res_corr}
+        positioning_stats = {row['env']: {"count": row['count'], "winRate": (row['wins']/row['count'])*100} for row in res_pos}
+        volatility_stats = {row['env']: {"count": row['count'], "winRate": (row['wins']/row['count'])*100} for row in res_vol}
+
+        return decimal_to_float({
             "count": res_global['count'],
             "winRate": (res_global['wins'] / res_global['count']) * 100,
             "adjWinRate": res_global['adj_win_rate'] or 0,
             "avgDrop": -(res_global['avg_change_pct'] or 0),
             "hygiene": {
                 "avgClustering": res_global['avg_clustering'] or 0,
-                "avgExhaustion": res_global['avg_exhaustion'] or 0
-            }
-        }
+                "avgExhaustion": res_global['avg_exhaustion'] or 0,
+                "avgDxy": res_global['avg_dxy'] or 0,
+                "avgUs10y": res_global['avg_us10y'] or 0,
+                "avgGvz": res_global['avg_gvz'] or 0
+            },
+            "correlation": correlation_stats,
+            "positioning": positioning_stats,
+            "volatility": volatility_stats,
+            "distribution": res_dist,
+            "sessionStats": session_stats,
+            "items": res_items
+        })
+        
     except Exception as e:
+        import traceback
+        print(f"[API] Stats error: {traceback.format_exc()}")
         return {"error": str(e)}
 
 from decimal import Decimal
+from sqlalchemy.engine.row import RowMapping
 
 def decimal_to_float(obj):
-    """Recursively convert Decimal objects to float."""
+    """Recursively convert Decimal objects to float and RowMapping to dict."""
     if isinstance(obj, Decimal):
         return float(obj)
+    if isinstance(obj, RowMapping):
+        return {k: decimal_to_float(v) for k, v in obj.items()}
     if isinstance(obj, dict):
         return {k: decimal_to_float(v) for k, v in obj.items()}
     if isinstance(obj, list):

@@ -48,6 +48,9 @@ class Settings:
     POSTGRES_PORT = os.getenv("POSTGRES_PORT", "5432")
     POSTGRES_DB = os.getenv("POSTGRES_DB", "alphasignal")
     
+    # Redis
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    
     # News Deduplication Settings
     NEWS_SIMILARITY_THRESHOLD = float(os.getenv("NEWS_SIMILARITY_THRESHOLD", 0.7)) # Cosine similarity for news content
     NEWS_DEDUPE_WINDOW_HOURS = int(os.getenv("NEWS_DEDUPE_WINDOW_HOURS", 24)) # How many hours back to check for duplicates

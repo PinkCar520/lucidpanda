@@ -12,38 +12,6 @@ const nextConfig: import("next").NextConfig = {
         destination: 'http://api:8001/api/v1/:path*',
       },
       {
-        source: '/api/v1/auth/:path*',
-        destination: 'http://api:8001/api/v1/auth/:path*',
-      },
-      {
-        source: '/api/intelligence/:path*',
-        destination: 'http://api:8001/api/intelligence/:path*',
-      },
-      {
-        source: '/api/sse/:path*',
-        destination: 'http://api:8001/api/:path*',
-      },
-      {
-        source: '/api/stats',
-        destination: 'http://api:8001/api/stats',
-      },
-      {
-        source: '/api/watchlist/:path*',
-        destination: 'http://api:8001/api/watchlist/:path*',
-      },
-      {
-        source: '/api/funds/:path*',
-        destination: 'http://api:8001/api/funds/:path*',
-      },
-      {
-        source: '/api/admin/:path*',
-        destination: 'http://api:8001/api/admin/:path*',
-      },
-      {
-        source: '/api/alerts/:path*',
-        destination: 'http://api:8001/api/alerts/:path*',
-      },
-      {
         source: '/static/:path*',
         destination: 'http://api:8001/static/:path*',
       },
