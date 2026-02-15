@@ -36,7 +36,7 @@ public actor APIClient {
     #if DEBUG
     private let baseURL = URL(string: "http://43.139.108.187:8001")!
     #else
-    private let baseURL = URL(string: "https://your-api.com")!
+    private let baseURL = URL(string: "https://nocafe.ltd")!
     #endif
 
     public func authRequest<T: Decodable>(path: String, formData: [String: String]) async throws -> T {
