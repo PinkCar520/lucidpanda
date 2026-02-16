@@ -50,23 +50,7 @@ struct FundDashboardView: View {
                             }
                         }
                         
-                        // 2. 本地搜索框
-                        HStack {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(.gray)
-                            TextField("funds.search.watchlist_placeholder", text: $viewModel.searchQuery)
-                                .font(.subheadline)
-                                .submitLabel(.done)
-                            if !viewModel.searchQuery.isEmpty {
-                                Button { viewModel.searchQuery = "" } label: {
-                                    Image(systemName: "xmark.circle.fill").foregroundStyle(.gray)
-                                }
-                            }
-                        }
-                        .padding(10)
-                        .background(Color.black.opacity(0.03))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+
                     }
                     .padding(.horizontal)
                     .padding(.top, 24)

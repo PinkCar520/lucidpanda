@@ -1434,6 +1434,23 @@
         }
       }
     },
+    "dashboard.filter.bullish" : {
+      "extractionState" : "new",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bullish Strategy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "看涨策略"
+          }
+        }
+      }
+    },
     "dashboard.loading_feed" : {
       "localizations" : {
         "en" : {
@@ -2227,6 +2244,7 @@
       }
     },
     "funds.search.watchlist_placeholder" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

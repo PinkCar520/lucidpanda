@@ -12,22 +12,22 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             // Tab 1: 信号 (Dashboard)
-            Tab("app.tab.intelligence", systemImage: "house", value: .intelligence) {
+            Tab("app.tab.intelligence", systemImage: "waveform.path.ecg", value: .intelligence) {
                 MainDashboardView()
             }
-            
+
             // Tab 2: 基金 (Watchlist)
-            Tab("app.tab.funds", systemImage: "creditcard", value: .funds) {
+            Tab("app.tab.funds", systemImage: "chart.pie", value: .funds) {
                 FundDashboardView()
             }
-            
+
             // Tab 3: 回测 (Strategy)
-            Tab("app.tab.backtest", systemImage: "arrow.left.arrow.right", value: .backtest) {
+            Tab("app.tab.backtest", systemImage: "clock.arrow.circlepath", value: .backtest) {
                 BacktestView()
             }
-            
+
             // Tab 4: 搜索 (独立的搜索角色 Tab)
-            Tab("app.tab.search", systemImage: "magnifyingglass.circle", value: .search, role: .search) {
+            Tab("app.tab.search", systemImage: "magnifyingglass", value: .search, role: .search) {
                 FundDiscoverView(searchText: $searchText)
                     .searchable(text: $searchText, prompt: Text("app.search.fund_prompt"))
             }

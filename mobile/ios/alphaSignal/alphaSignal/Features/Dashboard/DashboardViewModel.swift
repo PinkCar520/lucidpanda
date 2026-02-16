@@ -12,35 +12,33 @@ class DashboardViewModel {
     var connectionStatus: String = "dashboard.connection.disconnected"
     
     // 搜索与过滤状态
-    var searchQuery: String = ""
+
     var filterMode: FilterMode = .all
-    
+
     enum FilterMode {
-        case all, essential, bearish
+        case all, essential, bearish, bullish
     }
-    
+
     // 计算属性：应用过滤逻辑 (对齐 Web 端)
     var filteredItems: [IntelligenceItem] {
         items.filter { item in
-            // 1. 文本搜索
-            if !searchQuery.isEmpty {
-                let q = searchQuery.lowercased()
-                let match = item.summary.lowercased().contains(q) || 
-                            item.content.lowercased().contains(q) || 
-                            item.author.lowercased().contains(q)
-                if !match { return false }
-            }
-            
             // 2. 模式过滤
             switch filterMode {
             case .all: return true
             case .essential: return item.urgencyScore >= 8
-            case .bearish: 
+            case .bearish:
                 let keywords = ["鹰", "利空", "下跌", "Bearish", "Hawkish", "Pressure"]
+                return keywords.contains { item.sentiment.contains($0) }
+            case .bullish:
+                let keywords = ["鸽", "利好", "上涨", "Bullish", "Dovish", "Boost"]
                 return keywords.contains { item.sentiment.contains($0) }
             }
         }
     }
+    
+
+    
+
     
     // SwiftData 上下文
     @ObservationIgnored
@@ -74,7 +72,7 @@ class DashboardViewModel {
             let token = AuthTokenStore.accessToken()
             
             // 订阅 V1 高性能实时流 (基于 Redis Pub/Sub)
-            let streamURL = URL(string: "http://127.0.0.1:8001/api/v1/intelligence/stream")!
+            let streamURL = URL(string: "http://43.139.108.187:8001/api/v1/intelligence/stream")!
             let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)
             
             connectionStatus = "dashboard.connection.live"

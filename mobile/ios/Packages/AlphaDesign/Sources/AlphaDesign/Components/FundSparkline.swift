@@ -41,13 +41,7 @@ public struct FundSparkline: View {
                     path.addLine(to: CGPoint(x: geometry.size.width, y: geometry.size.height))
                     path.closeSubpath()
                 }
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [color.opacity(0.2), color.opacity(0)]),
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                .fill(color.opacity(0.1))
             }
         }
     }

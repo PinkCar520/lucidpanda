@@ -170,6 +170,9 @@ struct BacktestView: View {
                             Text("backtest.window.24h").tag("24h")
                         }
                         .pickerStyle(.segmented)
+                        .font(.system(size: 12, weight: .bold))
+                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                        .padding(.vertical, 4)
                     }
                 }
                 
@@ -181,6 +184,9 @@ struct BacktestView: View {
                             Text("backtest.direction.bullish").tag("bullish")
                         }
                         .pickerStyle(.segmented)
+                        .font(.system(size: 12, weight: .bold))
+                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                        .padding(.vertical, 4)
                     }
                 }
                 

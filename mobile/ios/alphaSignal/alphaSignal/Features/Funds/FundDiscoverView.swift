@@ -130,11 +130,11 @@ struct FundDiscoverView: View {
             searchText = code
         } label: {
             Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(Color.blue.opacity(0.1))
+                .font(.system(size: 14, weight: .bold))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
                 .foregroundStyle(.blue)
+                .glassEffect(.regular, in: .capsule)
                 .clipShape(Capsule())
         }
     }

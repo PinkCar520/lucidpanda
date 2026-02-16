@@ -2,19 +2,9 @@ import SwiftUI
 
 public struct LiquidBackground: View {
     public init() {}
-    
+
     public var body: some View {
-        ZStack {
-            Color(uiColor: .systemGroupedBackground)
-            LinearGradient(
-                colors: [
-                    Color.accentColor.opacity(0.06),
-                    .clear
-                ],
-                startPoint: .topLeading,
-                endPoint: .center
-            )
-        }
+        Color(uiColor: .systemGroupedBackground)
         .ignoresSafeArea()
     }
 }

@@ -25,6 +25,8 @@ struct MainDashboardView: View {
                     // 2. 搜索与过滤器 (对齐 Web 端)
                     searchAndFilterBar
                     
+
+                    
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
                             let displayItems = viewModel.items.isEmpty ? cachedItems.map { IntelligenceItem(model: $0) } : viewModel.filteredItems
@@ -102,38 +104,21 @@ struct MainDashboardView: View {
         .padding(.bottom, 16)
     }
     
+
+    
     private var searchAndFilterBar: some View {
         VStack(spacing: 12) {
-            // 搜索框
-            HStack {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-                TextField(t("dashboard.search.placeholder"), text: $viewModel.searchQuery)
-                    .font(.subheadline)
-                if !viewModel.searchQuery.isEmpty {
-                    Button { viewModel.searchQuery = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                    }
+            // 过滤器切换 - 支持横向滚动
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    filterButton(titleKey: "dashboard.filter.all", mode: .all)
+                    filterButton(titleKey: "dashboard.filter.score8", mode: .essential)
+                    filterButton(titleKey: "dashboard.filter.bearish", mode: .bearish)
+                    filterButton(titleKey: "dashboard.filter.bullish", mode: .bullish)
                 }
+                .padding(.horizontal)
             }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color(uiColor: .separator).opacity(0.2), lineWidth: 0.5)
-            )
-            .padding(.horizontal)
-            
-            // 过滤器切换
-            HStack(spacing: 8) {
-                filterButton(titleKey: "dashboard.filter.all", mode: .all)
-                filterButton(titleKey: "dashboard.filter.score8", mode: .essential)
-                filterButton(titleKey: "dashboard.filter.bearish", mode: .bearish)
-            }
-            .padding(.horizontal)
+            .frame(height: 50) // 确保有足够的高度显示按钮
         }
     }
     
@@ -144,14 +129,15 @@ struct MainDashboardView: View {
             }
         } label: {
             Text(t(titleKey))
-                .font(.system(size: 10, weight: .bold))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(viewModel.filterMode == mode ? Color(uiColor: .label) : Color(uiColor: .tertiarySystemFill))
-                .foregroundStyle(viewModel.filterMode == mode ? .white : .secondary)
+                .font(.system(size: 14, weight: .bold))
+                .padding(.horizontal, 28)
+                .padding(.vertical, 14)
+                .foregroundStyle(viewModel.filterMode == mode ? .primary : .secondary)
+                .glassEffect(.regular, in: .capsule)
                 .clipShape(Capsule())
         }
     }
+
     
     private var emptyStateView: some View {
         VStack(spacing: 16) {

@@ -14,15 +14,11 @@ enum FundSortOrder {
 class FundViewModel {
     var watchlist: [FundValuation] = []
     var sortOrder: FundSortOrder = .none
-    var searchQuery: String = ""
+
     var isLoading = false
     
     var sortedWatchlist: [FundValuation] {
-        let base = watchlist.filter { fund in
-            searchQuery.isEmpty || 
-            fund.fundName.localizedCaseInsensitiveContains(searchQuery) ||
-            fund.fundCode.contains(searchQuery)
-        }
+        let base = watchlist
         
         switch sortOrder {
         case .none:

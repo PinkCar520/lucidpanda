@@ -46,11 +46,11 @@ struct IntelligenceDetailView: View {
                                 Image(systemName: "sparkles")
                                 Text(isSummarizing ? "intelligence.summary.generating" : "intelligence.summary.generate")
                             }
-                            .font(.footnote.bold())
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundStyle(.blue)
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 12)
-                            .background(.blue.opacity(0.1))
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 16)
+                            .glassEffect(.regular, in: .capsule)
                             .clipShape(Capsule())
                         }
                         

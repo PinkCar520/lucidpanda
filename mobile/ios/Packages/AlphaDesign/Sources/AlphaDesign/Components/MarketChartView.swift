@@ -37,18 +37,12 @@ public struct MarketChartView: View {
 
             Chart {
                 ForEach(data) { point in
-                    // 渐变填充
+                    // 区域填充
                     AreaMark(
                         x: .value("Time", point.date),
                         y: .value("Price", point.price)
                     )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.blue.opacity(0.3), .clear],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
+                    .foregroundStyle(.blue.opacity(0.1))
                     .interpolationMethod(.catmullRom)
 
                     // 主趋势线
