@@ -349,6 +349,19 @@ async def add_to_watchlist(item: WatchlistItem, current_user: User = Depends(get
     from src.alphasignal.core.database import IntelligenceDB
     db = IntelligenceDB()
     success = db.add_to_watchlist(item.code, item.name, str(current_user.id))
+    
+    # Broadcast to SSE clients
+    await manager.broadcast(json.dumps({
+        "event": "watchlist.updated",
+        "data": {
+            "operation": "add",
+            "fund_code": item.code,
+            "fund_name": item.name,
+            "user_id": str(current_user.id),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    }))
+    
     return {"success": success}
 
 @app.delete("/api/watchlist/{code}")
@@ -356,7 +369,89 @@ async def remove_from_watchlist(code: str, current_user: User = Depends(get_curr
     from src.alphasignal.core.database import IntelligenceDB
     db = IntelligenceDB()
     success = db.remove_from_watchlist(code, str(current_user.id))
+    
+    # Broadcast to SSE clients
+    await manager.broadcast(json.dumps({
+        "event": "watchlist.updated",
+        "data": {
+            "operation": "remove",
+            "fund_code": code,
+            "user_id": str(current_user.id),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    }))
+    
     return {"success": success}
+
+# --- Watchlist V2 SSE Stream ---
+
+from sse_starlette.sse import EventSourceResponse
+import asyncio
+
+@app.get("/api/v2/watchlist/stream")
+async def watchlist_stream(current_user: User = Depends(get_current_user)):
+    """
+    V2: SSE stream for watchlist updates.
+    Pushes real-time notifications when watchlist changes.
+    """
+    user_id = str(current_user.id)
+    
+    async def event_generator() -> AsyncGenerator[dict, None]:
+        """Generate SSE events for watchlist updates"""
+        try:
+            # Send initial connection event
+            yield {
+                "event": "connected",
+                "data": json.dumps({
+                    "user_id": user_id,
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+            }
+            
+            # Keep connection alive with periodic heartbeats
+            while True:
+                await asyncio.sleep(30)
+                yield {
+                    "event": "heartbeat",
+                    "data": json.dumps({
+                        "timestamp": datetime.utcnow().isoformat()
+                    })
+                }
+                
+        except asyncio.CancelledError:
+            print(f"[SSE] Watchlist stream cancelled for user {user_id}")
+            raise
+        except Exception as e:
+            print(f"[SSE] Watchlist stream error: {e}")
+            yield {
+                "event": "error",
+                "data": json.dumps({"error": str(e)})
+            }
+    
+    return EventSourceResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+# Helper function to broadcast watchlist updates
+async def broadcast_watchlist_update(operation: str, fund_code: str, user_id: str, extra_data: dict = None):
+    """Broadcast watchlist update to all SSE clients"""
+    data = {
+        "event": "watchlist.updated",
+        "data": {
+            "operation": operation,
+            "fund_code": fund_code,
+            "user_id": user_id,
+            "timestamp": datetime.utcnow().isoformat(),
+            **(extra_data or {})
+        }
+    }
+    await manager.broadcast(json.dumps(data))
 
 @app.get("/api/funds/search")
 async def search_funds(q: str = "", limit: int = 20):

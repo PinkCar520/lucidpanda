@@ -17,11 +17,11 @@ struct MainDashboardView: View {
         return NavigationStack {
             ZStack {
                 LiquidBackground()
-                
+
                 VStack(spacing: 0) {
                     // 1. 顶部状态栏
                     headerSection
-                    
+
                     // 2. 搜索与过滤器 (对齐 Web 端)
                     searchAndFilterBar
                     
@@ -29,7 +29,7 @@ struct MainDashboardView: View {
                     
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
-                            let displayItems = viewModel.items.isEmpty ? cachedItems.map { IntelligenceItem(model: $0) } : viewModel.filteredItems
+                            let displayItems = viewModel.items.isEmpty ? cachedItems.map { IntelligenceItem(from: $0) } : viewModel.filteredItems
 
                             if displayItems.isEmpty {
                                 emptyStateView
@@ -51,7 +51,28 @@ struct MainDashboardView: View {
                     }
                 }
             }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isSettingsPresented = true
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(Color(uiColor: .secondarySystemFill))
+                                .frame(width: 36, height: 36)
+                            Circle()
+                                .strokeBorder(.quaternary)
+                                .frame(width: 36, height: 36)
+                            Text("A")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                    .accessibilityLabel(Text("dashboard.action.open_settings"))
+                }
+            }
         }
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             viewModel.setModelContext(modelContext)
         }
@@ -71,12 +92,12 @@ struct MainDashboardView: View {
                 Text("dashboard.title")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(.primary)
-                
+
                 HStack(spacing: 6) {
                     Circle()
                         .fill(viewModel.isStreaming ? .green : .red)
                         .frame(width: 6, height: 6)
-                    
+
                     Text("\(t("dashboard.realtime_status")): \(t(viewModel.connectionStatus))")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(viewModel.isStreaming ? .green : .red)
@@ -84,20 +105,6 @@ struct MainDashboardView: View {
                 }
             }
             Spacer()
-            Button {
-                isSettingsPresented = true
-            } label: {
-                Circle()
-                    .fill(Color(uiColor: .secondarySystemFill))
-                    .frame(width: 36, height: 36)
-                    .overlay(
-                        Text("A")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(.primary)
-                    )
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("dashboard.action.open_settings"))
         }
         .padding(.horizontal)
         .padding(.top, 24)
@@ -163,7 +170,7 @@ struct MainDashboardView: View {
 
 // 增加转换构造函数
 extension IntelligenceItem {
-    init(model: IntelligenceModel) {
+    init(from model: IntelligenceModel) {
         self.init(
             id: model.id,
             timestamp: model.timestamp,

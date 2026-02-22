@@ -99,10 +99,23 @@ private final class PasskeyAssertionExecutor: NSObject, ASAuthorizationControlle
     }
     
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
+        let scenes = UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
-            .flatMap { $0.windows }
-            .first(where: { $0.isKeyWindow }) ?? ASPresentationAnchor()
+
+        if let window = scenes
+                .flatMap({ $0.windows })
+                .first(where: \.isKeyWindow) {
+            return window
+        }
+
+        if let scene = scenes.first(where: { $0.activationState == .foregroundActive }) {
+            return ASPresentationAnchor(windowScene: scene)
+        }
+
+        guard let scene = scenes.first else {
+            fatalError("No UIWindowScene available for presentation anchor.")
+        }
+        return ASPresentationAnchor(windowScene: scene)
     }
 }
 

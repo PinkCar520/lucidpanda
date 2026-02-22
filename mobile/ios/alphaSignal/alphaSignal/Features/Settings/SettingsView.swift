@@ -1,4 +1,5 @@
 import SwiftUI
+import AlphaDesign
 import AlphaData
 import AlphaCore
 
@@ -28,140 +29,223 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    HStack(spacing: 12) {
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.2))
-                            .frame(width: 42, height: 42)
-                            .overlay(
-                                Text("A")
+            ScrollView {
+                VStack(spacing: 16) {
+                    // 用户信息卡片
+                    LiquidGlassCard {
+                        HStack(spacing: 16) {
+                            Circle()
+                                .fill(Color.accentColor.opacity(0.2))
+                                .frame(width: 56, height: 56)
+                                .overlay(
+                                    Text("A")
+                                        .font(.title2.weight(.bold))
+                                        .foregroundStyle(Color.accentColor)
+                                )
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("settings.user.display_name")
                                     .font(.headline)
-                                    .foregroundStyle(Color.accentColor)
-                            )
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("settings.user.display_name")
-                                .font(.subheadline.weight(.semibold))
-                            Text("pincar@alphasignal.com")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
+                                    .foregroundStyle(.primary)
+                                Text("pincar@alphasignal.com")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
                         }
+                        .padding(16)
                     }
-                }
+                    .padding(.horizontal)
 
-                Section("settings.section.notifications") {
-                    Toggle(isOn: $pushAlertsEnabled) {
-                        Label("settings.item.push_alert", systemImage: "bell.badge.fill")
-                    }
-                    Toggle(isOn: $signalAlertsEnabled) {
-                        Label("settings.item.signal_alert", systemImage: "waveform.path.ecg")
-                    }
-                    Toggle(isOn: $priceAlertsEnabled) {
-                        Label("settings.item.price_alert", systemImage: "chart.line.uptrend.xyaxis")
-                    }
-                }
+                    // 通知设置卡片
+                    LiquidGlassCard {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("settings.section.notifications")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
 
-                Section("settings.section.security") {
-                    Toggle(isOn: $biometricUnlockEnabled) {
-                        Label("settings.item.biometric_unlock", systemImage: "faceid")
-                    }
-
-                    Button {
-                        activeSheet = .password
-                    } label: {
-                        settingsRow(icon: "lock.shield.fill", titleKey: "settings.action.change_password", color: .blue)
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        showWebPrompt = true
-                    } label: {
-                        settingsRow(icon: "person.text.rectangle.fill", titleKey: "settings.action.identity", color: .green)
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        activeSheet = .twoFactor
-                    } label: {
-                        settingsRow(icon: "key.viewfinder", titleKey: "settings.action.two_factor", color: .orange)
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                Section("settings.section.advanced") {
-                    Button {
-                        showWebPrompt = true
-                    } label: {
-                        settingsRow(icon: "safari", titleKey: "settings.action.manage_on_web", color: .accentColor)
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                Section("Session Security") {
-                    if isSessionsLoading {
-                        HStack(spacing: 10) {
-                            ProgressView()
-                            Text("Loading sessions...")
-                                .foregroundStyle(.secondary)
-                        }
-                    } else if sessions.isEmpty {
-                        Text("No active sessions")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(sessions) { session in
-                            HStack(spacing: 10) {
-                                Image(systemName: session.isCurrent ? "iphone" : "desktopcomputer")
-                                    .foregroundStyle(session.isCurrent ? .blue : .secondary)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(session.deviceName)
-                                        .font(.subheadline.weight(.semibold))
-                                    Text(session.metaLine)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                            VStack(spacing: 12) {
+                                Toggle(isOn: $pushAlertsEnabled) {
+                                    HStack {
+                                        Image(systemName: "bell.badge.fill")
+                                            .foregroundStyle(.orange)
+                                        Text("settings.item.push_alert")
+                                    }
                                 }
-                                Spacer()
-                                if session.isCurrent {
-                                    Text("Current")
-                                        .font(.caption2.weight(.bold))
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 3)
-                                        .background(Color.blue.opacity(0.12))
-                                        .clipShape(Capsule())
+                                .tint(.blue)
+
+                                Toggle(isOn: $signalAlertsEnabled) {
+                                    HStack {
+                                        Image(systemName: "waveform.path.ecg")
+                                            .foregroundStyle(.blue)
+                                        Text("settings.item.signal_alert")
+                                    }
+                                }
+                                .tint(.blue)
+
+                                Toggle(isOn: $priceAlertsEnabled) {
+                                    HStack {
+                                        Image(systemName: "chart.line.uptrend.xyaxis")
+                                            .foregroundStyle(.green)
+                                        Text("settings.item.price_alert")
+                                    }
+                                }
+                                .tint(.blue)
+                            }
+                        }
+                        .padding(16)
+                    }
+                    .padding(.horizontal)
+
+                    // 安全设置卡片
+                    LiquidGlassCard {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("settings.section.security")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+
+                            VStack(spacing: 12) {
+                                Toggle(isOn: $biometricUnlockEnabled) {
+                                    HStack {
+                                        Image(systemName: "faceid")
+                                            .foregroundStyle(.purple)
+                                        Text("settings.item.biometric_unlock")
+                                    }
+                                }
+                                .tint(.blue)
+
+                                settingsButton(icon: "lock.shield.fill", titleKey: "settings.action.change_password", color: .blue) {
+                                    activeSheet = .password
+                                }
+
+                                settingsButton(icon: "person.text.rectangle.fill", titleKey: "settings.action.identity", color: .green) {
+                                    showWebPrompt = true
+                                }
+
+                                settingsButton(icon: "key.viewfinder", titleKey: "settings.action.two_factor", color: .orange) {
+                                    activeSheet = .twoFactor
                                 }
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                if !session.isCurrent {
-                                    Button(role: .destructive) {
-                                        Task { await revokeSession(session.id) }
-                                    } label: {
-                                        Text("Revoke")
+                        }
+                        .padding(16)
+                    }
+                    .padding(.horizontal)
+
+                    // 高级设置卡片
+                    LiquidGlassCard {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Text("settings.section.advanced")
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+
+                            settingsButton(icon: "safari", titleKey: "settings.action.manage_on_web", color: .accentColor) {
+                                showWebPrompt = true
+                            }
+                        }
+                        .padding(16)
+                    }
+                    .padding(.horizontal)
+
+                    // 会话安全卡片
+                    LiquidGlassCard {
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack {
+                                Text("Session Security")
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Button {
+                                    Task { await loadSessions() }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "arrow.clockwise")
+                                        Text("Refresh")
+                                    }
+                                    .font(.caption)
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 8)
+                                    .background(Color.gray.opacity(0.2))
+                                    .clipShape(Capsule())
+                                }
+                            }
+
+                            if isSessionsLoading {
+                                HStack(spacing: 10) {
+                                    ProgressView()
+                                    Text("Loading sessions...")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .center)
+                            } else if sessions.isEmpty {
+                                Text("No active sessions")
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding()
+                            } else {
+                                ForEach(sessions) { session in
+                                    HStack(spacing: 12) {
+                                        Image(systemName: session.isCurrent ? "iphone" : "desktopcomputer")
+                                            .foregroundStyle(session.isCurrent ? .blue : .secondary)
+                                            .frame(width: 24)
+
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(session.deviceName)
+                                                .font(.subheadline.weight(.semibold))
+                                            Text(session.metaLine)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+
+                                        if session.isCurrent {
+                                            Text("Current")
+                                                .font(.caption2.weight(.bold))
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 3)
+                                                .background(Color.blue.opacity(0.12))
+                                                .clipShape(Capsule())
+                                        }
+                                    }
+                                    .padding(.vertical, 8)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        if !session.isCurrent {
+                                            Button(role: .destructive) {
+                                                Task { await revokeSession(session.id) }
+                                            } label: {
+                                                Text("Revoke")
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
+                        .padding(16)
+                    }
+                    .padding(.horizontal)
+
+                    // 错误消息
+                    if let sessionErrorMessage {
+                        LiquidGlassCard {
+                            Text(sessionErrorMessage)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .padding(12)
+                        }
+                        .padding(.horizontal)
                     }
 
-                    Button {
-                        Task { await loadSessions() }
-                    } label: {
-                        Text("Refresh Session List")
+                    // 登出按钮
+                    LiquidGlassCard {
+                        Button("settings.action.logout", role: .destructive) {
+                            Task { await logoutCurrentSession() }
+                        }
+                        .disabled(isLoggingOut)
+                        .frame(maxWidth: .infinity)
+                        .padding(16)
+                        .font(.headline)
                     }
-                }
-
-                if let sessionErrorMessage {
-                    Section {
-                        Text(sessionErrorMessage)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-                }
-
-                Section {
-                    Button("settings.action.logout", role: .destructive) {
-                        Task { await logoutCurrentSession() }
-                    }
-                    .disabled(isLoggingOut)
+                    .padding(.horizontal)
+                    .padding(.bottom, 32)
                 }
             }
             .navigationTitle("settings.title")
@@ -245,20 +329,26 @@ struct SettingsView: View {
         rootViewModel.updateState(to: .unauthenticated)
     }
 
-    private func settingsRow(icon: String, titleKey: LocalizedStringKey, color: Color) -> some View {
-        HStack {
-            Label {
-                Text(titleKey)
-                    .foregroundStyle(.primary)
-            } icon: {
-                Image(systemName: icon)
-                    .foregroundStyle(color)
+    private func settingsButton(icon: String, titleKey: LocalizedStringKey, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                HStack(spacing: 12) {
+                    Image(systemName: icon)
+                        .font(.title3)
+                        .foregroundStyle(color)
+                        .frame(width: 24)
+                    Text(titleKey)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
+            .padding(.vertical, 8)
         }
+        .buttonStyle(.plain)
     }
 
     private var passwordSheet: some View {

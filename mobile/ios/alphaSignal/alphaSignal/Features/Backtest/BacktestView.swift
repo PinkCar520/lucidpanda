@@ -102,34 +102,35 @@ struct BacktestView: View {
             .navigationDestination(item: $selectedIntelligence) { item in
                 IntelligenceDetailView(item: item)
             }
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        withAnimation(.spring()) { showConfig.toggle() }
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.system(size: 16, weight: .bold))
+                            .padding(10)
+                            .clipShape(Circle())
+                    }
+                }
+            }
         }
     }
     
     // MARK: - Sub-View Sections
-    
+
     private var headerSection: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text("backtest.title")
                     .font(.system(size: 24, weight: .black, design: .rounded))
                     .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
-                
+
                 Text("backtest.subtitle")
                     .font(.caption2)
                     .foregroundStyle(.gray)
             }
             Spacer()
-            
-            Button {
-                withAnimation(.spring()) { showConfig.toggle() }
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.blue)
-                    .padding(10)
-                    .background(.blue.opacity(0.1))
-                    .clipShape(Circle())
-            }
         }
         .padding(.horizontal)
         .padding(.top, 24)

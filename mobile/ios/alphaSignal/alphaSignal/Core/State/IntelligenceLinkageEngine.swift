@@ -37,7 +37,7 @@ public struct IntelligenceLinkageEngine {
                 allKeywords.contains { keyword in
                     model.summary.contains(keyword) || model.content.contains(keyword)
                 }
-            }.prefix(5).map { IntelligenceItem(model: $0) }
+            }.prefix(5).map { IntelligenceItem(from: $0) }
             
         } catch {
             return []

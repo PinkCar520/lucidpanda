@@ -13,6 +13,7 @@ pytest
 pytest-mock
 psycopg2-binary
 fastapi
+sse-starlette
 uvicorn
 simhash
 dateparser

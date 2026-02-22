@@ -1417,23 +1417,6 @@
         }
       }
     },
-    "dashboard.filter.score8" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Score 8+"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "评分 8+"
-          }
-        }
-      }
-    },
     "dashboard.filter.bullish" : {
       "extractionState" : "new",
       "localizations" : {
@@ -1447,6 +1430,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "看涨策略"
+          }
+        }
+      }
+    },
+    "dashboard.filter.score8" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Score 8+"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "评分 8+"
           }
         }
       }
@@ -2614,7 +2614,7 @@
         }
       }
     },
-    "Refresh Session List" : {
+    "Refresh" : {
 
     },
     "Returns" : {
@@ -3057,7 +3057,76 @@
     "WinRate" : {
 
     },
+    "分组名称" : {
+
+    },
+    "创建" : {
+
+    },
+    "删除" : {
+
+    },
+    "删除 (%lld)" : {
+
+    },
+    "删除基金" : {
+
+    },
+    "取消" : {
+
+    },
+    "图标" : {
+
+    },
+    "如：科技基金、QDII" : {
+
+    },
+    "完成" : {
+
+    },
+    "已删除「%@」" : {
+
+    },
+    "已选择 %lld 只基金" : {
+
+    },
+    "批量删除" : {
+
+    },
+    "撤销" : {
+
+    },
+    "新建分组" : {
+
+    },
+    "无分组" : {
+
+    },
     "正在初始化安全链路..." : {
+
+    },
+    "添加第一只基金" : {
+
+    },
+    "确定要从自选列表中删除「%@」吗？此操作可以撤销。" : {
+
+    },
+    "确定要删除选中的 %lld 只基金吗？此操作不可撤销。" : {
+
+    },
+    "移动" : {
+
+    },
+    "移动分组" : {
+
+    },
+    "编辑" : {
+
+    },
+    "选择分组" : {
+
+    },
+    "颜色" : {
 
     }
   },
