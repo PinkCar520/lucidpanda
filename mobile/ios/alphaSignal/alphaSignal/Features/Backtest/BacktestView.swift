@@ -5,13 +5,13 @@ import Charts
 
 struct BacktestView: View {
     @State private var viewModel = BacktestViewModel()
-    @State private var showConfig = false
     @State private var hasInitializedConfig = false
     @State private var selectedEvidence: BacktestStats.BacktestItem?
     @State private var selectedIntelligence: IntelligenceItem?
     @State private var loadingEvidenceDetailId: Int?
     @State private var evidenceDetailError: String?
-    
+    @State private var showSettingsPopover = false
+
     @AppStorage("backtest.window") private var savedWindow = "1h"
     @AppStorage("backtest.min_score") private var savedMinScore = 8
     @AppStorage("backtest.sentiment") private var savedSentiment = "bearish"
@@ -20,15 +20,11 @@ struct BacktestView: View {
         NavigationStack {
             ZStack {
                 LiquidBackground()
-                
+
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 24) {
                         headerSection
-                        
-                        if showConfig {
-                            configPanel.transition(.move(edge: .top).combined(with: .opacity))
-                        }
-                        
+
                         if let stats = viewModel.stats {
                             ZStack {
                                 VStack(spacing: 20) {
@@ -37,34 +33,34 @@ struct BacktestView: View {
                                     sessionChart(stats)
                                     sessionBreakdownSection(stats)
                                     environmentSection(stats)
-                                    
+
                                     if let dist = stats.distribution, !dist.isEmpty {
                                         distributionChart(dist)
                                     }
-                                    
+
                                     if let items = stats.items, !items.isEmpty {
                                         evidenceListSection(items)
                                     }
                                 }
-                                
+
                                 if stats.count == 0 {
                                     noDataOverlay
                                 }
                             }
-                            
+
                         } else if viewModel.isLoading {
                             ProgressView().tint(.blue).padding(.top, 40)
                         } else {
                             emptyStateView
                         }
-                        
+
                         if let errorMessage = viewModel.errorMessage {
                             Text(errorMessage)
                                 .font(.caption)
                                 .foregroundStyle(.red)
                                 .padding(.horizontal)
                         }
-                        
+
                         Spacer(minLength: 100)
                     }
                 }
@@ -102,10 +98,13 @@ struct BacktestView: View {
             .navigationDestination(item: $selectedIntelligence) { item in
                 IntelligenceDetailView(item: item)
             }
+            .sheet(isPresented: $showSettingsPopover) {
+                settingsSheet
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        withAnimation(.spring()) { showConfig.toggle() }
+                        withAnimation(.spring()) { showSettingsPopover.toggle() }
                     } label: {
                         Image(systemName: "slider.horizontal.3")
                             .font(.system(size: 16, weight: .bold))
@@ -136,78 +135,128 @@ struct BacktestView: View {
         .padding(.top, 24)
     }
     
-    private var configPanel: some View {
-        LiquidGlassCard {
-            VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("\(t("backtest.metric.min_score")): \(viewModel.minScore)")
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        Spacer()
-                        Text("\(t("backtest.metric.direction")): \(viewModel.sentiment == "bearish" ? t("backtest.direction.bearish") : t("backtest.direction.bullish"))")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    }
-                    .foregroundStyle(.blue)
-                    
-                    Slider(value: Binding(get: { Double(viewModel.minScore) }, set: { viewModel.minScore = Int($0) }), in: 1...10, step: 1)
-                        .tint(.blue)
-                    
-                    if let hint = scoreHint {
-                        Text(hint)
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.orange)
-                    }
-                }
+    private var settingsSheet: some View {
+        NavigationStack {
+            ZStack {
+                LiquidBackground()
                 
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("backtest.metric.window").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
-                        Picker("backtest.metric.window", selection: $viewModel.selectedWindow) {
-                            Text("backtest.window.15m").tag("15m")
-                            Text("backtest.window.1h").tag("1h")
-                            Text("backtest.window.4h").tag("4h")
-                            Text("backtest.window.12h").tag("12h")
-                            Text("backtest.window.24h").tag("24h")
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // 设置卡片 - 所有配置项在一个卡片中
+                        LiquidGlassCard {
+                            VStack(spacing: 20) {
+                                // 最小分数设置
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack {
+                                        Label("最小分数", systemImage: "star.fill")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(.blue)
+                                        Spacer()
+                                        Text("\(viewModel.minScore) / 10")
+                                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                            .foregroundStyle(.primary)
+                                    }
+                                    
+                                    Slider(value: Binding(get: { Double(viewModel.minScore) }, set: { viewModel.minScore = Int($0) }), in: 1...10, step: 1)
+                                        .tint(.blue)
+                                    
+                                    HStack {
+                                        Text("1")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Text("10")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    
+                                    if let hint = scoreHint {
+                                        Label(hint, systemImage: "exclamationmark.triangle.fill")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .foregroundStyle(.orange)
+                                            .padding(.vertical, 4)
+                                            .padding(.horizontal, 8)
+                                            .background(Color.orange.opacity(0.1))
+                                            .cornerRadius(6)
+                                    }
+                                }
+                                
+                                Divider()
+                                    .background(Color.gray.opacity(0.2))
+                                
+                                // 时间窗口设置
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Label("回测时间窗口", systemImage: "clock.fill")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(.blue)
+                                    
+                                    Picker("backtest.metric.window", selection: $viewModel.selectedWindow) {
+                                        Text("15 分钟").tag("15m")
+                                        Text("1 小时").tag("1h")
+                                        Text("4 小时").tag("4h")
+                                        Text("12 小时").tag("12h")
+                                        Text("24 小时").tag("24h")
+                                    }
+                                    .pickerStyle(.segmented)
+                                    .font(.system(size: 12, weight: .medium))
+                                }
+                                
+                                Divider()
+                                    .background(Color.gray.opacity(0.2))
+                                
+                                // 交易方向设置
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Label("交易方向", systemImage: "arrow.up.arrow.down")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(.blue)
+                                    
+                                    Picker("backtest.metric.direction", selection: $viewModel.sentiment) {
+                                        Text("看跌（Bearish）").tag("bearish")
+                                        Text("看涨（Bullish）").tag("bullish")
+                                    }
+                                    .pickerStyle(.segmented)
+                                    .font(.system(size: 12, weight: .medium))
+                                }
+                            }
+                            .padding(16)
                         }
-                        .pickerStyle(.segmented)
-                        .font(.system(size: 12, weight: .bold))
-                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
-                        .padding(.vertical, 4)
+                        
+                        Spacer(minLength: 20)
                     }
-                }
-                
-                HStack(spacing: 12) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("backtest.metric.direction").font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
-                        Picker("backtest.metric.direction", selection: $viewModel.sentiment) {
-                            Text("backtest.direction.bearish").tag("bearish")
-                            Text("backtest.direction.bullish").tag("bullish")
-                        }
-                        .pickerStyle(.segmented)
-                        .font(.system(size: 12, weight: .bold))
-                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
-                        .padding(.vertical, 4)
-                    }
-                }
-                
-                Button {
-                    Task { 
-                        withAnimation { showConfig = false }
-                        await viewModel.fetchStats() 
-                    }
-                } label: {
-                    Text("backtest.action.run")
-                        .font(.subheadline.bold())
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.blue)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal)
+                    .padding(.top, 16)
+                    .padding(.bottom, 32)
                 }
             }
+            .navigationTitle("回测设置")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showSettingsPopover = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    }
+                }
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showSettingsPopover = false
+                        Task {
+                            await viewModel.fetchStats()
+                        }
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
         }
-        .padding(.horizontal)
     }
     
     private func statsGrid(_ stats: BacktestStats) -> some View {

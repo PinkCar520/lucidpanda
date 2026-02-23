@@ -46,16 +46,6 @@
         }
       }
     },
-    "%@: %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@: %2$lld"
-          }
-        }
-      }
-    },
     "%@: $%@" : {
       "localizations" : {
         "en" : {
@@ -79,6 +69,9 @@
     "%lld" : {
 
     },
+    "%lld / 10" : {
+
+    },
     "%lld.0" : {
 
     },
@@ -92,6 +85,27 @@
 
     },
     "$%@" : {
+
+    },
+    "1" : {
+
+    },
+    "1 小时" : {
+
+    },
+    "4 小时" : {
+
+    },
+    "10" : {
+
+    },
+    "12 小时" : {
+
+    },
+    "15 分钟" : {
+
+    },
+    "24 小时" : {
 
     },
     "A" : {
@@ -488,6 +502,7 @@
       }
     },
     "backtest.action.run" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -537,6 +552,7 @@
       }
     },
     "backtest.direction.bearish" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -553,6 +569,7 @@
       }
     },
     "backtest.direction.bullish" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1166,6 +1183,7 @@
       }
     },
     "backtest.window.1h" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1182,6 +1200,7 @@
       }
     },
     "backtest.window.4h" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1198,6 +1217,7 @@
       }
     },
     "backtest.window.12h" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1214,6 +1234,7 @@
       }
     },
     "backtest.window.15m" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1230,6 +1251,7 @@
       }
     },
     "backtest.window.24h" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3057,6 +3079,12 @@
     "WinRate" : {
 
     },
+    "交易方向" : {
+
+    },
+    "最小分数" : {
+
+    },
     "分组名称" : {
 
     },
@@ -3066,13 +3094,16 @@
     "删除" : {
 
     },
-    "删除 (%lld)" : {
-
-    },
     "删除基金" : {
 
     },
     "取消" : {
+
+    },
+    "回测时间窗口" : {
+
+    },
+    "回测设置" : {
 
     },
     "图标" : {
@@ -3087,12 +3118,6 @@
     "已删除「%@」" : {
 
     },
-    "已选择 %lld 只基金" : {
-
-    },
-    "批量删除" : {
-
-    },
     "撤销" : {
 
     },
@@ -3105,22 +3130,19 @@
     "正在初始化安全链路..." : {
 
     },
-    "添加第一只基金" : {
+    "看涨（Bullish）" : {
+
+    },
+    "看跌（Bearish）" : {
 
     },
     "确定要从自选列表中删除「%@」吗？此操作可以撤销。" : {
 
     },
-    "确定要删除选中的 %lld 只基金吗？此操作不可撤销。" : {
-
-    },
-    "移动" : {
-
-    },
     "移动分组" : {
 
     },
-    "编辑" : {
+    "请使用底部搜索添加基金" : {
 
     },
     "选择分组" : {

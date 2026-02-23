@@ -8,21 +8,26 @@ struct FundDashboardView: View {
     @State private var viewModel = FundViewModel()
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.modelContext) private var modelContext
-    
-    @State private var showAddFundSheet = false
+
     @State private var showGroupPicker = false
     @State private var pendingMoveFund: FundValuation?
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteFund: FundValuation?
-    @State private var showBatchDeleteConfirmation = false
     @State private var showCreateGroupSheet = false
     @State private var selectedGroupForFilter: String? = nil
+    @State private var selectedFund: FundValuation?
+    @State private var showFundDetail = false
     
     var body: some View {
         NavigationStack {
             dashboardContent
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { dashboardToolbar }
+                .navigationDestination(isPresented: $showFundDetail) {
+                    if let fund = selectedFund {
+                        FundDetailView(valuation: fund)
+                    }
+                }
         }
         .modelContext(modelContext)
         .task {
@@ -30,19 +35,11 @@ struct FundDashboardView: View {
             await viewModel.fetchWatchlist()
             await viewModel.fetchGroups()
         }
-        .sheet(isPresented: $showAddFundSheet) {
-            FundSearchView { fund in
-                Task {
-                    await viewModel.addFund(code: fund.code, name: fund.name)
-                }
-            }
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
-        }
         .sheet(isPresented: $showCreateGroupSheet) {
             CreateGroupView { name, icon, color in
                 Task {
-                    await viewModel.createGroup(name: name, icon: icon, color: color)
+                    let sortIndex = viewModel.groups.count
+                    await viewModel.createGroup(name: name, icon: icon, color: color, sortIndex: sortIndex)
                 }
             }
         }
@@ -73,16 +70,6 @@ struct FundDashboardView: View {
                 Text("确定要从自选列表中删除「\(fund.fundName)」吗？此操作可以撤销。")
             }
         }
-        .alert("批量删除", isPresented: $showBatchDeleteConfirmation) {
-            Button("取消", role: .cancel) { }
-            Button("删除 (\(viewModel.selectedFundCodes.count))", role: .destructive) {
-                Task {
-                    await viewModel.batchDelete()
-                }
-            }
-        } message: {
-            Text("确定要删除选中的 \(viewModel.selectedFundCodes.count) 只基金吗？此操作不可撤销。")
-        }
     }
 
     // MARK: - Subviews
@@ -90,10 +77,7 @@ struct FundDashboardView: View {
     private var dashboardContent: some View {
         ZStack {
             LiquidBackground()
-            VStack(spacing: 0) {
-                headerSection
-                listSection
-            }
+            listSection
         }
     }
 
@@ -110,41 +94,36 @@ struct FundDashboardView: View {
                 }
                 Spacer()
             }
-
-            filterChips
         }
         .padding(.horizontal)
         .padding(.top, 24)
-        .padding(.bottom, 12)
     }
 
     @ViewBuilder
     private var filterChips: some View {
         if !viewModel.groups.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                FilterChip(
+                    title: "全部",
+                    icon: "square.grid.2x2",
+                    isSelected: selectedGroupForFilter == nil
+                ) {
+                    withAnimation(.spring()) {
+                        selectedGroupForFilter = nil
+                        viewModel.viewMode = .all
+                    }
+                }
+
+                ForEach(viewModel.groups) { group in
                     FilterChip(
-                        title: "全部",
-                        icon: "square.grid.2x2",
-                        isSelected: selectedGroupForFilter == nil
+                        title: group.name,
+                        icon: group.icon,
+                        color: Color(hex: group.color),
+                        isSelected: selectedGroupForFilter == group.id
                     ) {
                         withAnimation(.spring()) {
-                            selectedGroupForFilter = nil
-                            viewModel.viewMode = .all
-                        }
-                    }
-
-                    ForEach(viewModel.groups) { group in
-                        FilterChip(
-                            title: group.name,
-                            icon: group.icon,
-                            color: Color(hex: group.color),
-                            isSelected: selectedGroupForFilter == group.id
-                        ) {
-                            withAnimation(.spring()) {
-                                selectedGroupForFilter = group.id
-                                viewModel.viewMode = .group(group.id)
-                            }
+                            selectedGroupForFilter = group.id
+                            viewModel.viewMode = .group(group.id)
                         }
                     }
                 }
@@ -154,83 +133,95 @@ struct FundDashboardView: View {
 
     private var listSection: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 16) {
-                if viewModel.watchlist.isEmpty && !viewModel.isLoading {
-                    emptyStateView
-                } else {
-                    if viewModel.isEditing {
-                        editModeToolbar
-                    }
+            LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
+                headerSection
+                    .padding(.top, 12)
 
-                    if viewModel.isEditing {
-                        editModeListView
+                Section(header: filterChipsHeader) {
+                    if viewModel.watchlist.isEmpty && !viewModel.isLoading {
+                        emptyStateView
+                            .padding(.horizontal)
                     } else {
-                        normalListView
-                    }
-                }
+                        ForEach(viewModel.sortedWatchlist) { valuation in
+                            Button {
+                                selectedFund = valuation
+                                showFundDetail = true
+                            } label: {
+                                FundCompactCard(valuation: valuation)
+                            }
+                            .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                            .contextMenu {
+                                Button {
+                                    pendingMoveFund = valuation
+                                    showGroupPicker = true
+                                } label: {
+                                    Label("移动分组", systemImage: "folder.badge.plus")
+                                }
 
-                Spacer(minLength: 100)
+                                Divider()
+
+                                Button(role: .destructive) {
+                                    pendingDeleteFund = valuation
+                                    showDeleteConfirmation = true
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    pendingDeleteFund = valuation
+                                    showDeleteConfirmation = true
+                                } label: {
+                                    Label("删除", systemImage: "trash")
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+
+                    Spacer(minLength: 100)
+                }
             }
-            .padding(.top, 12)
+        }
+        .refreshable {
+            await viewModel.fetchWatchlist()
+            await viewModel.fetchGroups()
+        }
+    }
+
+    @ViewBuilder
+    private var filterChipsHeader: some View {
+        if !viewModel.groups.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                filterChips
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+//            .background(Color(uiColor: .systemGroupedBackground))
         }
     }
 
     @ToolbarContentBuilder
     private var dashboardToolbar: some ToolbarContent {
-        if !viewModel.watchlist.isEmpty {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(viewModel.isEditing ? "取消" : "编辑") {
-                    withAnimation(.spring()) {
-                        viewModel.isEditing.toggle()
-                        if !viewModel.isEditing {
-                            viewModel.selectedFundCodes.removeAll()
-                        }
-                    }
-                }
+        ToolbarItem(placement: .topBarLeading) {
+            Button {
+                showCreateGroupSheet = true
+            } label: {
+                Image(systemName: "folder.badge.plus")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.primary)
             }
         }
-
-        ToolbarItem {
-            Menu {
-                ForEach(FundSortOrder.allCases, id: \.self) { order in
-                    Button {
-                        withAnimation(.spring()) {
-                            viewModel.sortOrder = order
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: order.icon)
-                            Text(order.label)
-                            if viewModel.sortOrder == order {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
+        
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                withAnimation(.spring()) {
+                    viewModel.toggleSortOrder()
                 }
             } label: {
                 Image(systemName: viewModel.sortOrder.icon)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.blue)
-            }
-        }
-
-        ToolbarSpacer(.fixed)
-
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                showAddFundSheet = true
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.blue)
-            }
-        }
-
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                Task { await viewModel.fetchWatchlist() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(.blue)
             }
@@ -276,116 +267,15 @@ struct FundDashboardView: View {
                 Text("funds.empty.hint")
                     .font(.subheadline)
                     .foregroundStyle(.blue)
-                
-                Button {
-                    showAddFundSheet = true
-                } label: {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                        Text("添加第一只基金")
-                    }
-                    .padding()
-                    .background(.blue)
-                    .foregroundStyle(.white)
-                    .cornerRadius(12)
-                }
+                Text("请使用底部搜索添加基金")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
                 
                 Spacer()
             }
         }
     }
     
-    // MARK: - Edit Mode
-    
-    private var editModeToolbar: some View {
-        HStack {
-            Text("已选择 \(viewModel.selectedFundCodes.count) 只基金")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            
-            Spacer()
-            
-            Button("删除") {
-                showBatchDeleteConfirmation = true
-            }
-            .font(.subheadline.bold())
-            .foregroundStyle(.red)
-            .disabled(viewModel.selectedFundCodes.isEmpty)
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 8)
-    }
-    
-    private var editModeListView: some View {
-        VStack(spacing: 12) {
-            ForEach(viewModel.sortedWatchlist) { valuation in
-                let isSelected = viewModel.selectedFundCodes.contains(valuation.fundCode)
-                HStack {
-                    Button {
-                        viewModel.toggleSelection(valuation.fundCode)
-                    } label: {
-                        Image(systemName: isSelected
-                              ? "checkmark.circle.fill"
-                              : "circle")
-                        .font(.system(size: 22))
-                        .foregroundStyle(isSelected
-                                         ? .blue
-                                         : .gray)
-                    }
-                    
-                    FundCompactCard(valuation: valuation)
-                        .opacity(isSelected ? 0.5 : 1)
-                }
-            }
-        }
-        .padding(.horizontal)
-    }
-    
-    private var normalListView: some View {
-        VStack(spacing: 16) {
-            ForEach(viewModel.sortedWatchlist) { valuation in
-                NavigationLink(destination: FundDetailView(valuation: valuation)) {
-                    FundCompactCard(valuation: valuation)
-                }
-                .buttonStyle(.plain)
-                .contextMenu {
-                    Button {
-                        pendingMoveFund = valuation
-                        showGroupPicker = true
-                    } label: {
-                        Label("移动分组", systemImage: "folder.badge.plus")
-                    }
-                    
-                    Divider()
-                    
-                    Button(role: .destructive) {
-                        pendingDeleteFund = valuation
-                        showDeleteConfirmation = true
-                    } label: {
-                        Label("删除", systemImage: "trash")
-                    }
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    Button(role: .destructive) {
-                        pendingDeleteFund = valuation
-                        showDeleteConfirmation = true
-                    } label: {
-                        Label("删除", systemImage: "trash")
-                    }
-                    
-                    Button {
-                        pendingMoveFund = valuation
-                        showGroupPicker = true
-                    } label: {
-                        Label("移动", systemImage: "folder.badge.plus")
-                    }
-                    .tint(.orange)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal)
-    }
 }
 
 // MARK: - Filter Chip
@@ -407,17 +297,9 @@ struct FilterChip: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(isSelected ? (color ?? .blue) : .white.opacity(0.5))
-            )
-            .foregroundStyle(isSelected ? .white : .primary)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .strokeBorder(isSelected ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
-            )
+            .foregroundStyle(isSelected ? (color ?? .blue) : .primary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glass)
     }
 }
 

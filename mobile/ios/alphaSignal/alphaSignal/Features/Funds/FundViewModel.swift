@@ -12,6 +12,10 @@ enum FundSortOrder: CaseIterable {
     case highGrowthFirst  // 涨幅榜
     case highDropFirst    // 跌幅榜
     case alphabetical     // 名称 A-Z
+
+    static var menuOrders: [FundSortOrder] {
+        [.highGrowthFirst, .highDropFirst]
+    }
     
     var icon: String {
         switch self {
@@ -49,7 +53,7 @@ class FundViewModel {
     var watchlist: [FundValuation] = []
     var watchlistItems: [WatchlistItem] = []
     var groups: [WatchlistGroup] = []
-    var sortOrder: FundSortOrder = .none
+    var sortOrder: FundSortOrder = .highGrowthFirst
     var viewMode: WatchlistViewMode = .all
     var selectedGroupId: String? = nil
     
@@ -229,12 +233,70 @@ class FundViewModel {
             let response: WatchlistGroupsResponse = try await APIClient.shared.fetch(
                 path: "/api/v2/watchlist/groups"
             )
-            self.groups = response.data
             
-            // 更新缓存
-            await cacheManager.saveGroups(response.data)
+            // 如果没有分组，创建默认分组
+            if response.data.isEmpty {
+                await createDefaultGroups()
+                // 重新获取分组（包含刚创建的默认分组）
+                let updatedResponse: WatchlistGroupsResponse = try await APIClient.shared.fetch(
+                    path: "/api/v2/watchlist/groups"
+                )
+                self.groups = updatedResponse.data
+                await cacheManager.saveGroups(updatedResponse.data)
+            } else {
+                self.groups = response.data
+                await cacheManager.saveGroups(response.data)
+            }
         } catch {
             print("❌ Failed to fetch groups: \(error)")
+            
+            // 从缓存加载时检查是否需要创建默认分组
+            let cachedGroups = await cacheManager.fetchAllGroups()
+            if cachedGroups.isEmpty {
+                await createDefaultGroups()
+                // 从缓存重新加载
+                let refreshedGroups = await cacheManager.fetchAllGroups()
+                self.groups = refreshedGroups.map {
+                    WatchlistGroup(
+                        id: $0.id,
+                        userId: "",
+                        name: $0.name,
+                        icon: $0.icon,
+                        color: $0.color,
+                        sortIndex: Int($0.sortIndex),
+                        createdAt: $0.lastSyncTime,
+                        updatedAt: $0.lastSyncTime
+                    )
+                }
+            }
+        }
+    }
+    
+    /// 创建默认分组：指数、全球、黄金
+    private func createDefaultGroups() async {
+        let defaultGroups: [(name: String, icon: String, color: String)] = [
+            ("指数", "chart.bar", "#007AFF"),      // 蓝色
+            ("全球", "globe", "#5856D6"),          // 紫色
+            ("黄金", "circle.fill", "#FF9500")     // 橙色
+        ]
+        
+        for (index, group) in defaultGroups.enumerated() {
+            do {
+                let request = WatchlistCreateGroupRequest(name: group.name, icon: group.icon, color: group.color, sortIndex: index)
+                let response: WatchlistGroupsResponse = try await APIClient.shared.send(
+                    path: "/api/v2/watchlist/groups",
+                    method: "POST",
+                    body: request
+                )
+                
+                // 直接添加到 groups 数组
+                if let newGroup = response.data.first {
+                    self.groups.append(newGroup)
+                    await cacheManager.saveGroup(newGroup)
+                }
+            } catch {
+                print("❌ Failed to create default group '\(group.name)': \(error)")
+            }
         }
     }
     
@@ -502,26 +564,29 @@ class FundViewModel {
     }
     
     func toggleSortOrder() {
-        if let currentIndex = FundSortOrder.allCases.firstIndex(of: sortOrder) {
-            let nextIndex = (currentIndex + 1) % FundSortOrder.allCases.count
-            sortOrder = FundSortOrder.allCases[nextIndex]
+        let orders = FundSortOrder.menuOrders
+        if let currentIndex = orders.firstIndex(of: sortOrder) {
+            let nextIndex = (currentIndex + 1) % orders.count
+            sortOrder = orders[nextIndex]
+        } else {
+            sortOrder = orders.first ?? .highGrowthFirst
         }
     }
     
     // MARK: - Create Group
-    
-    func createGroup(name: String, icon: String, color: String) async {
+
+    func createGroup(name: String, icon: String, color: String, sortIndex: Int = 0) async {
         do {
-            let request = WatchlistCreateGroupRequest(name: name, icon: icon, color: color)
+            let request = WatchlistCreateGroupRequest(name: name, icon: icon, color: color, sortIndex: sortIndex)
             let response: WatchlistGroupsResponse = try await APIClient.shared.send(
                 path: "/api/v2/watchlist/groups",
                 method: "POST",
                 body: request
             )
-            
+
             groups.append(response.data.first!)
             await cacheManager.saveGroup(response.data.first!)
-            
+
         } catch {
             print("❌ Failed to create group: \(error)")
         }

@@ -172,7 +172,10 @@ app.include_router(auth_router)
 
 # V1 Production Architecture
 from src.alphasignal.api.v1.main import api_v1_router
+from src.alphasignal.api.v1.routers import watchlist_v2
 app.include_router(api_v1_router)
+# V2-style watchlist routes for iOS (prefix: /api/v2/watchlist/*)
+app.include_router(watchlist_v2.router, prefix="/api/v2")
 
 # --- Endpoints ---
 
