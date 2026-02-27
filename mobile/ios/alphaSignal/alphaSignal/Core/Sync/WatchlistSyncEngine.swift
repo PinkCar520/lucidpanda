@@ -211,16 +211,27 @@ class WatchlistSyncEngine: ObservableObject {
     }
     
     // MARK: - SSE 连接
-    
+
     private func startSSEConnection() async {
-        let url = URL(string: "/api/v2/watchlist/stream")!
+        // 使用与 APIClient 相同的 baseURL 配置
+        #if DEBUG
+        let baseURLString = "http://192.168.2.27:8001"
+        #else
+        let baseURLString = "http://43.139.108.187:8001"
+        #endif
         
+        let streamURL = "\(baseURLString)/api/v2/watchlist/stream"
+        guard let url = URL(string: streamURL) else {
+            print("❌ Invalid SSE URL: \(streamURL)")
+            return
+        }
+
         sseManager.connect(url: url) { [weak self] event in
             Task { @MainActor in
                 self?.handleSSEEvent(event)
             }
         }
-        
+
         connectionStatus = .connected
     }
     

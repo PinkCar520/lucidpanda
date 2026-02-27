@@ -4,7 +4,7 @@ public struct LiquidBackground: View {
     public init() {}
 
     public var body: some View {
-        Color(uiColor: .systemGroupedBackground)
+        Color(uiColor: .systemBackground)
         .ignoresSafeArea()
     }
 }

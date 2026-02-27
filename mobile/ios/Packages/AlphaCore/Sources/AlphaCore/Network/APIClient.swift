@@ -34,7 +34,7 @@ public actor APIClient {
     }
     
     #if DEBUG
-    private static let defaultBaseURLString = "http://192.168.2.27:8001"
+    private static let defaultBaseURLString = "http://43.139.108.187:8001"
     #else
     private static let defaultBaseURLString = "http://43.139.108.187:8001"
     #endif

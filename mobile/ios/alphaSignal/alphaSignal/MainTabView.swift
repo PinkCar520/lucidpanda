@@ -17,7 +17,7 @@ struct MainTabView: View {
             }
 
             // Tab 2: 基金 (Watchlist)
-            Tab("app.tab.funds", systemImage: "chart.pie", value: .funds) {
+            Tab("app.tab.funds", systemImage: "star", value: .funds) {
                 FundDashboardView()
             }
 

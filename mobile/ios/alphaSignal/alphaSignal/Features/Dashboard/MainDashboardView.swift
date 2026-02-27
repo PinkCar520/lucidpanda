@@ -18,16 +18,15 @@ struct MainDashboardView: View {
             ZStack {
                 LiquidBackground()
 
-                VStack(spacing: 0) {
-                    // 1. 顶部状态栏
-                    headerSection
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        // 1. 顶部状态栏
+                        headerSection
+                            .padding(.bottom, 16)
 
-                    // 2. 搜索与过滤器 (对齐 Web 端)
-                    searchAndFilterBar
-                    
+                        // 2. 搜索与过滤器 (对齐 Web 端)
+                        searchAndFilterBar
 
-                    
-                    ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
                             let displayItems = viewModel.items.isEmpty ? cachedItems.map { IntelligenceItem(from: $0) } : viewModel.filteredItems
 
@@ -44,7 +43,7 @@ struct MainDashboardView: View {
                                 }
                                 .padding(.horizontal)
                             }
-                            
+
                             Spacer(minLength: 100)
                         }
                         .padding(.top, 16)

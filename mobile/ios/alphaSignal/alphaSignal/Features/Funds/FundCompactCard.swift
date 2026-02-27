@@ -7,105 +7,108 @@ struct FundCompactCard: View {
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        LiquidGlassCard {
-            VStack(spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
-                    // 1. 基金名称与状态标签
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            Text(valuation.fundName)
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(colorScheme == .dark ? .white : Color(red: 0.06, green: 0.09, blue: 0.16))
-                                .lineLimit(1)
-                            
-                            if valuation.isQdii == true {
-                                Text("funds.compact.badge.qdii")
-                                    .font(.system(size: 8, weight: .black))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(Color.blue.opacity(0.1))
-                                    .foregroundStyle(.blue)
-                                    .clipShape(RoundedRectangle(cornerRadius: 2))
-                            }
-                        }
+        VStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                // 1. 基金名称与状态标签
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text(valuation.fundName)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(colorScheme == .dark ? .white : Color(red: 0.06, green: 0.09, blue: 0.16))
+                            .lineLimit(1)
                         
-                        HStack(spacing: 8) {
-                            Text(valuation.fundCode)
-                                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                            
-                            if let risk = valuation.riskLevel {
-                                Text(risk)
-                                    .font(.system(size: 8, weight: .bold))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(riskColor(risk).opacity(0.1))
-                                    .foregroundStyle(riskColor(risk))
-                                    .clipShape(Capsule())
-                            }
-                            
-                            if let confidence = valuation.confidence {
-                                Image(systemName: confidenceIcon(confidence.level))
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(confidenceColor(confidence.level))
-                                
-                                if confidence.isSuspectedRebalance == true {
-                                    Image(systemName: "exclamationmark.arrow.triangle.2.circlepath")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.purple)
-                                }
-                            }
+                        if valuation.isQdii == true {
+                            Text("funds.compact.badge.qdii")
+                                .font(.system(size: 8, weight: .black))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundStyle(.blue)
+                                .clipShape(RoundedRectangle(cornerRadius: 2))
                         }
                     }
                     
-                    Spacer()
-                    
-                    // 2. 实时估值显示
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(valuation.estimatedGrowth >= 0 ? "+" : "")\(String(format: "%.2f", valuation.estimatedGrowth))%")
-                            .font(.system(size: 18, weight: .black, design: .monospaced))
-                            .foregroundStyle(valuation.estimatedGrowth >= 0 ? .red : .green)
+                    HStack(spacing: 8) {
+                        Text(valuation.fundCode)
+                            .font(.system(size: 10, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.secondary)
                         
-                        HStack(spacing: 3) {
-                            Circle()
-                                .fill(.orange)
-                                .frame(width: 4, height: 4)
-                            Text("funds.compact.live")
-                                .font(.system(size: 8, weight: .black, design: .monospaced))
-                                .foregroundStyle(.secondary)
+                        if let risk = valuation.riskLevel {
+                            Text(risk)
+                                .font(.system(size: 8, weight: .bold))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(riskColor(risk).opacity(0.1))
+                                .foregroundStyle(riskColor(risk))
+                                .clipShape(Capsule())
+                        }
+                        
+                        if let confidence = valuation.confidence {
+                            Image(systemName: confidenceIcon(confidence.level))
+                                .font(.system(size: 10))
+                                .foregroundStyle(confidenceColor(confidence.level))
+                            
+                            if confidence.isSuspectedRebalance == true {
+                                Image(systemName: "exclamationmark.arrow.triangle.2.circlepath")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.purple)
+                            }
                         }
                     }
                 }
                 
-                // 3. 底部性能矩阵与走势图
-                HStack(alignment: .center) {
-                    if let stats = valuation.stats {
-                        HStack(spacing: 8) {
-                            gradeBadge(label: "S", grade: stats.sharpeGrade ?? "-", color: .orange)
-                            gradeBadge(label: "D", grade: stats.drawdownGrade ?? "-", color: .teal)
-                        }
-                        
-                        Spacer()
-                        
-                        if let sparkData = stats.sparklineData {
-                            FundSparkline(data: sparkData, isPositive: (stats.return1m ?? 0) >= 0)
-                                .frame(width: 60, height: 20)
-                                .opacity(0.6)
-                        }
-                    } else {
-                        Spacer()
-                        Text("funds.compact.no_data")
-                            .font(.system(size: 8))
-                            .foregroundStyle(.secondary.opacity(0.5))
-                    }
+                Spacer()
+                
+                // 2. 实时估值显示
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(valuation.estimatedGrowth >= 0 ? "+" : "")\(String(format: "%.2f", valuation.estimatedGrowth))%")
+                        .font(.system(size: 18, weight: .black, design: .monospaced))
+                        .foregroundStyle(valuation.estimatedGrowth >= 0 ? .red : .green)
                     
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.gray.opacity(0.3))
-                        .padding(.leading, 4)
+                    HStack(spacing: 3) {
+                        Circle()
+                            .fill(.orange)
+                            .frame(width: 4, height: 4)
+                        Text("funds.compact.live")
+                            .font(.system(size: 8, weight: .black, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
+            
+            // 3. 底部性能矩阵与走势图
+            HStack(alignment: .center) {
+                if let stats = valuation.stats {
+                    HStack(spacing: 8) {
+                        gradeBadge(label: "S", grade: stats.sharpeGrade ?? "-", color: .orange)
+                        gradeBadge(label: "D", grade: stats.drawdownGrade ?? "-", color: .teal)
+                    }
+                    
+                    Spacer()
+                    
+                    if let sparkData = stats.sparklineData {
+                        FundSparkline(data: sparkData, isPositive: (stats.return1m ?? 0) >= 0)
+                            .frame(width: 60, height: 20)
+                            .opacity(0.6)
+                    }
+                } else {
+                    Spacer()
+                    Text("funds.compact.no_data")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                }
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.gray.opacity(0.3))
+                    .padding(.leading, 4)
+            }
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(uiColor: .secondarySystemBackground))
+        )
     }
     
     // --- UI Helpers ---
@@ -139,7 +142,7 @@ struct FundCompactCard: View {
         switch level {
         case "high": return "target"
         case "medium": return "scale.3d"
-        case "low": return "alert.triangle"
+        case "low": return "exclamationmark.triangle"
         default: return "questionmark.circle"
         }
     }

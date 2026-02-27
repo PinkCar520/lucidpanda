@@ -234,72 +234,34 @@ class FundViewModel {
                 path: "/api/v2/watchlist/groups"
             )
             
-            // 如果没有分组，创建默认分组
-            if response.data.isEmpty {
-                await createDefaultGroups()
-                // 重新获取分组（包含刚创建的默认分组）
-                let updatedResponse: WatchlistGroupsResponse = try await APIClient.shared.fetch(
-                    path: "/api/v2/watchlist/groups"
-                )
-                self.groups = updatedResponse.data
-                await cacheManager.saveGroups(updatedResponse.data)
-            } else {
-                self.groups = response.data
-                await cacheManager.saveGroups(response.data)
-            }
+            self.groups = response.data
+            await cacheManager.saveGroups(response.data)
+            
+            print("✅ Fetched \(response.data.count) user groups")
+            
         } catch {
             print("❌ Failed to fetch groups: \(error)")
             
-            // 从缓存加载时检查是否需要创建默认分组
+            // 从缓存加载用户自定义分组
             let cachedGroups = await cacheManager.fetchAllGroups()
-            if cachedGroups.isEmpty {
-                await createDefaultGroups()
-                // 从缓存重新加载
-                let refreshedGroups = await cacheManager.fetchAllGroups()
-                self.groups = refreshedGroups.map {
-                    WatchlistGroup(
-                        id: $0.id,
-                        userId: "",
-                        name: $0.name,
-                        icon: $0.icon,
-                        color: $0.color,
-                        sortIndex: Int($0.sortIndex),
-                        createdAt: $0.lastSyncTime,
-                        updatedAt: $0.lastSyncTime
-                    )
-                }
-            }
-        }
-    }
-    
-    /// 创建默认分组：指数、全球、黄金
-    private func createDefaultGroups() async {
-        let defaultGroups: [(name: String, icon: String, color: String)] = [
-            ("指数", "chart.bar", "#007AFF"),      // 蓝色
-            ("全球", "globe", "#5856D6"),          // 紫色
-            ("黄金", "circle.fill", "#FF9500")     // 橙色
-        ]
-        
-        for (index, group) in defaultGroups.enumerated() {
-            do {
-                let request = WatchlistCreateGroupRequest(name: group.name, icon: group.icon, color: group.color, sortIndex: index)
-                let response: WatchlistGroupsResponse = try await APIClient.shared.send(
-                    path: "/api/v2/watchlist/groups",
-                    method: "POST",
-                    body: request
+            let userGroups = cachedGroups.map {
+                WatchlistGroup(
+                    id: $0.id,
+                    userId: "",
+                    name: $0.name,
+                    icon: $0.icon,
+                    color: $0.color,
+                    sortIndex: Int($0.sortIndex),
+                    createdAt: $0.lastSyncTime,
+                    updatedAt: $0.lastSyncTime
                 )
-                
-                // 直接添加到 groups 数组
-                if let newGroup = response.data.first {
-                    self.groups.append(newGroup)
-                    await cacheManager.saveGroup(newGroup)
-                }
-            } catch {
-                print("❌ Failed to create default group '\(group.name)': \(error)")
             }
+            
+            self.groups = userGroups
+            print("✅ Loaded from cache: \(userGroups.count) user groups")
         }
     }
-    
+
     private func fetchValuations(for codes: [String]) async {
         isLoadingValuations = true
         
