@@ -215,7 +215,7 @@ class WatchlistSyncEngine: ObservableObject {
     private func startSSEConnection() async {
         // 使用与 APIClient 相同的 baseURL 配置
         #if DEBUG
-        let baseURLString = "http://192.168.2.27:8001"
+        let baseURLString = "http://43.139.108.187:8001"
         #else
         let baseURLString = "http://43.139.108.187:8001"
         #endif

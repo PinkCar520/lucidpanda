@@ -42,16 +42,7 @@ struct FundDashboardView: View {
     @State private var groupManagerMode: GroupManagerMode = .filter
     @State private var scrollOffset: CGFloat = 0
     @State private var panelState: PanelState = .fund
-    @State private var dragTranslation: CGFloat = 0
 
-    // 交互参数
-    private let triggerDistance: CGFloat = 140
-    private let stayFundBand: ClosedRange<CGFloat> = 0...80
-    private let stayMarketBandLower: CGFloat = 120
-    private let maxTravel: CGFloat = 220
-    private let damping: CGFloat = 0.6
-    private let snapDuration: CGFloat = 0.28
-    private let velocityThreshold: CGFloat = 800
     private let minMarketHeight: CGFloat = 72
     private let maxMarketHeightRatio: CGFloat = 0.4
 
@@ -139,38 +130,108 @@ struct FundDashboardView: View {
             let clampedOffset = min(0, scrollOffset)
             let collapseProgress = min(1, (-clampedOffset) / collapseDistance)
 
-            let effectiveDrag = min(maxTravel, max(0, -clampedOffset + dragTranslation)) * damping
-            let marketHeight = max(minMarketHeight, min(maxMarketHeight, maxMarketHeight - collapseDistance * collapseProgress + effectiveDrag))
-            let visualProgress = min(1, (effectiveDrag + (-clampedOffset)) / triggerDistance)
+            let marketHeight = max(minMarketHeight, maxMarketHeight - collapseDistance * collapseProgress)
             
             // 更强力、更直接的连续视差：直接使用 scrollOffset，让底层以接近列表的速度（0.8倍）被往上顶走
             let marketParallaxOffset = scrollOffset < 0 ? scrollOffset * 0.85 : 0
             
             let topPadding = maxMarketHeight + spacing
-            let bottomPadding: CGFloat = 16
-            let minWatchlistHeight = max(0, proxy.size.height - topPadding - bottomPadding)
-
             ZStack(alignment: .top) {
                 LiquidBackground()
-                marketLayer(height: marketHeight, collapseProgress: collapseProgress, visualProgress: visualProgress)
+                
+                // 动态底层白板，替代原本的 watchlistPanel 实体背景
+                Color(uiColor: .systemBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: -4)
+                    .padding(.top, topPadding + clampedOffset)
+                    .ignoresSafeArea(edges: .bottom)
+                    .opacity(panelState == .market ? 0.6 : 1)
+                    .scaleEffect(panelState == .market ? 0.96 : 1)
+
+                marketLayer(height: marketHeight, collapseProgress: collapseProgress)
                     .offset(y: marketParallaxOffset) 
                     .padding(.top, 12)
                     .padding(.horizontal)
 
-                ScrollView(showsIndicators: false) {
-                    GeometryReader { geo in
-                        Color.clear.preference(key: ScrollOffsetKey.self, value: geo.frame(in: .named("fundsScroll")).minY)
-                    }
-                    .frame(height: 0)
+                List {
+                    // 透明占位
+                    Color.clear
+                        .frame(height: topPadding)
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .background(
+                            GeometryReader { geo in
+                                Color.clear.preference(key: ScrollOffsetKey.self, value: geo.frame(in: .named("fundsScroll")).minY)
+                            }
+                        )
 
-                    watchlistPanel(minHeight: minWatchlistHeight)
-                        .padding(.top, topPadding)
-                        .padding(.bottom, bottomPadding)
+                    Section(header: filterChipsHeader) {
+                        if viewModel.watchlist.isEmpty && !viewModel.isLoading {
+                            emptyStateView
+                                .padding(.horizontal)
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                        } else {
+                            ForEach(viewModel.sortedWatchlist) {
+                                valuation in
+                                Button {
+                                    selectedFund = valuation
+                                    showFundDetail = true
+                                } label: {
+                                    FundCompactCard(valuation: valuation)
+                                }
+                                .buttonStyle(.plain)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        pendingDeleteFund = valuation
+                                        showDeleteConfirmation = true
+                                    } label: {
+                                        Label("删除", systemImage: "trash")
+                                    }
+                                    .tint(.red)
+                                }
+                                .contextMenu {
+                                    Button {
+                                        pendingMoveFundForManager = valuation
+                                        groupManagerMode = .moveFund
+                                        showGroupManager = true
+                                    } label: {
+                                        Label("移动分组", systemImage: "folder.badge.plus")
+                                    }
+                                    Divider()
+                                    Button(role: .destructive) {
+                                        pendingDeleteFund = valuation
+                                        showDeleteConfirmation = true
+                                    } label: {
+                                        Label("删除", systemImage: "trash")
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
                 .coordinateSpace(name: "fundsScroll")
-                .gesture(dragGesture)
                 .onPreferenceChange(ScrollOffsetKey.self) { value in
                     scrollOffset = value
+                }
+                .onChange(of: scrollOffset) { newValue in
+                    if newValue > 80 && panelState == .fund {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            panelState = .market
+                        }
+                    } else if newValue < -20 && panelState == .market {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                            panelState = .fund
+                        }
+                    }
                 }
                 .refreshable {
                     await viewModel.fetchWatchlist()
@@ -180,7 +241,7 @@ struct FundDashboardView: View {
     }
 
     @ViewBuilder
-    private func marketLayer(height: CGFloat, collapseProgress: CGFloat, visualProgress: CGFloat) -> some View {
+    private func marketLayer(height: CGFloat, collapseProgress: CGFloat) -> some View {
         let detailOpacity = max(0, 1 - collapseProgress * 1.1)
         let panelScale = 1.0 - (collapseProgress * 0.04)
         let panelBlur = collapseProgress * 3.0
@@ -239,18 +300,6 @@ struct FundDashboardView: View {
             }
             .frame(height: 56) // 稍微变大以容纳更大的 Chip
         }
-    }
-
-    private func watchlistPanel(minHeight: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            listSection
-        }
-        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .top)
-        .background(Color(uiColor: .systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: -4)
-        .opacity(panelState == .market ? 0.6 : 1)
-        .scaleEffect(panelState == .market ? 0.96 : 1)
     }
 
     private var marketSummaryBar: some View {
@@ -330,104 +379,6 @@ struct FundDashboardView: View {
     }
 
     
-
-    private var listSection: some View {
-        LazyVStack(spacing: 16, pinnedViews: [.sectionHeaders]) {
-            Section(header: filterChipsHeader) {
-                if viewModel.watchlist.isEmpty && !viewModel.isLoading {
-                    emptyStateView
-                        .padding(.horizontal)
-                } else {
-                    ForEach(viewModel.sortedWatchlist) { valuation in
-                        SwipeToDeleteCell {
-                            pendingDeleteFund = valuation
-                            showDeleteConfirmation = true
-                        } content: {
-                            Button {
-                                selectedFund = valuation
-                                showFundDetail = true
-                            } label: {
-                                FundCompactCard(valuation: valuation)
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button {
-                                    pendingMoveFundForManager = valuation
-                                    groupManagerMode = .moveFund
-                                    showGroupManager = true
-                                } label: {
-                                    Label("移动分组", systemImage: "folder.badge.plus")
-                                }
-
-                                Divider()
-
-                                Button(role: .destructive) {
-                                    pendingDeleteFund = valuation
-                                    showDeleteConfirmation = true
-                                } label: {
-                                    Label("删除", systemImage: "trash")
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-
-                Spacer(minLength: 100)
-            }
-        }
-    }
-
-    // MARK: - Gesture
-
-    private var dragGesture: some Gesture {
-        DragGesture()
-            .onChanged { value in
-                // 仅在列表已到顶部时响应上拉，下拉则允许市场层回收
-                let isAtTop = scrollOffset >= -1 // 容忍浮点误差
-                let translation = value.translation.height
-
-                if isAtTop {
-                    if translation < 0 {
-                        // 上拉，记录正向数值（向上为正）
-                        dragTranslation = min(maxTravel, -translation)
-                    } else {
-                        // 下拉：允许从市场态回到基金态
-                        dragTranslation = -min(maxTravel, translation)
-                    }
-                } else {
-                    dragTranslation = 0
-                }
-            }
-            .onEnded { value in
-                let velocity = value.velocity.height // 正下负上（SwiftUI 16+ 提供）
-                let upwardVelocity = -velocity
-
-                let finalState: PanelState
-
-                if upwardVelocity >= velocityThreshold {
-                    finalState = .market
-                } else if velocity >= velocityThreshold {
-                    finalState = .fund
-                } else {
-                    // 使用拖拽位移判定
-                    let drag = max(0, dragTranslation)
-                    if stayFundBand.contains(drag) {
-                        finalState = .fund
-                    } else if drag >= stayMarketBandLower {
-                        finalState = .market
-                    } else {
-                        // 中间区间根据当前状态和阈值
-                        finalState = drag >= triggerDistance ? .market : .fund
-                    }
-                }
-
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                    panelState = finalState
-                    dragTranslation = 0
-                }
-            }
-    }
 
     @ViewBuilder
     private var filterChipsHeader: some View {
@@ -670,75 +621,4 @@ struct CreateGroupForm: View {
     }
 }
 
-// MARK: - Safe Horizontal Swipe To Delete
 
-struct SwipeToDeleteCell<Content: View>: View {
-    let onDelete: () -> Void
-    let content: () -> Content
-
-    @State private var offset: CGFloat = 0
-    @State private var isSwiped = false
-    @State private var lockDirection: Bool = false
-    private let buttonWidth: CGFloat = 80
-
-    var body: some View {
-        ZStack(alignment: .trailing) {
-            Button {
-                withAnimation(.spring()) { offset = 0; isSwiped = false }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { onDelete() }
-            } label: {
-                VStack {
-                    Image(systemName: "trash")
-                        .font(.system(size: 18, weight: .semibold))
-                    Text("删除")
-                        .font(.system(size: 12, weight: .medium))
-                        .padding(.top, 4)
-                }
-                .frame(width: buttonWidth)
-                .frame(maxHeight: .infinity)
-                .background(Color.red)
-                .foregroundStyle(.white)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .padding(.vertical, 0)
-            .opacity(offset < -5 ? 1 : 0)
-
-            content()
-                .background(Color(uiColor: .systemBackground))
-                .offset(x: offset)
-                .gesture(
-                    DragGesture(minimumDistance: 15, coordinateSpace: .local)
-                        .onChanged { value in
-                            if !lockDirection {
-                                if abs(value.translation.width) > abs(value.translation.height) {
-                                    lockDirection = true
-                                } else {
-                                    return
-                                }
-                            }
-                            guard lockDirection else { return }
-
-                            let currentX = value.translation.width
-                            if currentX < 0 {
-                                offset = isSwiped ? max(currentX - buttonWidth, -buttonWidth * 1.5) : max(currentX, -buttonWidth * 1.5)
-                            } else if isSwiped {
-                                offset = min(0, currentX - buttonWidth)
-                            }
-                        }
-                        .onEnded { value in
-                            lockDirection = false
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                if value.translation.width < -buttonWidth / 2 || value.predictedEndTranslation.width < -buttonWidth {
-                                    offset = -buttonWidth
-                                    isSwiped = true
-                                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                } else {
-                                    offset = 0
-                                    isSwiped = false
-                                }
-                            }
-                        }
-                )
-        }
-    }
-}

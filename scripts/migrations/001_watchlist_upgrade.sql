@@ -73,7 +73,7 @@ SELECT DISTINCT
     '#007AFF',
     0
 FROM fund_watchlist fw
-JOIN users u ON u.id = fw.user_id
+JOIN users u ON u.id::uuid = fw.user_id::uuid
 ON CONFLICT (user_id, name) DO NOTHING;
 
 -- 迁移数据，将旧数据分配到默认分组
@@ -86,7 +86,7 @@ SELECT
     fw.created_at,
     ROW_NUMBER() OVER (PARTITION BY fw.user_id ORDER BY fw.created_at) - 1 as sort_index
 FROM fund_watchlist fw
-JOIN users u ON u.id = fw.user_id
+JOIN users u ON u.id::uuid = fw.user_id::uuid
 LEFT JOIN watchlist_groups wg ON wg.user_id = u.id AND wg.name = '默认分组';
 
 -- 5. 备份旧表
