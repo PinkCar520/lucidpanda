@@ -459,7 +459,9 @@ class IntelligenceDB:
             gvz = raw_data.get('gvz_snapshot')
             if gvz is None: gvz = self.get_market_snapshot("^GVZ", news_time)
             
-            gold = self.get_market_snapshot("GC=F", news_time)
+            gold = raw_data.get('gold_price_snapshot')
+            if gold is None: gold = self.get_market_snapshot("GC=F", news_time)
+
 
             conn = self._get_conn()
             cursor = conn.cursor()

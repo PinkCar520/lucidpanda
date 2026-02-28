@@ -31,6 +31,7 @@ class AlphaEngine:
         ]
         self.backtester = BacktestEngine(self.db)
         self.deduplicator = NewsDeduplicator()
+        self._round_snapshot = {}  # 轮次市场快照缓存，每轮 fetch 一次供所有条目共用
         
         # Concurrency Control
         self.ai_semaphore = asyncio.Semaphore(5) # Limit to 5 concurrent AI calls
@@ -86,6 +87,27 @@ class AlphaEngine:
         except Exception as e:
             logger.error(f"❌ 初始化去重引擎失败: {e}")
 
+    def _fetch_round_snapshot(self) -> dict:
+        """
+        每轮扫描调用一次，获取当前实时市场快照。
+        结果注入本轮所有发现条目，避免 save_raw_intelligence 为每条
+        新闻重复发起 akshare 外网请求（原 30条×4次=120次 → 现 4次）。
+        """
+        now = datetime.now(pytz.utc)
+        snapshot = {
+            'dxy_snapshot':        self.db.get_market_snapshot("DX-Y.NYB", now),
+            'us10y_snapshot':      self.db.get_market_snapshot("^TNX",     now),
+            'gvz_snapshot':        self.db.get_market_snapshot("^GVZ",     now),
+            'gold_price_snapshot': self.db.get_market_snapshot("GC=F",     now),
+        }
+        logger.info(
+            f"📊 本轮市场快照 | "
+            f"Gold={snapshot['gold_price_snapshot']} | "
+            f"DXY={snapshot['dxy_snapshot']} | "
+            f"GVZ={snapshot['gvz_snapshot']}"
+        )
+        return snapshot
+
     async def run_once_async(self):
         """
         核心异步流水线：
@@ -120,6 +142,17 @@ class AlphaEngine:
         if len(discovered_items) != len(unique_items):
             logger.info(f"✂️ URL 去重: {len(discovered_items)} → {len(unique_items)} 条")
         discovered_items = unique_items
+
+        # 1.75 轮次市场快照注入
+        # 只调用一次 akshare 获取 Gold/DXY/US10Y/GVZ，注入本轮所有条目
+        # 避免 save_raw_intelligence 为每条新闻重复发起外网请求
+        if discovered_items:
+            self._round_snapshot = await asyncio.to_thread(self._fetch_round_snapshot)
+            for item in discovered_items:
+                item.setdefault('gold_price_snapshot', self._round_snapshot.get('gold_price_snapshot'))
+                item.setdefault('dxy_snapshot',        self._round_snapshot.get('dxy_snapshot'))
+                item.setdefault('us10y_snapshot',      self._round_snapshot.get('us10y_snapshot'))
+                item.setdefault('gvz_snapshot',        self._round_snapshot.get('gvz_snapshot'))
 
         # 2. 初始入库并标记为 PENDING
         for item in discovered_items:
@@ -207,13 +240,21 @@ class AlphaEngine:
             loop.close()
 
     def _enrich_market_context(self, raw_data):
-        """注入多维度市场背景数据 (DXY, GVZ, COT)"""
+        """注入多维度市场背景数据（优先使用本轮已缓存的快照，避免重复 akshare 调用）"""
         now = datetime.now(pytz.utc)
-        
-        # 1. 实时行情快照
-        dxy = self.db.get_market_snapshot("DX-Y.NYB", now)
-        gvz = self.db.get_market_snapshot("^GVZ", now)
-        
+
+        # 优先使用本轮缓存快照；若不存在（如补课记录来自上一轮）则实时拉取兜底
+        dxy = (
+            raw_data.get('dxy_snapshot')
+            or self._round_snapshot.get('dxy_snapshot')
+            or self.db.get_market_snapshot("DX-Y.NYB", now)
+        )
+        gvz = (
+            raw_data.get('gvz_snapshot')
+            or self._round_snapshot.get('gvz_snapshot')
+            or self.db.get_market_snapshot("^GVZ", now)
+        )
+
         # 2. 持仓数据 (Dimension B)
         cot = self.db.get_latest_indicator("COT_GOLD_NET", now)
         cot_info = "N/A"
