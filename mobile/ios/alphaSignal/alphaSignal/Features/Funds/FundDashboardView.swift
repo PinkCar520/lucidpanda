@@ -11,18 +11,6 @@ enum GroupManagerMode {
     case moveFund     // 移动基金（长按菜单）
 }
 
-private struct ScrollOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-private enum PanelState {
-    case fund    // 基金优先
-    case market  // 市场优先
-}
-
 struct FundDashboardView: View {
     @State private var viewModel = FundViewModel()
     @Environment(\.colorScheme) var colorScheme
@@ -41,16 +29,6 @@ struct FundDashboardView: View {
     @State private var showCreateGroupOnly = false
     @State private var groupManagerMode: GroupManagerMode = .filter
     @State private var scrollOffset: CGFloat = 0
-    @State private var panelState: PanelState = .fund
-
-    private let minMarketHeight: CGFloat = 72
-    private let maxMarketHeightRatio: CGFloat = 0.4
-
-    // 示例文案/数值（数据接入前的占位）
-    private let sampleHotSectors: [String] = ["半导体", "新能源", "医药"]
-    private let sampleFlow: String = "+68亿"
-    private let sampleRiseFall: String = "1.6 : 1"
-    private let sampleInsight: String = "早盘科技回暖，北向净流入放缓"
 
     var body: some View {
         NavigationStack {
@@ -123,151 +101,69 @@ struct FundDashboardView: View {
     // MARK: - Subviews
 
     private var dashboardContent: some View {
-        GeometryReader { proxy in
-            let spacing: CGFloat = 12
-            let maxMarketHeight = max(minMarketHeight, proxy.size.height * maxMarketHeightRatio)
-            let collapseDistance = max(1, maxMarketHeight - minMarketHeight)
-            let clampedOffset = min(0, scrollOffset)
-            let collapseProgress = min(1, (-clampedOffset) / collapseDistance)
-
-            let marketHeight = max(minMarketHeight, maxMarketHeight - collapseDistance * collapseProgress)
+        ZStack(alignment: .top) {
+            LiquidBackground()
             
-            // 更强力、更直接的连续视差：直接使用 scrollOffset，让底层以接近列表的速度（0.8倍）被往上顶走
-            let marketParallaxOffset = scrollOffset < 0 ? scrollOffset * 0.85 : 0
-            
-            let topPadding = maxMarketHeight + spacing
-            ZStack(alignment: .top) {
-                LiquidBackground()
-                
-                // 动态底层白板，替代原本的 watchlistPanel 实体背景
-                Color(uiColor: .systemBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .shadow(color: .black.opacity(0.06), radius: 16, x: 0, y: -4)
-                    .padding(.top, topPadding + clampedOffset)
-                    .ignoresSafeArea(edges: .bottom)
-                    .opacity(panelState == .market ? 0.6 : 1)
-                    .scaleEffect(panelState == .market ? 0.96 : 1)
-
-                marketLayer(height: marketHeight, collapseProgress: collapseProgress)
-                    .offset(y: marketParallaxOffset) 
-                    .padding(.top, 12)
-                    .padding(.horizontal)
-
-                List {
-                    // 透明占位
-                    Color.clear
-                        .frame(height: topPadding)
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(key: ScrollOffsetKey.self, value: geo.frame(in: .named("fundsScroll")).minY)
-                            }
-                        )
-
-                    Section(header: filterChipsHeader) {
-                        if viewModel.watchlist.isEmpty && !viewModel.isLoading {
-                            emptyStateView
-                                .padding(.horizontal)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                        } else {
-                            ForEach(viewModel.sortedWatchlist) {
-                                valuation in
-                                Button {
-                                    selectedFund = valuation
+            List {
+                // 自选列表与分组模块
+                Section(header: filterChipsHeader) {
+                    if viewModel.watchlist.isEmpty && !viewModel.isLoading {
+                        emptyStateView
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                    } else {
+                        ForEach(viewModel.sortedWatchlist) {
+                            valuation in
+                            Button {
+                                selectedFund = valuation
                                     showFundDetail = true
                                 } label: {
                                     FundCompactCard(valuation: valuation)
                                 }
-                                .buttonStyle(.plain)
-                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                                .listRowSeparator(.hidden)
-                                .listRowBackground(Color.clear)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        pendingDeleteFund = valuation
-                                        showDeleteConfirmation = true
-                                    } label: {
-                                        Label("删除", systemImage: "trash")
-                                    }
-                                    .tint(.red)
+                            .buttonStyle(.plain)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color(uiColor: .systemBackground))
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    pendingDeleteFund = valuation
+                                    showDeleteConfirmation = true
+                                } label: {
+                                    Label("删除", systemImage: "trash")
                                 }
-                                .contextMenu {
-                                    Button {
-                                        pendingMoveFundForManager = valuation
-                                        groupManagerMode = .moveFund
-                                        showGroupManager = true
-                                    } label: {
-                                        Label("移动分组", systemImage: "folder.badge.plus")
-                                    }
-                                    Divider()
-                                    Button(role: .destructive) {
-                                        pendingDeleteFund = valuation
-                                        showDeleteConfirmation = true
-                                    } label: {
-                                        Label("删除", systemImage: "trash")
-                                    }
+                                .tint(.red)
+                                
+                                Button {
+                                    pendingMoveFundForManager = valuation
+                                    groupManagerMode = .moveFund
+                                    showGroupManager = true
+                                } label: {
+                                    Label("移动", systemImage: "folder.badge.plus")
                                 }
+                                .tint(.blue)
                             }
                         }
+                        
+                        Text("免责声明：系统估值基于公开持仓计算，仅供参考，不构成投资建议。\n市场有风险，投资需谨慎。")
+                            .font(.system(size: 11, weight: .regular))
+                            .foregroundStyle(.secondary.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .listRowInsets(EdgeInsets(top: 24, leading: 24, bottom: 40, trailing: 24))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                     }
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .coordinateSpace(name: "fundsScroll")
-                .onPreferenceChange(ScrollOffsetKey.self) { value in
-                    scrollOffset = value
-                }
-                .onChange(of: scrollOffset) { newValue in
-                    if newValue > 80 && panelState == .fund {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            panelState = .market
-                        }
-                    } else if newValue < -20 && panelState == .market {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                            panelState = .fund
-                        }
-                    }
-                }
-                .refreshable {
-                    await viewModel.fetchWatchlist()
-                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .refreshable {
+                await viewModel.fetchWatchlist()
             }
         }
     }
 
-    @ViewBuilder
-    private func marketLayer(height: CGFloat, collapseProgress: CGFloat) -> some View {
-        let detailOpacity = max(0, 1 - collapseProgress * 1.1)
-        let panelScale = 1.0 - (collapseProgress * 0.04)
-        let panelBlur = collapseProgress * 3.0
-        let parallaxOffset = -collapseProgress * 80
 
-        VStack(spacing: 12) {
-            marketSummaryBar
-                .zIndex(1) // 确保在上方
-            if detailOpacity > 0.01 {
-                marketDetailPanel
-                    .opacity(detailOpacity)
-                    .scaleEffect(panelScale, anchor: .top)
-                    .blur(radius: panelBlur)
-                    .offset(y: parallaxOffset)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(height: height, alignment: .top)
-        .clipped()
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: panelState)
-        .onChange(of: panelState) { _ in
-            // 触觉反馈在状态切换时触发
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        }
-    }
 
     @ViewBuilder
     private var filterChips: some View {
@@ -302,84 +198,6 @@ struct FundDashboardView: View {
         }
     }
 
-    private var marketSummaryBar: some View {
-        HStack(spacing: 10) {
-            marketSummaryPill(title: "上证", value: "—", trend: .neutral)
-            marketSummaryPill(title: "深证", value: "—", trend: .neutral)
-            marketSummaryPill(title: "创业板", value: "—", trend: .neutral)
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        // 移除多余的描边和厚重材质，保持底层通透
-        .background(Color.white.opacity(0.15))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-    }
-
-    private var marketDetailPanel: some View {
-        VStack(spacing: 12) {
-            // 热门板块 + 资金/涨跌比
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("市场全景")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Text("实盘刷新中")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 12) {
-                    marketMetric(title: "热门板块", value: sampleHotSectors.prefix(3).joined(separator: " · "))
-                    marketMetric(title: "资金流向", value: sampleFlow)
-                    marketMetric(title: "涨跌比", value: sampleRiseFall)
-                }
-            }
-            .padding(16)
-            .background(Color.white.opacity(0.6))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
-    }
-
-    private enum MarketTrend {
-        case up
-        case down
-        case neutral
-    }
-
-    private func marketSummaryPill(title: String, value: String, trend: MarketTrend) -> some View {
-        HStack(spacing: 6) {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(trend == .up ? .red : trend == .down ? .green : .secondary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color.black.opacity(0.04))
-        .clipShape(Capsule())
-    }
-
-    private func marketMetric(title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color.black.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    
-
     @ViewBuilder
     private var filterChipsHeader: some View {
         if !viewModel.groups.isEmpty {
@@ -387,7 +205,7 @@ struct FundDashboardView: View {
                 filterChips
             }
             .padding(.horizontal)
-            .padding(.top, 16)
+            .padding(.top, 4)
             .padding(.bottom, 12)
         }
     }
@@ -444,25 +262,22 @@ struct FundDashboardView: View {
     }
     
     private var emptyStateView: some View {
-        LiquidGlassCard {
-            VStack(spacing: 20) {
-                Spacer(minLength: 100)
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.gray.opacity(0.2))
-                Text("funds.empty.title")
-                    .font(.headline)
-                    .foregroundStyle(.gray)
-                Text("funds.empty.hint")
-                    .font(.subheadline)
-                    .foregroundStyle(.blue)
-                Text("请使用底部搜索添加基金")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                
-                Spacer()
-            }
+        VStack(spacing: 16) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(.system(size: 48))
+                .foregroundStyle(.gray.opacity(0.3))
+            Text("funds.empty.title")
+                .font(.headline)
+                .foregroundStyle(.gray)
+            Text("funds.empty.hint")
+                .font(.subheadline)
+                .foregroundStyle(.blue)
+            Text("请使用底部搜索添加基金")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.vertical, 100)
     }
     
 }

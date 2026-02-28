@@ -12,70 +12,112 @@ struct FundSearchView: View {
             ZStack {
                 LiquidBackground()
                 
-                VStack(spacing: 0) {
-                    // 搜索输入
-                    HStack {
-                        Image(systemName: "magnifyingglass").foregroundStyle(.blue)
-                        TextField("funds.search.input_placeholder", text: $viewModel.query)
-                            .textFieldStyle(.plain)
-                            .onChange(of: viewModel.query) {
-                                Task { await viewModel.performSearch() }
-                            }
-                        if !viewModel.query.isEmpty {
-                            Button { viewModel.query = "" } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(.gray)
-                            }
-                        }
-                    }
-                    .padding()
-                    .background(Color.black.opacity(0.03))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .padding()
-                    
-                    List {
-                        if viewModel.isLoading {
-                            HStack {
-                                Spacer()
-                                ProgressView().tint(.blue)
-                                Spacer()
-                            }
-                            .listRowBackground(Color.clear)
-                        } else if viewModel.results.isEmpty && viewModel.query.count >= 2 {
-                            Text("funds.search.not_found")
-                                .font(.caption)
+                List {
+                    if viewModel.query.isEmpty {
+                        // 初始引导空白状态
+                        VStack(spacing: 16) {
+                            Image(systemName: "text.magnifyingglass")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.blue.opacity(0.4))
+                            Text("输入基金代码、简称或拼音进行搜索")
+                                .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                                .listRowBackground(Color.clear)
-                        } else {
-                            ForEach(viewModel.results) { fund in
-                                Button {
-                                    onAdd(fund)
-                                    dismiss()
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 4) {
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 80)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    } else if viewModel.isLoading {
+                        // 加载状态
+                        HStack {
+                            Spacer()
+                            ProgressView().tint(.blue)
+                            Spacer()
+                        }
+                        .padding(.vertical, 40)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    } else if viewModel.results.isEmpty && viewModel.query.count >= 2 {
+                        // 未找到结果
+                        VStack(spacing: 12) {
+                            Image(systemName: "magnifyingglass.circle.fill")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.gray.opacity(0.3))
+                            Text("未找到相关基金，请尝试更换关键词")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 80)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    } else {
+                        // 搜索结果列表
+                        ForEach(viewModel.results) { fund in
+                            Button {
+                                onAdd(fund)
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 6) {
                                         Text(fund.name)
-                                            .font(.subheadline.bold())
-                                            .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
-                                        HStack {
-                                            Text(fund.code).font(.caption2.monospaced())
-                                            Text("•").font(.caption2)
-                                            Text(fund.company ?? String(localized: "funds.company.unknown")).font(.caption2)
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundStyle(Color.primary)
+                                            .lineLimit(1)
+                                        
+                                        HStack(spacing: 6) {
+                                            Text(fund.code)
+                                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                                .foregroundStyle(.secondary)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color(uiColor: .tertiarySystemFill))
+                                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                                
+                                            if let type = fund.type, !type.isEmpty {
+                                                Text(type)
+                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .foregroundStyle(.blue)
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 2)
+                                                    .background(Color.blue.opacity(0.1))
+                                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                                            }
+                                            
+                                            Text(fund.company ?? String(localized: "funds.company.unknown"))
+                                                .font(.system(size: 11))
+                                                .foregroundStyle(.gray)
                                         }
-                                        .foregroundStyle(.gray)
                                     }
-                                    .padding(.vertical, 4)
+                                    
+                                    Spacer(minLength: 16)
+                                    
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 22))
+                                        .foregroundStyle(.blue)
+                                        .symbolRenderingMode(.hierarchical)
                                 }
-                                .listRowBackground(Color.white.opacity(0.5))
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 4)
                             }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Color(uiColor: .systemBackground))
                         }
                     }
-                    .scrollContentBackground(.hidden)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
-            .navigationTitle("funds.search.title")
+            .navigationTitle("添加基金")
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $viewModel.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "基金名称 / 代码 / 简拼")
+            .onChange(of: viewModel.query) { newValue in
+                Task { await viewModel.performSearch() }
+            }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("common.close") { dismiss() }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("取消") { dismiss() }
+                        .foregroundStyle(.primary)
                 }
             }
         }

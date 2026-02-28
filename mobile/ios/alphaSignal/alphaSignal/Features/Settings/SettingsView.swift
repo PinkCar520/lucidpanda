@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 import AlphaDesign
 import AlphaData
 import AlphaCore
@@ -10,6 +11,8 @@ struct SettingsView: View {
 
     @State private var showWebPrompt = false
     @State private var activeSheet: ActiveSheet?
+    @State private var avatarItem: PhotosPickerItem?
+    @State private var avatarImage: Image?
     @State private var currentPassword = ""
     @State private var newPassword = ""
     @State private var sessions: [SessionRowDTO] = []
@@ -34,14 +37,14 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LiquidBackground()
-                ScrollView {
-                    LazyVStack(spacing: 18) {
-                        profileCard
-                        quickActionsCard
+                Color(uiColor: .systemGroupedBackground)
+                    .ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 28) {
+                        profileHeader
+                        accountSettingsCard
                         notificationsCard
                         securityCard
-                        sessionsCard
 
                         logoutCard
                     }
@@ -87,229 +90,315 @@ struct SettingsView: View {
 
     // MARK: - Sections
 
-    private var profileCard: some View {
-        LiquidGlassCard {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(spacing: 14) {
-                    if isProfileLoading {
-                        ProgressView()
-                            .frame(width: 56, height: 56)
-                    } else if let user = userProfile {
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.15))
-                            .frame(width: 56, height: 56)
-                            .overlay(
-                                Text(String(user.email.prefix(1)).uppercased())
-                                    .font(.title2.weight(.bold))
-                                    .foregroundStyle(Color.accentColor)
-                            )
+    // MARK: - Premium Card Container
+    private func premiumCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            content()
+        }
+        .background(Color(uiColor: .secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 20)
+    }
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(user.displayName ?? user.email)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                            Text(user.email)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    } else {
-                        Circle()
-                            .fill(Color.accentColor.opacity(0.15))
-                            .frame(width: 56, height: 56)
-                            .overlay(
-                                Text("A")
-                                    .font(.title2.weight(.bold))
-                                    .foregroundStyle(Color.accentColor)
-                            )
+    private func sectionHeader(title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.system(size: 13, weight: .bold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 36)
+            .padding(.bottom, 6)
+    }
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("settings.user.display_name")
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                            Text("pincar@alphasignal.com")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+    // MARK: - Sections
+
+    private var profileHeader: some View {
+        VStack(spacing: 16) {
+            if isProfileLoading {
+                ProgressView()
+                    .frame(width: 88, height: 88)
+            } else {
+                let displayEmail = userProfile?.email ?? "pincar@alphasignal.com"
+                let initial = String(displayEmail.prefix(1)).uppercased()
+                let displayName = userProfile?.displayName ?? String(localized: "settings.user.display_name")
+                
+                ZStack(alignment: .bottomTrailing) {
+                    Group {
+                        if let avatarImage {
+                            avatarImage
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Circle()
+                                .fill(Color.blue)
+                                .overlay(
+                                    Text(initial)
+                                        .font(.system(size: 36, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(.white)
+                                )
                         }
                     }
-                    Spacer()
+                    .frame(width: 88, height: 88)
+                    .clipShape(Circle())
+                    .shadow(color: Color.blue.opacity(0.3), radius: 16, y: 8)
+                    
+                    PhotosPicker(selection: $avatarItem, matching: .images) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(uiColor: .systemBackground))
+                                .frame(width: 28, height: 28)
+                                .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color.blue)
+                        }
+                    }
+                    .onChange(of: avatarItem) { _, newItem in
+                        Task {
+                            if let data = try? await newItem?.loadTransferable(type: Data.self),
+                               let uiImage = UIImage(data: data),
+                               let jpegData = uiImage.jpegData(compressionQuality: 0.8) {
+                                avatarImage = Image(uiImage: uiImage)
+                                
+                                do {
+                                    let response: AvatarUploadResponseDTO = try await APIClient.shared.upload(
+                                        path: "/api/v1/auth/me/avatar",
+                                        fileData: jpegData,
+                                        fileName: "avatar.jpg",
+                                        mimeType: "image/jpeg"
+                                    )
+                                    print("✅ Avatar successfully uploaded to Backend: \(response.avatarUrl)")
+                                } catch {
+                                    print("❌ Avatar upload failed: \(error)")
+                                }
+                            }
+                        }
+                    }
                 }
 
-                if isProfileLoading {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(uiColor: .secondarySystemFill))
-                        .frame(height: 8)
-                        .opacity(0.6)
-                        .redacted(reason: .placeholder)
+                VStack(spacing: 6) {
+                    Text(displayName)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(.primary)
+                    Text(displayEmail)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.secondary)
                 }
             }
-            .padding(16)
         }
-        .padding(.horizontal)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 16)
+    }
+
+    private var accountSettingsCard: some View {
+        VStack(spacing: 0) {
+            sectionHeader(title: "Settings")
+            premiumCard {
+                NavigationLink(destination: accountSettingsSubView) {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.blue)
+                                .frame(width: 32, height: 32)
+                            Image(systemName: "person.badge.shield.checkmark.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        
+                        Text("账户与安全")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.primary)
+                        
+                        Spacer()
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 16)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var accountSettingsSubView: some View {
+        ZStack {
+            Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 28) {
+                    quickActionsCard
+                    sessionsCard
+                }
+                .padding(.top, 16)
+                .padding(.bottom, 32)
+            }
+        }
+        .navigationTitle("账户与安全")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var quickActionsCard: some View {
-        LiquidGlassCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Account Actions")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-
-                LazyVGrid(
-                    columns: [
-                        GridItem(.flexible(), spacing: 12),
-                        GridItem(.flexible(), spacing: 12)
-                    ],
-                    spacing: 12
-                ) {
-                    actionTile(icon: "lock.shield.fill", titleKey: "settings.action.change_password", color: .blue) {
-                        activeSheet = .password
+        VStack(spacing: 0) {
+            sectionHeader(title: "Account Actions")
+            premiumCard {
+                VStack(spacing: 0) {
+                    HStack(spacing: 16) {
+                        actionTile(icon: "lock.shield.fill", titleKey: "settings.action.change_password", color: .blue) {
+                            activeSheet = .password
+                        }
+                        actionTile(icon: "key.viewfinder", titleKey: "settings.action.two_factor", color: .orange) {
+                            activeSheet = .twoFactor
+                        }
                     }
-                    actionTile(icon: "key.viewfinder", titleKey: "settings.action.two_factor", color: .orange) {
-                        activeSheet = .twoFactor
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    
+                    HStack(spacing: 16) {
+                        actionTile(icon: "person.text.rectangle.fill", titleKey: "settings.action.identity", color: .green) {
+                            showWebPrompt = true
+                        }
                     }
-                    actionTile(icon: "person.text.rectangle.fill", titleKey: "settings.action.identity", color: .green) {
-                        showWebPrompt = true
-                    }
-                    actionTile(icon: "safari", titleKey: "settings.action.manage_on_web", color: .accentColor) {
-                        showWebPrompt = true
-                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
                 }
             }
-            .padding(16)
         }
-        .padding(.horizontal)
     }
 
     private var notificationsCard: some View {
-        LiquidGlassCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("settings.section.notifications")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-
-                VStack(spacing: 12) {
-                    settingsToggleRow(icon: "bell.badge.fill", titleKey: "settings.item.push_alert", color: .orange, isOn: $pushAlertsEnabled)
-                    settingsToggleRow(icon: "waveform.path.ecg", titleKey: "settings.item.signal_alert", color: .blue, isOn: $signalAlertsEnabled)
-                    settingsToggleRow(icon: "chart.line.uptrend.xyaxis", titleKey: "settings.item.price_alert", color: .green, isOn: $priceAlertsEnabled)
-                }
+        VStack(spacing: 0) {
+            sectionHeader(title: "settings.section.notifications")
+            premiumCard {
+                settingsToggleRow(icon: "bell.badge.fill", titleKey: "settings.item.push_alert", color: .red, isOn: $pushAlertsEnabled, showDivider: true)
+                settingsToggleRow(icon: "waveform.path.ecg", titleKey: "settings.item.signal_alert", color: .blue, isOn: $signalAlertsEnabled, showDivider: true)
+                settingsToggleRow(icon: "chart.line.uptrend.xyaxis", titleKey: "settings.item.price_alert", color: .green, isOn: $priceAlertsEnabled, showDivider: false)
             }
-            .padding(16)
         }
-        .padding(.horizontal)
     }
 
     private var securityCard: some View {
-        LiquidGlassCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("settings.section.security")
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-
-                settingsToggleRow(icon: "faceid", titleKey: "settings.item.biometric_unlock", color: .purple, isOn: $biometricUnlockEnabled)
+        VStack(spacing: 0) {
+            sectionHeader(title: "settings.section.security")
+            premiumCard {
+                settingsToggleRow(icon: "faceid", titleKey: "settings.item.biometric_unlock", color: .purple, isOn: $biometricUnlockEnabled, showDivider: false)
             }
-            .padding(16)
         }
-        .padding(.horizontal)
     }
 
     private var sessionsCard: some View {
-        LiquidGlassCard {
-            Button {
-                activeSheet = .sessions
-            } label: {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.blue.opacity(0.12))
-                            .frame(width: 40, height: 40)
-                        Image(systemName: "lock.shield")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.blue)
-                    }
+        VStack(spacing: 0) {
+            sectionHeader(title: "Session Security")
+            premiumCard {
+                Button {
+                    activeSheet = .sessions
+                } label: {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Color.blue)
+                                .frame(width: 32, height: 32)
+                            Image(systemName: "desktopcomputer.and.iphone")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Session Security")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Text("Active Sessions")
-                            .font(.caption)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Active Sessions")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.primary)
+                        }
+                        Spacer()
+                        Text(hasLoadedSessions ? "\(sessions.count)" : "—")
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.secondary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(Color(uiColor: .tertiarySystemFill))
+                            .clipShape(Capsule())
+                        
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
                     }
-                    Spacer()
-                    Text(hasLoadedSessions ? "\(sessions.count)" : "—")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color(uiColor: .secondarySystemFill))
-                        .clipShape(Capsule())
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
                 }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .padding(16)
         }
-        .padding(.horizontal)
     }
 
     private var logoutCard: some View {
-        LiquidGlassCard {
-            Button("settings.action.logout", role: .destructive) {
-                Task { await logoutCurrentSession() }
-            }
-            .disabled(isLoggingOut)
-            .frame(maxWidth: .infinity)
-            .padding(16)
-            .font(.headline)
+        Button(action: { Task { await logoutCurrentSession() } }) {
+            Text("settings.action.logout")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
         }
-        .padding(.horizontal)
+        .background(Color.red.opacity(0.9))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .disabled(isLoggingOut)
+        .opacity(isLoggingOut ? 0.5 : 1)
     }
 
     private func actionTile(icon: String, titleKey: LocalizedStringKey, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 ZStack {
                     Circle()
-                        .fill(color.opacity(0.15))
-                        .frame(width: 36, height: 36)
+                        .fill(color.opacity(0.12))
+                        .frame(width: 40, height: 40)
                     Image(systemName: icon)
                         .foregroundStyle(color)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 18, weight: .semibold))
                 }
 
                 Text(titleKey)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.primary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemBackground).opacity(0.8))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color(uiColor: .separator).opacity(0.25), lineWidth: 0.6)
-            )
+            .padding(16)
+            .background(Color(uiColor: .tertiarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }
 
-    private func settingsToggleRow(icon: String, titleKey: LocalizedStringKey, color: Color, isOn: Binding<Bool>) -> some View {
-        HStack {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .foregroundStyle(color)
+    private func settingsToggleRow(icon: String, titleKey: LocalizedStringKey, color: Color, isOn: Binding<Bool>, showDivider: Bool) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(color)
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+                
                 Text(titleKey)
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.primary)
+                
+                Spacer()
+                
+                Toggle("", isOn: isOn)
+                    .labelsHidden()
             }
-            Spacer()
-            Toggle("", isOn: isOn)
-                .labelsHidden()
-                .tint(.blue)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 16)
+            
+            if showDivider {
+                Divider()
+                    .padding(.leading, 64)
+            }
         }
-        .padding(.vertical, 4)
     }
 
     @MainActor
@@ -385,98 +474,85 @@ struct SettingsView: View {
     private var passwordSheet: some View {
         NavigationStack {
             ZStack {
-                LiquidBackground()
+                Color(uiColor: .systemGroupedBackground)
+                    .ignoresSafeArea()
+                
                 ScrollView {
-                    VStack(spacing: 16) {
-                        LiquidGlassCard {
-                            VStack(alignment: .leading, spacing: 10) {
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.blue.opacity(0.15))
-                                            .frame(width: 44, height: 44)
-                                        Image(systemName: "lock.shield.fill")
-                                            .font(.system(size: 20, weight: .bold))
-                                            .foregroundStyle(.blue)
-                                    }
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("settings.dialog.change_password.title")
-                                            .font(.headline)
-                                        Text("settings.section.security")
-                                            .font(.caption)
+                    VStack(spacing: 24) {
+                        VStack(spacing: 0) {
+                            sectionHeader(title: "settings.dialog.change_password.title")
+                            premiumCard {
+                                VStack(alignment: .leading, spacing: 16) {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("settings.field.current_password")
+                                            .font(.system(size: 13, weight: .semibold))
                                             .foregroundStyle(.secondary)
+                                        SecureField("settings.field.current_password", text: $currentPassword)
+                                            .font(.system(size: 16, weight: .medium))
+                                            .padding(14)
+                                            .background(Color(uiColor: .tertiarySystemGroupedBackground))
+                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
                                     }
-                                    Spacer()
+
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("settings.field.new_password")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(.secondary)
+                                        SecureField("settings.field.new_password", text: $newPassword)
+                                            .font(.system(size: 16, weight: .medium))
+                                            .padding(14)
+                                            .background(Color(uiColor: .tertiarySystemGroupedBackground))
+                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                                    }
                                 }
+                                .padding(16)
                             }
-                            .padding(16)
                         }
-                        .padding(.horizontal)
-
-                        LiquidGlassCard {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Text("settings.field.current_password")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                SecureField("settings.field.current_password", text: $currentPassword)
-                                    .textFieldStyle(GlassTextFieldStyle())
-
-                                Text("settings.field.new_password")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                SecureField("settings.field.new_password", text: $newPassword)
-                                    .textFieldStyle(GlassTextFieldStyle())
-                            }
-                            .padding(16)
-                        }
-                        .padding(.horizontal)
 
                         if let errorMessage = passwordErrorMessage {
-                            LiquidGlassCard {
-                                Text(errorMessage)
-                                    .font(.caption)
-                                    .foregroundStyle(.red)
-                                    .padding(12)
-                            }
-                            .padding(.horizontal)
+                            Text(errorMessage)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.red)
+                                .padding(.horizontal, 32)
                         }
-
-                        VStack(spacing: 10) {
-                            Button {
-                                Task { await changePassword() }
-                            } label: {
-                                HStack(spacing: 8) {
-                                    if isPasswordChanging {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                    }
-                                    Text("settings.action.save_changes")
-                                }
-                            }
-                            .buttonStyle(FintechPrimaryButtonStyle())
-                            .disabled(currentPassword.isEmpty || newPassword.count < 6 || isPasswordChanging)
-
-                            Button("common.close") {
-                                activeSheet = nil
-                            }
-                            .buttonStyle(FintechSecondaryButtonStyle())
-                        }
-                        .padding(.horizontal)
                     }
-                    .padding(.top, 12)
+                    .padding(.top, 24)
                     .padding(.bottom, 32)
                 }
             }
             .navigationTitle("settings.dialog.change_password.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("common.close") {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
                         activeSheet = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
                     }
+                }
+                
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await changePassword() }
+                    } label: {
+                        if isPasswordChanging {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle((currentPassword.isEmpty || newPassword.count < 6) ? Color.secondary.opacity(0.3) : Color.blue)
+                        }
+                    }
+                    .allowsHitTesting(!(currentPassword.isEmpty || newPassword.count < 6 || isPasswordChanging))
                 }
             }
         }
+        .presentationDetents([.fraction(0.55), .large])
+        .presentationDragIndicator(.visible)
     }
     
     @State private var isPasswordChanging = false
@@ -548,11 +624,6 @@ struct SettingsView: View {
                         .padding(.horizontal)
 
                         VStack(spacing: 10) {
-                            Button("settings.action.manage_on_web") {
-                                showWebPrompt = true
-                            }
-                            .buttonStyle(FintechPrimaryButtonStyle())
-
                             Button("settings.action.done") {
                                 activeSheet = nil
                             }
@@ -789,5 +860,13 @@ private struct ChangePasswordPayload: Encodable {
     enum CodingKeys: String, CodingKey {
         case currentPassword = "current_password"
         case newPassword = "new_password"
+    }
+}
+
+private struct AvatarUploadResponseDTO: Decodable {
+    let avatarUrl: String
+    
+    enum CodingKeys: String, CodingKey {
+        case avatarUrl = "avatar_url"
     }
 }

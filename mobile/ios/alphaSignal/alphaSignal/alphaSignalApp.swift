@@ -13,6 +13,8 @@ struct alphaSignalApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             IntelligenceModel.self,
+            LocalWatchlistItem.self,
+            LocalWatchlistGroup.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

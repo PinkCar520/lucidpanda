@@ -3,14 +3,30 @@ import Observation
 import AlphaCore
 import AlphaData
 
+enum AuthMode {
+    case login
+    case register
+    case forgotPassword
+}
+
 @Observable
 class LoginViewModel {
+    var mode: AuthMode = .login
+    
     var email = ""
     var password = ""
+    var confirmPassword = ""
+    
     var isLoading = false
     var isPasskeyLoading = false
     var errorMessage: String?
-    var canSubmit: Bool { !email.isEmpty && !password.isEmpty }
+    var successMessage: String?
+    
+    var canSubmit: Bool { 
+        if mode == .forgotPassword { return !email.isEmpty }
+        if mode == .register { return !email.isEmpty && !password.isEmpty && password == confirmPassword }
+        return !email.isEmpty && !password.isEmpty 
+    }
     
     // 回调闭包，用于登录成功后通知 Root 视图
     var onSuccess: (() -> Void)?
@@ -41,10 +57,46 @@ class LoginViewModel {
             onSuccess?()
             
         } catch {
-            errorMessage = NSLocalizedString("auth.error.invalid_credentials", comment: "")
+            errorMessage = "登录失败：邮箱或密码错误"
             print("Login error: \(error)")
         }
         
+        isLoading = false
+    }
+    
+    @MainActor
+    func performRegister() async {
+        guard canSubmit else {
+            errorMessage = "请检查输入的信息格式"
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        successMessage = nil
+        
+        // 模拟请求延迟
+        try? await Task.sleep(nanoseconds: 1_200_000_000)
+        
+        // TODO: Backend implementation for Register
+        successMessage = "注册成功"
+        isLoading = false
+    }
+    
+    @MainActor
+    func performPasswordReset() async {
+        guard !email.isEmpty else {
+            errorMessage = "请输入有效的电子邮箱"
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        successMessage = nil
+        
+        // 模拟请求延迟
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        
+        // TODO: Backend implementation for Forgot Password
+        successMessage = "重置密码指令已发送至您的邮箱"
         isLoading = false
     }
     

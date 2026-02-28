@@ -8,7 +8,9 @@ struct FundDiscoverView: View {
     @State private var viewModel = FundSearchViewModel()
     @State private var watchlistViewModel = FundViewModel()
     @State private var showAddedToast = false
-    @State private var lastAddedName = ""
+    @State private var toastMessage = ""
+    @State private var addedFunds = Set<String>()
+    @State private var selectedFundToView: FundValuation?
     
     var body: some View {
         NavigationStack {
@@ -61,36 +63,96 @@ struct FundDiscoverView: View {
                         .listRowBackground(Color.clear)
                     } else {
                         ForEach(viewModel.results) { fund in
-                            Button {
-                                Task {
-                                    await watchlistViewModel.addFund(code: fund.code, name: fund.name)
-                                    lastAddedName = fund.name
-                                    withAnimation { showAddedToast = true }
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                        withAnimation { showAddedToast = false }
-                                    }
-                                }
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
+                            let isAdded = addedFunds.contains(fund.code)
+                            
+                            HStack(spacing: 12) {
+                                Button {
+                                    let dummyValuation = FundValuation(
+                                        fundCode: fund.code,
+                                        fundName: fund.name,
+                                        estimatedGrowth: 0,
+                                        totalWeight: 0,
+                                        components: [],
+                                        timestamp: Date(),
+                                        stats: nil
+                                    )
+                                    selectedFundToView = dummyValuation
+                                } label: {
+                                    VStack(alignment: .leading, spacing: 6) {
                                         Text(fund.name)
-                                            .font(.subheadline.bold())
-                                            .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
-                                        HStack {
-                                            Text(fund.code).font(.caption2.monospaced())
-                                            Text("•").font(.caption2)
-                                            Text(fund.company ?? String(localized: "funds.company.unknown")).font(.caption2)
+                                            .font(.system(size: 16, weight: .bold))
+                                            .foregroundStyle(isAdded ? Color.secondary : Color.primary)
+                                            .lineLimit(1)
+                                        
+                                        HStack(spacing: 6) {
+                                            Text(fund.code)
+                                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                                .foregroundStyle(.secondary)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color(uiColor: .tertiarySystemFill))
+                                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                                
+                                            if let type = fund.type, !type.isEmpty {
+                                                Text(type)
+                                                    .font(.system(size: 10, weight: .semibold))
+                                                    .foregroundStyle(isAdded ? .gray : .blue)
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 2)
+                                                    .background(isAdded ? Color.gray.opacity(0.1) : Color.blue.opacity(0.1))
+                                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                                            }
+                                            
+                                            Text(fund.company ?? String(localized: "funds.company.unknown"))
+                                                .font(.system(size: 11))
+                                                .foregroundStyle(.gray)
                                         }
-                                        .foregroundStyle(.gray)
                                     }
-                                    Spacer()
-                                    Image(systemName: "plus.circle.fill")
-                                        .foregroundStyle(.blue)
-                                        .font(.title3)
                                 }
-                                .padding(.vertical, 4)
+                                .buttonStyle(.plain)
+                                
+                                Spacer(minLength: 16)
+                                
+                                Button {
+                                    if !isAdded {
+                                        Task {
+                                            await watchlistViewModel.addFund(code: fund.code, name: fund.name)
+                                            addedFunds.insert(fund.code)
+                                            toastMessage = "已添加 \(fund.name)"
+                                            withAnimation(.spring()) { showAddedToast = true }
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                                withAnimation(.easeInOut) { showAddedToast = false }
+                                            }
+                                        }
+                                    } else {
+                                        Task {
+                                            await watchlistViewModel.deleteFund(code: fund.code)
+                                            addedFunds.remove(fund.code)
+                                            toastMessage = "已取消 \(fund.name)"
+                                            withAnimation(.spring()) { showAddedToast = true }
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                                withAnimation(.easeInOut) { showAddedToast = false }
+                                            }
+                                        }
+                                    }
+                                } label: {
+                                    if isAdded {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 22))
+                                            .foregroundStyle(.green)
+                                            .symbolRenderingMode(.hierarchical)
+                                    } else {
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.system(size: 22))
+                                            .foregroundStyle(.blue)
+                                            .symbolRenderingMode(.hierarchical)
+                                    }
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .listRowBackground(Color.white.opacity(0.5))
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 4)
+                            .listRowBackground(Color(uiColor: .systemBackground))
                         }
                     }
                 }
@@ -101,27 +163,31 @@ struct FundDiscoverView: View {
                     Task { await viewModel.performSearch() }
                 }
                 
-                // Toast Notification
+                // Toast Notification (Centered)
                 if showAddedToast {
                     VStack {
                         Spacer()
                         HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("\(String(localized: "funds.toast.added_prefix")) \(lastAddedName)")
+                            Image(systemName: toastMessage.contains("已取消") ? "xmark.circle.fill" : "checkmark.circle.fill")
+                            Text(toastMessage)
                         }
-                        .font(.system(size: 12, weight: .bold))
-                        .padding(.vertical, 12)
-                        .padding(.horizontal, 20)
-                        .background(.blue)
-                        .foregroundStyle(.white)
+                        .font(.system(size: 14, weight: .bold))
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 24)
+                        // Make it slightly dark translucent
+                        .background(.ultraThinMaterial)
+                        .colorScheme(.dark)
                         .clipShape(Capsule())
-                        .shadow(radius: 10)
-                        .padding(.bottom, 40)
+                        .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
+                        Spacer()
                     }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.scale.combined(with: .opacity))
                 }
             }
             .navigationTitle("funds.discover.title")
+            .navigationDestination(item: $selectedFundToView) { valuation in
+                FundDetailView(valuation: valuation)
+            }
         }
     }
     

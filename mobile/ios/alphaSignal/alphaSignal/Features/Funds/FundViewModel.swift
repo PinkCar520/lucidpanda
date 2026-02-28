@@ -191,6 +191,12 @@ class FundViewModel {
     // MARK: - Fetch Data
     
     func fetchWatchlist() async {
+        // --- 核心优化：Offline-First (离线优先/极速渲染) ---
+        // 首次打开或者当内存为空时，立刻提取 SwiftData 进行瞬间渲染（0延迟），之后再等待网络刷新。彻底告别首次启动白屏！
+        if self.watchlistItems.isEmpty {
+            await loadFromCache()
+        }
+        
         isLoading = true
         
         do {
@@ -220,15 +226,31 @@ class FundViewModel {
         } catch {
             syncError = error
             print("❌ Failed to fetch watchlist: \(error)")
-            
-            // 降级：从缓存读取
-            await loadFromCache()
+            // 网络彻底断开时，由于之前已经 loadFromCache 过，此处什么都不做
         }
         
         isLoading = false
     }
     
     func fetchGroups() async {
+        // --- 核心优化：Offline-First ---
+        // 瞬间加载 SwiftData 里的分组信息
+        if self.groups.isEmpty {
+            let cachedGroups = await cacheManager.fetchAllGroups()
+            self.groups = cachedGroups.map {
+                WatchlistGroup(
+                    id: $0.id,
+                    userId: "",
+                    name: $0.name,
+                    icon: $0.icon,
+                    color: $0.color,
+                    sortIndex: Int($0.sortIndex),
+                    createdAt: $0.lastSyncTime,
+                    updatedAt: $0.lastSyncTime
+                )
+            }
+        }
+        
         do {
             let response: WatchlistGroupsResponse = try await APIClient.shared.fetch(
                 path: "/api/v2/watchlist/groups"
@@ -241,24 +263,6 @@ class FundViewModel {
             
         } catch {
             print("❌ Failed to fetch groups: \(error)")
-            
-            // 从缓存加载用户自定义分组
-            let cachedGroups = await cacheManager.fetchAllGroups()
-            let userGroups = cachedGroups.map {
-                WatchlistGroup(
-                    id: $0.id,
-                    userId: "",
-                    name: $0.name,
-                    icon: $0.icon,
-                    color: $0.color,
-                    sortIndex: Int($0.sortIndex),
-                    createdAt: $0.lastSyncTime,
-                    updatedAt: $0.lastSyncTime
-                )
-            }
-            
-            self.groups = userGroups
-            print("✅ Loaded from cache: \(userGroups.count) user groups")
         }
     }
 

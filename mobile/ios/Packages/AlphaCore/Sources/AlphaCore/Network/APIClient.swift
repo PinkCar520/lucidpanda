@@ -115,6 +115,30 @@ public actor APIClient {
         return try await perform(request, allowRefreshRetry: true)
     }
 
+    // 新增：支持文件上传的方法 (multipart/form-data)
+    public func upload<T: Decodable>(path: String, fileData: Data, fileName: String, mimeType: String) async throws -> T {
+        guard let url = URL(string: path, relativeTo: baseURL) else { throw APIError.invalidURL }
+        await ensureFreshAccessTokenIfNeeded(forPath: url.path)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        
+        let boundary = "Boundary-\(UUID().uuidString)"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        request = await applyAccessToken(to: request)
+        
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(fileData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+        
+        return try await perform(request, allowRefreshRetry: true)
+    }
+
     private func perform<T: Decodable>(_ request: URLRequest, allowRefreshRetry: Bool) async throws -> T {
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else { throw APIError.invalidResponse }

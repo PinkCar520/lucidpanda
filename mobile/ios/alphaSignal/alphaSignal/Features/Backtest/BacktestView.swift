@@ -262,7 +262,7 @@ struct BacktestView: View {
     private func statsGrid(_ stats: BacktestStats) -> some View {
         HStack(spacing: 12) {
             statItem(title: t("backtest.metric.sample_size"), value: "\(stats.count)", sub: "N")
-            statItem(title: t("backtest.metric.risk_adjusted_win_rate"), value: String(format: "%.1f%%", stats.adjWinRate), sub: "RAR", color: .blue)
+            statItem(title: t("backtest.metric.risk_adjusted_win_rate"), value: String(format: "%.1f%%", stats.adjWinRate ?? stats.winRate), sub: "RAR", color: .blue)
             statItem(title: t("backtest.metric.average_return"), value: String(format: "%.2f%%", abs(stats.avgDrop)), sub: "Return", color: .red)
         }
         .padding(.horizontal)

@@ -45,7 +45,14 @@ struct FundDetailView: View {
                     
                     historyLedgerSection
                     
-                    Spacer(minLength: 40)
+                    Spacer(minLength: 20)
+                    
+                    Text("免责声明：系统估值基于公开持仓计算，仅供参考，不构成投资建议。\n市场有风险，投资需谨慎。")
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundStyle(.secondary.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 40)
                 }
             }
         }

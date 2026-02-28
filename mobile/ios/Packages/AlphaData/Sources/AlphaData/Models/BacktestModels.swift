@@ -4,7 +4,7 @@ import Foundation
 public struct BacktestStats: Codable {
     public let count: Int
     public let winRate: Double
-    public let adjWinRate: Double
+    public let adjWinRate: Double?
     public let avgDrop: Double
     public let hygiene: HygieneStats
     public let correlation: [String: SessionWinRate]
@@ -14,7 +14,7 @@ public struct BacktestStats: Codable {
     public let sessionStats: [SessionPerformance]
     public let items: [BacktestItem]?
     
-    public init(count: Int, winRate: Double, adjWinRate: Double, avgDrop: Double, hygiene: HygieneStats, correlation: [String: SessionWinRate], positioning: [String: SessionWinRate]? = nil, volatility: [String: SessionWinRate]? = nil, distribution: [DistributionBin]? = nil, sessionStats: [SessionPerformance], items: [BacktestItem]? = nil) {
+    public init(count: Int, winRate: Double, adjWinRate: Double? = nil, avgDrop: Double, hygiene: HygieneStats, correlation: [String: SessionWinRate], positioning: [String: SessionWinRate]? = nil, volatility: [String: SessionWinRate]? = nil, distribution: [DistributionBin]? = nil, sessionStats: [SessionPerformance], items: [BacktestItem]? = nil) {
         self.count = count
         self.winRate = winRate
         self.adjWinRate = adjWinRate

@@ -6,480 +6,288 @@ struct LoginView: View {
     @State private var viewModel = LoginViewModel()
     @Environment(AppRootViewModel.self) private var rootViewModel
     @State private var showPassword = false
-    @State private var activePrompt: AuthPrompt?
-    @State private var panelState: PanelState = .collapsed
-    @GestureState private var panelDragTranslation: CGFloat = 0
+    
+    // UI Animation States
+    @State private var appearAnimation = false
+    @FocusState private var focusedField: AuthField?
+    
+    enum AuthField {
+        case email
+        case password
+        case confirmPassword
+    }
 
     var body: some View {
-        GeometryReader { proxy in
-            let metrics = panelMetrics(in: proxy)
-            let baseTop = panelState == .expanded ? metrics.topExpanded : metrics.topCollapsed
-            let proposedTop = baseTop + panelDragTranslation
-            let panelTop = clamp(proposedTop, min: metrics.topExpanded, max: metrics.topCollapsed)
-            let progress = panelProgress(metrics: metrics, panelTop: panelTop)
-            let cornerRadius = panelCornerRadius(progress: progress)
-
-            ZStack(alignment: .top) {
-                LiquidBackground()
-
-                loginInteriorLayer(progress: progress)
-
-                loginPanel(metrics: metrics, progress: progress, cornerRadius: cornerRadius)
-                    .offset(y: panelTop)
+        ZStack {
+            // 1. Clean Premium Background
+            Color(uiColor: .systemBackground)
+                .ignoresSafeArea()
+                
+            GeometryReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 80)
+                        
+                        // 3. Central Login Form (Now Borderless & Immersive)
+                        authCard
+                            .padding(.horizontal, 16)
+                            .opacity(appearAnimation ? 1 : 0)
+                            .scaleEffect(appearAnimation ? 1 : 0.95)
+                        
+                        Spacer(minLength: 60)
+                        
+                        // 4. Branding Footer
+                        footerView
+                            .opacity(appearAnimation ? 1 : 0)
+                            .offset(y: appearAnimation ? 0 : 20)
+                    }
+                    .frame(minHeight: proxy.size.height)
+                }
             }
-            .ignoresSafeArea()
         }
         .onAppear {
+            withAnimation(.easeOut(duration: 0.8)) {
+                appearAnimation = true
+            }
             viewModel.onSuccess = {
-                rootViewModel.updateState(to: .authenticated)
+                withAnimation(.spring()) {
+                    rootViewModel.updateState(to: .authenticated)
+                }
             }
         }
-        .onChange(of: panelState) { newValue in
-            if newValue == .expanded {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            }
-        }
-        .alert(alertTitleKey, isPresented: Binding(
-            get: { activePrompt != nil },
-            set: { if !$0 { activePrompt = nil } }
-        )) {
-            Button("common.close", role: .cancel) {}
-        } message: {
-            Text(alertMessageKey)
+        .onTapGesture {
+            focusedField = nil
         }
     }
 
-    private func loginInteriorLayer(progress: CGFloat) -> some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 10) {
-                marketPill(title: "上证", value: "+0.8%", trend: .up)
-                marketPill(title: "深证", value: "+0.6%", trend: .up)
-                marketPill(title: "创业板", value: "-0.3%", trend: .down)
-                Spacer(minLength: 0)
+    // MARK: - Central Authentication Card
+    private var authCard: some View {
+        VStack(spacing: 24) {
+            // Logo Branding
+            VStack(spacing: 12) {
+                Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(Color.blue)
+                
+                Text("AlphaSignal")
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.primary)
             }
-
-            LiquidGlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("今日风向")
-                        .font(.system(size: 14, weight: .bold))
-
-                    previewRow(title: "新能源主题", subtitle: "领涨板块", value: "+3.2%", trend: .up)
-                    previewRow(title: "红利低波", subtitle: "资金净流入", value: "+2.1 亿", trend: .up)
-                }
-                .padding(.vertical, 8)
-            }
-
-            LiquidGlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("市场温度计")
-                        .font(.system(size: 13, weight: .bold))
-
-                    HStack(spacing: 10) {
-                        heatTag(title: "低温", color: .green)
-                        heatTag(title: "中性", color: .yellow)
-                        heatTag(title: "高温", color: .red)
-                        Spacer(minLength: 0)
-                    }
-
-                    Text("滑动面板，切换看盘视角")
-                        .font(.system(size: 11))
+            .padding(.bottom, 12)
+            
+            // Header
+            if viewModel.mode != .login {
+                VStack(spacing: 8) {
+                    Text(viewModel.mode == .register ? "注册账号" : "重置密码")
+                        .font(.system(size: 20, weight: .bold)) // 适度缩小字号
+                        .foregroundStyle(.primary)
+                    
+                    Text(viewModel.mode == .register ? "创建您的新账号" : "向您的邮箱发送验证码")
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 8)
+                .padding(.bottom, 8)
             }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.top, 72)
-        .padding(.horizontal, 20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .opacity(1 - progress * 0.35)
-        .blur(radius: 6 * progress)
-        .overlay(Color.black.opacity(0.18 * progress))
-        .allowsHitTesting(false)
-    }
-
-    private func loginPanel(metrics: PanelMetrics, progress: CGFloat, cornerRadius: CGFloat) -> some View {
-        let collapsedOpacity = max(0, 1 - progress * 1.15)
-        let expandedOpacity = max(0, min(1, (progress - 0.05) / 0.95))
-
-        return VStack(spacing: 0) {
-            panelHeader(progress: progress, metrics: metrics)
-
-            ScrollView(showsIndicators: false) {
-                ZStack(alignment: .top) {
-                    collapsedPanelContent
-                        .opacity(collapsedOpacity)
-                        .offset(y: 12 * progress)
-                        .allowsHitTesting(panelState == .collapsed)
-
-                    expandedPanelContent
-                        .opacity(expandedOpacity)
-                        .offset(y: 16 * (1 - progress))
-                        .allowsHitTesting(panelState == .expanded)
+            
+            // Input Fields
+            VStack(spacing: 16) {
+                customTextField(
+                    icon: "envelope.fill",
+                    placeholder: "电子邮箱",
+                    text: $viewModel.email,
+                    isSecure: false,
+                    field: .email
+                )
+                
+                if viewModel.mode != .forgotPassword {
+                    customTextField(
+                        icon: "lock.fill",
+                        placeholder: "密码",
+                        text: $viewModel.password,
+                        isSecure: !showPassword,
+                        field: .password
+                    )
                 }
-                .frame(maxWidth: .infinity, alignment: .top)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 24)
-                .padding(.top, 8)
+                
+                if viewModel.mode == .register {
+                    customTextField(
+                        icon: "lock.shield.fill",
+                        placeholder: "确认密码",
+                        text: $viewModel.confirmPassword,
+                        isSecure: true,
+                        field: .confirmPassword
+                    )
+                }
             }
-            .scrollDisabled(panelState == .collapsed)
-        }
-        .frame(maxWidth: .infinity, maxHeight: metrics.panelHeight, alignment: .top)
-        .background(
-            .ultraThinMaterial,
-            in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(Color.white.opacity(0.18), lineWidth: 1)
-        )
-    }
-
-    private func panelHeader(progress: CGFloat, metrics: PanelMetrics) -> some View {
-        VStack(spacing: 6) {
-            Capsule()
-                .fill(Color.secondary.opacity(0.4))
-                .frame(width: 36, height: 4)
-
-            HStack(spacing: 6) {
-                Text(panelState == .expanded ? "向下拖拽收起" : "向上滑动进入")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Image(systemName: panelState == .expanded ? "chevron.down" : "chevron.up")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+            
+            // Alerts
+            if let err = viewModel.errorMessage {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text(err)
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .transition(.opacity)
             }
-            .opacity(0.8 - progress * 0.2)
-        }
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .frame(maxWidth: .infinity)
-        .contentShape(Rectangle())
-        .gesture(panelDragGesture(metrics: metrics))
-        .onTapGesture {
-            togglePanel()
-        }
-    }
-
-    private var collapsedPanelContent: some View {
-        VStack(spacing: 18) {
-            VStack(spacing: 8) {
-                Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
-                    .font(.system(size: 46))
-                    .foregroundStyle(.primary)
-
-                Text("AlphaSignal")
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-
-                Text("auth.login.subtitle")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+            if let suc = viewModel.successMessage {
+                HStack {
+                    Image(systemName: "checkmark.shield.fill")
+                    Text(suc)
+                }
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.green)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .transition(.opacity)
             }
-
+            
+            // Action Button
+            let actionText = viewModel.mode == .login ? "登录" :
+                            (viewModel.mode == .register ? "注册" : "重置密码")
+                            
             Button {
-                Task { await viewModel.performPasskeyLogin() }
-            } label: {
-                HStack(spacing: 8) {
-                    if viewModel.isPasskeyLoading {
-                        ProgressView()
-                            .tint(Color(uiColor: .systemBackground))
-                    } else {
-                        Image(systemName: "person.badge.key.fill")
-                            .font(.system(size: 14, weight: .semibold))
+                focusedField = nil
+                Task {
+                    switch viewModel.mode {
+                    case .login: await viewModel.performLogin()
+                    case .register: await viewModel.performRegister()
+                    case .forgotPassword: await viewModel.performPasswordReset()
                     }
-                    Text("auth.action.passkey_login")
-                        .font(.system(size: 15, weight: .semibold))
+                }
+            } label: {
+                HStack {
+                    if viewModel.isLoading {
+                        ProgressView().tint(.white)
+                            .frame(width: 20, height: 20)
+                    } else {
+                        Text(actionText)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
                 }
                 .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(
+                    Capsule()
+                        .fill(viewModel.canSubmit ? Color.blue : Color.secondary.opacity(0.4))
+                        .shadow(color: viewModel.canSubmit ? Color.blue.opacity(0.3) : .clear, radius: 8, x: 0, y: 4)
+                )
             }
-            .buttonStyle(FintechPrimaryButtonStyle())
-            .disabled(viewModel.isLoading || viewModel.isPasskeyLoading)
-
-            Button {
-                updatePanelState(.expanded)
-            } label: {
-                Text("使用账号密码登录")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
+            .buttonStyle(.plain)
+            .allowsHitTesting(!(viewModel.isLoading || !viewModel.canSubmit))
+            
+            // Mode Switchers
+            HStack {
+                if viewModel.mode == .login {
+                    Button("忘记密码？") { switchMode(to: .forgotPassword) }
+                    Spacer()
+                    Button("注册账号") { switchMode(to: .register) }
+                } else {
+                    Spacer()
+                    Button("返回登录") { switchMode(to: .login) }
+                    Spacer()
+                }
             }
-        }
-    }
-
-    private var expandedPanelContent: some View {
-        VStack(spacing: 20) {
-            loginFormCard
-
-            VStack(spacing: 4) {
-                Text("auth.status.secure_channel")
-                Text("auth.status.module_ready")
-            }
-            .font(.footnote)
+            .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(.secondary)
-        }
-    }
-
-    private var loginFormCard: some View {
-        LiquidGlassCard {
-            VStack(spacing: 16) {
-                Text("auth.login.title")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(spacing: 16) {
-                    HStack {
-                        Image(systemName: "envelope.fill")
-                            .foregroundStyle(.secondary)
-                            .frame(width: 24)
-                        TextField("auth.field.email", text: $viewModel.email)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.emailAddress)
-                            .foregroundStyle(.primary)
-                    }
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color(uiColor: .secondarySystemBackground))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Color(uiColor: .separator).opacity(0.25), lineWidth: 0.5)
-                    )
-
-                    HStack {
-                        Image(systemName: "lock.fill")
-                            .foregroundStyle(.secondary)
-                            .frame(width: 24)
-                        if showPassword {
-                            TextField("auth.field.password", text: $viewModel.password)
-                                .textInputAutocapitalization(.never)
-                                .foregroundStyle(.primary)
-                        } else {
-                            SecureField("auth.field.password", text: $viewModel.password)
-                                .foregroundStyle(.primary)
-                        }
-                        Button {
-                            showPassword.toggle()
-                        } label: {
-                            Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                                .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color(uiColor: .secondarySystemBackground))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(Color(uiColor: .separator).opacity(0.25), lineWidth: 0.5)
-                    )
-                }
-
-                if let error = viewModel.errorMessage {
-                    Text(error)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                Button {
-                    Task { await viewModel.performLogin() }
-                } label: {
-                    HStack {
-                        if viewModel.isLoading {
-                            ProgressView().tint(Color(uiColor: .systemBackground))
-                        } else {
-                            Text("auth.action.login")
-                                .fontWeight(.semibold)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(FintechPrimaryButtonStyle())
-                .disabled(viewModel.isLoading || viewModel.isPasskeyLoading || !viewModel.canSubmit)
-
+            .padding(.top, 4)
+            
+            // WebAuthn Passkey Section
+            if viewModel.mode == .login {
+                Divider().background(Color.white.opacity(0.1))
+                    .padding(.vertical, 8)
+                
                 Button {
                     Task { await viewModel.performPasskeyLogin() }
                 } label: {
                     HStack(spacing: 8) {
                         if viewModel.isPasskeyLoading {
-                            ProgressView()
-                                .tint(.primary)
+                            ProgressView().tint(.primary)
+                                .frame(width: 20, height: 20)
                         } else {
-                            Image(systemName: "person.badge.key.fill")
-                                .font(.system(size: 14, weight: .semibold))
+                            Image(systemName: "faceid")
+                                .font(.system(size: 18))
+                                .frame(width: 20, height: 20)
                         }
-                        Text("auth.action.passkey_login")
-                            .font(.system(size: 15, weight: .semibold))
+                        Text("使用通行密钥登录")
+                            .font(.system(size: 14, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color(uiColor: .systemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+                    )
                 }
-                .buttonStyle(FintechSecondaryButtonStyle())
+                .buttonStyle(.plain)
                 .disabled(viewModel.isLoading || viewModel.isPasskeyLoading)
-
-                Text("auth.passkey.hint")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                HStack {
-                    Button("auth.action.forgot_password") {
-                        activePrompt = .forgotPassword
-                    }
-                    .font(.footnote.weight(.semibold))
-
-                    Spacer()
-
-                    Button("auth.action.create_account") {
-                        activePrompt = .createAccount
-                    }
-                    .font(.footnote.weight(.semibold))
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 32)
+    }
+    
+    // MARK: - Reusable Custom Text Field
+    private func customTextField(icon: String, placeholder: String, text: Binding<String>, isSecure: Bool, field: AuthField) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundStyle(focusedField == field ? Color.accentColor : .secondary)
+                .frame(width: 24)
+            
+            if isSecure {
+                SecureField(placeholder, text: text)
+                    .focused($focusedField, equals: field)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+            } else {
+                TextField(placeholder, text: text)
+                    .focused($focusedField, equals: field)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(field == .email ? .emailAddress : .default)
+                    .autocorrectionDisabled(true)
+            }
+            
+            if field == .password {
+                Button { showPassword.toggle() } label: {
+                    Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
                 }
-                .tint(.accentColor)
             }
         }
-    }
-
-    private func togglePanel() {
-        updatePanelState(panelState == .expanded ? .collapsed : .expanded)
-    }
-
-    private func updatePanelState(_ newState: PanelState) {
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
-            panelState = newState
-        }
-    }
-
-    private func panelDragGesture(metrics: PanelMetrics) -> some Gesture {
-        DragGesture(minimumDistance: 12)
-            .updating($panelDragTranslation) { value, state, _ in
-                state = value.translation.height
-            }
-            .onEnded { value in
-                let baseTop = panelState == .expanded ? metrics.topExpanded : metrics.topCollapsed
-                let predictedTop = baseTop + value.predictedEndTranslation.height
-                let midpoint = (metrics.topExpanded + metrics.topCollapsed) / 2
-                let shouldExpand = predictedTop < midpoint
-                updatePanelState(shouldExpand ? .expanded : .collapsed)
-            }
-    }
-
-    private func panelMetrics(in proxy: GeometryProxy) -> PanelMetrics {
-        let height = proxy.size.height
-        let topSafe = proxy.safeAreaInsets.top
-        let bottomSafe = proxy.safeAreaInsets.bottom
-        let collapsedPeek = min(height * 0.42, 320)
-        let topCollapsed = height - collapsedPeek
-        let topExpanded = max(topSafe + 18, 36)
-        let panelHeight = height - topExpanded + bottomSafe
-        return PanelMetrics(topExpanded: topExpanded, topCollapsed: topCollapsed, panelHeight: panelHeight)
-    }
-
-    private func panelProgress(metrics: PanelMetrics, panelTop: CGFloat) -> CGFloat {
-        let range = metrics.topCollapsed - metrics.topExpanded
-        guard range > 0 else { return 1 }
-        return 1 - (panelTop - metrics.topExpanded) / range
-    }
-
-    private func panelCornerRadius(progress: CGFloat) -> CGFloat {
-        let collapsed: CGFloat = 34
-        let expanded: CGFloat = 22
-        return collapsed - (collapsed - expanded) * progress
-    }
-
-    private func clamp(_ value: CGFloat, min minValue: CGFloat, max maxValue: CGFloat) -> CGFloat {
-        Swift.min(Swift.max(value, minValue), maxValue)
-    }
-
-    private enum MarketTrend {
-        case up
-        case down
-        case neutral
-    }
-
-    private func marketPill(title: String, value: String, trend: MarketTrend) -> some View {
-        HStack(spacing: 6) {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(trend == .up ? .red : trend == .down ? .green : .secondary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color.white.opacity(0.14))
-        .clipShape(Capsule())
-    }
-
-    private func previewRow(title: String, subtitle: String, value: String, trend: MarketTrend) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 12, weight: .bold))
-                Text(subtitle)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Text(value)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(trend == .up ? .red : trend == .down ? .green : .secondary)
-        }
-        .padding(10)
-        .background(Color.white.opacity(0.12))
+        .padding(.horizontal, 16)
+        .frame(height: 52)
+        .background(Color(uiColor: .systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(focusedField == field ? Color.accentColor.opacity(0.8) : Color.primary.opacity(0.15), lineWidth: focusedField == field ? 1.5 : 1)
+        )
+        .animation(.easeInOut(duration: 0.2), value: focusedField)
     }
-
-    private func heatTag(title: String, color: Color) -> some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(color.opacity(0.85))
-                .frame(width: 8, height: 8)
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(Color.white.opacity(0.1))
-        .clipShape(Capsule())
-    }
-
-    private var alertTitleKey: String {
-        switch activePrompt {
-        case .forgotPassword: return String(localized: "auth.alert.forgot_password.title")
-        case .createAccount: return String(localized: "auth.alert.create_account.title")
-        case .none: return ""
+    
+    // MARK: - Handlers
+    private func switchMode(to newMode: AuthMode) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            viewModel.mode = newMode
+            viewModel.errorMessage = nil
+            viewModel.successMessage = nil
+            focusedField = nil
         }
     }
-
-    private var alertMessageKey: LocalizedStringKey {
-        switch activePrompt {
-        case .forgotPassword: return "auth.alert.forgot_password.message"
-        case .createAccount: return "auth.alert.create_account.message"
-        case .none: return ""
+    
+    // MARK: - Footer
+    private var footerView: some View {
+        VStack(spacing: 4) {
+            Text("AlphaSignal Core Engine v2.0")
+            Text("Powered by AI & Institutional Data Nodes")
         }
-    }
-
-    private enum PanelState {
-        case collapsed
-        case expanded
-    }
-
-    private struct PanelMetrics {
-        let topExpanded: CGFloat
-        let topCollapsed: CGFloat
-        let panelHeight: CGFloat
-    }
-
-    private enum AuthPrompt {
-        case forgotPassword
-        case createAccount
+        .font(.system(size: 10, weight: .bold, design: .monospaced))
+        .foregroundStyle(.secondary.opacity(0.6))
+        .padding(.bottom, 30)
     }
 }

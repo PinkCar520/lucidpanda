@@ -103,7 +103,7 @@ public struct SectorStat: Codable {
     }
 }
 
-public struct FundValuation: Codable, Identifiable {
+public struct FundValuation: Codable, Identifiable, Hashable, Equatable {
     public var id: String { fundCode }
     public let fundCode: String
     public let fundName: String
@@ -140,5 +140,14 @@ public struct FundValuation: Codable, Identifiable {
         case riskLevel = "risk_level"
         case sectorAttribution = "sector_attribution"
         case components, timestamp, confidence, stats
+    }
+    
+    // MARK: - Hashable & Equatable
+    public static func == (lhs: FundValuation, rhs: FundValuation) -> Bool {
+        return lhs.fundCode == rhs.fundCode
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(fundCode)
     }
 }
