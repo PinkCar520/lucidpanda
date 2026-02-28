@@ -828,7 +828,10 @@ class IntelligenceDB:
             return 0, 0.0
 
     def get_market_snapshot(self, ticker_symbol, target_time):
-        """Unified snapshot fetcher for domestic-friendly environment"""
+        """
+        Unified snapshot fetcher for international gold (USD/oz).
+        统一使用美元/盎司计价，确保触发价与结果价量级一致.
+        """
         try:
             # Normalize target_time to UTC
             if target_time.tzinfo is None:
@@ -837,43 +840,31 @@ class IntelligenceDB:
                 target_time = target_time.astimezone(pytz.utc)
             
             # Map Ticker to Data Source logic
-            if ticker_symbol == "GC=F": # International Gold Spot (London Gold)
-                # --- Source 1: AkShare (Standard) ---
-                try:
-                    df = ak.gold_zh_spot_qhkd()
-                    row = df[df['名称'].str.contains('伦敦金|London Gold', case=False, na=False)]
-                    if not row.empty:
-                        return round(float(row.iloc[0]['最新价']), 3)
-                except:
-                    pass
-                
-                # --- Source 2: Sina (Fallback 1) ---
+            if ticker_symbol == "GC=F": # International Gold Spot (XAUUSD USD/oz)
+                # Source 1: Sina XAUUSD (USD/oz)
                 import requests
                 try:
-                    url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=GC"
+                    url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
                     resp = requests.get(url, timeout=5)
                     data = resp.json()
                     if data and isinstance(data, dict):
                         key = list(data.keys())[0]
                         points = data[key]
-                        if points: 
-                            # Sina format: ['Time', 'Price', 'Vol', ...]
+                        if points:
                             return round(float(points[-1][1]), 3)
-                except:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Sina XAUUSD failed: {e}")
 
-                # --- Source 3: EastMoney (Fallback 2) ---
+                # Source 2: EastMoney XAUUSD (USD/oz)
                 try:
-                    url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=101.GC00Y&ut=fa5fd1943c0a30548d390f18a2cd7645&fields1=f1&fields2=f53&klt=1&fqt=0&lmt=1"
+                    url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=120.XAUUSD&ut=fa5fd1943c0a30548d390f18a2cd7645&fields1=f1&fields2=f53&klt=1&fqt=0&lmt=1"
                     resp = requests.get(url, timeout=5)
                     data = resp.json()
-                    if data and 'data' in data and data['data']['klines']:
-                        # Last 1m kline: 'time,close'
-                        val = data['data']['klines'][0].split(',')[-1]
+                    if data and "data" in data and data["data"]["klines"]:
+                        val = data["data"]["klines"][0].split(",")[1]
                         return round(float(val), 3)
-                except:
-                    pass
-
+                except Exception as e:
+                    logger.warning(f"EastMoney XAUUSD failed: {e}")
             elif ticker_symbol == "DX-Y.NYB": # DXY (USD Index)
 
                 try:
