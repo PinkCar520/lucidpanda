@@ -77,15 +77,22 @@ async def get_mobile_intelligence(
             sentiment_label = item.sentiment.get("zh") or item.sentiment.get("en") or "Neutral"
         elif isinstance(item.sentiment, str) and item.sentiment.strip():
             sentiment_label = item.sentiment
-        
+        content_text = ""
+        if isinstance(item.content, dict):
+            content_text = item.content.get("zh") or item.content.get("en") or next((v for v in item.content.values() if isinstance(v, str) and v.strip()), "")
+        elif isinstance(item.content, str):
+            content_text = item.content
+
         mobile_items.append(
             IntelligenceMobileRead(
                 id=item.id,
                 timestamp=timestamp,
                 author=item.author or "Unknown",
                 summary=summary_text,
+                content=content_text,
                 urgency_score=urgency_score,
-                sentiment_label=sentiment_label
+                sentiment_label=sentiment_label,
+                gold_price_snapshot=item.gold_price_snapshot
             )
         )
     return v1_prepare_json(mobile_items)

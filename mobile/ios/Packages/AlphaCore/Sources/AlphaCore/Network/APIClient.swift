@@ -1,5 +1,8 @@
 import Foundation
 import OSLog
+#if canImport(UIKit)
+import UIKit
+#endif
 
 public actor APIClient {
     public static let shared = APIClient()
@@ -12,6 +15,9 @@ public actor APIClient {
     private var accessTokenExpiryProvider: (() async -> Date?)?
     private var sessionUpdater: ((_ accessToken: String, _ refreshToken: String, _ expiresIn: Int?) async -> Void)?
     private var onUnauthorized: (() async -> Void)?
+    
+    // 刷新锁，防止并发触发多个刷新请求导致 Token 被提前作废
+    private var refreshTask: Task<Bool, Never>?
     
     public func setTokenProvider(_ provider: @escaping () async -> String?) {
         self.tokenProvider = provider
@@ -59,6 +65,7 @@ public actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
         
         let bodyString = formData.map { "\($0.key)=\($0.value)" }.joined(separator: "&")
         request.httpBody = bodyString.data(using: .utf8)
@@ -88,6 +95,7 @@ public actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
         request = await applyAccessToken(to: request)
 
         return try await perform(request, allowRefreshRetry: true)
@@ -101,6 +109,7 @@ public actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
 
         request = await applyAccessToken(to: request)
 
@@ -125,6 +134,7 @@ public actor APIClient {
         
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
         
         request = await applyAccessToken(to: request)
         
@@ -176,6 +186,7 @@ public actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = endpoint.method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
 
         if let customHeaders = endpoint.headers {
             for (header, value) in customHeaders {
@@ -230,12 +241,28 @@ public actor APIClient {
     }
 
     private func tryRefreshSession() async -> Bool {
+        if let task = refreshTask {
+            return await task.value
+        }
+        
+        let task = Task<Bool, Never> {
+            return await self.performRefresh()
+        }
+        
+        self.refreshTask = task
+        let result = await task.value
+        self.refreshTask = nil
+        return result
+    }
+
+    private func performRefresh() async -> Bool {
         guard let refreshToken = await refreshTokenProvider?() else { return false }
         guard let url = URL(string: "/api/v1/auth/refresh", relativeTo: baseURL) else { return false }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
 
         do {
             let body = RefreshTokenBody(refreshToken: refreshToken)
@@ -254,6 +281,16 @@ public actor APIClient {
             logger.error("Session refresh failed: \(error.localizedDescription, privacy: .public)")
             return false
         }
+    }
+    
+    private static var userAgentString: String {
+        #if canImport(UIKit)
+        let deviceName = UIDevice.current.name 
+        let systemVersion = UIDevice.current.systemVersion
+        return "\(deviceName) (iOS \(systemVersion))"
+        #else
+        return "AlphaSignal/1.0"
+        #endif
     }
 }
 

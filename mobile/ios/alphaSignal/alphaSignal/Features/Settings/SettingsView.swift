@@ -41,10 +41,10 @@ struct SettingsView: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 28) {
                         profileHeader
+                        profileEditCard
                         accountSettingsCard
                         notificationsCard
                         securityCard
-                        preferencesCard
 
                         logoutCard
                     }
@@ -62,8 +62,12 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if showCloseButton {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("common.close") { dismiss() }
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(action: { dismiss() }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.primary)
+                        }
                     }
                 }
             }
@@ -71,16 +75,6 @@ struct SettingsView: View {
         .task {
             // Pre-warm the profile when opening settings
             await rootViewModel.fetchUserProfile()
-        }
-        .sheet(item: $activeSheet) { sheet in
-            switch sheet {
-            case .password:
-                passwordSheet
-            case .twoFactor:
-                twoFactorSheet
-            case .sessions:
-                sessionsSheet
-            }
         }
         .alert(String(localized: "settings.web.alert.title"), isPresented: $showWebPrompt) {
             Button("common.close", role: .cancel) {}
@@ -198,7 +192,7 @@ struct SettingsView: View {
 
     private var accountSettingsCard: some View {
         VStack(spacing: 0) {
-            sectionHeader(title: "Settings")
+            sectionHeader(title: "settings.title")
             premiumCard {
                 NavigationLink(destination: accountSettingsSubView) {
                     HStack(spacing: 16) {
@@ -229,48 +223,105 @@ struct SettingsView: View {
         }
     }
 
-    private var accountSettingsSubView: some View {
-        ZStack {
-            Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 28) {
-                    quickActionsCard
-                    sessionsCard
+    private var profileEditCard: some View {
+        VStack(spacing: 0) {
+            sectionHeader(title: "settings.section.basic_info")
+            NavigationLink(destination: profileEditSheet) {
+                HStack(spacing: 16) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.indigo)
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(LocalizedStringKey("settings.section.basic_info"))
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.primary)
+                        if let nickname = rootViewModel.userProfile?.nickname, !nickname.isEmpty {
+                            Text(nickname)
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        } else if let email = rootViewModel.userProfile?.email {
+                            Text(email)
+                                .font(.system(size: 13))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(uiColor: .tertiaryLabel))
                 }
-                .padding(.top, 16)
-                .padding(.bottom, 32)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
             }
+            .buttonStyle(.plain)
+            .background(Color(uiColor: .secondarySystemGroupedBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, 16)
         }
-        .navigationTitle("账户与安全")
-        .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var quickActionsCard: some View {
-        VStack(spacing: 0) {
-            sectionHeader(title: "settings.section.account_actions")
-            premiumCard {
-                VStack(spacing: 0) {
-                    HStack(spacing: 16) {
-                        actionTile(icon: "lock.shield.fill", titleKey: "settings.action.change_password", color: .blue) {
-                            activeSheet = .password
-                        }
-                        actionTile(icon: "key.viewfinder", titleKey: "settings.action.two_factor", color: .orange) {
-                            activeSheet = .twoFactor
-                        }
+    // MARK: - Profile Edit State
+    @State private var profileName: String = ""
+    @State private var profileNickname: String = ""
+    @State private var profileGender: String = ""
+    @State private var profileBirthday: Date = Date()
+    @State private var profileHasBirthday: Bool = false
+    @State private var profileLocation: String = ""
+    @State private var isProfileSaving: Bool = false
+    @State private var profileSaveSuccess: Bool = false
+    @State private var profileSaveError: String? = nil
+
+    private var accountSettingsSubView: some View {
+        List {
+            Section(header: Text(LocalizedStringKey("settings.section.account_actions"))) {
+                NavigationLink(destination: passwordSheet) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "lock.shield.fill")
+                            .foregroundStyle(.blue)
+                            .frame(width: 24)
+                        Text(LocalizedStringKey("settings.action.change_password"))
+                            .foregroundStyle(.primary)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    
-                    HStack(spacing: 16) {
-                        actionTile(icon: "person.text.rectangle.fill", titleKey: "settings.action.identity", color: .green) {
-                            showWebPrompt = true
-                        }
+                }
+                
+                NavigationLink(destination: twoFactorSheet) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "key.viewfinder")
+                            .foregroundStyle(.orange)
+                            .frame(width: 24)
+                        Text(LocalizedStringKey("settings.action.two_factor"))
+                            .foregroundStyle(.primary)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
+                }
+                
+            }
+            
+            Section(header: Text(LocalizedStringKey("settings.section.sessions"))) {
+                NavigationLink(destination: sessionsSheet) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "desktopcomputer.and.iphone")
+                            .foregroundStyle(.blue)
+                            .frame(width: 24)
+                        Text(LocalizedStringKey("settings.active_sessions"))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(hasLoadedSessions ? "\(sessions.count)" : "—")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
+        .listStyle(.insetGrouped)
+        .navigationTitle(LocalizedStringKey("settings.account_security"))
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private var notificationsCard: some View {
@@ -293,82 +344,9 @@ struct SettingsView: View {
         }
     }
 
-    private var preferencesCard: some View {
-        VStack(spacing: 0) {
-            sectionHeader(title: "settings.section.preferences")
-            premiumCard {
-                HStack(spacing: 16) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.teal)
-                            .frame(width: 32, height: 32)
-                        Image(systemName: "globe")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
-                    
-                    Text("settings.item.language")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.primary)
-                    
-                    Spacer()
-                    
-                    Picker("", selection: $appLanguage) {
-                        Text("settings.language.system").tag("system")
-                        Text("settings.language.en").tag("en")
-                        Text("settings.language.zh").tag("zh-Hans")
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .labelsHidden()
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 16)
-            }
-        }
-    }
 
-    private var sessionsCard: some View {
-        VStack(spacing: 0) {
-            sectionHeader(title: "settings.section.sessions")
-            premiumCard {
-                Button {
-                    activeSheet = .sessions
-                } label: {
-                    HStack(spacing: 16) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.blue)
-                                .frame(width: 32, height: 32)
-                            Image(systemName: "desktopcomputer.and.iphone")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("settings.active_sessions")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(.primary)
-                        }
-                        Spacer()
-                        Text(hasLoadedSessions ? "\(sessions.count)" : "—")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(Color(uiColor: .tertiarySystemFill))
-                            .clipShape(Capsule())
-                        
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
-                    }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 16)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
+
 
     private var logoutCard: some View {
         Button(action: { Task { await logoutCurrentSession() } }) {
@@ -500,88 +478,217 @@ struct SettingsView: View {
         rootViewModel.updateState(to: .unauthenticated)
     }
 
-    private var passwordSheet: some View {
-        NavigationStack {
-            ZStack {
-                Color(uiColor: .systemGroupedBackground)
-                    .ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: 24) {
-                        VStack(spacing: 0) {
-                            sectionHeader(title: "settings.dialog.change_password.title")
-                            premiumCard {
-                                VStack(alignment: .leading, spacing: 16) {
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("settings.field.current_password")
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundStyle(.secondary)
-                                        SecureField("settings.field.current_password", text: $currentPassword)
-                                            .font(.system(size: 16, weight: .medium))
-                                            .padding(14)
-                                            .background(Color(uiColor: .tertiarySystemGroupedBackground))
-                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
-                                    }
-
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        Text("settings.field.new_password")
-                                            .font(.system(size: 13, weight: .semibold))
-                                            .foregroundStyle(.secondary)
-                                        SecureField("settings.field.new_password", text: $newPassword)
-                                            .font(.system(size: 16, weight: .medium))
-                                            .padding(14)
-                                            .background(Color(uiColor: .tertiarySystemGroupedBackground))
-                                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
-                                    }
-                                }
-                                .padding(16)
-                            }
-                        }
-
-                        if let errorMessage = passwordErrorMessage {
-                            Text(errorMessage)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(Color.red)
-                                .padding(.horizontal, 32)
-                        }
-                    }
-                    .padding(.top, 24)
-                    .padding(.bottom, 32)
+    private var profileEditSheet: some View {
+        List {
+            // MARK: - Basic Info
+            Section(header: Text(LocalizedStringKey("settings.section.basic_info"))) {
+                // Email — read-only
+                HStack {
+                    Text(LocalizedStringKey("settings.field.email"))
+                        .frame(width: 80, alignment: .leading)
+                    Spacer()
+                    Text(rootViewModel.userProfile?.email ?? "—")
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                HStack {
+                    Text(LocalizedStringKey("settings.field.nickname"))
+                        .frame(width: 80, alignment: .leading)
+                    TextField(LocalizedStringKey("settings.field.nickname.placeholder"), text: $profileNickname)
+                        .multilineTextAlignment(.trailing)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("settings.dialog.change_password.title")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        activeSheet = nil
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.primary)
+
+            // MARK: - Language Preference
+            Section(header: Text(LocalizedStringKey("settings.item.language"))) {
+                HStack {
+                    Text(LocalizedStringKey("settings.item.language"))
+                    Spacer()
+                    Picker("", selection: $appLanguage) {
+                        Text("settings.language.system").tag("system")
+                        Text("settings.language.en").tag("en")
+                        Text("settings.language.zh").tag("zh-Hans")
                     }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
                 }
-                
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await changePassword() }
-                    } label: {
-                        if isPasswordChanging {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle((currentPassword.isEmpty || newPassword.count < 6) ? Color.secondary.opacity(0.3) : Color.blue)
-                        }
+            }
+
+            // MARK: - Gender
+            Section(header: Text(LocalizedStringKey("settings.field.gender"))) {
+                HStack {
+                    Text(LocalizedStringKey("settings.field.gender"))
+                    Spacer()
+                    Picker("", selection: $profileGender) {
+                        Text(LocalizedStringKey("settings.field.gender.unset")).tag("")
+                        Text(LocalizedStringKey("settings.field.gender.male")).tag("male")
+                        Text(LocalizedStringKey("settings.field.gender.female")).tag("female")
                     }
-                    .allowsHitTesting(!(currentPassword.isEmpty || newPassword.count < 6 || isPasswordChanging))
+                    .pickerStyle(.menu)
+                    .labelsHidden()
                 }
             }
         }
-        .presentationDetents([.fraction(0.55), .large])
-        .presentationDragIndicator(.visible)
+        .listStyle(.insetGrouped)
+        .navigationTitle(LocalizedStringKey("settings.section.basic_info"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await saveProfile() }
+                } label: {
+                    if isProfileSaving {
+                        ProgressView().scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    }
+                }
+                .disabled(isProfileSaving)
+            }
+        }
+        .alert("common.success", isPresented: $profileSaveSuccess) {
+            Button("common.ok", role: .cancel) {}
+        } message: {
+            Text("settings.profile.save_success")
+        }
+        .alert("common.error", isPresented: Binding(
+            get: { profileSaveError != nil },
+            set: { if !$0 { profileSaveError = nil } }
+        )) {
+            Button("common.ok", role: .cancel) {}
+        } message: {
+            Text(profileSaveError ?? "")
+        }
+        .onAppear {
+            if let profile = rootViewModel.userProfile {
+                profileNickname = profile.nickname ?? ""
+                profileGender   = profile.gender ?? ""
+            }
+        }
+    }
+
+
+    private func saveProfile() async {
+        isProfileSaving = true
+        defer { isProfileSaving = false }
+
+        struct ProfileUpdatePayload: Encodable {
+            var name: String?
+            var nickname: String?
+            var gender: String?
+            var birthday: String?
+            var languagePreference: String?
+
+            enum CodingKeys: String, CodingKey {
+                case name, nickname, gender, birthday
+                case languagePreference = "language_preference"
+            }
+        }
+
+        let birthdayStr: String?
+        if profileHasBirthday {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyy-MM-dd"
+            birthdayStr = fmt.string(from: profileBirthday)
+        } else {
+            birthdayStr = nil
+        }
+
+        let langToSave = appLanguage == "system" ? nil : appLanguage
+
+        let payload = ProfileUpdatePayload(
+            name: profileName.isEmpty ? nil : profileName,
+            nickname: profileNickname.isEmpty ? nil : profileNickname,
+            gender: profileGender.isEmpty ? nil : profileGender,
+            birthday: birthdayStr,
+            languagePreference: langToSave
+        )
+
+        do {
+            let _: UserProfileDTO = try await APIClient.shared.send(
+                path: "/api/v1/auth/me",
+                method: "PATCH",
+                body: payload
+            )
+            await rootViewModel.fetchUserProfile()
+            profileSaveSuccess = true
+        } catch {
+            profileSaveError = error.localizedDescription
+        }
+    }
+
+    private var passwordSheet: some View {
+
+        ZStack {
+            Color(uiColor: .systemGroupedBackground)
+                .ignoresSafeArea()
+            
+            ScrollView {
+                VStack(spacing: 24) {
+                    VStack(spacing: 0) {
+                        sectionHeader(title: "settings.dialog.change_password.title")
+                        premiumCard {
+                            VStack(alignment: .leading, spacing: 16) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("settings.field.current_password")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                    SecureField("settings.field.current_password", text: $currentPassword)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .padding(14)
+                                        .background(Color(uiColor: .tertiarySystemGroupedBackground))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                                }
+
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("settings.field.new_password")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(.secondary)
+                                    SecureField("settings.field.new_password", text: $newPassword)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .padding(14)
+                                        .background(Color(uiColor: .tertiarySystemGroupedBackground))
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                                }
+                            }
+                            .padding(16)
+                        }
+                    }
+
+                    if let errorMessage = passwordErrorMessage {
+                        Text(errorMessage)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(errorMessage.contains("✅") ? .green : .red)
+                            .padding(.horizontal, 32)
+                    }
+                }
+                .padding(.top, 24)
+                .padding(.bottom, 32)
+            }
+        }
+        .navigationTitle("settings.dialog.change_password.title")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task { await changePassword() }
+                } label: {
+                    if isPasswordChanging {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle((currentPassword.isEmpty || newPassword.count < 6) ? Color.secondary.opacity(0.3) : Color.blue)
+                    }
+                }
+                .allowsHitTesting(!(currentPassword.isEmpty || newPassword.count < 6 || isPasswordChanging))
+            }
+        }
     }
     
     @State private var isPasswordChanging = false
@@ -606,9 +713,9 @@ struct SettingsView: View {
             
             currentPassword = ""
             newPassword = ""
-            activeSheet = nil
             
             // 显示成功提示
+            passwordErrorMessage = "✅ Password successfully changed"
             print("✅ Password changed: \(response.message)")
         } catch {
             passwordErrorMessage = "修改密码失败：\(error.localizedDescription)"
@@ -617,129 +724,259 @@ struct SettingsView: View {
         isPasswordChanging = false
     }
 
+    @State private var is2FAEnabled: Bool = false
+    @State private var showing2FASetupModal: Bool = false
+    @State private var twoFAQRImageData: Data? = nil
+    @State private var twoFASecret: String = ""
+    @State private var twoFACode: String = ""
+    @State private var is2FALoading: Bool = false
+    @State private var twoFAErrorMessage: String? = nil
+    @State private var is2FAVerifying: Bool = false
+
     private var twoFactorSheet: some View {
-        NavigationStack {
-            ZStack {
-                LiquidBackground()
-                ScrollView {
-                    VStack(spacing: 16) {
-                        LiquidGlassCard {
-                            VStack(alignment: .leading, spacing: 12) {
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(Color.orange.opacity(0.15))
-                                            .frame(width: 44, height: 44)
-                                        Image(systemName: "qrcode")
-                                            .font(.system(size: 20, weight: .bold))
-                                            .foregroundStyle(.orange)
-                                    }
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("settings.dialog.two_factor.title")
-                                            .font(.headline)
-                                        Text("settings.section.security")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                }
-
-                                Text("settings.dialog.two_factor.hint")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(16)
+        ZStack {
+            Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 4) {
+                    // Toggle row
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("身份验证器应用")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Toggle("", isOn: $is2FAEnabled)
+                                .labelsHidden()
+                                .tint(.green)
                         }
-                        .padding(.horizontal)
-
-                        VStack(spacing: 10) {
-                            Button("settings.action.done") {
-                                activeSheet = nil
-                            }
-                            .buttonStyle(FintechSecondaryButtonStyle())
-                        }
-                        .padding(.horizontal)
+                        .padding(14)
                     }
-                    .padding(.top, 12)
-                    .padding(.bottom, 32)
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .padding(.horizontal, 16)
+                    .onChange(of: is2FAEnabled) { oldValue, newValue in
+                        if newValue && !oldValue {
+                            twoFAQRImageData = nil
+                            twoFASecret = ""
+                            twoFACode = ""
+                            twoFAErrorMessage = nil
+                            showing2FASetupModal = true
+                        }
+                    }
+                    Text("启用后，每次登录除密码外还需提供验证器 App（如 Google Authenticator）生成的 6 位动态验证码，有效防止账号被盗。")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 4)
+                }
+                .padding(.top, 16)
+                .padding(.bottom, 32)
+            }
+        }
+        .navigationTitle(LocalizedStringKey("settings.dialog.two_factor.title"))
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showing2FASetupModal) {
+            twoFactorSetupModal
+        }
+    }
+    
+    private var twoFactorSetupModal: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // QR Code display
+                    Group {
+                        if is2FALoading {
+                            ProgressView()
+                                .frame(width: 180, height: 180)
+                        } else if let data = twoFAQRImageData,
+                                  let uiImage = UIImage(data: data) {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .interpolation(.none)
+                                .scaledToFit()
+                                .frame(width: 180, height: 180)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        } else {
+                            Image(systemName: "qrcode")
+                                .font(.system(size: 80, weight: .ultraLight))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 180, height: 180)
+                        }
+                    }
+                    .padding(.top, 24)
+
+                    Text(LocalizedStringKey("settings.dialog.two_factor.hint"))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+
+                    // Code input
+                    TextField("000000", text: $twoFACode)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: 28, weight: .semibold, design: .monospaced))
+                        .padding(12)
+                        .background(Color(uiColor: .secondarySystemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .padding(.horizontal, 48)
+
+                    if let err = twoFAErrorMessage {
+                        Text(err)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
+
+                    Button(action: {
+                        Task { await verify2FA() }
+                    }) {
+                        Group {
+                            if is2FAVerifying {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Text("Verify and Enable")
+                                    .font(.headline)
+                            }
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(twoFACode.count == 6 ? Color.blue : Color.blue.opacity(0.35))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                    .disabled(twoFACode.count != 6 || is2FAVerifying)
+                    .padding(.horizontal, 32)
+                }
+                .padding(.bottom, 32)
+            }
+            .presentationDetents([.fraction(0.75), .large])
+            .presentationDragIndicator(.visible)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        is2FAEnabled = false
+                        showing2FASetupModal = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    }
                 }
             }
-            .navigationTitle("settings.dialog.two_factor.title")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("common.close") {
-                        activeSheet = nil
-                    }
-                }
+            .task {
+                await fetchTwoFAQRCode()
             }
         }
     }
 
-    private var sessionsSheet: some View {
-        NavigationStack {
-            ZStack {
-                LiquidBackground()
-                ScrollView {
-                    VStack(spacing: 16) {
-                        LiquidGlassCard {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("settings.section.sessions")
-                                        .font(.headline)
-                                        .foregroundStyle(.primary)
-                                    Spacer()
-                                    Button {
-                                        Task { await loadSessions() }
-                                    } label: {
-                                        Image(systemName: "arrow.clockwise")
-                                            .font(.system(size: 14, weight: .bold))
-                                    }
-                                    .foregroundStyle(.secondary)
-                                    .disabled(isSessionsLoading)
-                                }
-
-                                Text("settings.active_sessions")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(16)
-                        }
-                        .padding(.horizontal)
-
-                        LiquidGlassCard {
-                            sessionListContent
-                                .padding(16)
-                        }
-                        .padding(.horizontal)
-
-                        if let sessionErrorMessage {
-                            LiquidGlassCard {
-                                Text(sessionErrorMessage)
-                                    .font(.caption)
-                                    .foregroundStyle(.red)
-                                    .padding(12)
-                            }
-                            .padding(.horizontal)
-                        }
-                    }
-                    .padding(.top, 12)
-                    .padding(.bottom, 32)
-                }
-                .refreshable {
-                    await loadSessions()
+    private func fetchTwoFAQRCode() async {
+        is2FALoading = true
+        defer { is2FALoading = false }
+        do {
+            struct TwoFASetupResponse: Decodable {
+                let secret: String
+                let qrCodeUrl: String
+                enum CodingKeys: String, CodingKey {
+                    case secret
+                    case qrCodeUrl = "qr_code_url"
                 }
             }
-            .navigationTitle("Active Sessions")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("common.close") {
-                        activeSheet = nil
+            struct EmptyBody: Encodable {}
+            let resp: TwoFASetupResponse = try await APIClient.shared.send(
+                path: "/api/v1/auth/2fa/setup",
+                body: EmptyBody()
+            )
+            twoFASecret = resp.secret
+            // qr_code_url is "data:image/png;base64,<data>"
+            let base64Part = resp.qrCodeUrl
+                .replacingOccurrences(of: "data:image/png;base64,", with: "")
+            if let data = Data(base64Encoded: base64Part, options: .ignoreUnknownCharacters) {
+                twoFAQRImageData = data
+            }
+        } catch {
+            twoFAErrorMessage = "Failed to load QR code"
+        }
+    }
+
+    private func verify2FA() async {
+        guard !twoFASecret.isEmpty else { return }
+        is2FAVerifying = true
+        twoFAErrorMessage = nil
+        defer { is2FAVerifying = false }
+        do {
+            struct VerifyPayload: Encodable {
+                let secret: String
+                let code: String
+            }
+            let _: MessageResponseDTO = try await APIClient.shared.send(
+                path: "/api/v1/auth/2fa/verify",
+                body: VerifyPayload(secret: twoFASecret, code: twoFACode)
+            )
+            is2FAEnabled = true
+            showing2FASetupModal = false
+        } catch {
+            twoFAErrorMessage = "Invalid code. Please try again."
+        }
+    }
+
+    private var sessionsSheet: some View {
+        ZStack {
+            Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("settings.active_sessions")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                        Spacer()
+                        Button {
+                            Task { await loadSessions() }
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 14, weight: .bold))
+                        }
+                        .foregroundStyle(.secondary)
+                        .disabled(isSessionsLoading)
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.top, 4)
+                    .padding(.bottom, -4)
+
+                    VStack(spacing: 0) {
+                        sessionListContent
+                            .padding(12)
+                    }
+                    .background(Color(uiColor: .secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .padding(.horizontal, 16)
+
+                    if let sessionErrorMessage {
+                        VStack(spacing: 0) {
+                            Text(sessionErrorMessage)
+                                .font(.system(size: 13))
+                                .foregroundStyle(.red)
+                                .padding(12)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .padding(.horizontal, 16)
                     }
                 }
+                .padding(.top, 16)
+                .padding(.bottom, 32)
+            }
+            .refreshable {
+                await loadSessions()
             }
         }
+        .navigationTitle(LocalizedStringKey("settings.active_sessions"))
+        .navigationBarTitleDisplayMode(.inline)
         .task {
             if !hasLoadedSessions {
                 await loadSessions()
@@ -787,11 +1024,17 @@ struct SettingsView: View {
                                 .background(Color.blue.opacity(0.12))
                                 .clipShape(Capsule())
                         } else {
-                            Button("settings.session.revoke", role: .destructive) {
-                                Task { await revokeSession(session.id) }
-                            }
-                            .font(.caption.weight(.semibold))
-                            .buttonStyle(.bordered)
+                            Toggle("", isOn: Binding(
+                                get: { true },
+                                set: { newValue in
+                                    if !newValue {
+                                        Task { await revokeSession(session.id) }
+                                    }
+                                }
+                            ))
+                            .labelsHidden()
+                            .tint(.green)
+                            .scaleEffect(0.9)
                         }
                     }
 
@@ -863,9 +1106,8 @@ private struct SessionRowDTO: Decodable, Identifiable {
     }
 
     var metaLine: String {
-        let ip = ipAddress ?? "Unknown IP"
         let active = (lastActiveAt ?? createdAt).formatted(date: .abbreviated, time: .shortened)
-        return "\(ip) · \(active)"
+        return active
     }
 }
 

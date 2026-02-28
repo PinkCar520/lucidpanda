@@ -43,6 +43,8 @@ class IntelligenceMobileRead(SQLModel):
     id: int
     timestamp: datetime
     author: str
-    summary: str  # Flattened for mobile
+    summary: str           # Flattened for mobile
+    content: str           # Full content for peek sheet
     urgency_score: int
-    sentiment_label: str # Derived for mobile
+    sentiment_label: str   # Derived for mobile
+    gold_price_snapshot: Optional[float] = None

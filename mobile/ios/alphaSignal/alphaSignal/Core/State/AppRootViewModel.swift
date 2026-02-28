@@ -6,15 +6,25 @@ import AlphaCore
 public struct UserProfileDTO: Decodable {
     public let id: String
     public let email: String
+    public let username: String?
+    public let name: String?
+    public let nickname: String?
+    public let gender: String?
+    public let birthday: String?      // "YYYY-MM-DD"
+    public let location: String?
+    public let languagePreference: String?
     public let displayName: String?
     public let createdAt: Date?
     public let avatarUrl: String?
-    
+    public let isTwoFaEnabled: Bool?
+
     public enum CodingKeys: String, CodingKey {
-        case id, email
+        case id, email, username, name, nickname, gender, birthday, location
+        case languagePreference = "language_preference"
         case displayName = "display_name"
         case createdAt = "created_at"
         case avatarUrl = "avatar_url"
+        case isTwoFaEnabled = "is_two_fa_enabled"
     }
 }
 
