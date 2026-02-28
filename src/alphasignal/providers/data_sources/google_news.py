@@ -54,7 +54,17 @@ class GoogleNewsSource(BaseDataSource):
             if s.lower() in source_name.lower(): return (-1, 0.0)
         return (3, 0.8)
 
-    def fetch(self, query: str = "Donald Trump (Truth Social OR Economy OR Tariff)", start_date: str = None, end_date: str = None):
+    def fetch(self, query: str = (
+        # 核心黄金价格驱动因子查询（多维度覆盖）
+        "(gold price OR XAU OR gold market OR precious metals) OR "
+        "(Federal Reserve OR FOMC OR interest rate OR rate cut OR rate hike OR Powell) OR "
+        "(inflation OR CPI OR PCE OR stagflation OR deflation) OR "
+        "(US dollar OR DXY OR dollar index OR dollar strength) OR "
+        "(Trump tariff OR trade war OR sanction OR executive order) OR "
+        "(geopolitical risk OR war OR Iran OR Russia OR Middle East OR oil) OR "
+        "(safe haven OR market crash OR recession OR financial crisis OR systemic risk) OR "
+        "(treasury yield OR bond yield OR 10-year yield OR real yield)"
+    ), start_date: str = None, end_date: str = None):
         """
         Fetch news using Google News RSS.
         start_date/end_date should be in MM/DD/YYYY format for compatibility with search query.
