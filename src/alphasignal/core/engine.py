@@ -165,10 +165,12 @@ class AlphaEngine:
             logger.info("无待分析情报，本轮结束。")
             return
 
-        # 4. 深度提取全文 (只针对待分析的)
-        from src.alphasignal.utils.crawler import AsyncRichCrawler
-        crawler = AsyncRichCrawler()
-        enriched_items = await crawler.batch_crawl(pending_records)
+        # 4. 直接使用 RSS Summary 进入 AI 分析（已移除 Jina Reader 全文抓取）
+        # 原因：彭博/WSJ/FT 均为付费墙，Jina 返回的是订阅页而非正文；
+        #   而头部标题已包含黄金信号的核心信息，RSS Summary 足够高质量
+        enriched_items = pending_records
+        for item in enriched_items:
+            item.setdefault('extraction_method', 'RSS_SUMMARY')
 
         # 5. 并行并发 AI 分析
         logger.info(f"🚀 并行分析中 (并发数: 5, 任务数: {len(enriched_items)})...")

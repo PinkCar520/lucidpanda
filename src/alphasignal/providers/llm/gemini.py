@@ -4,6 +4,11 @@ from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.providers.llm.base import BaseLLM
 
+# 内容输入上限：RSS摘要的黄金信号在前 800 字内就已完整包含，截断防止 Token 浪费
+CONTENT_MAX_CHARS   = 800   # 单条分析最多输入字符数
+BATCH_CONTENT_CHARS = 400   # 批量分析每条最多输入字符数
+
+
 class GeminiLLM(BaseLLM):
     async def analyze_async(self, raw_data):
         """异步版本的分析方法"""
@@ -66,13 +71,23 @@ class GeminiLLM(BaseLLM):
             logger.error(f"Gemini 批量分析失败: {e}")
             raise e
 
+    def _truncate_content(self, text: str, max_chars: int) -> str:
+        """截断过长内容，保留最有价值的头部信息。"""
+        if not text:
+            return ""
+        text = text.strip()
+        if len(text) <= max_chars:
+            return text
+        return text[:max_chars] + "...（已截断）"
+
     def _get_batch_prompt(self, news_items):
         news_list_str = ""
         for i, item in enumerate(news_items, 1):
+            content = self._truncate_content(item.get('content', ''), BATCH_CONTENT_CHARS)
             news_list_str += f"""
 [新闻 {i}]
 - ID: {item.get('id')}
-- 内容: {item.get('content')}
+- 内容: {content}
 - 市场背景: {item.get('context', '无')}
 ---
 """
@@ -110,6 +125,7 @@ JSON 数组，每个对象包含：
 """
 
     def _get_prompt(self, raw_data):
+        content = self._truncate_content(raw_data.get('content', ''), CONTENT_MAX_CHARS)
         return f"""
 你是一个华尔街顶级宏观策略分析师。请分析以下内容并提取投资信号。
 分析目标：识别该事件对【黄金 (Gold/XAU)】及相关市场的影响。
@@ -117,7 +133,7 @@ JSON 数组，每个对象包含：
 输入信息：
 - 来源: {raw_data.get('source')}
 - 作者: {raw_data.get('author')}
-- 内容: {raw_data.get('content')}
+- 内容: {content}
 - 市场背景: {raw_data.get('context', '无')}
 
 输出格式要求：请必须输出标准的 JSON 格式，不要包含 Markdown 代码块标记（如 ```json）。
