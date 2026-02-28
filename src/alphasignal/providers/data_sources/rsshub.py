@@ -191,7 +191,7 @@ class RSSHubSource(BaseDataSource):
                     logger.info(f"🔥 [{name}] {title[:70]}...")
                     new_items.append({
                         "source":    name,
-                        "author":    "System",
+                        "author":    name,
                         "timestamp": getattr(entry, "published", ""),
                         "content":   f"{title}. {summary}",
                         "url":       getattr(entry, "link", url),
