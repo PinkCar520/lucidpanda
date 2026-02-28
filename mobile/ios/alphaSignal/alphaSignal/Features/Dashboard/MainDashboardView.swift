@@ -38,12 +38,20 @@ struct MainDashboardView: View {
                             if displayItems.isEmpty {
                                 emptyStateView
                             } else {
-                                LazyVStack(spacing: 16) {
-                                    ForEach(displayItems) { item in
-                                        NavigationLink(destination: IntelligenceDetailView(item: item)) {
-                                            IntelligenceItemCard(item: item)
+                                LazyVStack(spacing: viewModel.filterMode == .bullish || viewModel.filterMode == .bearish ? 0 : 16) {
+                                    if viewModel.filterMode == .bullish || viewModel.filterMode == .bearish {
+                                        correlationHeader(mode: viewModel.filterMode)
+                                    }
+                                    
+                                    ForEach(Array(displayItems.enumerated()), id: \.element.id) { index, item in
+                                        if viewModel.filterMode == .bullish || viewModel.filterMode == .bearish {
+                                            timelineItem(item: item, isLast: index == displayItems.count - 1)
+                                        } else {
+                                            NavigationLink(destination: IntelligenceDetailView(item: item)) {
+                                                IntelligenceItemCard(item: item)
+                                            }
+                                            .buttonStyle(.plain)
                                         }
-                                        .buttonStyle(.plain)
                                     }
                                 }
                                 .padding(.horizontal)
@@ -121,7 +129,7 @@ struct MainDashboardView: View {
             HStack(spacing: 12) {
                 // 1. 活跃警报 (Active Alerts)
                 VStack(spacing: 2) {
-                    Text("活跃警报")
+                    Text("dashboard.active_alerts")
                         .font(.system(size: 10, weight: .bold))
                         .textCase(.uppercase)
                         .foregroundStyle(.secondary)
@@ -131,8 +139,9 @@ struct MainDashboardView: View {
                         .foregroundStyle(activeAlertsCount > 0 ? .red : .primary)
                 }
                 .frame(width: 80, height: 64)
-                .background(Color(uiColor: .secondarySystemBackground))
+                .background(Color(uiColor: .systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
                 
                 // 2. 实时状态 & UTC (Real-time Status & UTC Time)
                 VStack(alignment: .leading, spacing: 0) {
@@ -141,7 +150,7 @@ struct MainDashboardView: View {
                             .fill(viewModel.isStreaming ? .green : .red)
                             .frame(width: 8, height: 8)
                             
-                        Text(viewModel.isStreaming ? "System Operational" : "System Degraded")
+                        Text(viewModel.isStreaming ? LocalizedStringKey("dashboard.system.operational") : LocalizedStringKey("dashboard.system.degraded"))
                             .font(.system(size: 12, weight: .bold, design: .monospaced))
                             .foregroundStyle(viewModel.isStreaming ? .green : .red)
                         Spacer()
@@ -162,14 +171,11 @@ struct MainDashboardView: View {
                     .padding(.horizontal, 12)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(uiColor: .secondarySystemBackground))
+                    .background(Color(uiColor: .systemBackground))
                 }
                 .frame(height: 64)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5)
-                )
+                .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
             }
         }
         .padding(.horizontal)
@@ -210,11 +216,11 @@ struct MainDashboardView: View {
                 viewModel.filterMode = mode
             }
         } label: {
-            Text(t(titleKey))
+            Text(LocalizedStringKey(titleKey))
                 .font(.system(size: 14, weight: .bold))
                 .padding(.horizontal, 28)
                 .padding(.vertical, 14)
-                .foregroundStyle(viewModel.filterMode == mode ? Color.black : Color.secondary)
+                .foregroundStyle(viewModel.filterMode == mode ? Color.blue : Color.primary)
                 .glassEffect(.regular, in: .capsule)
                 .clipShape(Capsule())
         }
@@ -240,6 +246,61 @@ struct MainDashboardView: View {
 
     private func t(_ key: String) -> String {
         NSLocalizedString(key, comment: "")
+    }
+    
+    // MARK: - Timeline Views
+    
+    @ViewBuilder
+    private func correlationHeader(mode: DashboardViewModel.FilterMode) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                Text(LocalizedStringKey(mode == .bullish ? "dashboard.correlation.bullish_title" : "dashboard.correlation.bearish_title"))
+            }
+            .font(.headline)
+            .foregroundStyle(mode == .bullish ? .green : .red)
+            
+            Text(LocalizedStringKey(mode == .bullish ? "dashboard.correlation.bullish_desc" : "dashboard.correlation.bearish_desc"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            
+            Divider().padding(.vertical, 8)
+        }
+        .padding(.bottom, 8)
+    }
+    
+    @ViewBuilder
+    private func timelineItem(item: IntelligenceItem, isLast: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            
+            // Timeline line & dot
+            VStack(spacing: 0) {
+                Circle()
+                    .fill(item.urgencyScore >= 8 ? .red : .blue)
+                    .frame(width: 10, height: 10)
+                    .overlay(
+                        Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2)
+                    )
+                    .shadow(color: (item.urgencyScore >= 8 ? Color.red : Color.blue).opacity(0.3), radius: 4)
+                
+                if !isLast {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 2)
+                        .padding(.vertical, 4)
+                }
+            }
+            .padding(.top, 15)
+            
+            // Card Content
+            VStack {
+                NavigationLink(destination: IntelligenceDetailView(item: item)) {
+                    IntelligenceItemCard(item: item)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.bottom, isLast ? 0 : 20)
+        }
     }
 }
 

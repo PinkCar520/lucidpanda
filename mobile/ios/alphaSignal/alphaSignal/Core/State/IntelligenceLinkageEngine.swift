@@ -18,9 +18,8 @@ public struct IntelligenceLinkageEngine {
     /// 3. 过滤高评分情报 (> 7.0)
     public func fetchLinkedIntelligence(for valuation: FundValuation) -> [IntelligenceItem] {
         let components = valuation.components.map { $0.name }
-        // 核心关键词：黄金、金价、Geopolitical
-        let coreKeywords = ["黄金", "金价", "Gold", "Geopolitical", "地缘"]
-        let allKeywords = coreKeywords + components.prefix(5) // 取前五大重仓股名称
+        // 动态关键词选取：基金名称本身及前五大重仓资产，剔除无效的硬编码全局宏观词汇
+        let allKeywords = [valuation.fundName] + components.prefix(5)
         
         let descriptor = FetchDescriptor<IntelligenceModel>(
             predicate: #Predicate<IntelligenceModel> { model in

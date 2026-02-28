@@ -29,7 +29,7 @@ public struct MarketChartView: View {
                     Text("$\(String(format: "%.2f", last.price))")
                         .font(.system(size: 24, weight: .black, design: .monospaced))
                         .foregroundStyle(.blue)
-                    Text("实时报价 (GC=F)")
+                    Text(LocalizedStringKey("dashboard.asset.gold.realtime"))
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(.white.opacity(0.3))
                 }

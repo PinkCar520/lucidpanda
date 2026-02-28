@@ -8,6 +8,7 @@ import SwiftData
 struct alphaSignalApp: App {
     // 全局状态管理
     @State private var rootViewModel = AppRootViewModel()
+    @AppStorage("appLanguage") private var appLanguage: String = "system"
     
     // 初始化 SwiftData 容器
     var sharedModelContainer: ModelContainer = {
@@ -63,6 +64,7 @@ struct alphaSignalApp: App {
                 // 启动时检查身份
                 await rootViewModel.checkAuthentication()
             }
+            .environment(\.locale, appLanguage == "system" ? .current : Locale(identifier: appLanguage))
         }
         .modelContainer(sharedModelContainer) // 注入容器
     }

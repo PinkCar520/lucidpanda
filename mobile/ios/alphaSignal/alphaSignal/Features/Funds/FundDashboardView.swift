@@ -82,9 +82,9 @@ struct FundDashboardView: View {
             }
         }
         .overlay { deleteUndoOverlay }
-        .alert("删除基金", isPresented: $showDeleteConfirmation) {
-            Button("取消", role: .cancel) { }
-            Button("删除", role: .destructive) {
+        .alert(Text(LocalizedStringKey("funds.delete.title")), isPresented: $showDeleteConfirmation) {
+            Button("funds.action.cancel", role: .cancel) { }
+            Button("funds.action.delete", role: .destructive) {
                 if let fund = pendingDeleteFund {
                     Task {
                         await viewModel.deleteFund(code: fund.fundCode)
@@ -93,7 +93,7 @@ struct FundDashboardView: View {
             }
         } message: {
             if let fund = pendingDeleteFund {
-                Text("确定要从自选列表中删除「\(fund.fundName)」吗？此操作可以撤销。")
+                Text(String(format: String(localized: "funds.delete.confirm"), fund.fundName))
             }
         }
     }
@@ -131,7 +131,7 @@ struct FundDashboardView: View {
                                     pendingDeleteFund = valuation
                                     showDeleteConfirmation = true
                                 } label: {
-                                    Label("删除", systemImage: "trash")
+                                    Label("funds.action.delete", systemImage: "trash")
                                 }
                                 .tint(.red)
                                 
@@ -140,13 +140,13 @@ struct FundDashboardView: View {
                                     groupManagerMode = .moveFund
                                     showGroupManager = true
                                 } label: {
-                                    Label("移动", systemImage: "folder.badge.plus")
+                                    Label("funds.action.move", systemImage: "folder.badge.plus")
                                 }
                                 .tint(.blue)
                             }
                         }
                         
-                        Text("免责声明：系统估值基于公开持仓计算，仅供参考，不构成投资建议。\n市场有风险，投资需谨慎。")
+                        Text(LocalizedStringKey("funds.disclaimer"))
                             .font(.system(size: 11, weight: .regular))
                             .foregroundStyle(.secondary.opacity(0.8))
                             .multilineTextAlignment(.center)
@@ -172,7 +172,8 @@ struct FundDashboardView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     FilterChip(
-                        title: "全部",
+                        title: "funds.group.all",
+                        isLocalizedKey: true,
                         isSelected: selectedGroupForFilter == nil
                     ) {
                         withAnimation(.spring()) {
@@ -245,10 +246,10 @@ struct FundDashboardView: View {
             VStack {
                 Spacer()
                 HStack {
-                    Text("已删除「\(deletedFund.fund.fundName)」")
+                    Text(String(format: String(localized: "funds.delete.success"), deletedFund.fund.fundName))
                         .font(.subheadline)
                     Spacer()
-                    Button("撤销") {
+                    Button("funds.action.undo") {
                         Task {
                             await viewModel.undoDelete()
                         }
@@ -276,7 +277,7 @@ struct FundDashboardView: View {
             Text("funds.empty.hint")
                 .font(.subheadline)
                 .foregroundStyle(.blue)
-            Text("请使用底部搜索添加基金")
+            Text("funds.empty_state")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -290,13 +291,20 @@ struct FundDashboardView: View {
 
 struct FilterChip: View {
     let title: String
+    var isLocalizedKey: Bool = false
     var color: Color? = nil
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title)
+            Group {
+                if isLocalizedKey {
+                    Text(LocalizedStringKey(title))
+                } else {
+                    Text(title)
+                }
+            }
                 .font(.system(size: 16, weight: .bold)) // 增大字号 15 -> 16
                 .padding(.horizontal, 22) // 增大横向间距 20 -> 22
                 .padding(.vertical, 12)   // 增大垂直间距 10 -> 12
@@ -345,7 +353,7 @@ struct GroupManagerView: View {
                                 Button(role: .destructive) {
                                     onDeleteGroup(group.id)
                                 } label: {
-                                    Label("删除", systemImage: "trash")
+                                    Label("funds.action.delete", systemImage: "trash")
                                 }
                             }
                         }
@@ -359,7 +367,7 @@ struct GroupManagerView: View {
                                 dismiss()
                             } label: {
                                 HStack {
-                                    Text("全部")
+                                    Text("funds.group.all")
                                         .foregroundStyle(.primary)
                                     Spacer()
                                     if selectedGroupId == nil {
@@ -372,7 +380,7 @@ struct GroupManagerView: View {
                     }
                 }
             }
-            .navigationTitle(mode == .filter ? "分组管理" : "移动分组到")
+            .navigationTitle(mode == .filter ? Text(LocalizedStringKey("funds.group.manage_title")) : Text(LocalizedStringKey("funds.group.move_title")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -403,13 +411,15 @@ struct CreateGroupForm: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("分组名称") {
-                    TextField("如：科技基金、QDII", text: $groupName)
+                Section {
+                    TextField("funds.group.name_placeholder", text: $groupName)
                         .autocapitalization(.none)
                         .focused($isGroupNameFocused)
+                } header: {
+                    Text(LocalizedStringKey("funds.group.name"))
                 }
             }
-            .navigationTitle("新建分组")
+            .navigationTitle("funds.group.new")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

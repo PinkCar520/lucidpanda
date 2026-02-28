@@ -22,7 +22,7 @@ struct IntelligenceItemCard: View {
                     
                     Spacer()
                     
-                    Text(item.timestamp.formatted(.relative(presentation: .numeric, unitsStyle: .narrow)))
+                    Text(dateFormatter.string(from: item.timestamp))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
@@ -41,7 +41,7 @@ struct IntelligenceItemCard: View {
                 }
                 
                 HStack {
-                    Label(item.author, systemImage: "person.circle.fill")
+                    Label(item.author, systemImage: "newspaper.fill")
                         .foregroundStyle(.secondary)
                     
                     Spacer()
@@ -69,5 +69,11 @@ struct IntelligenceItemCard: View {
             insertion: .move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.9)),
             removal: .opacity
         ))
+    }
+    
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
     }
 }

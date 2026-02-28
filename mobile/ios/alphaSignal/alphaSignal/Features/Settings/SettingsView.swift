@@ -25,6 +25,7 @@ struct SettingsView: View {
     @AppStorage("settings.notifications.signal") private var signalAlertsEnabled = true
     @AppStorage("settings.notifications.price") private var priceAlertsEnabled = true
     @AppStorage("settings.security.biometric_unlock") private var biometricUnlockEnabled = false
+    @AppStorage("appLanguage") private var appLanguage: String = "system"
 
     let showCloseButton: Bool
 
@@ -43,6 +44,7 @@ struct SettingsView: View {
                         accountSettingsCard
                         notificationsCard
                         securityCard
+                        preferencesCard
 
                         logoutCard
                     }
@@ -209,7 +211,7 @@ struct SettingsView: View {
                                 .foregroundStyle(.white)
                         }
                         
-                        Text("账户与安全")
+                        Text("settings.account_security")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(.primary)
                         
@@ -245,7 +247,7 @@ struct SettingsView: View {
 
     private var quickActionsCard: some View {
         VStack(spacing: 0) {
-            sectionHeader(title: "Account Actions")
+            sectionHeader(title: "settings.section.account_actions")
             premiumCard {
                 VStack(spacing: 0) {
                     HStack(spacing: 16) {
@@ -291,9 +293,43 @@ struct SettingsView: View {
         }
     }
 
+    private var preferencesCard: some View {
+        VStack(spacing: 0) {
+            sectionHeader(title: "settings.section.preferences")
+            premiumCard {
+                HStack(spacing: 16) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color.teal)
+                            .frame(width: 32, height: 32)
+                        Image(systemName: "globe")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                    
+                    Text("settings.item.language")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.primary)
+                    
+                    Spacer()
+                    
+                    Picker("", selection: $appLanguage) {
+                        Text("settings.language.system").tag("system")
+                        Text("settings.language.en").tag("en")
+                        Text("settings.language.zh").tag("zh-Hans")
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .labelsHidden()
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
     private var sessionsCard: some View {
         VStack(spacing: 0) {
-            sectionHeader(title: "Session Security")
+            sectionHeader(title: "settings.section.sessions")
             premiumCard {
                 Button {
                     activeSheet = .sessions
@@ -309,7 +345,7 @@ struct SettingsView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Active Sessions")
+                            Text("settings.active_sessions")
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundStyle(.primary)
                         }
@@ -649,7 +685,7 @@ struct SettingsView: View {
                         LiquidGlassCard {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
-                                    Text("Session Security")
+                                    Text("settings.section.sessions")
                                         .font(.headline)
                                         .foregroundStyle(.primary)
                                     Spacer()
@@ -663,7 +699,7 @@ struct SettingsView: View {
                                     .disabled(isSessionsLoading)
                                 }
 
-                                Text("Active Sessions")
+                                Text("settings.active_sessions")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -716,13 +752,13 @@ struct SettingsView: View {
         if isSessionsLoading {
             HStack(spacing: 10) {
                 ProgressView()
-                Text("Loading sessions...")
+                Text("settings.session.loading")
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 12)
         } else if sessions.isEmpty {
-            Text("No active sessions")
+            Text("settings.session.empty")
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.vertical, 12)
@@ -744,14 +780,14 @@ struct SettingsView: View {
                         Spacer()
 
                         if session.isCurrent {
-                            Text("Current")
+                            Text("settings.session.current")
                                 .font(.caption2.weight(.bold))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
                                 .background(Color.blue.opacity(0.12))
                                 .clipShape(Capsule())
                         } else {
-                            Button("Revoke", role: .destructive) {
+                            Button("settings.session.revoke", role: .destructive) {
                                 Task { await revokeSession(session.id) }
                             }
                             .font(.caption.weight(.semibold))

@@ -27,7 +27,7 @@ struct IntelligenceDetailView: View {
                     
                     VStack(alignment: .leading, spacing: 16) {
                         HStack {
-                            DetailBadge(text: "URGENCY \(item.urgencyScore)", color: item.urgencyScore >= 8 ? .red : .blue)
+                            DetailBadge(text: "\(String(localized: "dashboard.urgency_label")) \(item.urgencyScore)", color: item.urgencyScore >= 8 ? .red : .blue)
                             Spacer()
                             Text(item.timestamp.formatted())
                                 .font(.caption2)
@@ -99,7 +99,7 @@ struct IntelligenceDetailView: View {
             } catch {
                 await MainActor.run {
                     withAnimation {
-                        self.summary = "获取 AI 分析失败: \(error.localizedDescription)"
+                        self.summary = String(format: NSLocalizedString("intelligence.summary.error", comment: ""), error.localizedDescription)
                         self.isSummarizing = false
                     }
                 }

@@ -148,7 +148,7 @@ struct BacktestView: View {
                                 // 最小分数设置
                                 VStack(alignment: .leading, spacing: 12) {
                                     HStack {
-                                        Label("最小分数", systemImage: "star.fill")
+                                        Label("backtest.setting.min_score", systemImage: "star.fill")
                                             .font(.system(size: 14, weight: .bold))
                                             .foregroundStyle(.blue)
                                         Spacer()
@@ -186,16 +186,16 @@ struct BacktestView: View {
                                 
                                 // 时间窗口设置
                                 VStack(alignment: .leading, spacing: 12) {
-                                    Label("回测时间窗口", systemImage: "clock.fill")
+                                    Label("backtest.setting.window", systemImage: "clock.fill")
                                         .font(.system(size: 14, weight: .bold))
                                         .foregroundStyle(.blue)
                                     
                                     Picker("backtest.metric.window", selection: $viewModel.selectedWindow) {
-                                        Text("15 分钟").tag("15m")
-                                        Text("1 小时").tag("1h")
-                                        Text("4 小时").tag("4h")
-                                        Text("12 小时").tag("12h")
-                                        Text("24 小时").tag("24h")
+                                        Text("backtest.window.15m").tag("15m")
+                                        Text("backtest.window.1h").tag("1h")
+                                        Text("backtest.window.4h").tag("4h")
+                                        Text("backtest.window.12h").tag("12h")
+                                        Text("backtest.window.24h").tag("24h")
                                     }
                                     .pickerStyle(.segmented)
                                     .font(.system(size: 12, weight: .medium))
@@ -206,13 +206,13 @@ struct BacktestView: View {
                                 
                                 // 交易方向设置
                                 VStack(alignment: .leading, spacing: 12) {
-                                    Label("交易方向", systemImage: "arrow.up.arrow.down")
+                                    Label("backtest.setting.direction", systemImage: "arrow.up.arrow.down")
                                         .font(.system(size: 14, weight: .bold))
                                         .foregroundStyle(.blue)
                                     
                                     Picker("backtest.metric.direction", selection: $viewModel.sentiment) {
-                                        Text("看跌（Bearish）").tag("bearish")
-                                        Text("看涨（Bullish）").tag("bullish")
+                                        Text("backtest.direction.bearish_label").tag("bearish")
+                                        Text("backtest.direction.bullish_label").tag("bullish")
                                     }
                                     .pickerStyle(.segmented)
                                     .font(.system(size: 12, weight: .medium))
@@ -228,7 +228,7 @@ struct BacktestView: View {
                     .padding(.bottom, 32)
                 }
             }
-            .navigationTitle("回测设置")
+            .navigationTitle("backtest.setting.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

@@ -19,7 +19,7 @@ struct FundSearchView: View {
                             Image(systemName: "text.magnifyingglass")
                                 .font(.system(size: 40))
                                 .foregroundStyle(.blue.opacity(0.4))
-                            Text("输入基金代码、简称或拼音进行搜索")
+                            Text("search.empty.hint")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -43,7 +43,7 @@ struct FundSearchView: View {
                             Image(systemName: "magnifyingglass.circle.fill")
                                 .font(.system(size: 40))
                                 .foregroundStyle(.gray.opacity(0.3))
-                            Text("未找到相关基金，请尝试更换关键词")
+                            Text("search.empty.no_results")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -108,15 +108,15 @@ struct FundSearchView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
-            .navigationTitle("添加基金")
+            .navigationTitle("search.title")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $viewModel.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "基金名称 / 代码 / 简拼")
+            .searchable(text: $viewModel.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "search.prompt")
             .onChange(of: viewModel.query) { newValue in
                 Task { await viewModel.performSearch() }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("取消") { dismiss() }
+                    Button("common.cancel") { dismiss() }
                         .foregroundStyle(.primary)
                 }
             }
