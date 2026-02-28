@@ -51,6 +51,8 @@ def sse_json_serializer(obj):
     from datetime import datetime, date
     if isinstance(obj, (datetime, date)):
         return format_iso8601(obj)
+    if isinstance(obj, (bytes, memoryview)):
+        return None  # Embeddings don't need to be sent over SSE
     return str(obj)
 
 async def database_poller():

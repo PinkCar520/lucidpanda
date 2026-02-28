@@ -21,7 +21,17 @@ class RealtimeHub:
     async def publish(self, channel: str, message: dict):
         """Publish a message to a specific Redis channel."""
         await self.connect()
-        await self.redis.publish(channel, json.dumps(message))
+        
+        def json_serial(obj):
+            from datetime import datetime, date
+            if isinstance(obj, (datetime, date)):
+                return obj.isoformat()
+            if isinstance(obj, (bytes, memoryview)):
+                # Embeddings/Binaries are not needed for real-time broadcast
+                return None
+            raise TypeError(f"Type {type(obj)} not serializable")
+
+        await self.redis.publish(channel, json.dumps(message, default=json_serial))
 
     async def subscribe(self, channel: str):
         """Generator for SSE endpoints to subscribe to Redis events."""

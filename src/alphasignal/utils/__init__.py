@@ -22,6 +22,8 @@ def v1_prepare_json(obj):
         return {k: v1_prepare_json(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [v1_prepare_json(i) for i in obj]
+    if isinstance(obj, (bytes, memoryview)):
+        return None  # Binaries should not be sent in JSON
     if hasattr(obj, "__dict__"):
         # For SQLModel/Pydantic objects not yet serialized
         return {k: v1_prepare_json(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
