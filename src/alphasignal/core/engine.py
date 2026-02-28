@@ -7,7 +7,9 @@ from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 
 # 引入组件
-from src.alphasignal.providers.data_sources.google_news import GoogleNewsSource
+# GoogleNewsSource 已退出主轮询（延迟 5~30min，顶层信源已被 RSSHubSource 覆盖）
+# 保留 import 供历史回测/按需查询调用
+from src.alphasignal.providers.data_sources.google_news import GoogleNewsSource  # noqa: F401
 from src.alphasignal.providers.data_sources.rsshub import RSSHubSource
 from src.alphasignal.providers.llm.gemini import GeminiLLM
 from src.alphasignal.providers.llm.deepseek import DeepSeekLLM
@@ -19,14 +21,14 @@ from src.alphasignal.core.deduplication import NewsDeduplicator
 
 class AlphaEngine:
     def __init__(self):
-        self.sources = [
-            GoogleNewsSource(),
-            RSSHubSource()
-        ]
-        self.primary_llm = GeminiLLM()
-        self.fallback_llm = DeepSeekLLM()
-        self.channels = [EmailChannel(), BarkChannel()]
         self.db = IntelligenceDB()
+        self.sources = [
+            # 主力：16 条权威媒体直连 RSS，近实时，无延迟
+            RSSHubSource(db=self.db),
+            # GoogleNewsSource 已移出主轮询，延迟高（Google 索引需 5~30min）
+            # 如需历史回测，可在 BacktestEngine 中单独调用：
+            # GoogleNewsSource(db=self.db).fetch(query="...", start_date="...", end_date="...")
+        ]
         self.backtester = BacktestEngine(self.db)
         self.deduplicator = NewsDeduplicator()
         
@@ -106,6 +108,18 @@ class AlphaEngine:
                     discovered_items.extend(items if isinstance(items, list) else [items])
             except Exception as e:
                 logger.error(f"数据源发现异常: {e}")
+
+        # 1.5 URL 跨信源去重：防止同一条新闻被两个 Source 同时抛出，进入抓取和 AI 流水线
+        seen_urls: set = set()
+        unique_items: list = []
+        for item in discovered_items:
+            url = item.get("url", "") or item.get("id", "")
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                unique_items.append(item)
+        if len(discovered_items) != len(unique_items):
+            logger.info(f"✂️ URL 去重: {len(discovered_items)} → {len(unique_items)} 条")
+        discovered_items = unique_items
 
         # 2. 初始入库并标记为 PENDING
         for item in discovered_items:

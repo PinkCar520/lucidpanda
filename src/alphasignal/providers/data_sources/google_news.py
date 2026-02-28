@@ -1,11 +1,8 @@
-import json
-import os
-import time
 import re
+import time
 import urllib.parse
 import feedparser
 import dateparser
-from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.providers.data_sources.base import BaseDataSource
 
@@ -31,10 +28,8 @@ class GoogleNewsSource(BaseDataSource):
     # Noise Keywords (Skip these titles)
     NOISE_TITLES = ['Opinion:', 'Analysis:', 'Fact Check:', 'Podcast:', 'Watch:', 'Review:', 'Editorial:']
 
-    def __init__(self):
-        self.processed_ids = set()
-        self.processed_hashes = {} 
-        self._load_state()
+    def __init__(self, db=None):
+        super().__init__(db)
 
     def _get_simhash(self, text):
         from simhash import Simhash
@@ -145,9 +140,9 @@ class GoogleNewsSource(BaseDataSource):
                 # ID for deduplication
                 news_id = getattr(entry, 'id', link)
 
-                # Skip processed_ids check if we are in repair mode
-                # But keep it here for normal operation to avoid unnecessary crawling
-                if news_id in self.processed_ids: continue
+                # DB 级去重：查询 intelligence 表中是否已存在该 source_id
+                if self.db and self.db.source_id_exists(news_id):
+                    continue
 
                 # RSS Summary as baseline
                 summary = re.sub(r'<[^>]+>', '', entry.get('summary', ''))
@@ -173,33 +168,3 @@ class GoogleNewsSource(BaseDataSource):
             import traceback
             traceback.print_exc()
             return None
-
-    def _load_state(self):
-        if os.path.exists(settings.STATE_FILE):
-            try:
-                with open(settings.STATE_FILE, 'r') as f:
-                    data = json.load(f)
-                    if isinstance(data, list):
-                        self.processed_ids = set(data)
-                        self.processed_hashes = {}
-                    else:
-                        self.processed_ids = set(data.get('ids', []))
-                        self.processed_hashes = data.get('hashes', {})
-            except: pass
-        else:
-             self.processed_ids = set()
-             self.processed_hashes = {}
-
-    def _save_state(self, new_id, new_hash_val):
-        self.processed_ids.add(new_id)
-        if len(self.processed_ids) > 1000:
-             self.processed_ids = set(list(self.processed_ids)[-1000:])
-        self.processed_hashes[new_hash_val] = time.time()
-        if len(self.processed_hashes) > 1000:
-            sorted_hashes = sorted(self.processed_hashes.items(), key=lambda item: item[1])
-            self.processed_hashes = dict(sorted_hashes[-1000:])
-        with open(settings.STATE_FILE, 'w') as f:
-            json.dump({
-                'ids': list(self.processed_ids),
-                'hashes': self.processed_hashes
-            }, f)

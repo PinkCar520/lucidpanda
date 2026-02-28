@@ -911,7 +911,49 @@ class IntelligenceDB:
         except Exception as e:
             logger.error(f"Save Indicator Failed: {e}")
 
+    def source_id_exists(self, source_id: str) -> bool:
+        """
+        O(1) 查询：source_id 是否已在 intelligence 表中。
+        利用 source_id UNIQUE INDEX，耗时 < 1ms。
+        用于替代原来各 DataSource 的文件状态去重机制。
+        """
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM intelligence WHERE source_id = %s LIMIT 1",
+                (source_id,)
+            )
+            exists = cursor.fetchone() is not None
+            conn.close()
+            return exists
+        except Exception as e:
+            logger.warning(f"source_id_exists 查询失败，默认返回 False: {e}")
+            return False
+
+    def source_ids_batch_exists(self, source_ids: list) -> set:
+        """
+        批量查询一组 source_id 是否已存在，返回已存在的 ID 集合。
+        比循环调用 source_id_exists() 效率高数十倍（单次网络往返）。
+        """
+        if not source_ids:
+            return set()
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT source_id FROM intelligence WHERE source_id = ANY(%s)",
+                (source_ids,)
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            return {row[0] for row in rows}
+        except Exception as e:
+            logger.warning(f"source_ids_batch_exists 查询失败，返回空集合: {e}")
+            return set()
+
     def get_recent_intelligence(self, limit=10):
+
         try:
             conn = self._get_conn()
             cursor = conn.cursor(cursor_factory=DictCursor)
