@@ -2489,6 +2489,7 @@
       }
     },
     "intelligence.summary.mock" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

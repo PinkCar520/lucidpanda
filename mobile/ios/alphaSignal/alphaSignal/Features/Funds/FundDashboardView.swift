@@ -102,8 +102,7 @@ struct FundDashboardView: View {
 
     private var dashboardContent: some View {
         ZStack(alignment: .top) {
-            Color(uiColor: .systemBackground)
-                .ignoresSafeArea()
+            LiquidBackground()
             
             VStack(spacing: 0) {
                 filterChipsHeader
@@ -126,7 +125,7 @@ struct FundDashboardView: View {
                             .buttonStyle(.plain)
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             .listRowSeparator(.hidden)
-                            .listRowBackground(Color(uiColor: .systemBackground))
+                            .listRowBackground(Color.clear)
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
                                     pendingDeleteFund = valuation

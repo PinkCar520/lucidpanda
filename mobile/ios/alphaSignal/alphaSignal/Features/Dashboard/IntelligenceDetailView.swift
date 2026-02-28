@@ -84,11 +84,25 @@ struct IntelligenceDetailView: View {
     }
     
     private func runAISummary() {
+        guard !isSummarizing else { return }
         withAnimation { isSummarizing = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation {
-                summary = NSLocalizedString("intelligence.summary.mock", comment: "")
-                isSummarizing = false
+        
+        Task {
+            do {
+                let response: AISummaryResponse = try await APIClient.shared.fetch(path: "/api/v1/mobile/intelligence/\(item.id)/ai_summary")
+                await MainActor.run {
+                    withAnimation {
+                        self.summary = response.ai_summary
+                        self.isSummarizing = false
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    withAnimation {
+                        self.summary = "获取 AI 分析失败: \(error.localizedDescription)"
+                        self.isSummarizing = false
+                    }
+                }
             }
         }
     }
@@ -117,4 +131,8 @@ struct DetailBadge: View {
             .foregroundStyle(color)
             .clipShape(Capsule())
     }
+}
+
+struct AISummaryResponse: Codable {
+    let ai_summary: String
 }

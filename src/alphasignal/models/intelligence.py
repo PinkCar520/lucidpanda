@@ -42,6 +42,7 @@ class IntelligenceRead(IntelligenceBase):
 class IntelligenceMobileRead(SQLModel):
     id: int
     timestamp: datetime
+    author: str
     summary: str  # Flattened for mobile
     urgency_score: int
     sentiment_label: str # Derived for mobile

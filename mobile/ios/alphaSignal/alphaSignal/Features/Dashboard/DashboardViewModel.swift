@@ -107,7 +107,7 @@ class DashboardViewModel {
                 IntelligenceItem(
                     id: dto.id,
                     timestamp: dto.timestamp,
-                    author: "AlphaSignal", 
+                    author: dto.author ?? "Unknown",
                     summary: dto.summary,
                     content: "", // V1 列表页不返回正文以节省流量
                     sentiment: dto.sentiment_label,
@@ -150,6 +150,7 @@ class DashboardViewModel {
 struct IntelligenceMobileReadDTO: Codable {
     let id: Int
     let timestamp: Date
+    let author: String?
     let summary: String
     let urgency_score: Int
     let sentiment_label: String

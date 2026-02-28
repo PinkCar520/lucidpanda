@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlmodel import Session, select
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -10,6 +10,27 @@ from src.alphasignal.auth.models import User
 from src.alphasignal.utils import v1_prepare_json
 
 router = APIRouter()
+
+@router.get("/intelligence/{item_id}/ai_summary", response_model=Dict[str, str])
+async def get_mobile_intelligence_ai_summary(
+    item_id: int,
+    db: Session = Depends(get_session)
+):
+    """
+    Fetch AI summary/actionable advice for a specific intelligence item.
+    """
+    statement = select(Intelligence).where(Intelligence.id == item_id)
+    result = db.exec(statement).first()
+    if not result:
+        raise HTTPException(status_code=404, detail="Item not found")
+        
+    advice_text = "目前没有针对该情报的深度AI分析策略。"
+    if isinstance(result.actionable_advice, dict):
+        advice_text = result.actionable_advice.get("zh") or result.actionable_advice.get("en") or advice_text
+    elif isinstance(result.actionable_advice, str) and result.actionable_advice.strip():
+        advice_text = result.actionable_advice
+        
+    return v1_prepare_json({"ai_summary": advice_text})
 
 @router.get("/dashboard/summary", response_model=Dict[str, Any])
 async def get_mobile_dashboard_summary(
@@ -61,6 +82,7 @@ async def get_mobile_intelligence(
             IntelligenceMobileRead(
                 id=item.id,
                 timestamp=timestamp,
+                author=item.author or "Unknown",
                 summary=summary_text,
                 urgency_score=urgency_score,
                 sentiment_label=sentiment_label
