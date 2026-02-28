@@ -159,7 +159,9 @@ class AlphaEngine:
             await asyncio.to_thread(self.db.save_raw_intelligence, item)
 
         # 3. 补课机制：获取所有未完成分析的记录 (PENDING/FAILED)
-        pending_records = await asyncio.to_thread(self.db.get_pending_intelligence, limit=20)
+        # limit=50：覆盖单轮 RSS 最大发现量（16条×10条/Feed）
+        # AI 并发由 Semaphore(5) 控制，无需在此限流
+        pending_records = await asyncio.to_thread(self.db.get_pending_intelligence, limit=50)
         
         if not pending_records:
             logger.info("无待分析情报，本轮结束。")

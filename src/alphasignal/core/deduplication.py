@@ -7,6 +7,10 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# 历史层滑动窗口大小：保留最近 500 条，防止内存无限增长
+# 500 条 ≈ 约 3劤7 天的情报量，足够拦截近期重复
+MAX_HISTORY = 500
+
 class NewsDeduplicator:
     def __init__(self, model_name="paraphrase-multilingual-MiniLM-L12-v2", simhash_threshold=6, semantic_threshold=0.85):
         self.simhash_threshold = simhash_threshold
@@ -128,11 +132,16 @@ class NewsDeduplicator:
         return False
 
     def add_to_history(self, sh_obj, vector, record_id=None):
-        """Manually add an item to history"""
+        """Add an item to history, maintaining a FIFO sliding window."""
         self.simhash_history.append(sh_obj)
         self.vec_history.append(vector)
         if record_id:
             self.id_history.append(record_id)
+        # FIFO 滑动窗口：超出上限则丢弃最旧的条目
+        if len(self.simhash_history) > MAX_HISTORY:
+            self.simhash_history = self.simhash_history[-MAX_HISTORY:]
+            self.vec_history     = self.vec_history[-MAX_HISTORY:]
+            self.id_history      = self.id_history[-MAX_HISTORY:]
 
     def clear_history(self):
         self.simhash_history = []
