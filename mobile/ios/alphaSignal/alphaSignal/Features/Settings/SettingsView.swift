@@ -19,8 +19,6 @@ struct SettingsView: View {
     @State private var isSessionsLoading = false
     @State private var isLoggingOut = false
     @State private var sessionErrorMessage: String?
-    @State private var userProfile: UserProfileDTO?
-    @State private var isProfileLoading = false
     @State private var hasLoadedSessions = false
 
     @AppStorage("settings.notifications.push") private var pushAlertsEnabled = true
@@ -52,7 +50,7 @@ struct SettingsView: View {
                     .padding(.bottom, 32)
                 }
                 .refreshable {
-                    await loadUserProfile()
+                    await rootViewModel.fetchUserProfile()
                     if hasLoadedSessions {
                         await loadSessions()
                     }
@@ -69,7 +67,8 @@ struct SettingsView: View {
             }
         }
         .task {
-            await loadUserProfile()
+            // Pre-warm the profile when opening settings
+            await rootViewModel.fetchUserProfile()
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
@@ -114,76 +113,81 @@ struct SettingsView: View {
 
     private var profileHeader: some View {
         VStack(spacing: 16) {
-            if isProfileLoading {
-                ProgressView()
-                    .frame(width: 88, height: 88)
-            } else {
-                let displayEmail = userProfile?.email ?? "pincar@alphasignal.com"
-                let initial = String(displayEmail.prefix(1)).uppercased()
-                let displayName = userProfile?.displayName ?? String(localized: "settings.user.display_name")
-                
-                ZStack(alignment: .bottomTrailing) {
-                    Group {
-                        if let avatarImage {
-                            avatarImage
+            let displayEmail = rootViewModel.userProfile?.email ?? "root@alphasignal.com"
+            let initial = String(displayEmail.prefix(1)).uppercased()
+            let displayName = rootViewModel.userProfile?.displayName ?? String(localized: "settings.user.display_name")
+            
+            ZStack(alignment: .bottomTrailing) {
+                Group {
+                    if let avatarImage {
+                        avatarImage
+                            .resizable()
+                            .scaledToFill()
+                    } else if let avatarUrl = rootViewModel.userProfile?.avatarUrl {
+                        let absoluteUrl = URL(string: avatarUrl, relativeTo: APIClient.shared.baseURL)
+                        AsyncImage(url: absoluteUrl) { image in
+                            image
                                 .resizable()
                                 .scaledToFill()
-                        } else {
-                            Circle()
-                                .fill(Color.blue)
-                                .overlay(
-                                    Text(initial)
-                                        .font(.system(size: 36, weight: .heavy, design: .rounded))
-                                        .foregroundStyle(.white)
+                        } placeholder: {
+                            Circle().fill(Color(uiColor: .systemFill))
+                        }
+                    } else {
+                        Circle()
+                            .fill(Color.blue)
+                            .overlay(
+                                Text(initial)
+                                    .font(.system(size: 36, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.white)
+                            )
+                    }
+                }
+                .frame(width: 88, height: 88)
+                .clipShape(Circle())
+                .shadow(color: Color.blue.opacity(0.3), radius: 16, y: 8)
+                
+                PhotosPicker(selection: $avatarItem, matching: .images) {
+                    ZStack {
+                        Circle()
+                            .fill(Color(uiColor: .systemBackground))
+                            .frame(width: 28, height: 28)
+                            .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color.blue)
+                    }
+                }
+                .onChange(of: avatarItem) { _, newItem in
+                    Task {
+                        if let data = try? await newItem?.loadTransferable(type: Data.self),
+                           let uiImage = UIImage(data: data),
+                           let jpegData = uiImage.jpegData(compressionQuality: 0.8) {
+                            avatarImage = Image(uiImage: uiImage)
+                            
+                            do {
+                                let response: AvatarUploadResponseDTO = try await APIClient.shared.upload(
+                                    path: "/api/v1/auth/me/avatar",
+                                    fileData: jpegData,
+                                    fileName: "avatar.jpg",
+                                    mimeType: "image/jpeg"
                                 )
-                        }
-                    }
-                    .frame(width: 88, height: 88)
-                    .clipShape(Circle())
-                    .shadow(color: Color.blue.opacity(0.3), radius: 16, y: 8)
-                    
-                    PhotosPicker(selection: $avatarItem, matching: .images) {
-                        ZStack {
-                            Circle()
-                                .fill(Color(uiColor: .systemBackground))
-                                .frame(width: 28, height: 28)
-                                .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 14))
-                                .foregroundStyle(Color.blue)
-                        }
-                    }
-                    .onChange(of: avatarItem) { _, newItem in
-                        Task {
-                            if let data = try? await newItem?.loadTransferable(type: Data.self),
-                               let uiImage = UIImage(data: data),
-                               let jpegData = uiImage.jpegData(compressionQuality: 0.8) {
-                                avatarImage = Image(uiImage: uiImage)
-                                
-                                do {
-                                    let response: AvatarUploadResponseDTO = try await APIClient.shared.upload(
-                                        path: "/api/v1/auth/me/avatar",
-                                        fileData: jpegData,
-                                        fileName: "avatar.jpg",
-                                        mimeType: "image/jpeg"
-                                    )
-                                    print("✅ Avatar successfully uploaded to Backend: \(response.avatarUrl)")
-                                } catch {
-                                    print("❌ Avatar upload failed: \(error)")
-                                }
+                                print("✅ Avatar successfully uploaded to Backend: \(response.avatarUrl)")
+                                await rootViewModel.fetchUserProfile()
+                            } catch {
+                                print("❌ Avatar upload failed: \(error)")
                             }
                         }
                     }
                 }
+            }
 
-                VStack(spacing: 6) {
-                    Text(displayName)
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(.primary)
-                    Text(displayEmail)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.secondary)
-                }
+            VStack(spacing: 6) {
+                Text(displayName)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.primary)
+                Text(displayEmail)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity)
@@ -401,19 +405,8 @@ struct SettingsView: View {
         }
     }
 
-    @MainActor
-    private func loadUserProfile() async {
-        isProfileLoading = true
-        defer { isProfileLoading = false }
-        
-        do {
-            let response: UserProfileDTO = try await APIClient.shared.fetch(path: "/api/v1/user/profile")
-            self.userProfile = response
-        } catch {
-            print("❌ Failed to load user profile: \(error)")
-        }
-    }
     
+
     @MainActor
     private func loadSessions() async {
         guard let refreshToken = AuthTokenStore.refreshToken() else {
@@ -840,18 +833,7 @@ private struct SessionRowDTO: Decodable, Identifiable {
     }
 }
 
-private struct UserProfileDTO: Decodable {
-    let id: Int
-    let email: String
-    let displayName: String?
-    let createdAt: Date?
-    
-    enum CodingKeys: String, CodingKey {
-        case id, email
-        case displayName = "display_name"
-        case createdAt = "created_at"
-    }
-}
+
 
 private struct ChangePasswordPayload: Encodable {
     let currentPassword: String

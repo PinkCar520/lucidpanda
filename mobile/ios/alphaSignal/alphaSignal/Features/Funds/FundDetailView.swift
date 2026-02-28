@@ -21,8 +21,8 @@ struct FundDetailView: View {
         ZStack {
             LiquidBackground()
             
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
+            List {
+                Group {
                     headerSection
                     
                     if let stats = viewModel.valuation.stats {
@@ -40,21 +40,31 @@ struct FundDetailView: View {
                     if !viewModel.linkedIntelligence.isEmpty {
                         linkedIntelligenceSection
                     }
-                    
-                    portfolioPenetrationSection
-                    
+                }
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                
+                portfolioPenetrationSection
+                
+                Group {
                     historyLedgerSection
-                    
-                    Spacer(minLength: 20)
                     
                     Text("免责声明：系统估值基于公开持仓计算，仅供参考，不构成投资建议。\n市场有风险，投资需谨慎。")
                         .font(.system(size: 11, weight: .regular))
                         .foregroundStyle(.secondary.opacity(0.8))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
+                        .padding(.top, 20)
                         .padding(.bottom, 40)
+                        .frame(maxWidth: .infinity)
                 }
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
         .navigationTitle(viewModel.valuation.fundName)
         .navigationBarTitleDisplayMode(.inline)
@@ -457,15 +467,18 @@ struct FundDetailView: View {
         }
     }
     
+    @ViewBuilder
     private var portfolioPenetrationSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        Group {
             Text("funds.detail.holdings.title")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(colorScheme == .dark ? .white : .black)
                 .padding(.horizontal)
+                .padding(.top, 12)
             
             ForEach(viewModel.valuation.components) { component in
-                LiquidGlassCard {
+                let bgColor: Color? = component.changePct > 0 ? Color.red.opacity(0.05) : (component.changePct < 0 ? Color.green.opacity(0.05) : nil)
+                LiquidGlassCard(backgroundColor: bgColor) {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(component.name)
@@ -501,9 +514,12 @@ struct FundDetailView: View {
                         }
                     }
                 }
+                .padding(.horizontal)
             }
         }
-        .padding(.horizontal)
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
     }
     
     private var historyLedgerSection: some View {

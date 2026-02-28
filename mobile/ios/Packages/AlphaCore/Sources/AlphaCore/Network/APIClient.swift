@@ -39,7 +39,7 @@ public actor APIClient {
     private static let defaultBaseURLString = "http://43.139.108.187:8001"
     #endif
 
-    private let baseURL: URL = {
+    public let baseURL: URL = {
         let envOverride = ProcessInfo.processInfo.environment["ALPHASIGNAL_API_BASE_URL"]
             ?? ProcessInfo.processInfo.environment["API_BASE_URL"]
         let plistOverride = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String

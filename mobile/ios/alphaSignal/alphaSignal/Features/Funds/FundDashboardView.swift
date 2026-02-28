@@ -102,11 +102,13 @@ struct FundDashboardView: View {
 
     private var dashboardContent: some View {
         ZStack(alignment: .top) {
-            LiquidBackground()
+            Color(uiColor: .systemBackground)
+                .ignoresSafeArea()
             
-            List {
-                // 自选列表与分组模块
-                Section(header: filterChipsHeader) {
+            VStack(spacing: 0) {
+                filterChipsHeader
+                
+                List {
                     if viewModel.watchlist.isEmpty && !viewModel.isLoading {
                         emptyStateView
                             .listRowInsets(EdgeInsets())
@@ -154,11 +156,11 @@ struct FundDashboardView: View {
                             .listRowBackground(Color.clear)
                     }
                 }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .refreshable {
-                await viewModel.fetchWatchlist()
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .refreshable {
+                    await viewModel.fetchWatchlist()
+                }
             }
         }
     }
@@ -193,6 +195,7 @@ struct FundDashboardView: View {
                         }
                     }
                 }
+                .padding(.horizontal, 16)
             }
             .frame(height: 56) // 稍微变大以容纳更大的 Chip
         }
@@ -203,10 +206,12 @@ struct FundDashboardView: View {
         if !viewModel.groups.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 filterChips
+                    .padding(.top, 4)
+                    .padding(.bottom, 12)
+                
+                Divider()
+                    .opacity(0.4)
             }
-            .padding(.horizontal)
-            .padding(.top, 4)
-            .padding(.bottom, 12)
         }
     }
 

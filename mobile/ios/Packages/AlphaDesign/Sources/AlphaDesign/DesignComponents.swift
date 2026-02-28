@@ -11,8 +11,12 @@ public struct LiquidBackground: View {
 
 public struct LiquidGlassCard<Content: View>: View {
     let content: Content
+    var backgroundColor: Color?
     
-    public init(@ViewBuilder content: () -> Content) { self.content = content() }
+    public init(backgroundColor: Color? = nil, @ViewBuilder content: () -> Content) {
+        self.backgroundColor = backgroundColor
+        self.content = content()
+    }
     
     public var body: some View {
         content
@@ -20,7 +24,7 @@ public struct LiquidGlassCard<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(uiColor: .systemBackground))
+                    .fill(backgroundColor ?? Color(uiColor: .systemBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
