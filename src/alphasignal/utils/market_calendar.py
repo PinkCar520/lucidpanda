@@ -39,11 +39,12 @@ class MarketCalendar:
         elif isinstance(target_date, datetime):
             target_date = target_date.date()
         
-        # Mapping region to Exchange code
+        # Mapping region/type to Exchange code
         region_map = {
             'CN': 'SSE',
             'US': 'NYSE',
-            'HK': 'HKEX'
+            'HK': 'HKEX',
+            'GOLD': 'CMEGlobex_GC'
         }
         market_code = region_map.get(region, 'SSE')
         
@@ -53,13 +54,21 @@ class MarketCalendar:
             return target_date.weekday() < 5
 
         # Check if target_date is in the list of valid market days
-        # We check a small range around the date for efficiency
-        schedule = cal.schedule(start_date=target_date, end_date=target_date)
-        return not schedule.empty
+        try:
+            # CME Globex Gold is usually open 24/5. 
+            # We check if it's a trading day first.
+            schedule = cal.schedule(start_date=target_date, end_date=target_date)
+            return not schedule.empty
+        except:
+            return target_date.weekday() < 5
 
 # Global helpers
 def is_market_open(region='CN', target_date=None):
     return MarketCalendar().is_trading_day(region, target_date)
+
+def is_gold_market_open(target_date=None):
+    """Specific for COMEX Gold (GC) market calendar."""
+    return MarketCalendar().is_trading_day('GOLD', target_date)
 
 def was_market_open_last_night(region='US', target_date=None):
     """Specific for QDII: check if US/HK was open on the previous trading session relative to target_date."""

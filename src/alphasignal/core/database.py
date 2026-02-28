@@ -11,9 +11,36 @@ from src.alphasignal.utils import format_iso8601
 try:
     import psycopg2
     from psycopg2.extras import Json, DictCursor
+    from psycopg2.pool import ThreadedConnectionPool
 except ImportError:
     logger.error("❌ 'psycopg2-binary' is required for PostgreSQL.")
     raise
+
+class DBConnectionProxy:
+    """
+    代理真实的 psycopg2 连接，使 conn.close() 变为归还连接池，
+    同时支持 with 语句自动释放，完美解决高并发下的连接耗尽风险。
+    """
+    def __init__(self, pool):
+        self._pool = pool
+        self._conn = pool.getconn()
+    
+    def __getattr__(self, name):
+        if self._conn is None:
+            raise RuntimeError("尝试操作已归还连接池的数据库连接")
+        return getattr(self._conn, name)
+    
+    def close(self):
+        if self._pool and self._conn:
+            self._pool.putconn(self._conn)
+            self._conn = None
+            
+    def __enter__(self):
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
 
 class IntelligenceDB:
     def __init__(self):
@@ -25,17 +52,33 @@ class IntelligenceDB:
         self.password = settings.POSTGRES_PASSWORD
         self.dbname = settings.POSTGRES_DB
         
+        # 初始化连接池 (P2 修复：防止高并发下物理连接数过载)
+        # minconn=5 (冷启动保持5个并驻), maxconn=50 (应对新闻洪峰和AI并发)
+        try:
+            self._pool = ThreadedConnectionPool(
+                minconn=5,
+                maxconn=50,
+                host=self.host,
+                port=self.port,
+                user=self.user,
+                password=self.password,
+                dbname=self.dbname,
+                connect_timeout=10
+            )
+            logger.info(f"✅ 数据库连接池已初始化 (min=5, max=50)")
+        except Exception as e:
+            logger.error(f"❌ 初始化连接池失败: {e}")
+            raise
+
         self._init_db()
 
     def get_connection(self):
-        """Get a fresh PostgreSQL connection."""
-        return psycopg2.connect(
-            host=self.host,
-            port=self.port,
-            user=self.user,
-            password=self.password,
-            dbname=self.dbname
-        )
+        """
+        从连接池获取代理连接。
+        代码中原有的 conn.close() 会触发 DBConnectionProxy.close()，
+        从而将连接归还至 ThreadedConnectionPool 而非物理断开。
+        """
+        return DBConnectionProxy(self._pool)
 
     def _get_conn(self):
         return self.get_connection()
@@ -91,11 +134,18 @@ class IntelligenceDB:
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS us10y_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS gvz_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding BYTEA;")
-            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'PENDING';")
-            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS last_error TEXT;")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_status ON intelligence(status);")
             
+            # P2: 增量性能优化 - 对待回填记录建立部分索引 (Partial Index)
+            # 这样 get_pending_outcomes 永远只需要扫描未回填的几十条记录，而不是全表几万条扫描。
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_intel_pending_outcomes 
+                ON intelligence(timestamp DESC) 
+                WHERE price_1h IS NULL OR price_15m IS NULL OR price_4h IS NULL;
+            """)
+            
             # Migration
+
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS clustering_score INTEGER DEFAULT 0;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS exhaustion_score DOUBLE PRECISION DEFAULT 0.0;")
             
@@ -788,6 +838,7 @@ class IntelligenceDB:
             
             # Map Ticker to Data Source logic
             if ticker_symbol == "GC=F": # International Gold Spot (London Gold)
+                # --- Source 1: AkShare (Standard) ---
                 try:
                     df = ak.gold_zh_spot_qhkd()
                     row = df[df['名称'].str.contains('伦敦金|London Gold', case=False, na=False)]
@@ -795,8 +846,36 @@ class IntelligenceDB:
                         return round(float(row.iloc[0]['最新价']), 3)
                 except:
                     pass
-            
+                
+                # --- Source 2: Sina (Fallback 1) ---
+                import requests
+                try:
+                    url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=GC"
+                    resp = requests.get(url, timeout=5)
+                    data = resp.json()
+                    if data and isinstance(data, dict):
+                        key = list(data.keys())[0]
+                        points = data[key]
+                        if points: 
+                            # Sina format: ['Time', 'Price', 'Vol', ...]
+                            return round(float(points[-1][1]), 3)
+                except:
+                    pass
+
+                # --- Source 3: EastMoney (Fallback 2) ---
+                try:
+                    url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=101.GC00Y&ut=fa5fd1943c0a30548d390f18a2cd7645&fields1=f1&fields2=f53&klt=1&fqt=0&lmt=1"
+                    resp = requests.get(url, timeout=5)
+                    data = resp.json()
+                    if data and 'data' in data and data['data']['klines']:
+                        # Last 1m kline: 'time,close'
+                        val = data['data']['klines'][0].split(',')[-1]
+                        return round(float(val), 3)
+                except:
+                    pass
+
             elif ticker_symbol == "DX-Y.NYB": # DXY (USD Index)
+
                 try:
                     df = ak.fx_spot_quote()
                     row = df[df['外汇名称'].str.contains('美元指数|USD Index', case=False, na=False)]

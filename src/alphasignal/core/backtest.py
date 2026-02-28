@@ -48,13 +48,50 @@ class BacktestEngine:
         
         return trade_initiated
 
+    def _fetch_precise_hist(self) -> pd.DataFrame:
+        """
+        核心数据抓取：优先抓取东方财富(COMEX GC)，失败则降级抓取上海金(AU)作为影子参考。
+        """
+        import requests
+        
+        # --- 方案 A: 东方财富 (COMEX GC 15m) ---
+        # secid=101.GC00Y, klt=15 (15分钟), lmt=800 (覆盖约8天历史)
+        em_url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=101.GC00Y&ut=fa5fd1943c0a30548d390f18a2cd7645&fields1=f1,f2,f3,f4,f5&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=15&fqt=0&end=20261231&lmt=800"
+        try:
+            resp = requests.get(em_url, timeout=10)
+            data = resp.json()
+            if data and 'data' in data and data['data']['klines']:
+                klines = data['data']['klines']
+                rows = [k.split(',') for k in klines]
+                df = pd.DataFrame(rows, columns=['datetime', 'open', 'close', 'high', 'low', 'vol', 'amt', 'pct'])
+                
+                # 时间轴转换：东财是北京时间 (GMT+8)
+                df['timestamp'] = pd.to_datetime(df['datetime']).dt.tz_localize('Asia/Shanghai').dt.tz_convert('UTC')
+                df['Close'] = pd.to_numeric(df['close'])
+                logger.info(f"📈 成功从 EastMoney 获取 {len(df)} 条 15m 精度数据 (COMEX GC)")
+                return df.set_index('timestamp')[['Close']]
+        except Exception as e:
+            logger.warning(f"EastMoney 接口异常: {e}，尝试影子数据预案...")
+
+        # --- 方案 B: 影子指标 (Shanghai Gold au0 15m) ---
+        try:
+            df_au = ak.futures_zh_minute_sina(symbol='au0', period='15')
+            if not df_au.empty:
+                df_au['datetime'] = pd.to_datetime(df_au['datetime']).dt.tz_localize('Asia/Shanghai').dt.tz_convert('UTC')
+                df_au = df_au.rename(columns={'close': 'Close', 'datetime': 'timestamp'})
+                logger.info(f"⚠️ 使用影子指标(上海金)回填，注意存在汇率压差！条数: {len(df_au)}")
+                return df_au.set_index('timestamp')[['Close']]
+        except Exception as e:
+            logger.error(f"所有分时数据源均失效: {e}")
+        
+        return pd.DataFrame()
+
     def sync_outcomes(self):
         """
-        [自动回填] 检查旧数据并更新 T+1h, T+24h 的价格
-        采用 "Next Trading Candle" 逻辑，确保对齐交易时段。
+        [自动回填] 升级为高精度 15m 级别回填
+        解决原日线数据导致的收益率失真问题。
         """
         now = datetime.now(pytz.utc)
-        # 频率控制：如果距离上次尝试不足冷却时间，直接跳过
         if (now - self.last_sync_attempt).total_seconds() < self.sync_cooldown_minutes * 60:
             return
 
@@ -62,26 +99,14 @@ class BacktestEngine:
         if not pending_records:
             return
 
-        # 预解析并过滤
         ready_records = []
         for record in pending_records:
             try:
-                raw_time = record['timestamp']
-                if isinstance(raw_time, str):
-                    try:
-                        dt = datetime.strptime(raw_time, "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        dt = datetime.strptime(raw_time, "%Y-%m-%d %H:%M:%S.%f%z")
-                else:
-                    dt = raw_time
+                dt = pd.to_datetime(record['timestamp'])
+                if dt.tzinfo is None: dt = pytz.utc.localize(dt)
                 
-                if dt.tzinfo is None:
-                    dt = pytz.utc.localize(dt)
-                else:
-                    dt = dt.astimezone(pytz.utc)
-                
-                # 只处理 15 分钟以前的记录，避免雅虎还没生成最近的 Candle
-                if (now - dt).total_seconds() > 900:
+                # 至少给 15-30 分钟缓冲时间，等 K 线固化
+                if (now - dt).total_seconds() > 1800:
                     ready_records.append((record, dt))
             except:
                 continue
@@ -89,67 +114,36 @@ class BacktestEngine:
         if not ready_records:
             return
 
-        logger.info(f"⏳ 正在同步 {len(ready_records)} 条历史数据的收益率...")
+        logger.info(f"⏳ 正在执行高精度收益率回填，目标条数: {len(ready_records)}")
         self.last_sync_attempt = now
 
-        # 1. 确定所需的历史数据范围
-        min_time = min(r[1] for r in ready_records)
-        max_time = max(r[1] for r in ready_records)
-
-        # 2. 获取历史数据 (缓冲缩小为 2 天以减少数据量)
-        fetch_start = (min_time - timedelta(days=2)).strftime('%Y-%m-%d')
-        fetch_end = (max_time + timedelta(days=2)).strftime('%Y-%m-%d')
-        
-        logger.info(f"📈 获取行情数据范围: {fetch_start} 至 {fetch_end}")
-        
-        try:
-            # Using Market Hub to get Gold Futures (GC) historical data
-            # Note: Data source mainly provides daily data for foreign futures.
-            # This is a domestic-friendly alternative.
-            df = ak.futures_foreign_hist(symbol="GC")
-            if df.empty:
-                logger.warning("未能获取到行情数据，跳过本次同步")
-                return
-
-            # Format to match expectations: Index as UTC datetime, 'Close' column
-            df['date'] = pd.to_datetime(df['date'])
-            df = df.rename(columns={'close': 'Close', 'date': 'timestamp'})
-            df = df.set_index('timestamp')
-            
-            if df.index.tz is None:
-                df.index = df.index.tz_localize('UTC')
-            else:
-                df.index = df.index.tz_convert('UTC')
-            
-            hist = df[['Close']]
-            
-            # 同步成功，恢复较短的冷却时间
-            self.sync_cooldown_minutes = 15
-                
-        except Exception as e:
-            logger.warning(f"获取历史行情失败: {e}")
+        # 获取精确 15m 历史轴
+        hist = self._fetch_precise_hist()
+        if hist.empty:
             return
 
-        # 3. 逐条匹配 (Next Trading Candle)
+        # 逐条对齐
         success_count = 0
+        windows = {
+            'price_15m': timedelta(minutes=15),
+            'price_1h':  timedelta(hours=1),
+            'price_4h':  timedelta(hours=4),
+            'price_12h': timedelta(hours=12),
+            'price_24h': timedelta(hours=24)
+        }
+
         for record, record_time in ready_records:
             try:
-                windows = {
-                    'price_15m': timedelta(minutes=15),
-                    'price_1h': timedelta(hours=1),
-                    'price_4h': timedelta(hours=4),
-                    'price_12h': timedelta(hours=12),
-                    'price_24h': timedelta(hours=24)
-                }
-                
                 outcomes = {}
                 for col, delta in windows.items():
                     target_time = record_time + delta
+                    # 在 15m 轴里找最近的一根 K 线
                     idx = hist.index.searchsorted(target_time)
                     
                     if idx < len(hist):
                         matched_time = hist.index[idx]
-                        if (matched_time - target_time).total_seconds() <= 4 * 86400:
+                        # 容错：如果匹配到的时间距离目标超过 3 天（长假休市），则判定为无效
+                        if (matched_time - target_time).total_seconds() <= 3 * 86400:
                             outcomes[col] = round(float(hist.iloc[idx]['Close']), 2)
 
                 if outcomes:
@@ -159,7 +153,7 @@ class BacktestEngine:
             except Exception as e:
                 logger.warning(f"单条回填失败 ID {record['id']}: {e}")
         
-        logger.info(f"✅ 同步完成: 成功回填 {success_count}/{len(ready_records)} 条")
+        logger.info(f"✅ 高精度同步完成: 成功处理 {success_count}/{len(ready_records)} 条")
 
     def get_confidence_stats(self, keyword):
         """

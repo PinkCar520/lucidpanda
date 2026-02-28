@@ -4,6 +4,10 @@ from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.providers.llm.base import BaseLLM
 
+# 内容截断上限（同 Gemini）
+CONTENT_MAX_CHARS = 800
+
+
 class DeepSeekLLM(BaseLLM):
     async def analyze_async(self, raw_data):
         """异步版本的分析方法"""
@@ -64,6 +68,10 @@ class DeepSeekLLM(BaseLLM):
 
 
     def _get_prompt(self, raw_data):
+        content = raw_data.get('content', '')
+        if len(content) > CONTENT_MAX_CHARS:
+            content = content[:CONTENT_MAX_CHARS] + "...（已截断）"
+            
         return f"""
 你是一个华尔街顶级宏观策略分析师。请分析以下内容并提取投资信号。
 分析目标：识别该事件对【黄金 (Gold/XAU)】及相关市场的影响。
@@ -71,7 +79,8 @@ class DeepSeekLLM(BaseLLM):
 输入信息：
 - 来源: {raw_data.get('source')}
 - 作者: {raw_data.get('author')}
-- 内容: {raw_data.get('content')}
+- 内容: {content}
+- 市场背景: {raw_data.get('context', '无')}
 
 输出格式要求：请必须输出标准的 JSON 格式，不要包含 Markdown 代码块标记（如 ```json）。
 
@@ -85,14 +94,16 @@ JSON 结构定义：
         "zh": "情绪标签（鹰派/鸽派/避险/中性/利好/利空）",
         "en": "Sentiment Label (Hawkish/Dovish/Risk-off/Neutral/Bullish/Bearish)"
     }},
+    "sentiment_score": -1.0 to 1.0 (数值，-1为极度利空黄金，1为利好),
     "urgency_score": 1-10 (整数，10为极度重要),
     "market_implication": {{
-        "zh": "对市场影响的简要中文分析，重点放在黄金、美元、美债。",
-        "en": "Brief analysis of market impact in English."
+        "zh": "结合当前背景（美元、波动、持仓、宏观）的中文深评，重点放在黄金、美元、美债。",
+        "en": "Deep analysis of market impact in English."
     }},
     "actionable_advice": {{
-        "zh": "针对黄金交易员的具体中文操作建议（如：做多/做空/观望/对冲）。",
+        "zh": "针对黄金交易员的具体中文操作建议。注意：对反向波动需有风险规避方案。",
         "en": "Specific actionable advice for Gold traders in English."
     }}
 }}
 """
+

@@ -29,9 +29,13 @@ class AlphaEngine:
             # 如需历史回测，可在 BacktestEngine 中单独调用：
             # GoogleNewsSource(db=self.db).fetch(query="...", start_date="...", end_date="...")
         ]
-        self.backtester = BacktestEngine(self.db)
+        self.primary_llm = GeminiLLM()
+        self.fallback_llm = DeepSeekLLM()
+        self.channels     = [EmailChannel(), BarkChannel()]
+        self.backtester   = BacktestEngine(self.db)
         self.deduplicator = NewsDeduplicator()
         self._round_snapshot = {}  # 轮次市场快照缓存，每轮 fetch 一次供所有条目共用
+
         
         # Concurrency Control
         self.ai_semaphore = asyncio.Semaphore(5) # Limit to 5 concurrent AI calls
@@ -224,15 +228,29 @@ class AlphaEngine:
                 await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'FAILED', str(e))
 
     async def _trigger_trade_and_dispatch(self, analysis_result, raw_data):
-        """异步化的交易触发与分发"""
-        signal_direction = self._parse_sentiment(analysis_result.get('sentiment'))
+        # 1. 解析交易信号 (优先使用数值评分)
+        sentiment_score = analysis_result.get('sentiment_score', 0)
+        signal_direction = 'Neutral'
+        if sentiment_score >= 0.3:
+            signal_direction = 'Long'
+        elif sentiment_score <= -0.3:
+            signal_direction = 'Short'
+        else:
+            # 兜底：若无评分则尝试文字解析（兼容性）
+            signal_direction = self._parse_sentiment(analysis_result.get('sentiment'))
+
         if signal_direction in ['Long', 'Short']:
             trade_initiated = await asyncio.to_thread(self.backtester.process_signal, signal_direction)
             if trade_initiated:
-                logger.info(f"✅ 触发交易信号: {signal_direction} (ID: {raw_data.get('id')})")
+                logger.info(f"✅ 🟢 触发交易信号: {signal_direction} (ID: {raw_data.get('id')})")
 
-        # 多渠道分发
-        await asyncio.to_thread(self._dispatch, analysis_result)
+        # 2. 推送门槛控制 (Urgency-based dispatch)
+        # 只有重要情报 (Urgency >= 7) 才会推送 Bark/Email，避免过度打扰
+        urgency = int(analysis_result.get('urgency_score', 5))
+        if urgency >= 7:
+            await asyncio.to_thread(self._dispatch, analysis_result, raw_data)
+        else:
+            logger.debug(f"ℹ️ 情报 (Urgency: {urgency}) 已入库但不推送。")
 
     def run_once(self):
         """兼容性包装器，调用异步方法"""
@@ -245,9 +263,14 @@ class AlphaEngine:
 
     def _enrich_market_context(self, raw_data):
         """注入多维度市场背景数据（优先使用本轮已缓存的快照，避免重复 akshare 调用）"""
+        from src.alphasignal.utils.market_calendar import is_gold_market_open
         now = datetime.now(pytz.utc)
 
-        # 优先使用本轮缓存快照；若不存在（如补课记录来自上一轮）则实时拉取兜底
+        # 1.1 Market Status (CME Globex Gold Calendar)
+        market_open = is_gold_market_open(now)
+        status_label = "🟢 正在交易 (OPEN)" if market_open else "🔴 已休市 (CLOSED - Weekend/Holiday)"
+
+        # 1.2 优先使用本轮缓存快照；若不存在（如补课记录来自上一轮）则实时拉取兜底
         dxy = (
             raw_data.get('dxy_snapshot')
             or self._round_snapshot.get('dxy_snapshot')
@@ -274,34 +297,40 @@ class AlphaEngine:
 
         context = f"""
 [当前市场环境快照]:
+- 市场交易状态: {status_label}
 - 美元指数 (DXY): {dxy if dxy else '获取中'}
-- 黄金波动率 (GVZ): {gvz if gvz else '获取中'} (指数 > 25 表示恐慌/流动性枯竭风险)
+- 黄金波动率 (GVZ): {gvz if gvz else '获取中'} (注意: 指数 > 25 表示恐慌/流动性枯竭风险)
 - 基金持仓拥挤度 (COT): {cot_info}
 - 美联储宏观基调 (Regime): {fed_context}
 """
         raw_data['context'] = context
+        raw_data['market_open'] = market_open
         raw_data['dxy_snapshot'] = dxy
         raw_data['gvz_snapshot'] = gvz
         raw_data['fed_val'] = fed['value'] if fed else 0
         
         return context
 
-    def _dispatch(self, data):
+    def _dispatch(self, analysis_data, raw_data):
+        """执行全渠道推送，增加溯源信息"""
         sentiment_text = ""
-        sentiment = data.get('sentiment')
+        sentiment = analysis_data.get('sentiment')
         if isinstance(sentiment, dict):
             sentiment_text = sentiment.get('zh') or sentiment.get('en') or "情报分析"
         else:
             sentiment_text = str(sentiment)
 
         title = f"【AlphaSignal】{sentiment_text}"
-        body = self._format_message(data)
+        body = self._format_message(analysis_data)
+        
+        url = raw_data.get('url')
+        db_id = raw_data.get('id')
         
         for channel in self.channels:
             try:
-                channel.send(title, body)
+                channel.send(title, body, source_url=url, db_id=db_id)
             except Exception as e:
-                logger.warning(f"Failed to dispatch to {channel.__class__.__name__}: {e}")
+                logger.warning(f"❌ Failed to dispatch to {channel.__class__.__name__} [ID: {db_id}]: {e}")
 
     def _parse_sentiment(self, sentiment_json) -> str:
         """根据情绪文本确定交易方向"""
