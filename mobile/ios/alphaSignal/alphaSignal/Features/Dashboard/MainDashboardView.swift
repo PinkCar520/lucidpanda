@@ -71,34 +71,28 @@ struct MainDashboardView: View {
                         let displayEmail = rootViewModel.userProfile?.email ?? "root@alphasignal.com"
                         let initial = String(displayEmail.prefix(1)).uppercased()
                         
-                        ZStack {
+                        Group {
                             if let avatarUrl = rootViewModel.userProfile?.avatarUrl {
                                 let absoluteUrl = URL(string: avatarUrl, relativeTo: APIClient.shared.baseURL)
                                 AsyncImage(url: absoluteUrl) { image in
                                     image
                                         .resizable()
                                         .scaledToFill()
+                                        .clipShape(Circle())
                                 } placeholder: {
-                                    Circle().fill(Color(uiColor: .systemFill))
+                                    Circle().fill(Color(uiColor: .secondarySystemFill))
                                 }
-                                .frame(width: 32, height: 32)
-                                .clipShape(Circle())
-                                .overlay(
-                                    Circle().strokeBorder(.quaternary)
-                                )
-                                .glassEffect(.clear.interactive())
+                                .frame(width: 30, height: 30)
                             } else {
-                                Circle()
-                                    .fill(Color(uiColor: .secondarySystemFill))
-                                    .frame(width: 36, height: 36)
-                                Circle()
-                                    .strokeBorder(.quaternary)
-                                    .frame(width: 36, height: 36)
                                 Text(initial)
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(.primary)
+                                    .frame(width: 30, height: 30)
+                                    .clipShape(Circle())
                             }
                         }
+                        .glassEffect(.clear.interactive())
+                        .frame(width: 30, height: 30)
                     }
                     .accessibilityLabel(Text("dashboard.action.open_settings"))
                 }

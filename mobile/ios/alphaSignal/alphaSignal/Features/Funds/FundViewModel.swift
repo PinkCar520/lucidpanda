@@ -38,7 +38,7 @@ enum FundSortOrder: CaseIterable {
 
 // MARK: - 视图模式
 
-enum WatchlistViewMode {
+enum WatchlistViewMode: Equatable {
     case all
     case group(String)
 }
@@ -55,7 +55,12 @@ class FundViewModel {
     var groups: [WatchlistGroup] = []
     var sortOrder: FundSortOrder = .highGrowthFirst
     var viewMode: WatchlistViewMode = .all
-    var selectedGroupId: String? = nil
+    var selectedGroupId: String? {
+        if case .group(let id) = viewMode {
+            return id
+        }
+        return nil
+    }
     
     var isLoading = false
     var isSyncing = false
@@ -542,19 +547,52 @@ class FundViewModel {
     // MARK: - Create Group
 
     func createGroup(name: String, icon: String, color: String, sortIndex: Int = 0) async {
+        // 1. 生成临时 ID 并提前进行乐观更新 (瞬间在 UI 显示)
+        let tempId = "temp_\(UUID().uuidString)"
+        let now = Date()
+        let tempGroup = WatchlistGroup(
+            id: tempId,
+            userId: "",
+            name: name,
+            icon: icon,
+            color: color,
+            sortIndex: sortIndex,
+            createdAt: now,
+            updatedAt: now
+        )
+        
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+            groups.append(tempGroup)
+        }
+        
         do {
             let request = WatchlistCreateGroupRequest(name: name, icon: icon, color: color, sortIndex: sortIndex)
-            let response: WatchlistGroupsResponse = try await APIClient.shared.send(
+            let response: WatchlistCreateGroupResponse = try await APIClient.shared.send(
                 path: "/api/v2/watchlist/groups",
                 method: "POST",
                 body: request
             )
 
-            groups.append(response.data.first!)
-            await cacheManager.saveGroup(response.data.first!)
+            // 2. 拿到物理 ID 后替换临时分组，确保后续操作 (如删除/移动) 指向正确 ID
+            let realGroup = response.data
+            withAnimation {
+                if let index = groups.firstIndex(where: { $0.id == tempId }) {
+                    groups[index] = realGroup
+                    // 如果用户在网络请求期间已经选中了这个临时分组，则更新 viewMode 指向物理 ID
+                    if case .group(let currentId) = viewMode, currentId == tempId {
+                        viewMode = .group(realGroup.id)
+                    }
+                }
+            }
+            
+            await cacheManager.saveGroup(realGroup)
 
         } catch {
             print("❌ Failed to create group: \(error)")
+            // 3. 失败时回滚
+            withAnimation {
+                groups.removeAll { $0.id == tempId }
+            }
         }
     }
     
@@ -617,5 +655,5 @@ struct BatchValuationResponse: Codable {
 }
 
 struct SuccessResponse: Codable {
-    let success: Bool
+    let success: Bool?
 }

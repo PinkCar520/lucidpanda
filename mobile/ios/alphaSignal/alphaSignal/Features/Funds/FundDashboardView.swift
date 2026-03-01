@@ -21,8 +21,8 @@ struct FundDashboardView: View {
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteFund: FundValuation?
     @State private var showCreateGroupSheet = false
-    @State private var selectedGroupForFilter: String? = nil
     @State private var selectedFund: FundValuation?
+
     @State private var showFundDetail = false
     @State private var showGroupManager = false
     @State private var pendingMoveFundForManager: FundValuation?
@@ -31,7 +31,8 @@ struct FundDashboardView: View {
     @State private var scrollOffset: CGFloat = 0
 
     var body: some View {
-        NavigationStack {
+        @Bindable var viewModel = viewModel
+        return NavigationStack {
             dashboardContent
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { dashboardToolbar }
@@ -58,28 +59,29 @@ struct FundDashboardView: View {
         .sheet(isPresented: $showGroupManager) {
             GroupManagerView(
                 groups: viewModel.groups,
-                selectedGroupId: groupManagerMode == .filter ? selectedGroupForFilter : nil,
-                mode: groupManagerMode
-            ) { groupId in
-                if groupManagerMode == .moveFund, let fund = pendingMoveFundForManager {
-                    Task {
-                        await viewModel.moveFundToGroup(code: fund.fundCode, groupId: groupId)
-                    }
-                } else {
-                    withAnimation(.spring()) {
-                        selectedGroupForFilter = groupId
-                        if let groupId = groupId {
-                            viewModel.viewMode = .group(groupId)
-                        } else {
-                            viewModel.viewMode = .all
+                selectedGroupId: groupManagerMode == .filter ? viewModel.selectedGroupId : nil,
+                mode: groupManagerMode,
+                onSelect: { groupId in
+                    if groupManagerMode == .moveFund, let fund = pendingMoveFundForManager {
+                        Task {
+                            await viewModel.moveFundToGroup(code: fund.fundCode, groupId: groupId)
+                        }
+                    } else {
+                        withAnimation(.spring()) {
+                            if let groupId = groupId {
+                                viewModel.viewMode = .group(groupId)
+                            } else {
+                                viewModel.viewMode = .all
+                            }
                         }
                     }
+                },
+                onDeleteGroup: { groupId in
+                    Task {
+                        await viewModel.deleteGroup(groupId: groupId)
+                    }
                 }
-            } onDeleteGroup: { groupId in
-                Task {
-                    await viewModel.deleteGroup(groupId: groupId)
-                }
-            }
+            )
         }
         .overlay { deleteUndoOverlay }
         .alert(Text(LocalizedStringKey("funds.delete.title")), isPresented: $showDeleteConfirmation) {
@@ -114,14 +116,13 @@ struct FundDashboardView: View {
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
                     } else {
-                        ForEach(viewModel.sortedWatchlist) {
-                            valuation in
+                        ForEach(viewModel.sortedWatchlist) { valuation in
                             Button {
                                 selectedFund = valuation
-                                    showFundDetail = true
-                                } label: {
-                                    FundCompactCard(valuation: valuation)
-                                }
+                                showFundDetail = true
+                            } label: {
+                                FundCompactCard(valuation: valuation)
+                            }
                             .buttonStyle(.plain)
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             .listRowSeparator(.hidden)
@@ -164,8 +165,6 @@ struct FundDashboardView: View {
         }
     }
 
-
-
     @ViewBuilder
     private var filterChips: some View {
         if !viewModel.groups.isEmpty {
@@ -174,10 +173,9 @@ struct FundDashboardView: View {
                     FilterChip(
                         title: "funds.group.all",
                         isLocalizedKey: true,
-                        isSelected: selectedGroupForFilter == nil
+                        isSelected: viewModel.viewMode == .all
                     ) {
                         withAnimation(.spring()) {
-                            selectedGroupForFilter = nil
                             viewModel.viewMode = .all
                         }
                     }
@@ -186,10 +184,9 @@ struct FundDashboardView: View {
                         FilterChip(
                             title: group.name,
                             color: Color(hex: group.color),
-                            isSelected: selectedGroupForFilter == group.id
+                            isSelected: viewModel.selectedGroupId == group.id
                         ) {
                             withAnimation(.spring()) {
-                                selectedGroupForFilter = group.id
                                 viewModel.viewMode = .group(group.id)
                             }
                         }
@@ -197,7 +194,7 @@ struct FundDashboardView: View {
                 }
                 .padding(.horizontal, 16)
             }
-            .frame(height: 56) // 稍微变大以容纳更大的 Chip
+            .frame(height: 56)
         }
     }
 
@@ -245,24 +242,39 @@ struct FundDashboardView: View {
         if let deletedFund = viewModel.lastDeletedFund {
             VStack {
                 Spacer()
-                HStack {
+                HStack(spacing: 16) {
+                    Image(systemName: "trash.fill")
+                        .foregroundStyle(.white)
+                        .font(.system(size: 14))
+                        .padding(8)
+                        .background(Color.red.opacity(0.6))
+                        .clipShape(Circle())
+                    
                     Text(String(format: String(localized: "funds.delete.success"), deletedFund.fund.fundName))
-                        .font(.subheadline)
+                        .font(.system(size: 14, weight: .medium))
+                    
                     Spacer()
-                    Button("funds.action.undo") {
+                    
+                    Button {
                         Task {
                             await viewModel.undoDelete()
                         }
+                    } label: {
+                        Text("funds.action.undo")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.blue)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .glassEffect(.clear.interactive(), in: .capsule)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.blue)
                 }
-                .padding()
-                .background(.ultraThickMaterial)
-                .cornerRadius(12)
-                .padding()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .glassEffect(.regular, in: .rect(cornerRadius: 16, style: .continuous))
+                .padding(.horizontal, 20)
+                .padding(.bottom, 24)
             }
-            .transition(.move(edge: .bottom))
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
     
@@ -284,7 +296,6 @@ struct FundDashboardView: View {
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.vertical, 100)
     }
-    
 }
 
 // MARK: - Filter Chip
@@ -305,17 +316,17 @@ struct FilterChip: View {
                     Text(title)
                 }
             }
-                .font(.system(size: 16, weight: .bold)) // 增大字号 15 -> 16
-                .padding(.horizontal, 22) // 增大横向间距 20 -> 22
-                .padding(.vertical, 12)   // 增大垂直间距 10 -> 12
-                .foregroundStyle(isSelected ? (color ?? .blue) : .primary)
-                .glassEffect(.regular, in: .capsule)
-                .clipShape(Capsule())
+            .font(.system(size: 16, weight: .bold))
+            .padding(.horizontal, 22)
+            .padding(.vertical, 12)
+            .foregroundStyle(isSelected ? (color ?? .blue) : .primary)
+            .glassEffect(.regular, in: .capsule)
+            .clipShape(Capsule())
         }
     }
 }
 
-// MARK: - Group Manager (统一分组管理：选择 + 新建)
+// MARK: - Group Manager
 
 struct GroupManagerView: View {
     let groups: [WatchlistGroup]
@@ -329,10 +340,7 @@ struct GroupManagerView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-//                LiquidBackground()
-                
                 List {
-                    // 分组列表
                     Section {
                         ForEach(groups) { group in
                             Button {
@@ -359,7 +367,6 @@ struct GroupManagerView: View {
                         }
                     }
                     
-                    // 移动分组模式：显示"全部"选项
                     if mode == .moveFund {
                         Section {
                             Button {
@@ -399,7 +406,7 @@ struct GroupManagerView: View {
     }
 }
 
-// MARK: - Create Group Form (内联创建分组表单)
+// MARK: - Create Group Form
 
 struct CreateGroupForm: View {
     @State private var groupName = ""
@@ -449,5 +456,3 @@ struct CreateGroupForm: View {
         }
     }
 }
-
-

@@ -12,6 +12,9 @@ struct FundDiscoverView: View {
     @State private var addedFunds = Set<String>()
     @State private var selectedFundToView: FundValuation?
     
+    @AppStorage("recent_fund_searches") private var recentSearchesData: Data = Data()
+    @State private var recentSearches: [FundSearchHistoryItem] = []
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -19,12 +22,48 @@ struct FundDiscoverView: View {
                 
                 List {
                     if searchText.isEmpty {
+                        // 最近搜索板块
+                        if !recentSearches.isEmpty {
+                            Section {
+                                VStack(alignment: .leading, spacing: 16) {
+                                    HStack {
+                                        Text("最近搜索")
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(.secondary)
+                                        Spacer()
+                                        Button {
+                                            clearRecentSearches()
+                                        } label: {
+                                            Image(systemName: "trash")
+                                                .font(.system(size: 14))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                    .padding(.horizontal, 20)
+                                    
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack(spacing: 8) {
+                                            ForEach(recentSearches) { item in
+                                                suggestionChip(title: item.name, code: item.code)
+                                            }
+                                        }
+                                        .padding(.horizontal, 20)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                            }
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets())
+                        }
+                        
                         // 热门建议板块
                         Section {
                             VStack(alignment: .leading, spacing: 16) {
                                 Text("funds.discover.hot_suggestions")
                                     .font(.system(size: 14, weight: .bold))
                                     .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 20)
                                 
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 8) {
@@ -34,14 +73,16 @@ struct FundDiscoverView: View {
                                         suggestionChip(title: "沪深300", code: "510300")
                                         suggestionChip(title: "纳指100", code: "513100")
                                     }
+                                    .padding(.horizontal, 20)
                                 }
+                                .padding(.bottom, 8)
                             }
                             .padding(.vertical, 8)
                         }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
+                        .listRowInsets(EdgeInsets())
                     }
-                    
                     if viewModel.isLoading {
                         HStack {
                             Spacer()
@@ -77,6 +118,7 @@ struct FundDiscoverView: View {
                                         stats: nil
                                     )
                                     selectedFundToView = dummyValuation
+                                    saveRecentSearch(code: fund.code, name: fund.name)
                                 } label: {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text(fund.name)
@@ -116,20 +158,25 @@ struct FundDiscoverView: View {
                                 Button {
                                     if !isAdded {
                                         Task {
-                                            await watchlistViewModel.addFund(code: fund.code, name: fund.name)
                                             addedFunds.insert(fund.code)
                                             toastMessage = "已添加 \(fund.name)"
                                             withAnimation(.spring()) { showAddedToast = true }
+                                            
+                                            saveRecentSearch(code: fund.code, name: fund.name)
+                                            await watchlistViewModel.addFund(code: fund.code, name: fund.name)
+                                            
                                             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                                                 withAnimation(.easeInOut) { showAddedToast = false }
                                             }
                                         }
                                     } else {
                                         Task {
-                                            await watchlistViewModel.deleteFund(code: fund.code)
                                             addedFunds.remove(fund.code)
                                             toastMessage = "已取消 \(fund.name)"
                                             withAnimation(.spring()) { showAddedToast = true }
+                                            
+                                            await watchlistViewModel.deleteFund(code: fund.code)
+                                            
                                             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                                                 withAnimation(.easeInOut) { showAddedToast = false }
                                             }
@@ -169,16 +216,15 @@ struct FundDiscoverView: View {
                         Spacer()
                         HStack {
                             Image(systemName: toastMessage.contains("已取消") ? "xmark.circle.fill" : "checkmark.circle.fill")
+                                .foregroundStyle(toastMessage.contains("已取消") ? Color.secondary : Color.green)
                             Text(toastMessage)
+                                .foregroundStyle(.primary)
                         }
                         .font(.system(size: 14, weight: .bold))
                         .padding(.vertical, 14)
                         .padding(.horizontal, 24)
-                        // Make it slightly dark translucent
-                        .background(.ultraThinMaterial)
-                        .colorScheme(.dark)
+                        .glassEffect(.regular, in: .capsule)
                         .clipShape(Capsule())
-                        .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
                         Spacer()
                     }
                     .transition(.scale.combined(with: .opacity))
@@ -188,7 +234,47 @@ struct FundDiscoverView: View {
             .navigationDestination(item: $selectedFundToView) { valuation in
                 FundDetailView(valuation: valuation)
             }
+            .onAppear {
+                loadRecentSearches()
+            }
         }
+    }
+    
+    // MARK: - Logic
+    
+    private func loadRecentSearches() {
+        if let decoded = try? JSONDecoder().decode([FundSearchHistoryItem].self, from: recentSearchesData) {
+            recentSearches = decoded
+        }
+    }
+    
+    private func saveRecentSearch(code: String, name: String) {
+        let newItem = FundSearchHistoryItem(code: code, name: name)
+        var current = recentSearches
+        
+        // Remove if exists to bubble it up
+        current.removeAll { $0.code == code }
+        current.insert(newItem, at: 0)
+        
+        // Keep only top 10
+        if current.count > 10 {
+            current = Array(current.prefix(10))
+        }
+        
+        withAnimation {
+            recentSearches = current
+        }
+        
+        if let encoded = try? JSONEncoder().encode(current) {
+            recentSearchesData = encoded
+        }
+    }
+    
+    private func clearRecentSearches() {
+        withAnimation {
+            recentSearches.removeAll()
+        }
+        recentSearchesData = Data()
     }
     
     private func suggestionChip(title: String, code: String) -> some View {
@@ -204,4 +290,12 @@ struct FundDiscoverView: View {
                 .clipShape(Capsule())
         }
     }
+}
+
+// MARK: - Models
+
+struct FundSearchHistoryItem: Codable, Identifiable, Equatable {
+    var id: String { code }
+    let code: String
+    let name: String
 }

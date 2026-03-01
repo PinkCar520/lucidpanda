@@ -12,6 +12,7 @@ struct FundDetailView: View {
     // --- 交互状态分离 ---
     @State private var filteredSector: (name: String, stat: SectorStat)? = nil // 饼图联动：原地过滤
     @State private var selectedSectorForSheet: (name: String, stat: SectorStat)? = nil // 列表交互：弹窗
+    @State private var showAllHoldings = false // 持仓全量弹窗触发
     
     init(valuation: FundValuation) {
         _viewModel = State(initialValue: FundDetailViewModel(valuation: valuation))
@@ -80,6 +81,11 @@ struct FundDetailView: View {
             set: { _ in selectedSectorForSheet = nil }
         )) { identifiableSector in
             SectorDetailView(sectorName: identifiableSector.name, stat: identifiableSector.stat)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showAllHoldings) {
+            HoldingsPenetrationView(components: viewModel.valuation.components)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -470,51 +476,52 @@ struct FundDetailView: View {
     @ViewBuilder
     private var portfolioPenetrationSection: some View {
         Group {
-            Text("funds.detail.holdings.title")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
-                .padding(.horizontal)
-                .padding(.top, 12)
-            
-            ForEach(viewModel.valuation.components) { component in
-                let bgColor: Color? = component.changePct > 0 ? Color.red.opacity(0.05) : (component.changePct < 0 ? Color.green.opacity(0.05) : nil)
-                LiquidGlassCard(backgroundColor: bgColor) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(component.name)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(colorScheme == .dark ? .white : .black)
-                            Text(component.code)
-                                .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(.secondary)
+            HStack {
+                Text("funds.detail.holdings.title")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                
+                Spacer()
+                
+                if viewModel.valuation.components.count > 5 {
+                    Button {
+                        showAllHoldings = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("funds.detail.holdings.view_all")
+                            Image(systemName: "chevron.right")
                         }
-                        Spacer()
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text("\(component.changePct > 0 ? "+" : "")\(String(format: "%.2f", component.changePct))%")
-                                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                                .foregroundStyle(component.changePct >= 0 ? .red : .green)
-                            
-                            HStack(spacing: 4) {
-                                Text(
-                                    String(
-                                        format: NSLocalizedString("funds.detail.holdings.weight_format", comment: ""),
-                                        String(format: "%.1f", component.weight)
-                                    )
-                                )
-                                Text("•")
-                                Text(
-                                    String(
-                                        format: NSLocalizedString("funds.detail.holdings.contribution_format", comment: ""),
-                                        String(format: "%.3f", component.impact)
-                                    )
-                                )
-                            }
-                            .font(.system(size: 8))
-                            .foregroundStyle(.secondary)
-                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.blue)
                     }
                 }
+            }
+            .padding(.horizontal)
+            .padding(.top, 12)
+            
+            let topComponents = viewModel.valuation.components
+                .sorted { abs($0.impact) > abs($1.impact) }
+                .prefix(5)
+            
+            ForEach(topComponents) { component in
+                HoldingRow(component: component)
+                    .padding(.horizontal)
+            }
+            
+            if viewModel.valuation.components.count > 5 {
+                Button {
+                    showAllHoldings = true
+                } label: {
+                    Text(String(format: NSLocalizedString("funds.detail.holdings.more_count_format", comment: ""), viewModel.valuation.components.count - 5))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.secondary.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
                 .padding(.horizontal)
+                .padding(.top, 4)
             }
         }
         .listRowSeparator(.hidden)
@@ -684,6 +691,168 @@ struct FundDetailView: View {
         case "medium": return .blue
         case "low": return .red
         default: return .gray
+        }
+    }
+}
+
+// MARK: - Sub-Component: Holding Row
+
+struct HoldingRow: View {
+    let component: FundComponent
+    @Environment(\.colorScheme) var colorScheme
+    
+    var body: some View {
+        let bgColor: Color? = component.changePct > 0 ? Color.red.opacity(0.05) : (component.changePct < 0 ? Color.green.opacity(0.05) : nil)
+        LiquidGlassCard(backgroundColor: bgColor) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(component.name)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(colorScheme == .dark ? .white : .black)
+                    Text(component.code)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(component.changePct > 0 ? "+" : "")\(String(format: "%.2f", component.changePct))%")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(component.changePct >= 0 ? .red : .green)
+                    
+                    HStack(spacing: 4) {
+                        Text(
+                            String(
+                                format: NSLocalizedString("funds.detail.holdings.weight_format", comment: ""),
+                                String(format: "%.1f", component.weight)
+                            )
+                        )
+                        Text("•")
+                        Text(
+                            String(
+                                format: NSLocalizedString("funds.detail.holdings.contribution_format", comment: ""),
+                                String(format: "%.3f", component.impact)
+                            )
+                        )
+                    }
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Sub-View: Full Holdings Penetration
+
+struct HoldingsPenetrationView: View {
+    let components: [FundComponent]
+    @State private var searchText = ""
+    @State private var sortMode: SortMode = .impact
+    @Environment(\.dismiss) var dismiss
+    
+    enum SortMode {
+        case impact
+        case weight
+        case performance
+        
+        var label: String {
+            switch self {
+            case .impact: return "贡献度"
+            case .weight: return "权重"
+            case .performance: return "涨跌幅"
+            }
+        }
+        
+        var icon: String {
+            switch self {
+            case .impact: return "bolt.fill"
+            case .weight: return "chart.bar.fill"
+            case .performance: return "arrow.up.forward"
+            }
+        }
+    }
+    
+    var filteredResults: [FundComponent] {
+        let list = searchText.isEmpty 
+            ? components 
+            : components.filter { $0.name.contains(searchText) || $0.code.contains(searchText.uppercased()) }
+        
+        return list.sorted { a, b in
+            switch sortMode {
+            case .impact: return abs(a.impact) > abs(b.impact)
+            case .weight: return a.weight > b.weight
+            case .performance: return abs(a.changePct) > abs(b.changePct)
+            }
+        }
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                LiquidBackground()
+                
+                VStack(spacing: 0) {
+                    // Search & Filter Header
+                    VStack(spacing: 12) {
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(.secondary)
+                            TextField("搜索证券名称或代码", text: $searchText)
+                                .textFieldStyle(.plain)
+                        }
+                        .padding(10)
+                        .background(Color.secondary.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        
+                        HStack(spacing: 8) {
+                            ForEach([SortMode.impact, .weight, .performance], id: \.self) { mode in
+                                Button {
+                                    withAnimation(.spring()) { sortMode = mode }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: mode.icon)
+                                        Text(mode.label)
+                                    }
+                                    .font(.system(size: 11, weight: .bold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(sortMode == mode ? Color.blue : Color.secondary.opacity(0.1))
+                                    .foregroundStyle(sortMode == mode ? .white : .primary)
+                                    .clipShape(Capsule())
+                                }
+                            }
+                            Spacer()
+                        }
+                    }
+                    .padding()
+                    .background(.ultraThinMaterial)
+                    
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(filteredResults) { component in
+                                HoldingRow(component: component)
+                            }
+                            
+                            Text("funds.detail.holdings.footnote")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 20)
+                                .padding(.bottom, 40)
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .navigationTitle("持仓穿透分析")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
     }
 }

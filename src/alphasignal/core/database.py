@@ -41,6 +41,9 @@ class DBConnectionProxy:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+# 全局单例连接池与初始化标志
+_global_pool = None
+_db_initialized = False
 
 class IntelligenceDB:
     def __init__(self):
@@ -52,25 +55,32 @@ class IntelligenceDB:
         self.password = settings.POSTGRES_PASSWORD
         self.dbname = settings.POSTGRES_DB
         
-        # 初始化连接池 (P2 修复：防止高并发下物理连接数过载)
-        # minconn=5 (冷启动保持5个并驻), maxconn=50 (应对新闻洪峰和AI并发)
-        try:
-            self._pool = ThreadedConnectionPool(
-                minconn=5,
-                maxconn=50,
-                host=self.host,
-                port=self.port,
-                user=self.user,
-                password=self.password,
-                dbname=self.dbname,
-                connect_timeout=10
-            )
-            logger.info(f"✅ 数据库连接池已初始化 (min=5, max=50)")
-        except Exception as e:
-            logger.error(f"❌ 初始化连接池失败: {e}")
-            raise
+        global _global_pool, _db_initialized
+        if _global_pool is None:
+            # 初始化全局连接池 (P2 修复：防止高并发下物理连接数过载)
+            # minconn=5 (冷启动保持5个并驻), maxconn=50 (应对新闻洪峰和AI并发)
+            try:
+                _global_pool = ThreadedConnectionPool(
+                    minconn=5,
+                    maxconn=50,
+                    host=self.host,
+                    port=self.port,
+                    user=self.user,
+                    password=self.password,
+                    dbname=self.dbname,
+                    connect_timeout=10
+                )
+                logger.info(f"✅ 数据库连接池已初始化 (min=5, max=50)")
+            except Exception as e:
+                logger.error(f"❌ 初始化全局连接池失败: {e}")
+                raise
 
-        self._init_db()
+        self._pool = _global_pool
+        
+        # 防止重复执行建表和升级语句，严重阻塞主事件循环
+        if not _db_initialized:
+            self._init_db()
+            _db_initialized = True
 
     def get_connection(self):
         """

@@ -2282,6 +2282,12 @@
         }
       }
     },
+    "funds.detail.holdings.footnote" : {
+
+    },
+    "funds.detail.holdings.more_count_format" : {
+
+    },
     "funds.detail.holdings.title" : {
       "localizations" : {
         "en" : {
@@ -2297,6 +2303,9 @@
           }
         }
       }
+    },
+    "funds.detail.holdings.view_all" : {
+
     },
     "funds.detail.holdings.weight_format" : {
       "localizations" : {
@@ -4279,6 +4288,9 @@
     "关联情报" : {
 
     },
+    "最近搜索" : {
+
+    },
     "分析中..." : {
 
     },
@@ -4301,6 +4313,12 @@
 
     },
     "忘记密码？" : {
+
+    },
+    "持仓穿透分析" : {
+
+    },
+    "搜索证券名称或代码" : {
 
     },
     "查看完整关联报告 →" : {

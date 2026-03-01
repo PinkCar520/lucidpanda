@@ -167,6 +167,10 @@ public struct WatchlistGroupsResponse: Codable {
     public let data: [WatchlistGroup]
 }
 
+public struct WatchlistCreateGroupResponse: Codable {
+    public let data: WatchlistGroup
+}
+
 public struct WatchlistItemsResponse: Codable {
     public let data: [WatchlistItem]
     public let groups: [WatchlistGroup]
