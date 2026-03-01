@@ -107,15 +107,24 @@ struct FundDetailView: View {
                     .foregroundStyle(viewModel.liveGrowth >= 0 ? .red : .green)
             }
             
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(.green)
-                    .frame(width: 6, height: 6)
-                    .opacity(viewModel.isLive ? 1 : 0.3)
-                
-                Text(viewModel.isLive ? "funds.detail.status.live_estimate" : "funds.detail.status.syncing")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.secondary)
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                let marketStatus = MarketSessionStatusResolver.status(for: viewModel.valuation, now: context.date)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(marketStatusColor(marketStatus))
+                        .frame(width: 6, height: 6)
+                        .opacity(viewModel.isLive ? 1 : 0.3)
+
+                    if viewModel.isLive {
+                        Text(LocalizedStringKey(marketStatus.localizedKey))
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("funds.detail.status.syncing")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .padding(.vertical, 32)
@@ -710,6 +719,17 @@ struct FundDetailView: View {
         case "medium": return .blue
         case "low": return .red
         default: return .gray
+        }
+    }
+
+    private func marketStatusColor(_ status: MarketSessionStatus) -> Color {
+        switch status {
+        case .open:
+            return .green
+        case .lunchBreak:
+            return .orange
+        case .closed:
+            return .gray
         }
     }
 }

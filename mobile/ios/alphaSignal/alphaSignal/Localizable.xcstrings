@@ -2750,6 +2750,7 @@
       }
     },
     "funds.detail.status.live_estimate" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

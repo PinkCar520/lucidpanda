@@ -36,6 +36,13 @@ public actor ValuationActor {
                 // 这里我们先实现基于 REST 轮询的高级封装，作为 SSE 的降级/备选方案
                 while isRunning {
                     do {
+                        let marketStatus = MarketSessionStatusResolver.status(for: currentValuation)
+                        if marketStatus == .closed {
+                            // 休市时暂停高频请求，避免无效轮询
+                            try await Task.sleep(nanoseconds: 60_000_000_000)
+                            continue
+                        }
+
                         // 模拟从后端获取最新分片价格或直接获取推算结果
                         // 生产环境应为：for try await priceUpdate in SSEResolver.shared.subscribe(...)
                         let updatedValuation: FundValuation = try await APIClient.shared.fetch(

@@ -726,13 +726,22 @@ class FundViewModel {
         liveUpdateTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
-                let codes = await MainActor.run {
-                    self.watchlistItems.map(\.fundCode)
+                let (codes, sleepNs): ([String], UInt64) = await MainActor.run {
+                    let valuationsByCode = Dictionary(uniqueKeysWithValues: self.watchlist.map { ($0.fundCode, $0) })
+                    let codes = self.watchlistItems.compactMap { item -> String? in
+                        guard let valuation = valuationsByCode[item.fundCode] else {
+                            return item.fundCode
+                        }
+                        let status = MarketSessionStatusResolver.status(for: valuation)
+                        return status == .closed ? nil : item.fundCode
+                    }
+                    let sleep = codes.isEmpty ? 60_000_000_000 : self.liveUpdateInterval
+                    return (codes, sleep)
                 }
                 if !codes.isEmpty {
                     await self.refreshValuations(for: codes, replace: false)
                 }
-                try? await Task.sleep(nanoseconds: self.liveUpdateInterval)
+                try? await Task.sleep(nanoseconds: sleepNs)
             }
         }
     }
