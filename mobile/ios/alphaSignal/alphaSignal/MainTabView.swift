@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import AlphaDesign
 
 struct MainTabView: View {
@@ -15,22 +16,32 @@ struct MainTabView: View {
             Tab("app.tab.intelligence", systemImage: "waveform.path.ecg", value: .intelligence) {
                 MainDashboardView()
             }
+            .customizationID("intelligence")
 
             // Tab 2: 基金 (Watchlist)
             Tab("app.tab.funds", systemImage: "star", value: .funds) {
                 FundDashboardView()
             }
+            .customizationID("funds")
 
             // Tab 3: 回测 (Strategy)
             Tab("app.tab.backtest", systemImage: "clock.arrow.circlepath", value: .backtest) {
                 BacktestView()
             }
+            .customizationID("backtest")
 
             // Tab 4: 搜索 (独立的搜索角色 Tab)
             Tab("app.tab.search", systemImage: "magnifyingglass", value: .search, role: .search) {
                 FundDiscoverView(searchText: $searchText)
                     .searchable(text: $searchText, prompt: Text("app.search.fund_prompt"))
             }
+            .customizationID("search")
+        }
+        .symbolVariant(.fill)
+        .onChange(of: selectedTab) { old, newValue in
+            let generator = UIImpactFeedbackGenerator(style: .soft)
+            generator.prepare()
+            generator.impactOccurred()
         }
     }
 }

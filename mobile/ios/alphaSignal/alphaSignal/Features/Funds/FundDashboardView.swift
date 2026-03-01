@@ -123,7 +123,17 @@ struct FundDashboardView: View {
                             } label: {
                                 FundCompactCard(valuation: valuation)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(LiquidScaleButtonStyle())
+                            .scrollTransition(
+                                topLeading: .interactive,
+                                bottomTrailing: .interactive
+                            ) { content, phase in
+                                content
+                                    .opacity(phase.isIdentity ? 1 : (phase.value < 0 ? 0.3 : 1))
+                                    .scaleEffect(phase.isIdentity ? 1 : (phase.value < 0 ? 0.85 : 1))
+                                    .offset(y: phase.value < 0 ? (phase.value * 50) : 0)
+                                    .blur(radius: phase.value < 0 ? (abs(phase.value) * 5) : 0)
+                            }
                             .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)

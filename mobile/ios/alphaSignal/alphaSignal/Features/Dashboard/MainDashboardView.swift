@@ -44,13 +44,25 @@ struct MainDashboardView: View {
                                     }
                                     
                                     ForEach(Array(displayItems.enumerated()), id: \.element.id) { index, item in
-                                        if viewModel.filterMode == .bullish || viewModel.filterMode == .bearish {
-                                            timelineItem(item: item, isLast: index == displayItems.count - 1)
-                                        } else {
-                                            NavigationLink(destination: IntelligenceDetailView(item: item)) {
-                                                IntelligenceItemCard(item: item)
+                                        Group {
+                                            if viewModel.filterMode == .bullish || viewModel.filterMode == .bearish {
+                                                timelineItem(item: item, isLast: index == displayItems.count - 1)
+                                            } else {
+                                                NavigationLink(destination: IntelligenceDetailView(item: item)) {
+                                                    IntelligenceItemCard(item: item)
+                                                }
+                                                .buttonStyle(LiquidScaleButtonStyle())
                                             }
-                                            .buttonStyle(.plain)
+                                        }
+                                        .scrollTransition(
+                                            topLeading: .interactive,
+                                            bottomTrailing: .interactive
+                                        ) { content, phase in
+                                            content
+                                                .opacity(phase.isIdentity ? 1 : (phase.value < 0 ? 0.3 : 1))
+                                                .scaleEffect(phase.isIdentity ? 1 : (phase.value < 0 ? 0.85 : 1))
+                                                .offset(y: phase.value < 0 ? (phase.value * 50) : 0)
+                                                .blur(radius: phase.value < 0 ? (abs(phase.value) * 5) : 0)
                                         }
                                     }
                                 }
@@ -291,7 +303,7 @@ struct MainDashboardView: View {
                 NavigationLink(destination: IntelligenceDetailView(item: item)) {
                     IntelligenceItemCard(item: item)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LiquidScaleButtonStyle())
             }
             .padding(.bottom, isLast ? 0 : 20)
         }

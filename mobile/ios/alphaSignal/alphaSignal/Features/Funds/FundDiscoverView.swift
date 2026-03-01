@@ -155,47 +155,30 @@ struct FundDiscoverView: View {
                                 
                                 Spacer(minLength: 16)
                                 
-                                Button {
+                                LiquidAddButton(isAdded: isAdded) {
                                     if !isAdded {
-                                        Task {
-                                            addedFunds.insert(fund.code)
-                                            toastMessage = "已添加 \(fund.name)"
-                                            withAnimation(.spring()) { showAddedToast = true }
-                                            
-                                            saveRecentSearch(code: fund.code, name: fund.name)
-                                            await watchlistViewModel.addFund(code: fund.code, name: fund.name)
-                                            
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                                withAnimation(.easeInOut) { showAddedToast = false }
-                                            }
+                                        addedFunds.insert(fund.code)
+                                        toastMessage = String(localized: "app.funds.added") + " \(fund.name)"
+                                        withAnimation(.spring()) { showAddedToast = true }
+                                        
+                                        saveRecentSearch(code: fund.code, name: fund.name)
+                                        await watchlistViewModel.addFund(code: fund.code, name: fund.name)
+                                        
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                            withAnimation(.easeInOut) { showAddedToast = false }
                                         }
                                     } else {
-                                        Task {
-                                            addedFunds.remove(fund.code)
-                                            toastMessage = "已取消 \(fund.name)"
-                                            withAnimation(.spring()) { showAddedToast = true }
-                                            
-                                            await watchlistViewModel.deleteFund(code: fund.code)
-                                            
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                                withAnimation(.easeInOut) { showAddedToast = false }
-                                            }
+                                        addedFunds.remove(fund.code)
+                                        toastMessage = String(localized: "app.funds.removed") + " \(fund.name)"
+                                        withAnimation(.spring()) { showAddedToast = true }
+                                        
+                                        await watchlistViewModel.deleteFund(code: fund.code)
+                                        
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                            withAnimation(.easeInOut) { showAddedToast = false }
                                         }
-                                    }
-                                } label: {
-                                    if isAdded {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 22))
-                                            .foregroundStyle(.green)
-                                            .symbolRenderingMode(.hierarchical)
-                                    } else {
-                                        Image(systemName: "plus.circle.fill")
-                                            .font(.system(size: 22))
-                                            .foregroundStyle(.blue)
-                                            .symbolRenderingMode(.hierarchical)
                                     }
                                 }
-                                .buttonStyle(.plain)
                             }
                             .padding(.vertical, 8)
                             .padding(.horizontal, 4)

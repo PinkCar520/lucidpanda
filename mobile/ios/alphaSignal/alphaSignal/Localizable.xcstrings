@@ -111,6 +111,12 @@
     "AlphaSignal Core Engine v2.0" : {
 
     },
+    "app.funds.added" : {
+
+    },
+    "app.funds.removed" : {
+
+    },
     "app.search.fund_prompt" : {
       "localizations" : {
         "en" : {
