@@ -65,13 +65,16 @@ struct FundCompactCard: View {
                         .font(.system(size: 18, weight: .black, design: .monospaced))
                         .foregroundStyle(valuation.estimatedGrowth >= 0 ? .red : .green)
                     
-                    HStack(spacing: 3) {
-                        Circle()
-                            .fill(.orange)
-                            .frame(width: 4, height: 4)
-                        Text("funds.compact.live")
-                            .font(.system(size: 8, weight: .black, design: .monospaced))
-                            .foregroundStyle(.secondary)
+                    TimelineView(.periodic(from: .now, by: 30)) { context in
+                        let marketStatus = MarketSessionStatusResolver.status(for: valuation, now: context.date)
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(statusColor(marketStatus))
+                                .frame(width: 4, height: 4)
+                            Text(LocalizedStringKey(marketStatus.localizedKey))
+                                .font(.system(size: 8, weight: .black, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -174,6 +177,17 @@ struct FundCompactCard: View {
         case "medium": return .blue
         case "low": return .red
         default: return .gray
+        }
+    }
+
+    private func statusColor(_ status: MarketSessionStatus) -> Color {
+        switch status {
+        case .open:
+            return .green
+        case .lunchBreak:
+            return .orange
+        case .closed:
+            return .gray
         }
     }
 }

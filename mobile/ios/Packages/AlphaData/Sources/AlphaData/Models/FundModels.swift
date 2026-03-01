@@ -114,10 +114,11 @@ public struct FundValuation: Codable, Identifiable, Hashable, Equatable {
     public let isQdii: Bool?
     public let confidence: FundConfidence?
     public let riskLevel: String?
+    public let marketStatus: String?
     public let stats: FundStats?
     public let sectorAttribution: [String: SectorStat]?
     
-    public init(fundCode: String, fundName: String, estimatedGrowth: Double, totalWeight: Double, components: [FundComponent], timestamp: Date, isQdii: Bool? = nil, confidence: FundConfidence? = nil, riskLevel: String? = nil, stats: FundStats? = nil, sectorAttribution: [String: SectorStat]? = nil) {
+    public init(fundCode: String, fundName: String, estimatedGrowth: Double, totalWeight: Double, components: [FundComponent], timestamp: Date, isQdii: Bool? = nil, confidence: FundConfidence? = nil, riskLevel: String? = nil, marketStatus: String? = nil, stats: FundStats? = nil, sectorAttribution: [String: SectorStat]? = nil) {
         self.fundCode = fundCode
         self.fundName = fundName
         self.estimatedGrowth = estimatedGrowth
@@ -127,6 +128,7 @@ public struct FundValuation: Codable, Identifiable, Hashable, Equatable {
         self.isQdii = isQdii
         self.confidence = confidence
         self.riskLevel = riskLevel
+        self.marketStatus = marketStatus
         self.stats = stats
         self.sectorAttribution = sectorAttribution
     }
@@ -138,6 +140,7 @@ public struct FundValuation: Codable, Identifiable, Hashable, Equatable {
         case totalWeight = "total_weight"
         case isQdii = "is_qdii"
         case riskLevel = "risk_level"
+        case marketStatus = "market_status"
         case sectorAttribution = "sector_attribution"
         case components, timestamp, confidence, stats
     }

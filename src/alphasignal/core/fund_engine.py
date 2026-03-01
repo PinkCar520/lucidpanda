@@ -7,7 +7,7 @@ import redis
 from datetime import datetime, timedelta
 from src.alphasignal.core.database import IntelligenceDB
 from src.alphasignal.core.logger import logger
-from src.alphasignal.utils.market_calendar import is_market_open, was_market_open_last_night
+from src.alphasignal.utils.market_calendar import is_market_open, was_market_open_last_night, get_market_status
 from src.alphasignal.utils import format_iso8601
 
 class FundEngine:
@@ -927,6 +927,17 @@ class FundEngine:
                 if secid:
                     stock_map[s_code] = secid
 
+        def infer_market_region(fund_code: str) -> str:
+            meta = fund_meta_map.get(fund_code, {})
+            fund_name = str(meta.get('name', '') or fund_name_map.get(fund_code, '') or '')
+            fund_type = str(meta.get('type', '') or '')
+
+            if "QDII" not in fund_type and "QDII" not in fund_name:
+                return "CN"
+            if any(k in fund_name for k in ["恒生", "港", "HK", "H股"]):
+                return "HK"
+            return "US"
+
         if not stock_map:
             now_iso = format_iso8601(datetime.now())
             return [{
@@ -936,6 +947,7 @@ class FundEngine:
                 "total_weight": 0,
                 "components": [],
                 "sector_attribution": {},
+                "market_status": get_market_status(infer_market_region(f)),
                 "timestamp": now_iso,
                 "error": "No holdings"
             } for f in fund_codes]
@@ -1060,6 +1072,7 @@ class FundEngine:
                         "is_qdii": "QDII" in str(fund_meta_map.get(f_code, {}).get('type', '')),
                         "confidence": confidence,
                         "risk_level": risk_level,
+                        "market_status": get_market_status(infer_market_region(f_code)),
                         "components": [] if summary else [{
                             "code": p_code, 
                             "name": q.get('name', p_code), 
@@ -1088,6 +1101,7 @@ class FundEngine:
                     "total_weight": 0,
                     "components": [],
                     "sector_attribution": {},
+                    "market_status": get_market_status(infer_market_region(f_code)),
                     "timestamp": format_iso8601(datetime.now()),
                     "message": "Fetching holdings in background...",
                     "source": "System"
@@ -1102,6 +1116,7 @@ class FundEngine:
                     "total_weight": 0,
                     "components": [],
                     "sector_attribution": {},
+                    "market_status": get_market_status(infer_market_region(f_code)),
                     "timestamp": format_iso8601(datetime.now()),
                     "error": "No holdings data available"
                 })
@@ -1197,6 +1212,7 @@ class FundEngine:
                 "is_qdii": "QDII" in str(fund_meta_map.get(f_code, {}).get('type', '')),
                 "confidence": confidence,
                 "risk_level": risk_level,
+                "market_status": get_market_status(infer_market_region(f_code)),
                 "components": components,
                 "sector_attribution": sector_stats,
                 "timestamp": format_iso8601(datetime.now()),

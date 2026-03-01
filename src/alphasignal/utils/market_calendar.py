@@ -1,5 +1,6 @@
 import pandas_market_calendars as mcal
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
 import threading
 from src.alphasignal.core.logger import logger
 
@@ -78,3 +79,49 @@ def was_market_open_last_night(region='US', target_date=None):
     # Yesterday relative to our 15:00 check
     yesterday = target_date - timedelta(days=1)
     return is_market_open(region, yesterday)
+
+def get_market_status(region='CN', target_dt=None):
+    """
+    Return coarse intraday market status for client display.
+    Values: OPEN / LUNCH_BREAK / CLOSED
+    """
+    if target_dt is None:
+        target_dt = datetime.now()
+    if isinstance(target_dt, date) and not isinstance(target_dt, datetime):
+        target_dt = datetime.combine(target_dt, datetime.min.time())
+
+    region_upper = (region or 'CN').upper()
+    tz_map = {
+        'CN': 'Asia/Shanghai',
+        'US': 'America/New_York',
+        'HK': 'Asia/Hong_Kong',
+    }
+    tz_name = tz_map.get(region_upper, 'Asia/Shanghai')
+    tz = ZoneInfo(tz_name)
+
+    if target_dt.tzinfo is None:
+        local_dt = target_dt.replace(tzinfo=tz)
+    else:
+        local_dt = target_dt.astimezone(tz)
+
+    target_day = local_dt.date()
+    if not is_market_open(region_upper, target_day):
+        return "CLOSED"
+
+    minute_of_day = local_dt.hour * 60 + local_dt.minute
+
+    if region_upper == 'CN':
+        if 9 * 60 + 30 <= minute_of_day < 11 * 60 + 30:
+            return "OPEN"
+        if 11 * 60 + 30 <= minute_of_day < 13 * 60:
+            return "LUNCH_BREAK"
+        if 13 * 60 <= minute_of_day < 15 * 60:
+            return "OPEN"
+        return "CLOSED"
+
+    if region_upper in ['US', 'HK']:
+        if 9 * 60 + 30 <= minute_of_day < 16 * 60:
+            return "OPEN"
+        return "CLOSED"
+
+    return "CLOSED"

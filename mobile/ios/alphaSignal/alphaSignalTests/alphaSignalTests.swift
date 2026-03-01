@@ -137,4 +137,84 @@ struct alphaSignalTests {
         #expect(vm.valuation.fundCode == "D")
     }
 
+    @Test("市场状态: A股开市/午休/休市")
+    func marketStatusCN() async throws {
+        let open = makeDate(year: 2026, month: 3, day: 4, hour: 10, minute: 0, timeZoneId: "Asia/Shanghai")
+        let lunch = makeDate(year: 2026, month: 3, day: 4, hour: 12, minute: 0, timeZoneId: "Asia/Shanghai")
+        let closed = makeDate(year: 2026, month: 3, day: 7, hour: 10, minute: 0, timeZoneId: "Asia/Shanghai")
+
+        #expect(MarketSessionStatusResolver.status(for: .cn, now: open) == .open)
+        #expect(MarketSessionStatusResolver.status(for: .cn, now: lunch) == .lunchBreak)
+        #expect(MarketSessionStatusResolver.status(for: .cn, now: closed) == .closed)
+    }
+
+    @Test("市场状态: QDII按美股时段")
+    func marketStatusQDII() async throws {
+        let valuation = FundValuation(
+            fundCode: "968012",
+            fundName: "Test QDII",
+            estimatedGrowth: 0.1,
+            totalWeight: 1.0,
+            components: [],
+            timestamp: Date(),
+            isQdii: true
+        )
+        let open = makeDate(year: 2026, month: 3, day: 4, hour: 10, minute: 0, timeZoneId: "America/New_York")
+        let closed = makeDate(year: 2026, month: 3, day: 4, hour: 17, minute: 0, timeZoneId: "America/New_York")
+
+        #expect(MarketSessionStatusResolver.status(for: valuation, now: open) == .open)
+        #expect(MarketSessionStatusResolver.status(for: valuation, now: closed) == .closed)
+    }
+
+    @Test("市场状态: 服务端字段优先于本地推断")
+    func marketStatusServerPriority() async throws {
+        let valuation = FundValuation(
+            fundCode: "000001",
+            fundName: "Server Status Test",
+            estimatedGrowth: 0.1,
+            totalWeight: 1.0,
+            components: [],
+            timestamp: Date(),
+            marketStatus: "CLOSED"
+        )
+        let cnOpenTime = makeDate(year: 2026, month: 3, day: 4, hour: 10, minute: 0, timeZoneId: "Asia/Shanghai")
+        #expect(MarketSessionStatusResolver.status(for: valuation, now: cnOpenTime) == .closed)
+    }
+
+    @Test("市场状态: market_status 解码")
+    func marketStatusDecoding() async throws {
+        let payload = """
+        {
+          "fund_code":"000001",
+          "fund_name":"Decode Test",
+          "estimated_growth":0.35,
+          "total_weight":100.0,
+          "components":[],
+          "timestamp":"2026-03-01T12:00:00Z",
+          "market_status":"OPEN"
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(FundValuation.self, from: payload)
+
+        #expect(decoded.marketStatus == "OPEN")
+        #expect(MarketSessionStatusResolver.status(for: decoded) == .open)
+    }
+
+    private func makeDate(year: Int, month: Int, day: Int, hour: Int, minute: Int, timeZoneId: String) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: timeZoneId) ?? TimeZone(secondsFromGMT: 0) ?? .current
+        let components = DateComponents(
+            timeZone: calendar.timeZone,
+            year: year,
+            month: month,
+            day: day,
+            hour: hour,
+            minute: minute
+        )
+        return calendar.date(from: components) ?? Date(timeIntervalSince1970: 0)
+    }
+
 }
