@@ -51,7 +51,7 @@ struct FundDetailView: View {
                 Group {
                     historyLedgerSection
                     
-                    Text("免责声明：系统估值基于公开持仓计算，仅供参考，不构成投资建议。\n市场有风险，投资需谨慎。")
+                    Text(LocalizedStringKey("funds.disclaimer"))
                         .font(.system(size: 11, weight: .regular))
                         .foregroundStyle(.secondary.opacity(0.8))
                         .multilineTextAlignment(.center)
@@ -483,7 +483,7 @@ struct FundDetailView: View {
                 
                 Spacer()
                 
-                if viewModel.valuation.components.count > 5 {
+                if viewModel.valuation.components.count > 3 {
                     Button {
                         showAllHoldings = true
                     } label: {
@@ -501,28 +501,14 @@ struct FundDetailView: View {
             
             let topComponents = viewModel.valuation.components
                 .sorted { abs($0.impact) > abs($1.impact) }
-                .prefix(5)
+                .prefix(3)
             
             ForEach(topComponents) { component in
                 HoldingRow(component: component)
                     .padding(.horizontal)
             }
             
-            if viewModel.valuation.components.count > 5 {
-                Button {
-                    showAllHoldings = true
-                } label: {
-                    Text(String(format: NSLocalizedString("funds.detail.holdings.more_count_format", comment: ""), viewModel.valuation.components.count - 5))
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color.secondary.opacity(0.05))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-                .padding(.horizontal)
-                .padding(.top, 4)
-            }
+
         }
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
@@ -757,9 +743,9 @@ struct HoldingsPenetrationView: View {
         
         var label: String {
             switch self {
-            case .impact: return "贡献度"
-            case .weight: return "权重"
-            case .performance: return "涨跌幅"
+            case .impact: return String(localized: "funds.detail.holdings.sort.impact")
+            case .weight: return String(localized: "funds.detail.holdings.sort.weight")
+            case .performance: return String(localized: "funds.detail.holdings.sort.performance")
             }
         }
         
@@ -797,7 +783,7 @@ struct HoldingsPenetrationView: View {
                         HStack {
                             Image(systemName: "magnifyingglass")
                                 .foregroundStyle(.secondary)
-                            TextField("搜索证券名称或代码", text: $searchText)
+                            TextField(String(localized: "funds.detail.holdings.search_prompt"), text: $searchText)
                                 .textFieldStyle(.plain)
                         }
                         .padding(10)
@@ -832,18 +818,13 @@ struct HoldingsPenetrationView: View {
                             ForEach(filteredResults) { component in
                                 HoldingRow(component: component)
                             }
-                            
-                            Text("funds.detail.holdings.footnote")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                                .padding(.top, 20)
-                                .padding(.bottom, 40)
                         }
                         .padding()
+                        .padding(.bottom, 20)
                     }
                 }
             }
-            .navigationTitle("持仓穿透分析")
+            .navigationTitle(String(localized: "funds.detail.holdings.full_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

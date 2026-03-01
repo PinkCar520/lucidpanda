@@ -2288,11 +2288,92 @@
         }
       }
     },
-    "funds.detail.holdings.footnote" : {
 
+    "funds.detail.holdings.full_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full Holdings Look-through"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "持仓穿透分析"
+          }
+        }
+      }
     },
-    "funds.detail.holdings.more_count_format" : {
 
+    "funds.detail.holdings.search_prompt" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search ticker or company name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索证券名称或代码"
+          }
+        }
+      }
+    },
+    "funds.detail.holdings.sort.impact" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Impact"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "贡献度"
+          }
+        }
+      }
+    },
+    "funds.detail.holdings.sort.performance" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Return"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "涨跌幅"
+          }
+        }
+      }
+    },
+    "funds.detail.holdings.sort.weight" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "权重"
+          }
+        }
+      }
     },
     "funds.detail.holdings.title" : {
       "localizations" : {
@@ -2311,7 +2392,21 @@
       }
     },
     "funds.detail.holdings.view_all" : {
-
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View All"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看全部"
+          }
+        }
+      }
     },
     "funds.detail.holdings.weight_format" : {
       "localizations" : {
@@ -4288,9 +4383,6 @@
     "使用通行密钥登录" : {
 
     },
-    "免责声明：系统估值基于公开持仓计算，仅供参考，不构成投资建议。\n市场有风险，投资需谨慎。" : {
-
-    },
     "关联情报" : {
 
     },
@@ -4319,12 +4411,6 @@
 
     },
     "忘记密码？" : {
-
-    },
-    "持仓穿透分析" : {
-
-    },
-    "搜索证券名称或代码" : {
 
     },
     "查看完整关联报告 →" : {

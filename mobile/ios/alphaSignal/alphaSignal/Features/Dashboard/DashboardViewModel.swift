@@ -112,7 +112,7 @@ class DashboardViewModel {
                     content: "", // V1 列表页不返回正文以节省流量
                     sentiment: dto.sentiment_label,
                     urgencyScore: dto.urgency_score,
-                    goldPriceSnapshot: nil
+                    goldPriceSnapshot: dto.gold_price_snapshot
                 )
             }
             processNewItems(items)
@@ -154,6 +154,7 @@ struct IntelligenceMobileReadDTO: Codable {
     let summary: String
     let urgency_score: Int
     let sentiment_label: String
+    let gold_price_snapshot: Double?
 }
 
 struct IntelligenceHistoryResponse: Codable {

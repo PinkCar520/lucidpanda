@@ -74,6 +74,7 @@ struct MainDashboardView: View {
                         .padding(.top, 16)
                     }
                 }
+                
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
