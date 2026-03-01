@@ -1283,14 +1283,34 @@ class IntelligenceDB:
             conn.close()
 
     def get_fund_metadata_batch(self, fund_codes: list):
-        """Fetch multiple fund metadata (name, type) in one query."""
+        """Fetch multiple fund metadata (name, type, fee rates) in one query."""
         if not fund_codes: return {}
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:
-                cursor.execute("SELECT fund_code, fund_name, investment_type FROM fund_metadata WHERE fund_code = ANY(%s)", (fund_codes,))
+                cursor.execute("""
+                    SELECT
+                        m.fund_code,
+                        m.fund_name,
+                        m.investment_type,
+                        s.mgmt_fee_rate,
+                        s.custodian_fee_rate,
+                        s.sales_fee_rate
+                    FROM fund_metadata m
+                    LEFT JOIN fund_stats_snapshot s ON s.fund_code = m.fund_code
+                    WHERE m.fund_code = ANY(%s)
+                """, (fund_codes,))
                 rows = cursor.fetchall()
-                return {r[0]: {'name': r[1], 'type': r[2]} for r in rows}
+                return {
+                    r[0]: {
+                        'name': r[1],
+                        'type': r[2],
+                        'mgmt_fee_rate': r[3],
+                        'custodian_fee_rate': r[4],
+                        'sales_fee_rate': r[5],
+                    }
+                    for r in rows
+                }
         finally:
             conn.close()
 
