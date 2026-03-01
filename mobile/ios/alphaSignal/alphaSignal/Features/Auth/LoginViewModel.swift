@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import AlphaCore
 import AlphaData
+import OSLog
 
 enum AuthMode {
     case login
@@ -11,9 +12,11 @@ enum AuthMode {
 
 @Observable
 class LoginViewModel {
+    private let logger = AppLog.auth
     var mode: AuthMode = .login
     
     var email = ""
+    var username = ""
     var password = ""
     var confirmPassword = ""
     
@@ -24,7 +27,13 @@ class LoginViewModel {
     
     var canSubmit: Bool { 
         if mode == .forgotPassword { return !email.isEmpty }
-        if mode == .register { return !email.isEmpty && !password.isEmpty && password == confirmPassword }
+        if mode == .register {
+            return !email.isEmpty
+                && !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !password.isEmpty
+                && password.count >= 8
+                && password == confirmPassword
+        }
         return !email.isEmpty && !password.isEmpty 
     }
     
@@ -53,12 +62,12 @@ class LoginViewModel {
             // 安全存储会话 Token 到 Keychain
             try storeSession(from: result)
             
-            print("Login Success for: \(result.user.email)")
+            logger.info("Login success for \(result.user.email, privacy: .private)")
             onSuccess?()
             
         } catch {
             errorMessage = "登录失败：邮箱或密码错误"
-            print("Login error: \(error)")
+            logger.error("Login failed: \(error.localizedDescription, privacy: .public)")
         }
         
         isLoading = false
@@ -73,12 +82,27 @@ class LoginViewModel {
         isLoading = true
         errorMessage = nil
         successMessage = nil
-        
-        // 模拟请求延迟
-        try? await Task.sleep(nanoseconds: 1_200_000_000)
-        
-        // TODO: Backend implementation for Register
-        successMessage = "注册成功"
+
+        do {
+            let request = RegisterRequest(
+                email: email.trimmingCharacters(in: .whitespacesAndNewlines),
+                username: username.trimmingCharacters(in: .whitespacesAndNewlines),
+                password: password
+            )
+            let _: UserDTO = try await APIClient.shared.send(
+                path: "/api/v1/auth/register",
+                method: "POST",
+                body: request
+            )
+            successMessage = "注册成功，请返回登录"
+            mode = .login
+            password = ""
+            confirmPassword = ""
+        } catch {
+            errorMessage = parseFriendlyError(error, fallback: "注册失败，请稍后再试")
+            logger.error("Register failed: \(error.localizedDescription, privacy: .public)")
+        }
+
         isLoading = false
     }
     
@@ -91,12 +115,20 @@ class LoginViewModel {
         isLoading = true
         errorMessage = nil
         successMessage = nil
-        
-        // 模拟请求延迟
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
-        // TODO: Backend implementation for Forgot Password
-        successMessage = "重置密码指令已发送至您的邮箱"
+
+        do {
+            let request = ForgotPasswordRequest(email: email.trimmingCharacters(in: .whitespacesAndNewlines))
+            let response: MessageResponseDTO = try await APIClient.shared.send(
+                path: "/api/v1/auth/forgot-password",
+                method: "POST",
+                body: request
+            )
+            successMessage = response.message
+        } catch {
+            errorMessage = parseFriendlyError(error, fallback: "发送失败，请稍后再试")
+            logger.error("Forgot password failed: \(error.localizedDescription, privacy: .public)")
+        }
+
         isLoading = false
     }
     
@@ -135,7 +167,7 @@ class LoginViewModel {
             errorMessage = NSLocalizedString("auth.passkey.unsupported", comment: "")
         } catch {
             errorMessage = NSLocalizedString("auth.passkey.failed", comment: "")
-            print("Passkey login error: \(error)")
+            logger.error("Passkey login failed: \(error.localizedDescription, privacy: .public)")
         }
         
         isPasskeyLoading = false
@@ -147,6 +179,22 @@ class LoginViewModel {
             refreshToken: result.refreshToken,
             expiresIn: result.expiresIn
         )
+    }
+
+    private func parseFriendlyError(_ error: Error, fallback: String) -> String {
+        guard case let APIError.serverError(_, message) = error else {
+            return fallback
+        }
+        guard let message, !message.isEmpty else { return fallback }
+
+        if let data = message.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let detail = json["detail"] as? String,
+           !detail.isEmpty {
+            return detail
+        }
+
+        return message
     }
 }
 
@@ -165,4 +213,18 @@ private struct RawEndpoint: Endpoint {
     let path: String
     let method: HTTPMethod
     let body: Data?
+}
+
+private struct RegisterRequest: Encodable {
+    let email: String
+    let username: String
+    let password: String
+}
+
+private struct ForgotPasswordRequest: Encodable {
+    let email: String
+}
+
+private struct MessageResponseDTO: Decodable {
+    let message: String
 }

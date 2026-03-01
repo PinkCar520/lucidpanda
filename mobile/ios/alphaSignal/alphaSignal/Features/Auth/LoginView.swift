@@ -13,6 +13,7 @@ struct LoginView: View {
     
     enum AuthField {
         case email
+        case username
         case password
         case confirmPassword
     }
@@ -50,13 +51,16 @@ struct LoginView: View {
                 appearAnimation = true
             }
             viewModel.onSuccess = {
-                withAnimation(.spring()) {
-                    rootViewModel.updateState(to: .authenticated)
-                }
+                rootViewModel.updateState(to: .authenticated)
             }
         }
-        .onTapGesture {
-            focusedField = nil
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完成") {
+                    focusedField = nil
+                }
+            }
         }
     }
 
@@ -110,6 +114,14 @@ struct LoginView: View {
                 }
                 
                 if viewModel.mode == .register {
+                    customTextField(
+                        icon: "person.fill",
+                        placeholder: "用户名（3-50位，仅字母数字下划线）",
+                        text: $viewModel.username,
+                        isSecure: false,
+                        field: .username
+                    )
+
                     customTextField(
                         icon: "lock.shield.fill",
                         placeholder: "确认密码",
@@ -249,6 +261,26 @@ struct LoginView: View {
                     .textInputAutocapitalization(.never)
                     .keyboardType(field == .email ? .emailAddress : .default)
                     .autocorrectionDisabled(true)
+                    .submitLabel((field == .email && viewModel.mode == .forgotPassword) || field == .confirmPassword ? .go : .next)
+                    .onSubmit {
+                        if field == .email {
+                            if viewModel.mode == .forgotPassword {
+                                Task { await viewModel.performPasswordReset() }
+                            } else {
+                                focusedField = viewModel.mode == .register ? .username : .password
+                            }
+                        } else if field == .username {
+                            focusedField = .password
+                        } else if field == .password {
+                            if viewModel.mode == .register {
+                                focusedField = .confirmPassword
+                            } else if viewModel.mode == .login {
+                                Task { await viewModel.performLogin() }
+                            }
+                        } else if field == .confirmPassword, viewModel.mode == .register {
+                            Task { await viewModel.performRegister() }
+                        }
+                    }
             }
             
             if field == .password {
@@ -267,7 +299,6 @@ struct LoginView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(focusedField == field ? Color.accentColor.opacity(0.8) : Color.primary.opacity(0.15), lineWidth: focusedField == field ? 1.5 : 1)
         )
-        .animation(.easeInOut(duration: 0.2), value: focusedField)
     }
     
     // MARK: - Handlers
@@ -276,6 +307,10 @@ struct LoginView: View {
             viewModel.mode = newMode
             viewModel.errorMessage = nil
             viewModel.successMessage = nil
+            if newMode != .register {
+                viewModel.username = ""
+                viewModel.confirmPassword = ""
+            }
             focusedField = nil
         }
     }

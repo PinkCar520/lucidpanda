@@ -220,6 +220,11 @@ public struct WatchlistMoveGroupRequest: Codable {
 public struct WatchlistReorderItem: Codable {
     public let fundCode: String
     public let sortIndex: Int
+
+    public init(fundCode: String, sortIndex: Int) {
+        self.fundCode = fundCode
+        self.sortIndex = sortIndex
+    }
     
     enum CodingKeys: String, CodingKey {
         case fundCode = "fund_code"
@@ -229,6 +234,10 @@ public struct WatchlistReorderItem: Codable {
 
 public struct WatchlistReorderRequest: Codable {
     public let items: [WatchlistReorderItem]
+
+    public init(items: [WatchlistReorderItem]) {
+        self.items = items
+    }
 }
 
 public struct WatchlistBatchAddRequest: Codable {

@@ -33,7 +33,7 @@ struct MainTabView: View {
             // Tab 4: 搜索 (独立的搜索角色 Tab)
             Tab("app.tab.search", systemImage: "magnifyingglass", value: .search, role: .search) {
                 FundDiscoverView(searchText: $searchText)
-                    .searchable(text: $searchText, prompt: Text("app.search.fund_prompt"))
+                    .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always),prompt: Text("app.search.fund_prompt"))
             }
             .customizationID("search")
         }

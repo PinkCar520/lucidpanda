@@ -48,6 +48,12 @@ struct FundDashboardView: View {
             await viewModel.fetchWatchlist()
             await viewModel.fetchGroups()
         }
+        .onAppear {
+            viewModel.startLiveUpdates()
+        }
+        .onDisappear {
+            viewModel.stopLiveUpdates()
+        }
         .sheet(isPresented: $showCreateGroupOnly) {
             CreateGroupForm { name, icon, color in
                 Task {

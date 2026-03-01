@@ -3,8 +3,10 @@ import PhotosUI
 import AlphaDesign
 import AlphaData
 import AlphaCore
+import OSLog
 
 struct SettingsView: View {
+    private let logger = AppLog.root
     @Environment(AppRootViewModel.self) private var rootViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -167,10 +169,10 @@ struct SettingsView: View {
                                     fileName: "avatar.jpg",
                                     mimeType: "image/jpeg"
                                 )
-                                print("✅ Avatar successfully uploaded to Backend: \(response.avatarUrl)")
+                                logger.info("Avatar uploaded: \(response.avatarUrl, privacy: .public)")
                                 await rootViewModel.fetchUserProfile()
                             } catch {
-                                print("❌ Avatar upload failed: \(error)")
+                                logger.error("Avatar upload failed: \(error.localizedDescription, privacy: .public)")
                             }
                         }
                     }
@@ -462,20 +464,25 @@ struct SettingsView: View {
         isLoggingOut = true
         defer { isLoggingOut = false }
 
-        if let refreshToken = AuthTokenStore.refreshToken() {
-            do {
-                let _: MessageResponseDTO = try await APIClient.shared.send(
-                    path: "/api/v1/auth/logout",
-                    method: "POST",
-                    body: LogoutPayload(refreshToken: refreshToken)
-                )
-            } catch {
-                // Network failure should not block local sign-out.
+        let refreshToken = AuthTokenStore.refreshToken()
+
+        // 先本地退出，避免被网络请求阻塞导致界面卡顿。
+        rootViewModel.updateState(to: .unauthenticated)
+        dismiss()
+
+        if let refreshToken {
+            Task.detached(priority: .utility) {
+                do {
+                    let _: MessageResponseDTO = try await APIClient.shared.send(
+                        path: "/api/v1/auth/logout",
+                        method: "POST",
+                        body: LogoutPayload(refreshToken: refreshToken)
+                    )
+                } catch {
+                    // Backend logout best-effort only.
+                }
             }
         }
-
-        AuthTokenStore.clear()
-        rootViewModel.updateState(to: .unauthenticated)
     }
 
     private var profileEditSheet: some View {
@@ -716,7 +723,7 @@ struct SettingsView: View {
             
             // 显示成功提示
             passwordErrorMessage = "✅ Password successfully changed"
-            print("✅ Password changed: \(response.message)")
+            logger.info("Password changed: \(response.message, privacy: .public)")
         } catch {
             passwordErrorMessage = "修改密码失败：\(error.localizedDescription)"
         }

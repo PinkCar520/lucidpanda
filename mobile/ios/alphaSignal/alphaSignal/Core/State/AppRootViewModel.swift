@@ -2,6 +2,7 @@ import Foundation
 import Observation
 import SwiftUI
 import AlphaCore
+import OSLog
 
 public struct UserProfileDTO: Decodable {
     public let id: String
@@ -30,6 +31,7 @@ public struct UserProfileDTO: Decodable {
 
 @Observable
 public class AppRootViewModel {
+    private let logger = AppLog.root
     public enum AppState {
         case loading
         case unauthenticated
@@ -43,16 +45,14 @@ public class AppRootViewModel {
     
     @MainActor
     public func checkAuthentication() async {
-        // 预留 1 秒展示液态加载动画，提升品牌感
-        try? await Task.sleep(nanoseconds: 1_000_000_000)
-        
+        // 直接进行极速鉴权判断以实现“无感秒开”
         if AuthTokenStore.accessToken() != nil || AuthTokenStore.refreshToken() != nil {
-            withAnimation(.spring()) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 currentState = .authenticated
             }
             Task { await fetchUserProfile() }
         } else {
-            withAnimation(.spring()) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 currentState = .unauthenticated
             }
         }
@@ -60,10 +60,19 @@ public class AppRootViewModel {
     
     @MainActor
     public func updateState(to newState: AppState) {
+        if currentState == newState {
+            if newState == .unauthenticated {
+                userProfile = nil
+            }
+            return
+        }
+
         if newState == .unauthenticated {
+            WatchlistSyncEngine.shared.stop()
+            Task { await SSEResolver.shared.stop() }
             AuthTokenStore.clear()
         }
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+        withAnimation(.easeOut(duration: 0.2)) {
             self.currentState = newState
         }
         
@@ -76,13 +85,19 @@ public class AppRootViewModel {
     
     @MainActor
     public func fetchUserProfile() async {
+        guard currentState == .authenticated else { return }
+        guard AuthTokenStore.accessToken() != nil || AuthTokenStore.refreshToken() != nil else { return }
+
         do {
             let profile: UserProfileDTO = try await APIClient.shared.fetch(path: "/api/v1/auth/me")
-            withAnimation(.spring()) {
+            withAnimation(.easeOut(duration: 0.2)) {
                 self.userProfile = profile
             }
         } catch {
-            print("❌ AppRootViewModel Failed to fetch user profile: \(error)")
+            if case APIError.unauthorized = error {
+                return
+            }
+            logger.error("Failed to fetch user profile: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

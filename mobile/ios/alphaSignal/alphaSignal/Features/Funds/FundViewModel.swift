@@ -4,6 +4,7 @@ import AlphaCore
 import AlphaData
 import SwiftUI
 import SwiftData
+import OSLog
 
 // MARK: - 排序模式
 
@@ -48,6 +49,7 @@ enum WatchlistViewMode: Equatable {
 @Observable
 @MainActor
 class FundViewModel {
+    private let logger = AppLog.watchlist
     // MARK: - Published Properties
     
     var watchlist: [FundValuation] = []
@@ -89,6 +91,8 @@ class FundViewModel {
     private let syncEngine = WatchlistSyncEngine.shared
     private let cacheManager = WatchlistCacheManager.shared
     private var modelContext: ModelContext?
+    private var liveUpdateTask: Task<Void, Never>?
+    private let liveUpdateInterval: UInt64 = 15_000_000_000
 
     // MARK: - Derived Data
 
@@ -161,7 +165,7 @@ class FundViewModel {
     }
     
     @objc private func handleSyncNotification(_ notification: Notification) {
-        Task {
+        Task { @MainActor in
             await fetchWatchlist()
         }
     }
@@ -171,7 +175,7 @@ class FundViewModel {
     func setModelContext(_ context: ModelContext) {
         self.modelContext = context
         Task {
-            await cacheManager.setup(modelContext: context)
+            await cacheManager.setup(modelContainer: context.container)
         }
     }
     
@@ -230,13 +234,13 @@ class FundViewModel {
             
         } catch {
             syncError = error
-            print("❌ Failed to fetch watchlist: \(error)")
+            logger.error("Failed to fetch watchlist: \(error.localizedDescription, privacy: .public)")
             // 网络彻底断开时，由于之前已经 loadFromCache 过，此处什么都不做
         }
         
         isLoading = false
     }
-    
+
     func fetchGroups() async {
         // --- 核心优化：Offline-First ---
         // 瞬间加载 SwiftData 里的分组信息
@@ -264,10 +268,10 @@ class FundViewModel {
             self.groups = response.data
             await cacheManager.saveGroups(response.data)
             
-            print("✅ Fetched \(response.data.count) user groups")
+            logger.info("Fetched \(response.data.count, privacy: .public) user groups")
             
         } catch {
-            print("❌ Failed to fetch groups: \(error)")
+            logger.error("Failed to fetch groups: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -283,11 +287,40 @@ class FundViewModel {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 self.watchlist = response.data
             }
+            
+            await cacheManager.saveValuations(response.data)
         } catch {
-            print("❌ Failed to fetch valuations: \(error)")
+            logger.error("Failed to fetch valuations: \(error.localizedDescription, privacy: .public)")
         }
         
         isLoadingValuations = false
+    }
+
+    private func refreshValuations(for codes: [String], replace: Bool) async {
+        guard !codes.isEmpty else { return }
+
+        do {
+            let codesParam = codes.joined(separator: ",")
+            let response: BatchValuationResponse = try await APIClient.shared.fetch(
+                path: "/api/v1/web/funds/batch-valuation?codes=\(codesParam)&mode=summary"
+            )
+            if replace {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    self.watchlist = response.data
+                }
+            } else {
+                let updated = Dictionary(uniqueKeysWithValues: response.data.map { ($0.fundCode, $0) })
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    let existingCodes = Set(self.watchlist.map(\.fundCode))
+                    let merged = self.watchlist.map { updated[$0.fundCode] ?? $0 }
+                    let appended = response.data.filter { !existingCodes.contains($0.fundCode) }
+                    self.watchlist = merged + appended
+                }
+            }
+            await cacheManager.saveValuations(response.data)
+        } catch {
+            logger.error("Failed to refresh valuations: \(error.localizedDescription, privacy: .public)")
+        }
     }
     
     private func loadFromCache() async {
@@ -305,6 +338,20 @@ class FundViewModel {
                 isDeleted: $0.isDeleted
             )
         }
+        
+        var cachedValuations: [FundValuation] = []
+        for localItem in cachedItems {
+            if let data = localItem.cachedValuationData,
+               let valuation = try? JSONDecoder().decode(FundValuation.self, from: data) {
+                cachedValuations.append(valuation)
+            }
+        }
+        if !cachedValuations.isEmpty {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                self.watchlist = cachedValuations
+            }
+        }
+        
         let codes = cachedItems.map { $0.fundCode }
         
         if !codes.isEmpty {
@@ -317,7 +364,7 @@ class FundViewModel {
     func addFund(code: String, name: String, groupId: String? = nil) async {
         // 1. 检查是否已存在
         if watchlist.contains(where: { $0.fundCode == code }) {
-            print("⚠️ Fund already in watchlist: \(code)")
+            logger.warning("Fund already in watchlist: \(code, privacy: .public)")
             return
         }
         
@@ -365,7 +412,7 @@ class FundViewModel {
             await fetchWatchlist()
 
         } catch {
-            print("❌ Failed to add fund: \(error)")
+            logger.error("Failed to add fund: \(error.localizedDescription, privacy: .public)")
             // 不回滚，依赖同步机制
         }
     }
@@ -412,7 +459,7 @@ class FundViewModel {
             }
             
         } catch {
-            print("❌ Failed to delete fund: \(error)")
+            logger.error("Failed to delete fund: \(error.localizedDescription, privacy: .public)")
             // 回滚 UI
             withAnimation {
                 watchlist.insert(fund, at: lastDeletedFund?.index ?? 0)
@@ -468,7 +515,7 @@ class FundViewModel {
             isEditing = false
 
         } catch {
-            print("❌ Failed to batch delete: \(error)")
+            logger.error("Failed to batch delete: \(error.localizedDescription, privacy: .public)")
             await fetchWatchlist()
         }
     }
@@ -481,9 +528,26 @@ class FundViewModel {
     
     func moveFundToGroup(code: String, groupId: String?) async {
         guard watchlist.contains(where: { $0.fundCode == code }) else { return }
-        
-        // 乐观更新
-        // TODO: 更新本地 groupId
+
+        // 乐观更新本地分组，确保筛选视图立即变化。
+        if let index = watchlistItems.firstIndex(where: { $0.fundCode == code }) {
+            let current = watchlistItems[index]
+            let updated = WatchlistItem(
+                id: current.id,
+                userId: current.userId,
+                fundCode: current.fundCode,
+                fundName: current.fundName,
+                groupId: groupId,
+                sortIndex: current.sortIndex,
+                createdAt: current.createdAt,
+                updatedAt: Date(),
+                isDeleted: current.isDeleted
+            )
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                watchlistItems[index] = updated
+            }
+            await cacheManager.saveItem(updated)
+        }
         
         // 加入待同步队列
         await syncEngine.enqueueMove(fundCode: code, groupId: groupId)
@@ -496,7 +560,7 @@ class FundViewModel {
             await fetchWatchlist()
 
         } catch {
-            print("❌ Failed to move fund to group: \(error)")
+            logger.error("Failed to move fund to group: \(error.localizedDescription, privacy: .public)")
             await fetchWatchlist()
         }
     }
@@ -509,17 +573,51 @@ class FundViewModel {
     
     func reorder(from offsets: IndexSet, to newOffset: Int) {
         guard sortOrder == .none else { return } // 只在自定义排序模式下允许拖拽
-        
-        // TODO: 实现拖拽排序逻辑
-        // watchlist.move(fromOffsets: offsets, toOffset: newOffset)
-        
-        // 加入待同步队列
-        Task {
-            for index in offsets {
+
+        var ordered = sortedWatchlist
+        ordered.move(fromOffsets: offsets, toOffset: newOffset)
+
+        let rankByCode = Dictionary(uniqueKeysWithValues: ordered.enumerated().map { ($0.element.fundCode, $0.offset) })
+        watchlistItems = watchlistItems.map { item in
+            guard let rank = rankByCode[item.fundCode] else { return item }
+            return WatchlistItem(
+                id: item.id,
+                userId: item.userId,
+                fundCode: item.fundCode,
+                fundName: item.fundName,
+                groupId: item.groupId,
+                sortIndex: rank,
+                createdAt: item.createdAt,
+                updatedAt: Date(),
+                isDeleted: item.isDeleted
+            )
+        }
+
+        Task { [watchlistItems] in
+            for item in watchlistItems {
+                await cacheManager.saveItem(item)
+            }
+
+            for (index, valuation) in ordered.enumerated() {
                 await syncEngine.enqueueReorder(
-                    fundCode: watchlist[index].fundCode,
-                    sortIndex: newOffset
+                    fundCode: valuation.fundCode,
+                    sortIndex: index
                 )
+            }
+
+            do {
+                let request = WatchlistReorderRequest(
+                    items: ordered.enumerated().map { idx, value in
+                        WatchlistReorderItem(fundCode: value.fundCode, sortIndex: idx)
+                    }
+                )
+                let _: SuccessResponse = try await APIClient.shared.send(
+                    path: "/api/v2/watchlist/reorder",
+                    method: "POST",
+                    body: request
+                )
+            } catch {
+                logger.error("Failed to reorder watchlist: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
@@ -588,7 +686,7 @@ class FundViewModel {
             await cacheManager.saveGroup(realGroup)
 
         } catch {
-            print("❌ Failed to create group: \(error)")
+            logger.error("Failed to create group: \(error.localizedDescription, privacy: .public)")
             // 3. 失败时回滚
             withAnimation {
                 groups.removeAll { $0.id == tempId }
@@ -617,18 +715,31 @@ class FundViewModel {
             }
             
         } catch {
-            print("❌ Failed to delete group: \(error)")
+            logger.error("Failed to delete group: \(error.localizedDescription, privacy: .public)")
         }
     }
     
     // MARK: - Live Updates
     
     func startLiveUpdates() {
-        // TODO: 启动实时估值更新
+        guard liveUpdateTask == nil else { return }
+        liveUpdateTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                let codes = await MainActor.run {
+                    self.watchlistItems.map(\.fundCode)
+                }
+                if !codes.isEmpty {
+                    await self.refreshValuations(for: codes, replace: false)
+                }
+                try? await Task.sleep(nanoseconds: self.liveUpdateInterval)
+            }
+        }
     }
     
     func stopLiveUpdates() {
-        // TODO: 停止实时估值更新
+        liveUpdateTask?.cancel()
+        liveUpdateTask = nil
     }
 }
 

@@ -111,6 +111,9 @@
     "AlphaSignal Core Engine v2.0" : {
 
     },
+    "analysis" : {
+
+    },
     "app.funds.added" : {
 
     },
@@ -2288,7 +2291,6 @@
         }
       }
     },
-
     "funds.detail.holdings.full_title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -2306,7 +2308,6 @@
         }
       }
     },
-
     "funds.detail.holdings.search_prompt" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4407,6 +4408,9 @@
     "基金速览" : {
 
     },
+    "完成" : {
+
+    },
     "当前暂无直接关联的地缘政治情报" : {
 
     },
@@ -4417,9 +4421,6 @@
 
     },
     "核心信号透传" : {
-
-    },
-    "正在初始化安全链路..." : {
 
     },
     "注册账号" : {

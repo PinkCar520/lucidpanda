@@ -13,6 +13,7 @@ struct FundDetailView: View {
     @State private var filteredSector: (name: String, stat: SectorStat)? = nil // 饼图联动：原地过滤
     @State private var selectedSectorForSheet: (name: String, stat: SectorStat)? = nil // 列表交互：弹窗
     @State private var showAllHoldings = false // 持仓全量弹窗触发
+    @State private var analysisTab: AnalysisTab = .sector
     
     init(valuation: FundValuation) {
         _viewModel = State(initialValue: FundDetailViewModel(valuation: valuation))
@@ -36,7 +37,7 @@ struct FundDetailView: View {
                         confidenceReportSection(confidence: confidence)
                     }
                     
-                    sectorAttributionSection
+                    analysisSwitcherSection
                     
                     if !viewModel.linkedIntelligence.isEmpty {
                         linkedIntelligenceSection
@@ -45,9 +46,6 @@ struct FundDetailView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
-                
-                portfolioPenetrationSection
-                
                 Group {
                     historyLedgerSection
                     
@@ -75,6 +73,11 @@ struct FundDetailView: View {
         }
         .onDisappear {
             viewModel.stopLiveUpdates()
+        }
+        .onChange(of: analysisTab) { _, newValue in
+            if newValue != .sector {
+                filteredSector = nil
+            }
         }
         .sheet(item: Binding(
             get: { selectedSectorForSheet.map { IdentifiableSector(name: $0.name, stat: $0.stat) } },
@@ -472,47 +475,61 @@ struct FundDetailView: View {
             .padding(.horizontal)
         }
     }
+
+    private var analysisSwitcherSection: some View {
+        VStack(spacing: 12) {
+            Picker("analysis", selection: $analysisTab) {
+                ForEach(AnalysisTab.allCases) { tab in
+                    Text(tab.title).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .controlSize(.extraLarge)
+            .glassEffect(.regular, in: .capsule)
+            .padding(.horizontal)
+            Group {
+                if analysisTab == .sector {
+                    sectorAttributionSection
+                } else {
+                    portfolioPenetrationSection
+                }
+            }
+        }
+    }
     
     @ViewBuilder
     private var portfolioPenetrationSection: some View {
-        Group {
-            HStack {
-                Text("funds.detail.holdings.title")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(colorScheme == .dark ? .white : .black)
-                
-                Spacer()
-                
-                if viewModel.valuation.components.count > 3 {
-                    Button {
-                        showAllHoldings = true
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text("funds.detail.holdings.view_all")
-                            Image(systemName: "chevron.right")
-                        }
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.blue)
+        HStack {
+            Text("funds.detail.holdings.title")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(colorScheme == .dark ? .white : .black)
+            
+            Spacer()
+            
+            if viewModel.valuation.components.count > 3 {
+                Button {
+                    showAllHoldings = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("funds.detail.holdings.view_all")
+                        Image(systemName: "chevron.right")
                     }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.blue)
                 }
             }
-            .padding(.horizontal)
-            .padding(.top, 12)
-            
-            let topComponents = viewModel.valuation.components
-                .sorted { abs($0.impact) > abs($1.impact) }
-                .prefix(3)
-            
-            ForEach(topComponents) { component in
-                HoldingRow(component: component)
-                    .padding(.horizontal)
-            }
-            
-
         }
-        .listRowSeparator(.hidden)
-        .listRowBackground(Color.clear)
-        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+        .padding(.horizontal)
+        .padding(.top, 12)
+        
+        let topComponents = viewModel.valuation.components
+            .sorted { abs($0.impact) > abs($1.impact) }
+            .prefix(3)
+        
+        ForEach(topComponents) { component in
+            HoldingRow(component: component)
+                .padding(.horizontal)
+        }
     }
     
     private var historyLedgerSection: some View {
@@ -596,6 +613,22 @@ struct FundDetailView: View {
     }
     
     // MARK: - Helper Types
+
+    private enum AnalysisTab: String, CaseIterable, Identifiable {
+        case sector
+        case holdings
+
+        var id: String { rawValue }
+
+        var title: LocalizedStringKey {
+            switch self {
+            case .sector:
+                return "funds.detail.sector.title"
+            case .holdings:
+                return "funds.detail.holdings.title"
+            }
+        }
+    }
     
     // Identifiable wrapper for SectorStat to use with .sheet
     private struct IdentifiableSector: Identifiable {

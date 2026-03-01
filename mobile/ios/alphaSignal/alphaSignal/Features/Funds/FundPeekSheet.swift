@@ -3,11 +3,13 @@ import AlphaDesign
 import AlphaData
 import AlphaCore
 import SwiftData
+import OSLog
 
 struct FundPeekSheet: View {
     let valuation: FundValuation
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    private let logger = AppLog.watchlist
     
     @State private var linkedIntelligence: [IntelligenceItem] = []
     @State private var isLoading: Bool = true
@@ -163,7 +165,7 @@ struct FundPeekSheet: View {
                 self.aiAdvice = response.ai_summary
             }
         } catch {
-            print("Failed to fetch AI analysis for fund peek: \(error)")
+            logger.error("Failed to fetch AI analysis for fund peek: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

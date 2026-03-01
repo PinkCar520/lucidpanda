@@ -39,14 +39,6 @@ struct alphaSignalApp: App {
                     // 启动闪屏
                     ZStack {
                         LiquidBackground()
-                        VStack(spacing: 20) {
-                            ProgressView()
-                                .tint(.primary)
-                                .scaleEffect(1.5)
-                            Text("正在初始化安全链路...")
-                                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.secondary)
-                        }
                     }
                     
                 case .unauthenticated:

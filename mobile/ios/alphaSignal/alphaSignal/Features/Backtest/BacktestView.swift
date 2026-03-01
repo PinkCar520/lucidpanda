@@ -2,6 +2,7 @@ import SwiftUI
 import AlphaDesign
 import AlphaData
 import Charts
+import OSLog
 
 struct BacktestView: View {
     @State private var viewModel = BacktestViewModel()
@@ -11,6 +12,7 @@ struct BacktestView: View {
     @State private var loadingEvidenceDetailId: Int?
     @State private var evidenceDetailError: String?
     @State private var showSettingsPopover = false
+    private let logger = AppLog.dashboard
 
     @AppStorage("backtest.window") private var savedWindow = "1h"
     @AppStorage("backtest.min_score") private var savedMinScore = 8
@@ -625,7 +627,7 @@ struct BacktestView: View {
             selectedIntelligence = detail
         } catch {
             evidenceDetailError = t("error.network.generic")
-            print("Failed to fetch intelligence detail for backtest item \(item.id): \(error)")
+            logger.error("Failed to fetch intelligence detail for item \(item.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
         loadingEvidenceDetailId = nil
     }

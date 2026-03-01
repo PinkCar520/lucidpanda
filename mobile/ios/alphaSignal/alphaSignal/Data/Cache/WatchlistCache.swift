@@ -3,6 +3,7 @@
 import Foundation
 import SwiftData
 import AlphaData
+import OSLog
 
 // MARK: - 本地缓存模型
 
@@ -15,6 +16,7 @@ class LocalWatchlistItem {
     var lastSyncTime: Date
     var isDeleted: Bool
     var pendingOperationsData: Data?
+    var cachedValuationData: Data?
     
     @Transient var pendingOperations: [PendingOperation] {
         get {
@@ -37,6 +39,7 @@ class LocalWatchlistItem {
         self.lastSyncTime = Date()
         self.isDeleted = false
         self.pendingOperationsData = nil
+        self.cachedValuationData = nil
     }
 }
 
@@ -63,12 +66,16 @@ class LocalWatchlistGroup {
 
 actor WatchlistCacheManager {
     static let shared = WatchlistCacheManager()
+    private let logger = AppLog.watchlist
     
     private var modelContext: ModelContext?
     private var isInitialized = false
     
-    func setup(modelContext: ModelContext) {
-        self.modelContext = modelContext
+    func setup(modelContainer: ModelContainer) {
+        if isInitialized { return }
+        // Create a context bound to this actor's execution context to avoid
+        // crossing queue boundaries with a UI-bound ModelContext.
+        self.modelContext = ModelContext(modelContainer)
         self.isInitialized = true
     }
     
@@ -102,13 +109,33 @@ actor WatchlistCacheManager {
             
             try context.save()
         } catch {
-            print("❌ Cache saveItem error: \(error)")
+            logger.error("Cache saveItem error: \(error.localizedDescription, privacy: .public)")
         }
     }
     
     func saveItems(_ items: [WatchlistItem]) async {
         for item in items {
             await saveItem(item)
+        }
+    }
+    
+    func saveValuations(_ valuations: [FundValuation]) async {
+        guard let context = modelContext else { return }
+        
+        do {
+            for valuation in valuations {
+                let code = valuation.fundCode
+                let descriptor = FetchDescriptor<LocalWatchlistItem>(
+                    predicate: #Predicate { $0.fundCode == code }
+                )
+                
+                if let existing = try context.fetch(descriptor).first {
+                    existing.cachedValuationData = try? JSONEncoder().encode(valuation)
+                }
+            }
+            try context.save()
+        } catch {
+            logger.error("Cache saveValuations error: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -122,7 +149,7 @@ actor WatchlistCacheManager {
             )
             return try context.fetch(descriptor)
         } catch {
-            print("❌ Cache fetchAllItems error: \(error)")
+            logger.error("Cache fetchAllItems error: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -144,7 +171,7 @@ actor WatchlistCacheManager {
             )
             return try context.fetch(descriptor)
         } catch {
-            print("❌ Cache fetchItems error: \(error)")
+            logger.error("Cache fetchItems error: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -162,7 +189,7 @@ actor WatchlistCacheManager {
                 try context.save()
             }
         } catch {
-            print("❌ Cache deleteItem error: \(error)")
+            logger.error("Cache deleteItem error: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -195,7 +222,7 @@ actor WatchlistCacheManager {
             
             try context.save()
         } catch {
-            print("❌ Cache saveGroup error: \(error)")
+            logger.error("Cache saveGroup error: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -214,7 +241,7 @@ actor WatchlistCacheManager {
             )
             return try context.fetch(descriptor)
         } catch {
-            print("❌ Cache fetchAllGroups error: \(error)")
+            logger.error("Cache fetchAllGroups error: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -232,7 +259,7 @@ actor WatchlistCacheManager {
                 try context.save()
             }
         } catch {
-            print("❌ Cache deleteGroup error: \(error)")
+            logger.error("Cache deleteGroup error: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -264,7 +291,7 @@ actor WatchlistCacheManager {
                 try context.save()
             }
         } catch {
-            print("❌ Cache addPendingOperation error: \(error)")
+            logger.error("Cache addPendingOperation error: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -282,7 +309,7 @@ actor WatchlistCacheManager {
             
             return allOperations.sorted { $0.clientTimestamp < $1.clientTimestamp }
         } catch {
-            print("❌ Cache getPendingOperations error: \(error)")
+            logger.error("Cache getPendingOperations error: \(error.localizedDescription, privacy: .public)")
             return []
         }
     }
@@ -300,7 +327,7 @@ actor WatchlistCacheManager {
                 try context.save()
             }
         } catch {
-            print("❌ Cache clearPendingOperations error: \(error)")
+            logger.error("Cache clearPendingOperations error: \(error.localizedDescription, privacy: .public)")
         }
     }
     
@@ -317,7 +344,7 @@ actor WatchlistCacheManager {
             
             try context.save()
         } catch {
-            print("❌ Cache clearAllPendingOperations error: \(error)")
+            logger.error("Cache clearAllPendingOperations error: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

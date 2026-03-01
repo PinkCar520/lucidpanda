@@ -3,9 +3,9 @@
 import Foundation
 import Combine
 import Network
-import UIKit
 import AlphaData
 import AlphaCore
+import OSLog
 
 // MARK: - 同步错误
 
@@ -35,72 +35,6 @@ enum WatchlistSyncError: LocalizedError {
     }
 }
 
-// MARK: - SSE 事件
-
-struct SSEEvent {
-    let type: String
-    let data: String
-}
-
-// MARK: - SSE 连接管理器
-
-class SSEConnectionManager: NSObject {
-    private var eventSource: URLSessionEventSource?
-    private var eventHandler: ((SSEEvent) -> Void)?
-    private var isConnected = false
-    private var reconnectAttempts = 0
-    private let maxReconnectAttempts = 5
-    private let queue = DispatchQueue(label: "SSEConnectionManager")
-    
-    func connect(url: URL, onEvent: @escaping (SSEEvent) -> Void) {
-        eventHandler = onEvent
-        
-        let request = URLRequest(url: url)
-        eventSource = URLSessionEventSource(request: request)
-        eventSource?.addEventHandler(self)
-        eventSource?.resume()
-        isConnected = true
-        reconnectAttempts = 0
-    }
-    
-    func disconnect() {
-        eventSource?.cancel()
-        eventSource = nil
-        isConnected = false
-    }
-    
-    func reconnect(url: URL, onEvent: @escaping (SSEEvent) -> Void) {
-        guard reconnectAttempts < maxReconnectAttempts else {
-            print("❌ SSE max reconnect attempts reached")
-            return
-        }
-        
-        reconnectAttempts += 1
-        let delay = Double(reconnectAttempts) * 2.0 // 指数退避
-        
-        queue.asyncAfter(deadline: .now() + delay) { [weak self] in
-            print("🔄 SSE reconnect attempt \(self?.reconnectAttempts ?? 0)/\(self?.maxReconnectAttempts ?? 5)")
-            self?.connect(url: url, onEvent: onEvent)
-        }
-    }
-}
-
-extension SSEConnectionManager: URLSessionEventSourceEventHandler {
-    func eventSource(_ eventSource: URLSessionEventSource, didReceiveEvent event: SSEEvent) {
-        eventHandler?(event)
-    }
-    
-    func eventSourceDidOpen(_ eventSource: URLSessionEventSource) {
-        print("✅ SSE Connection opened")
-        reconnectAttempts = 0
-    }
-    
-    func eventSource(_ eventSource: URLSessionEventSource, didFailWithError error: Error) {
-        print("❌ SSE Connection failed: \(error)")
-        isConnected = false
-    }
-}
-
 // MARK: - 网络状态监控
 
 class NetworkMonitor: ObservableObject {
@@ -123,12 +57,11 @@ class NetworkMonitor: ObservableObject {
     }
     
     func isNetworkAvailable() -> Bool {
-        return isConnected
+        isConnected
     }
     
     func addListener(_ callback: @escaping (Bool) -> Void) {
         listeners.append(callback)
-        // 立即通知当前状态
         callback(isConnected)
     }
     
@@ -144,6 +77,7 @@ class NetworkMonitor: ObservableObject {
 @MainActor
 class WatchlistSyncEngine: ObservableObject {
     static let shared = WatchlistSyncEngine()
+    private let logger = AppLog.watchlist
     
     @Published var isSyncing = false
     @Published var lastSyncTime: Date?
@@ -159,93 +93,158 @@ class WatchlistSyncEngine: ObservableObject {
     }
     
     private let cacheManager = WatchlistCacheManager.shared
-    private let sseManager = SSEConnectionManager()
     private let networkMonitor = NetworkMonitor.shared
-    private let deviceId = UIDevice.current.name
     
     // 同步配置
     private let syncInterval: TimeInterval = 30
     private var syncTimer: Timer?
-    private var isAuthenticated = false
+    private var isSetupComplete = false
+    
+    // SSE 生命周期
+    private var streamTask: Task<Void, Never>?
+    private var reconnectTask: Task<Void, Never>?
+    private var reconnectAttempt = 0
+    private let maxReconnectAttempts = 5
     
     func setup(lastSyncTime: Date? = nil) async {
+        if isSetupComplete { return }
+        isSetupComplete = true
         self.lastSyncTime = lastSyncTime
         
-        // 监听网络状态
         networkMonitor.addListener { [weak self] connected in
             Task { @MainActor in
                 self?.handleNetworkChange(connected)
             }
         }
         
-        // 初始连接
         if networkMonitor.isNetworkAvailable() {
-            await startSSEConnection()
+            startSSEConnection()
         }
         
         startPeriodicSync()
     }
     
     func stop() {
-        Task {
-            sseManager.disconnect()
-        }
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        streamTask?.cancel()
+        streamTask = nil
+        
         syncTimer?.invalidate()
+        syncTimer = nil
+        
+        connectionStatus = .disconnected
+        isSyncing = false
+        isSetupComplete = false
+        reconnectAttempt = 0
     }
     
     // MARK: - 网络状态处理
     
     private func handleNetworkChange(_ connected: Bool) {
         if connected {
-            connectionStatus = .connected
             isOffline = false
-            
-            // 网络恢复，同步待处理操作
-            Task {
-                await syncChanges()
-            }
+            startSSEConnection()
+            Task { await syncChanges() }
         } else {
-            connectionStatus = .offline
             isOffline = true
+            connectionStatus = .offline
+            streamTask?.cancel()
+            streamTask = nil
         }
     }
     
     // MARK: - SSE 连接
-
-    private func startSSEConnection() async {
-        // 使用与 APIClient 相同的 baseURL 配置
-        #if DEBUG
-        let baseURLString = "http://43.139.108.187:8001"
-        #else
-        let baseURLString = "http://43.139.108.187:8001"
-        #endif
-        
-        let streamURL = "\(baseURLString)/api/v2/watchlist/stream"
-        guard let url = URL(string: streamURL) else {
-            print("❌ Invalid SSE URL: \(streamURL)")
+    
+    private func startSSEConnection() {
+        guard networkMonitor.isNetworkAvailable() else {
+            connectionStatus = .offline
             return
         }
-
-        sseManager.connect(url: url) { [weak self] event in
-            Task { @MainActor in
-                self?.handleSSEEvent(event)
+        guard AuthTokenStore.accessToken() != nil else {
+            connectionStatus = .disconnected
+            return
+        }
+        
+        streamTask?.cancel()
+        streamTask = nil
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        
+        connectionStatus = reconnectAttempt == 0 ? .disconnected : .reconnecting
+        
+        streamTask = Task { [weak self] in
+            guard let self else { return }
+            
+            do {
+                let baseURL = await APIClient.shared.baseURL
+                let streamURL = baseURL.appendingPathComponent("api/v2/watchlist/stream")
+                let token = AuthTokenStore.accessToken()
+                let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)
+                
+                self.connectionStatus = .connected
+                self.reconnectAttempt = 0
+                
+                for try await data in stream {
+                    if Task.isCancelled { return }
+                    self.handleSSEPayload(data)
+                }
+                
+                if Task.isCancelled { return }
+                self.scheduleReconnect()
+            } catch {
+                if Task.isCancelled || self.isCancelledError(error) { return }
+                self.syncError = WatchlistSyncError.networkError(error)
+                self.scheduleReconnect()
             }
         }
-
-        connectionStatus = .connected
     }
     
-    private func handleSSEEvent(_ event: SSEEvent) {
-        switch event.type {
-        case "watchlist.updated":
-            // 收到远程更新，触发增量同步
-            Task {
-                await syncChanges()
+    private func scheduleReconnect() {
+        guard !Task.isCancelled else { return }
+        guard networkMonitor.isNetworkAvailable() else {
+            connectionStatus = .offline
+            return
+        }
+        guard reconnectAttempt < maxReconnectAttempts else {
+            connectionStatus = .disconnected
+            return
+        }
+        
+        reconnectAttempt += 1
+        connectionStatus = .reconnecting
+        
+        let delay = UInt64(reconnectAttempt * 2) * 1_000_000_000
+        reconnectTask?.cancel()
+        reconnectTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delay)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self?.startSSEConnection()
             }
+        }
+    }
+    
+    private func handleSSEPayload(_ payload: String) {
+        // `SSEResolver` returns `data:` lines only.
+        // Handle both payload shapes:
+        // 1) {"event":"watchlist.updated","data":{...}}
+        // 2) {"type":"watchlist.updated", ...}
+        guard let data = payload.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return
+        }
+        
+        let event = (json["event"] as? String) ?? (json["type"] as? String)
+        
+        switch event {
+        case "watchlist.updated":
+            Task { await syncChanges() }
         case "error":
-            if let data = event.data.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let message = json["error"] as? String {
+            if let message = json["error"] as? String {
+                syncError = WatchlistSyncError.remoteError(message: message)
+            } else if let nested = json["data"] as? [String: Any],
+                      let message = nested["error"] as? String {
                 syncError = WatchlistSyncError.remoteError(message: message)
             }
         default:
@@ -253,45 +252,49 @@ class WatchlistSyncEngine: ObservableObject {
         }
     }
     
+    private func isCancelledError(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
+    }
+    
     // MARK: - 周期性同步
     
     private func startPeriodicSync() {
         syncTimer = Timer.scheduledTimer(withTimeInterval: syncInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard self?.networkMonitor.isNetworkAvailable() == true else {
-                    return
-                }
+                guard self?.networkMonitor.isNetworkAvailable() == true else { return }
                 await self?.syncChanges()
             }
         }
     }
     
     // MARK: - 增量同步
-
+    
     func syncChanges() async {
         guard !isSyncing else { return }
-
-        // 检查网络
+        guard AuthTokenStore.accessToken() != nil || AuthTokenStore.refreshToken() != nil else {
+            syncError = WatchlistSyncError.notAuthenticated
+            return
+        }
+        
         if !networkMonitor.isNetworkAvailable() {
             syncError = WatchlistSyncError.offline
             return
         }
-
+        
         isSyncing = true
-
+        
         do {
-            // 1. 上传待同步操作
             try await uploadPendingOperations()
             
-            // 2. 拉取远程变更
             let since = lastSyncTime?.iso8601 ?? "1970-01-01T00:00:00Z"
             let path = "/api/v2/watchlist/sync?since=\(since)"
             let response: WatchlistItemsResponse = try await APIClient.shared.fetch(path: path)
             
-            // 3. 合并数据
             await mergeRemoteData(response)
             
-            // 4. 更新同步时间
             if let syncTimeStr = response.syncTime,
                let syncTime = ISO8601DateFormatter().date(from: syncTimeStr) {
                 lastSyncTime = syncTime
@@ -300,10 +303,9 @@ class WatchlistSyncEngine: ObservableObject {
             }
             
             syncError = nil
-            
         } catch {
             syncError = error
-            print("❌ Sync failed: \(error)")
+            logger.error("Sync failed: \(error.localizedDescription, privacy: .public)")
         }
         
         isSyncing = false
@@ -326,35 +328,29 @@ class WatchlistSyncEngine: ObservableObject {
             body: request
         )
         
-        // 清除已成功同步的操作
         for result in response.results where result.success {
             await cacheManager.clearPendingOperations(for: result.fundCode)
         }
         
-        // 记录失败的操作
         let failedOps = response.results.filter { !$0.success }
         if !failedOps.isEmpty {
-            print("⚠️ Failed to sync \(failedOps.count) operations")
+            logger.warning("Failed to sync \(failedOps.count, privacy: .public) operations")
         }
     }
     
     // MARK: - 合并远程数据
     
     private func mergeRemoteData(_ response: WatchlistItemsResponse) async {
-        // 保存分组
         await cacheManager.saveGroups(response.groups)
-        
-        // 保存自选项
         await cacheManager.saveItems(response.data)
         
-        // 通知 ViewModel 刷新（通过 NotificationCenter）
         NotificationCenter.default.post(
             name: NSNotification.Name("WatchlistDidSync"),
             object: nil,
             userInfo: ["items": response.data, "groups": response.groups]
         )
         
-        print("✅ Synced \(response.data.count) items and \(response.groups.count) groups")
+        logger.info("Synced \(response.data.count, privacy: .public) items and \(response.groups.count, privacy: .public) groups")
     }
     
     // MARK: - 队列操作
@@ -368,7 +364,6 @@ class WatchlistSyncEngine: ObservableObject {
         )
         await cacheManager.addPendingOperation(operation)
         
-        // 如果在线，立即同步
         if networkMonitor.isNetworkAvailable() {
             await syncChanges()
         }
@@ -381,7 +376,6 @@ class WatchlistSyncEngine: ObservableObject {
         )
         await cacheManager.addPendingOperation(operation)
         
-        // 如果在线，立即同步
         if networkMonitor.isNetworkAvailable() {
             await syncChanges()
         }
@@ -416,80 +410,9 @@ class WatchlistSyncEngine: ObservableObject {
     // MARK: - 强制刷新
     
     func forceSync() async {
-        lastSyncTime = nil // 清除同步时间，强制全量同步
+        lastSyncTime = nil
         await syncChanges()
     }
-}
-
-// MARK: - URLSessionEventSource (完整实现)
-
-class URLSessionEventSource {
-    private var task: URLSessionDataTask?
-    private var eventHandler: URLSessionEventSourceEventHandler?
-    private let session: URLSession
-    
-    init(request: URLRequest, session: URLSession = .shared) {
-        self.session = session
-        
-        // 配置 SSE 请求
-        var modifiedRequest = request
-        modifiedRequest.setValue("text/event-stream", forHTTPHeaderField: "Accept")
-        modifiedRequest.setValue("keep-alive", forHTTPHeaderField: "Connection")
-        
-        task = session.dataTask(with: modifiedRequest) { [weak self] data, response, error in
-            guard let self = self else { return }
-            
-            guard let data = data,
-                  let lines = String(data: data, encoding: .utf8)?.components(separatedBy: "\n") else {
-                if let error = error {
-                    self.eventHandler?.eventSource(self, didFailWithError: error)
-                }
-                return
-            }
-            
-            // 解析 SSE 格式
-            var currentEvent = "message"
-            var currentData = ""
-            
-            for line in lines {
-                if line.hasPrefix("event:") {
-                    currentEvent = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                } else if line.hasPrefix("data:") {
-                    currentData = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                } else if line.isEmpty && !currentData.isEmpty {
-                    // 空行表示事件结束
-                    let event = SSEEvent(type: currentEvent, data: currentData)
-                    self.eventHandler?.eventSource(self, didReceiveEvent: event)
-                    currentData = ""
-                    currentEvent = "message"
-                }
-            }
-            
-            // 处理最后一个事件（如果没有空行结尾）
-            if !currentData.isEmpty {
-                let event = SSEEvent(type: currentEvent, data: currentData)
-                self.eventHandler?.eventSource(self, didReceiveEvent: event)
-            }
-        }
-    }
-    
-    func addEventHandler(_ handler: URLSessionEventSourceEventHandler) {
-        eventHandler = handler
-    }
-    
-    func resume() {
-        task?.resume()
-    }
-    
-    func cancel() {
-        task?.cancel()
-    }
-}
-
-protocol URLSessionEventSourceEventHandler: AnyObject {
-    func eventSource(_ eventSource: URLSessionEventSource, didReceiveEvent event: SSEEvent)
-    func eventSourceDidOpen(_ eventSource: URLSessionEventSource)
-    func eventSource(_ eventSource: URLSessionEventSource, didFailWithError error: Error)
 }
 
 // MARK: - Date Extension

@@ -4,9 +4,11 @@ import AlphaCore
 import AlphaData
 import SwiftUI
 import SwiftData
+import OSLog
 
 @Observable
 class DashboardViewModel {
+    private let logger = AppLog.dashboard
     var items: [IntelligenceItem] = []
     var isStreaming = false
     var connectionStatus: String = "dashboard.connection.disconnected"
@@ -57,6 +59,13 @@ class DashboardViewModel {
     public init(modelContext: ModelContext? = nil) {
         self.persistenceContext = modelContext
     }
+
+    private func isCancelledError(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
+    }
     
     @MainActor
     func startIntelligenceStream() async {
@@ -78,6 +87,9 @@ class DashboardViewModel {
             connectionStatus = "dashboard.connection.live"
             
             for try await jsonString in stream {
+                if Task.isCancelled {
+                    break
+                }
                 guard let data = jsonString.data(using: .utf8) else { continue }
                 
                 if let event = try? self.jsonDecoder.decode(IntelligenceEvent.self, from: data),
@@ -85,15 +97,37 @@ class DashboardViewModel {
                     processNewItems(newItems)
                 }
             }
+            if Task.isCancelled {
+                connectionStatus = "dashboard.connection.disconnected"
+                isStreaming = false
+            }
         } catch {
-            print("❌ V1 Stream failed: \(error)")
+            if Task.isCancelled || isCancelledError(error) {
+                connectionStatus = "dashboard.connection.disconnected"
+                isStreaming = false
+                return
+            }
+            if case APIError.unauthorized = error {
+                connectionStatus = "dashboard.connection.disconnected"
+                isStreaming = false
+                return
+            }
+            logger.error("V1 stream failed: \(error.localizedDescription, privacy: .public)")
             connectionStatus = "dashboard.connection.disconnected"
             isStreaming = false
             
             // 指数退避重连逻辑
             try? await Task.sleep(nanoseconds: 5_000_000_000)
+            if Task.isCancelled { return }
             await startIntelligenceStream()
         }
+    }
+
+    @MainActor
+    func stopIntelligenceStream() {
+        isStreaming = false
+        connectionStatus = "dashboard.connection.disconnected"
+        Task { await SSEResolver.shared.stop() }
     }
     
     @MainActor
@@ -117,7 +151,7 @@ class DashboardViewModel {
             }
             processNewItems(items)
         } catch {
-            print("❌ Failed to fetch V1 history: \(error)")
+            logger.error("Failed to fetch V1 history: \(error.localizedDescription, privacy: .public)")
         }
     }
     

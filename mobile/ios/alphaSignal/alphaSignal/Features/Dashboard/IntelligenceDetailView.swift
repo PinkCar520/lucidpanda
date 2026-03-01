@@ -5,7 +5,6 @@ import AlphaCore
 
 struct IntelligenceDetailView: View {
     let item: IntelligenceItem
-    @State private var marketData: [MarketDataPoint] = []
     @State private var isSummarizing = false
     @State private var summary: String?
     
@@ -15,16 +14,6 @@ struct IntelligenceDetailView: View {
             
             ScrollView {
                 VStack(spacing: 24) {
-                    if !marketData.isEmpty {
-                        MarketChartView(data: marketData)
-                            .padding(.top)
-                    } else {
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(Color.black.opacity(0.03))
-                            .frame(height: 200)
-                            .overlay(ProgressView().tint(.blue))
-                    }
-                    
                     VStack(alignment: .leading, spacing: 16) {
                         HStack {
                             DetailBadge(text: "\(String(localized: "dashboard.urgency_label")) \(item.urgencyScore)", color: item.urgencyScore >= 8 ? .red : .blue)
@@ -78,9 +67,6 @@ struct IntelligenceDetailView: View {
         }
         .navigationTitle("intelligence.detail.title")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await fetchMarketContext()
-        }
     }
     
     private func runAISummary() {
@@ -107,16 +93,6 @@ struct IntelligenceDetailView: View {
         }
     }
     
-    private func fetchMarketContext() async {
-        do {
-            let response: MarketResponse = try await APIClient.shared.fetch(path: "/api/market?symbol=GC=F&range=1d&interval=5m")
-            withAnimation {
-                self.marketData = response.data
-            }
-        } catch {
-            print("Failed to load market context: \(error)")
-        }
-    }
 }
 
 struct DetailBadge: View {

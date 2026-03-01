@@ -5,18 +5,26 @@ import OSLog
 public actor SSEResolver {
     public static let shared = SSEResolver()
     private let logger = Logger(subsystem: "com.pincar.alphasignal", category: "SSE")
-    private var session: URLSession?
+    private var activeSessions: [UUID: URLSession] = [:]
     
     private init() {}
+
+    private func isCancelledError(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
+    }
     
     public func subscribe(url: URL, token: String?) -> AsyncThrowingStream<String, Error> {
         return AsyncThrowingStream { continuation in
+            let streamID = UUID()
             let config = URLSessionConfiguration.default
             config.timeoutIntervalForRequest = 3600 // 长连接超时设置
             config.timeoutIntervalForResource = 3600
             
             let session = URLSession(configuration: config)
-            self.session = session
+            Task { await self.registerSession(session, for: streamID) }
             
             var request = URLRequest(url: url)
             if let token = token {
@@ -46,20 +54,39 @@ public actor SSEResolver {
                     
                     continuation.finish()
                 } catch {
+                    if await self.isCancelledError(error) {
+                        continuation.finish()
+                        await self.stop(streamID: streamID)
+                        return
+                    }
                     logger.error("❌ SSE Stream error: \(error.localizedDescription)")
+                    await self.stop(streamID: streamID)
                     continuation.finish(throwing: error)
                 }
             }
             
             continuation.onTermination = { @Sendable _ in
-                Task { await self.stop() }
+                Task { await self.stop(streamID: streamID) }
             }
         }
     }
+
+    private func registerSession(_ session: URLSession, for streamID: UUID) {
+        activeSessions[streamID] = session
+    }
+
+    private func stop(streamID: UUID) {
+        guard let session = activeSessions.removeValue(forKey: streamID) else { return }
+        session.invalidateAndCancel()
+        logger.debug("⏹ SSE Stream stopped")
+    }
     
     public func stop() {
-        session?.invalidateAndCancel()
-        session = nil
+        guard !activeSessions.isEmpty else { return }
+        for (_, session) in activeSessions {
+            session.invalidateAndCancel()
+        }
+        activeSessions.removeAll()
         logger.debug("⏹ SSE Stream stopped")
     }
 }

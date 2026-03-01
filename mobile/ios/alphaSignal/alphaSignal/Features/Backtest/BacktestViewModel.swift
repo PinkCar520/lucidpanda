@@ -3,10 +3,12 @@ import Observation
 import AlphaCore
 import AlphaData
 import SwiftUI
+import OSLog
 
 @MainActor
 @Observable
 class BacktestViewModel {
+    private let logger = AppLog.dashboard
     var stats: BacktestStats?
     var isLoading = false
     var selectedWindow: String = "1h"
@@ -47,7 +49,7 @@ class BacktestViewModel {
                 return
             } catch {
                 errorMessage = NSLocalizedString("error.network.generic", comment: "")
-                print("Failed to fetch V1 backtest stats: \(error)")
+                logger.error("Failed to fetch V1 backtest stats: \(error.localizedDescription, privacy: .public)")
             }
         }
         

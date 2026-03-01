@@ -118,6 +118,9 @@ struct MainDashboardView: View {
         .task {
             await viewModel.startIntelligenceStream()
         }
+        .onDisappear {
+            viewModel.stopIntelligenceStream()
+        }
         .sheet(isPresented: $isSettingsPresented) {
             SettingsView(showCloseButton: true)
                 .presentationDetents([.medium, .large])

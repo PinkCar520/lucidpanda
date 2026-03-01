@@ -3,9 +3,11 @@ import Observation
 import AlphaCore
 import AlphaData
 import Combine
+import OSLog
 
 @Observable
 class FundSearchViewModel {
+    private let logger = AppLog.watchlist
     var query = ""
     var results: [FundSearchResult] = []
     var isLoading = false
@@ -47,7 +49,7 @@ class FundSearchViewModel {
                 self.results = response.results
             } catch {
                 guard !Task.isCancelled else { return }
-                print("❌ Search failed: \(error)")
+                logger.error("Search failed: \(error.localizedDescription, privacy: .public)")
                 self.results = []
             }
             
