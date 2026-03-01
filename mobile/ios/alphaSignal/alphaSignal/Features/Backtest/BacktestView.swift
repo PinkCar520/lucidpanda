@@ -605,8 +605,12 @@ struct BacktestView: View {
             .navigationTitle("backtest.detail.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("common.close") { selectedEvidence = nil }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: { selectedEvidence = nil }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    }
                 }
             }
         }

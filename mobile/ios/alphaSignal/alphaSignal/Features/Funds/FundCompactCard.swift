@@ -98,6 +98,11 @@ struct FundCompactCard: View {
                         .foregroundStyle(.secondary.opacity(0.5))
                 }
                 
+                Image(systemName: "hand.tap.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.tertiary)
+                    .padding(.leading, 8)
+
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.gray.opacity(0.3))
@@ -110,7 +115,22 @@ struct FundCompactCard: View {
                 .fill(Color(uiColor: .systemBackground))
                 .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
         )
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
+        .onLongPressGesture(minimumDuration: 0.4, pressing: { pressing in
+            withAnimation { isPressed = pressing }
+        }, perform: {
+            showPeek = true
+        })
+        .sheet(isPresented: $showPeek) {
+            FundPeekSheet(valuation: valuation)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
     }
+
+    @State private var isPressed: Bool = false
+    @State private var showPeek: Bool = false
     
     // --- UI Helpers ---
     

@@ -775,6 +775,15 @@ struct SettingsView: View {
         }
         .navigationTitle(LocalizedStringKey("settings.dialog.two_factor.title"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.blue)
+                }
+            }
+        }
         .sheet(isPresented: $showing2FASetupModal) {
             twoFactorSetupModal
         }
@@ -977,6 +986,15 @@ struct SettingsView: View {
         }
         .navigationTitle(LocalizedStringKey("settings.active_sessions"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: { dismiss() }) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.blue)
+                }
+            }
+        }
         .task {
             if !hasLoadedSessions {
                 await loadSessions()

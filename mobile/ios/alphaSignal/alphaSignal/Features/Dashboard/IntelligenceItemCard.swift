@@ -87,9 +87,8 @@ struct IntelligenceItemCard: View {
         })
         .sheet(isPresented: $showPeek) {
             IntelligencePeekSheet(item: item)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
-                .presentationCornerRadius(24)
         }
         .transition(.asymmetric(
             insertion: .move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.9)),
@@ -234,7 +233,7 @@ struct IntelligencePeekSheet: View {
             .navigationTitle("速览")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarLeading) {
                     Button(action: { dismiss() }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 16, weight: .semibold))
