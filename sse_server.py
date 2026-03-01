@@ -1006,6 +1006,111 @@ async def v1_fund_valuation_stream(
         }
     )
 
+@app.get("/api/v1/web/funds/stream")
+async def v1_fund_valuations_stream(
+    request: Request,
+    codes: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    V1 multi-fund valuation SSE endpoint.
+    Uses one stream to push multiple fund updates (for watchlist + detail multiplexing).
+    """
+    from datetime import datetime
+    from src.alphasignal.core.fund_engine import FundEngine
+    from src.alphasignal.core.database import IntelligenceDB
+    from src.alphasignal.utils.market_calendar import get_market_status
+
+    code_list = [c.strip() for c in (codes or "").split(",") if c.strip()]
+    if not code_list:
+        return StreamingResponse(
+            iter([f"data: {json.dumps({'type': 'connected', 'v': '1.0', 'codes': []})}\n\n"]),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            }
+        )
+
+    engine = FundEngine()
+    db = IntelligenceDB()
+    meta_map = db.get_fund_metadata_batch(code_list)
+
+    def infer_region(fund_code: str) -> str:
+        meta = meta_map.get(fund_code, {})
+        name = str(meta.get("name", ""))
+        f_type = str(meta.get("type", ""))
+        if "QDII" not in f_type and "QDII" not in name:
+            return "CN"
+        if any(k in name for k in ["恒生", "港", "HK", "H股"]):
+            return "HK"
+        return "US"
+
+    code_regions = {code: infer_region(code) for code in code_list}
+
+    async def event_generator():
+        yield f"data: {json.dumps({'type': 'connected', 'codes': code_list, 'user_id': str(current_user.id), 'v': '1.0'})}\n\n"
+        last_signatures = {}
+
+        while True:
+            if await request.is_disconnected():
+                break
+
+            open_codes = []
+            try:
+                open_codes = [c for c in code_list if get_market_status(code_regions.get(c, "CN")) != "CLOSED"]
+                if open_codes:
+                    valuations = engine.calculate_batch_valuation(open_codes, summary=False)
+                    stats_map = db.get_fund_stats(open_codes)
+                    changed = []
+
+                    for valuation in valuations:
+                        fund_code = valuation.get("fund_code")
+                        if not fund_code:
+                            continue
+
+                        if fund_code in stats_map:
+                            valuation["stats"] = stats_map[fund_code]
+
+                        ts = valuation.get("timestamp")
+                        if ts and isinstance(ts, str):
+                            try:
+                                dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                                valuation["timestamp"] = format_iso8601(dt)
+                            except Exception:
+                                pass
+
+                        signature = (
+                            valuation.get("estimated_growth"),
+                            valuation.get("timestamp"),
+                            valuation.get("market_status")
+                        )
+                        if last_signatures.get(fund_code) != signature:
+                            last_signatures[fund_code] = signature
+                            changed.append(valuation)
+
+                    if changed:
+                        payload = {"type": "valuations_update", "data": changed}
+                        yield f"data: {json.dumps(payload, default=sse_json_serializer)}\n\n"
+
+                yield f"data: {json.dumps({'type': 'heartbeat', 'ts': format_iso8601(datetime.utcnow())})}\n\n"
+            except Exception as e:
+                err = {"type": "error", "message": str(e)}
+                yield f"data: {json.dumps(err)}\n\n"
+
+            await asyncio.sleep(2 if open_codes else 30)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
 @app.get("/api/intelligence/stream")
 async def intelligence_stream(request: Request):
     """

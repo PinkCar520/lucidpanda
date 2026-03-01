@@ -91,8 +91,9 @@ class FundViewModel {
     private let syncEngine = WatchlistSyncEngine.shared
     private let cacheManager = WatchlistCacheManager.shared
     private var modelContext: ModelContext?
-    private var liveUpdateTask: Task<Void, Never>?
-    private let liveUpdateInterval: UInt64 = 15_000_000_000
+    private var liveStreamTask: Task<Void, Never>?
+    private var liveCodesTask: Task<Void, Never>?
+    private let liveSubscriberID = "fund-watchlist"
 
     // MARK: - Derived Data
 
@@ -722,33 +723,59 @@ class FundViewModel {
     // MARK: - Live Updates
     
     func startLiveUpdates() {
-        guard liveUpdateTask == nil else { return }
-        liveUpdateTask = Task { [weak self] in
+        guard liveStreamTask == nil, liveCodesTask == nil else { return }
+
+        liveCodesTask = Task { [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
-                let (codes, sleepNs): ([String], UInt64) = await MainActor.run {
-                    let valuationsByCode = Dictionary(uniqueKeysWithValues: self.watchlist.map { ($0.fundCode, $0) })
-                    let codes = self.watchlistItems.compactMap { item -> String? in
-                        guard let valuation = valuationsByCode[item.fundCode] else {
-                            return item.fundCode
-                        }
-                        let status = MarketSessionStatusResolver.status(for: valuation)
-                        return status == .closed ? nil : item.fundCode
-                    }
-                    let sleep = codes.isEmpty ? 60_000_000_000 : self.liveUpdateInterval
-                    return (codes, sleep)
+                let codes = await MainActor.run { self.activeStreamingCodes() }
+                await FundValuationSSECenter.shared.setCodes(codes, for: self.liveSubscriberID)
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+            }
+        }
+
+        liveStreamTask = Task { [weak self] in
+            guard let self else { return }
+            let stream = await FundValuationSSECenter.shared.events(for: self.liveSubscriberID)
+            for await valuation in stream {
+                if Task.isCancelled { break }
+                await MainActor.run {
+                    self.applyLiveUpdate(valuation)
                 }
-                if !codes.isEmpty {
-                    await self.refreshValuations(for: codes, replace: false)
-                }
-                try? await Task.sleep(nanoseconds: sleepNs)
             }
         }
     }
     
     func stopLiveUpdates() {
-        liveUpdateTask?.cancel()
-        liveUpdateTask = nil
+        liveStreamTask?.cancel()
+        liveStreamTask = nil
+        liveCodesTask?.cancel()
+        liveCodesTask = nil
+        Task { await FundValuationSSECenter.shared.setCodes([], for: liveSubscriberID) }
+    }
+
+    private func activeStreamingCodes() -> Set<String> {
+        let valuationsByCode = Dictionary(uniqueKeysWithValues: watchlist.map { ($0.fundCode, $0) })
+        let codes = watchlistItems.compactMap { item -> String? in
+            guard let valuation = valuationsByCode[item.fundCode] else {
+                return item.fundCode
+            }
+            let status = MarketSessionStatusResolver.status(for: valuation)
+            return status == .closed ? nil : item.fundCode
+        }
+        return Set(codes)
+    }
+
+    private func applyLiveUpdate(_ valuation: FundValuation) {
+        if let index = watchlist.firstIndex(where: { $0.fundCode == valuation.fundCode }) {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                watchlist[index] = valuation
+            }
+            return
+        }
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            watchlist.append(valuation)
+        }
     }
 }
 
