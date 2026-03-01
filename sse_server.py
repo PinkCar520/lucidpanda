@@ -937,6 +937,75 @@ async def v1_intelligence_stream(request: Request):
         }
     )
 
+@app.get("/api/v1/web/funds/{code}/stream")
+async def v1_fund_valuation_stream(
+    code: str,
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    V1 Fund Valuation SSE endpoint.
+    Server pushes the latest valuation snapshot periodically, client no longer needs high-frequency polling.
+    """
+    from datetime import datetime
+    from src.alphasignal.core.fund_engine import FundEngine
+    from src.alphasignal.core.database import IntelligenceDB
+
+    engine = FundEngine()
+    db = IntelligenceDB()
+
+    async def event_generator():
+        yield f"data: {json.dumps({'type': 'connected', 'fund_code': code, 'user_id': str(current_user.id), 'v': '1.0'})}\n\n"
+
+        last_signature = None
+        while True:
+            if await request.is_disconnected():
+                break
+            try:
+                results = engine.calculate_batch_valuation([code], summary=False)
+                if results:
+                    valuation = results[0]
+
+                    stats_map = db.get_fund_stats([code])
+                    if code in stats_map:
+                        valuation["stats"] = stats_map[code]
+
+                    ts = valuation.get("timestamp")
+                    if ts and isinstance(ts, str):
+                        try:
+                            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                            valuation["timestamp"] = format_iso8601(dt)
+                        except Exception:
+                            pass
+
+                    signature = (
+                        valuation.get("estimated_growth"),
+                        valuation.get("timestamp"),
+                        valuation.get("market_status")
+                    )
+                    if signature != last_signature:
+                        last_signature = signature
+                        payload = {"type": "valuation_update", "data": valuation}
+                        yield f"data: {json.dumps(payload, default=sse_json_serializer)}\n\n"
+
+                # Keepalive for proxies and mobile long links.
+                yield f"data: {json.dumps({'type': 'heartbeat', 'ts': format_iso8601(datetime.utcnow())})}\n\n"
+            except Exception as e:
+                err = {"type": "error", "message": str(e)}
+                yield f"data: {json.dumps(err)}\n\n"
+
+            await asyncio.sleep(2)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
 @app.get("/api/intelligence/stream")
 async def intelligence_stream(request: Request):
     """

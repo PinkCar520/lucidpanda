@@ -11,6 +11,8 @@ public actor ValuationActor {
     private var isRunning = false
     private var currentValuation: FundValuation
     private var priceMap: [String: Double] = [:] // SecurityID -> Price
+    private var sseNextRetryAt: Date = .distantPast
+    private let sseRetryDelay: TimeInterval = 15
     
     public init(initialValuation: FundValuation) {
         self.currentValuation = initialValuation
@@ -31,9 +33,6 @@ public actor ValuationActor {
                 let symbols = currentValuation.components.map { $0.code }
                 logger.debug("🛰️ Subscribing to price stream for symbols: \(symbols.joined(separator: ","))")
                 
-                // 2. 这里的逻辑是对接 SSEResolver
-                // 在成熟实现中，后端会有一个专门推送资产价格的 SSE 端点
-                // 这里我们先实现基于 REST 轮询的高级封装，作为 SSE 的降级/备选方案
                 while isRunning {
                     do {
                         let marketStatus = MarketSessionStatusResolver.status(for: currentValuation)
@@ -43,21 +42,22 @@ public actor ValuationActor {
                             continue
                         }
 
-                        // 模拟从后端获取最新分片价格或直接获取推算结果
-                        // 生产环境应为：for try await priceUpdate in SSEResolver.shared.subscribe(...)
-                        let updatedValuation: FundValuation = try await APIClient.shared.fetch(
-                            path: "/api/v1/web/funds/\(currentValuation.fundCode)/valuation"
-                        )
-                        
+                        if Date() >= self.sseNextRetryAt {
+                            let didStream = try await self.consumeSSE(continuation: continuation)
+                            if didStream {
+                                self.sseNextRetryAt = .distantPast
+                                continue
+                            }
+                        }
+
+                        let updatedValuation = try await pollLatestValuation()
                         if !isRunning { break }
-                        
                         self.currentValuation = updatedValuation
                         continuation.yield(updatedValuation)
-                        
-                        // 模拟盘中 2 秒同步频率
-                        try await Task.sleep(nanoseconds: 2_000_000_000)
+                        try await Task.sleep(nanoseconds: 5_000_000_000)
                     } catch {
                         logger.error("❌ Valuation sync failed: \(error.localizedDescription)")
+                        self.sseNextRetryAt = Date().addingTimeInterval(self.sseRetryDelay)
                         try? await Task.sleep(nanoseconds: 5_000_000_000) // 错误退避
                     }
                 }
@@ -74,6 +74,49 @@ public actor ValuationActor {
     public func stop() {
         isRunning = false
     }
+
+    private func pollLatestValuation() async throws -> FundValuation {
+        try await APIClient.shared.fetch(
+            path: "/api/v1/web/funds/\(currentValuation.fundCode)/valuation"
+        )
+    }
+
+    private func consumeSSE(continuation: AsyncStream<FundValuation>.Continuation) async throws -> Bool {
+        let baseURL = await APIClient.shared.baseURL
+        let streamURL = baseURL.appendingPathComponent("api/v1/web/funds/\(currentValuation.fundCode)/stream")
+        let token = AuthTokenStore.accessToken()
+        let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)
+        var receivedUpdate = false
+
+        for try await payload in stream {
+            if !isRunning { break }
+            if let updated = decodeValuation(from: payload) {
+                receivedUpdate = true
+                currentValuation = updated
+                continuation.yield(updated)
+            }
+        }
+
+        if !receivedUpdate {
+            self.sseNextRetryAt = Date().addingTimeInterval(self.sseRetryDelay)
+        }
+        return receivedUpdate
+    }
+
+    private func decodeValuation(from payload: String) -> FundValuation? {
+        guard let data = payload.data(using: .utf8) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        if let direct = try? decoder.decode(FundValuation.self, from: data) {
+            return direct
+        }
+
+        if let wrapped = try? decoder.decode(SSEFundValuationEnvelope.self, from: data) {
+            return wrapped.data
+        }
+        return nil
+    }
     
     /// 计算 2σ 统计边界
     /// 基于过去 30 天历史收益率的真实计算
@@ -88,6 +131,11 @@ public actor ValuationActor {
         
         return standardDeviation * 2.0
     }
+}
+
+private struct SSEFundValuationEnvelope: Decodable {
+    let type: String?
+    let data: FundValuation?
 }
 
 /// 补充 ValuationHistory 模型定义
