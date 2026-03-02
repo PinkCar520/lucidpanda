@@ -7,6 +7,9 @@
     "-" : {
 
     },
+    "--" : {
+
+    },
     "—" : {
 
     },
@@ -75,6 +78,9 @@
     "%lld / 10" : {
 
     },
+    "%lld 条" : {
+
+    },
     "%lld.0" : {
 
     },
@@ -96,7 +102,22 @@
     "1" : {
 
     },
+    "1 周" : {
+
+    },
+    "1 天" : {
+
+    },
+    "1 月" : {
+
+    },
     "10" : {
+
+    },
+    "24h 低" : {
+
+    },
+    "24h 高" : {
 
     },
     "Add Item" : {
@@ -177,6 +198,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "市场情报"
+          }
+        }
+      }
+    },
+    "app.tab.market" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Market Terminal"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "市场终端"
           }
         }
       }
@@ -3208,6 +3246,9 @@
         }
       }
     },
+    "High" : {
+
+    },
     "intelligence.analysis.analyzing" : {
       "localizations" : {
         "en" : {
@@ -3423,6 +3464,9 @@
     "Item at %@" : {
 
     },
+    "Low" : {
+
+    },
     "n=%lld" : {
 
     },
@@ -3430,6 +3474,9 @@
 
     },
     "Powered by AI & Institutional Data Nodes" : {
+
+    },
+    "Price" : {
 
     },
     "reconciliation.chart.mae" : {
@@ -4616,6 +4663,9 @@
     "Verify and Enable" : {
 
     },
+    "Volume" : {
+
+    },
     "Weight" : {
 
     },
@@ -4637,10 +4687,31 @@
     "完成" : {
 
     },
+    "市场情报" : {
+
+    },
+    "市场数据" : {
+
+    },
     "忘记密码？" : {
 
     },
+    "暂无市场情报" : {
+
+    },
+    "更新于 %@" : {
+
+    },
+    "正在加载市场数据..." : {
+
+    },
     "注册账号" : {
+
+    },
+    "范围" : {
+
+    },
+    "警报" : {
 
     },
     "返回登录" : {

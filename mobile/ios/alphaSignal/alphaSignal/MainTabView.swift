@@ -5,11 +5,11 @@ import AlphaDesign
 struct MainTabView: View {
     @State private var selectedTab: TabValue = .intelligence
     @State private var searchText = "" // 提升搜索状态至根视图以支持 Tab 角色联动
-    
+
     enum TabValue: Hashable {
         case intelligence, funds, backtest, search
     }
-    
+
     var body: some View {
         TabView(selection: $selectedTab) {
             // Tab 1: 信号 (Dashboard)

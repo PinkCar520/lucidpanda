@@ -9,6 +9,7 @@ from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
 from src.alphasignal.utils import v1_prepare_json
 from src.alphasignal.utils.market_calendar import get_market_status
+from src.alphasignal.services.market_terminal_service import market_terminal_service
 
 router = APIRouter()
 
@@ -59,7 +60,7 @@ async def get_mobile_intelligence(
     """
     statement = select(Intelligence).order_by(Intelligence.timestamp.desc()).limit(limit)
     results = db.exec(statement).all()
-    
+
     # Transformation logic from rich JSONB to flat mobile string
     mobile_items = []
     for item in results:
@@ -93,7 +94,27 @@ async def get_mobile_intelligence(
                 content=content_text,
                 urgency_score=urgency_score,
                 sentiment_label=sentiment_label,
-                gold_price_snapshot=item.gold_price_snapshot
+                gold_price_snapshot=item.gold_price_snapshot,
+                dxy_snapshot=item.dxy_snapshot,
+                us10y_snapshot=item.us10y_snapshot,
+                oil_snapshot=None,  # 如果需要可以添加
+                price_15m=item.price_15m,
+                price_1h=item.price_1h,
+                price_4h=item.price_4h,
+                price_12h=item.price_12h,
+                price_24h=item.price_24h
             )
         )
     return v1_prepare_json(mobile_items)
+
+
+@router.get("/market/snapshot", response_model=Dict[str, Any])
+async def get_mobile_market_snapshot():
+    """
+    Fetch real-time market snapshot for iOS terminal.
+    Includes: Gold, DXY, Crude Oil, US10Y Treasury.
+    """
+    snapshot = market_terminal_service.get_market_snapshot()
+    if not snapshot:
+        raise HTTPException(status_code=503, detail="Market data temporarily unavailable")
+    return v1_prepare_json(snapshot)

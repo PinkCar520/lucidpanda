@@ -10,13 +10,15 @@ struct MainDashboardView: View {
     @State private var viewModel = DashboardViewModel()
     @Environment(AppRootViewModel.self) private var rootViewModel
     @State private var isSettingsPresented = false
-    
+    @State private var marketQuotes: [String: MarketQuote] = [:]
+    @State private var isFetchingMarketData = false
+
     @State private var currentTime = Date()
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-    
-    @Query(sort: \IntelligenceModel.timestamp, order: .reverse) 
+
+    @Query(sort: \IntelligenceModel.timestamp, order: .reverse)
     private var cachedItems: [IntelligenceModel]
-    
+
     var body: some View {
         @Bindable var viewModel = viewModel
         return NavigationStack {
@@ -29,7 +31,11 @@ struct MainDashboardView: View {
                         headerSection
                             .padding(.bottom, 16)
 
-                        // 2. 搜索与过滤器 (对齐 Web 端)
+                        // 2. 四品种市场数据 (黄金、美元指数、原油、美债十年期)
+                        marketDataSection
+                            .padding(.bottom, 16)
+
+                        // 3. 搜索与过滤器 (对齐 Web 端)
                         searchAndFilterBar
 
                         VStack(spacing: 16) {
@@ -130,12 +136,12 @@ struct MainDashboardView: View {
     
     private var headerSection: some View {
         let activeAlertsCount = viewModel.filteredItems.filter { $0.urgencyScore >= 8 }.count
-        
+
         return VStack(alignment: .leading, spacing: 16) {
             Text("dashboard.title")
                 .font(.title2.weight(.bold))
                 .foregroundStyle(.primary)
-                
+
             HStack(spacing: 12) {
                 // 1. 活跃警报 (Active Alerts)
                 VStack(spacing: 2) {
@@ -143,7 +149,7 @@ struct MainDashboardView: View {
                         .font(.system(size: 10, weight: .bold))
                         .textCase(.uppercase)
                         .foregroundStyle(.secondary)
-                    
+
                     Text("\(activeAlertsCount)")
                         .font(.system(size: 22, weight: .black, design: .monospaced))
                         .foregroundStyle(activeAlertsCount > 0 ? .red : .primary)
@@ -152,7 +158,7 @@ struct MainDashboardView: View {
                 .background(Color(uiColor: .systemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
-                
+
                 // 2. 实时状态 & UTC (Real-time Status & UTC Time)
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
@@ -168,9 +174,9 @@ struct MainDashboardView: View {
                     .padding(.horizontal, 12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(statusColor.opacity(0.1))
-                    
+
                     Divider().opacity(0.5)
-                    
+
                     HStack {
                         Image(systemName: "globe")
                             .font(.system(size: 10))
@@ -192,6 +198,64 @@ struct MainDashboardView: View {
         .padding(.top, 24)
         .onReceive(timer) { input in
             currentTime = input
+        }
+    }
+
+    /// 四品种市场数据区域
+    private var marketDataSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.blue)
+                Text("市场数据")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                if isFetchingMarketData {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                } else if let lastUpdated = marketQuotes["gold"]?.timestamp {
+                    Text("更新于 \(formatTime(lastUpdated))")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal)
+
+            LazyVGrid(
+                columns: [GridItem(.flexible()), GridItem(.flexible())],
+                spacing: 10
+            ) {
+                MarketQuoteRow(
+                    symbol: "黄金",
+                    icon: "circle.fill",
+                    iconColor: .yellow,
+                    quote: marketQuotes["gold"]
+                )
+                MarketQuoteRow(
+                    symbol: "美元指数",
+                    icon: "dollarsign.circle.fill",
+                    iconColor: .green,
+                    quote: marketQuotes["dxy"]
+                )
+                MarketQuoteRow(
+                    symbol: "原油",
+                    icon: "drop.fill",
+                    iconColor: .orange,
+                    quote: marketQuotes["oil"]
+                )
+                MarketQuoteRow(
+                    symbol: "美债 10Y",
+                    icon: "chart.bar.fill",
+                    iconColor: .purple,
+                    quote: marketQuotes["us10y"]
+                )
+            }
+            .padding(.horizontal)
+        }
+        .task {
+            await fetchMarketData()
         }
     }
     
@@ -304,7 +368,7 @@ struct MainDashboardView: View {
     @ViewBuilder
     private func timelineItem(item: IntelligenceItem, isLast: Bool) -> some View {
         HStack(alignment: .top, spacing: 12) {
-            
+
             // Timeline line & dot
             VStack(spacing: 0) {
                 Circle()
@@ -314,7 +378,7 @@ struct MainDashboardView: View {
                         Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2)
                     )
                     .shadow(color: (item.urgencyScore >= 8 ? Color.red : Color.blue).opacity(0.3), radius: 4)
-                
+
                 if !isLast {
                     Rectangle()
                         .fill(Color.gray.opacity(0.2))
@@ -323,7 +387,7 @@ struct MainDashboardView: View {
                 }
             }
             .padding(.top, 15)
-            
+
             // Card Content
             VStack {
                 NavigationLink(destination: IntelligenceDetailView(item: item)) {
@@ -333,6 +397,101 @@ struct MainDashboardView: View {
             }
             .padding(.bottom, isLast ? 0 : 20)
         }
+    }
+
+    // MARK: - Market Data Methods
+
+    private func fetchMarketData() async {
+        guard !isFetchingMarketData else { return }
+        await MainActor.run {
+            isFetchingMarketData = true
+        }
+
+        do {
+            let snapshot: MarketSnapshot = try await APIClient.shared.fetch(path: "/api/v1/mobile/market/snapshot")
+            await MainActor.run {
+                marketQuotes["gold"] = snapshot.gold
+                marketQuotes["dxy"] = snapshot.dxy
+                marketQuotes["oil"] = snapshot.oil
+                marketQuotes["us10y"] = snapshot.us10y
+                isFetchingMarketData = false
+            }
+        } catch {
+            print("Failed to fetch market data: \(error)")
+            await MainActor.run {
+                isFetchingMarketData = false
+            }
+        }
+    }
+
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+}
+
+// MARK: - Market Quote Row
+
+/// 市场报价行组件
+struct MarketQuoteRow: View {
+    let symbol: String
+    let icon: String
+    let iconColor: Color
+    let quote: MarketQuote?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(iconColor)
+                .frame(width: 32, height: 32)
+                .background(iconColor.opacity(0.1))
+                .clipShape(Circle())
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(symbol)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(.secondary)
+
+                if let quote = quote {
+                    Text(String(format: "%.2f", quote.price))
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.primary)
+                } else {
+                    Text("--")
+                        .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if let quote = quote {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(String(format: "%+%.2f", quote.change))
+                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .foregroundStyle(quote.change >= 0 ? .red : .green)
+
+                    Text(String(format: "%+%.2f%%", quote.changePercent))
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(quote.change >= 0 ? .red : .green)
+                }
+            } else {
+                Text("--")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color(.systemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.gray.opacity(0.1), lineWidth: 1)
+        )
     }
 }
 

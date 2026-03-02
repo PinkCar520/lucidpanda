@@ -48,3 +48,11 @@ class IntelligenceMobileRead(SQLModel):
     urgency_score: int
     sentiment_label: str   # Derived for mobile
     gold_price_snapshot: Optional[float] = None
+    dxy_snapshot: Optional[float] = None
+    us10y_snapshot: Optional[float] = None
+    oil_snapshot: Optional[float] = None
+    price_15m: Optional[float] = None
+    price_1h: Optional[float] = None
+    price_4h: Optional[float] = None
+    price_12h: Optional[float] = None
+    price_24h: Optional[float] = None
