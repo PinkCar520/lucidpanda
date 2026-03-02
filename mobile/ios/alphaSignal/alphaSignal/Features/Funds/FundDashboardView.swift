@@ -3,6 +3,7 @@ import AlphaDesign
 import AlphaData
 import AlphaCore
 import SwiftData
+import OSLog
 
 // MARK: - Group Manager Mode
 
@@ -15,6 +16,14 @@ struct FundDashboardView: View {
     @State private var viewModel = FundViewModel()
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.modelContext) private var modelContext
+
+    // MARK: - Offline-First: @Query 直连 SwiftData，与 MainDashboardView 对称
+    // View 渲染瞬间同步读取本地 SQLite，完全不依赖网络
+    @Query(sort: \LocalWatchlistItem.sortIndex, order: .forward)
+    private var cachedItems: [LocalWatchlistItem]
+
+    @Query(sort: \LocalWatchlistGroup.sortIndex, order: .forward)
+    private var cachedGroups: [LocalWatchlistGroup]
 
     @State private var showGroupPicker = false
     @State private var pendingMoveFund: FundValuation?
@@ -29,6 +38,38 @@ struct FundDashboardView: View {
     @State private var showCreateGroupOnly = false
     @State private var groupManagerMode: GroupManagerMode = .filter
     @State private var scrollOffset: CGFloat = 0
+
+    // 从 SwiftData 本地缓存 blob 恢复 FundValuation，用于网络不可达时的降级展示
+    private var cachedValuations: [FundValuation] {
+        cachedItems
+            .filter { !$0.isDeleted }
+            .compactMap { item -> FundValuation? in
+                guard let data = item.cachedValuationData else { return nil }
+                return try? JSONDecoder().decode(FundValuation.self, from: data)
+            }
+    }
+
+    // 降级：网络数据优先，为空时用本地缓存（与 MainDashboardView 的策略对称）
+    private var displayList: [FundValuation] {
+        viewModel.watchlist.isEmpty ? cachedValuations : viewModel.sortedWatchlist
+    }
+
+    // 降级：网络分组优先，为空时用本地缓存
+    private var displayGroups: [WatchlistGroup] {
+        if !viewModel.groups.isEmpty { return viewModel.groups }
+        return cachedGroups.map {
+            WatchlistGroup(
+                id: $0.id,
+                userId: "",
+                name: $0.name,
+                icon: $0.icon,
+                color: $0.color,
+                sortIndex: Int($0.sortIndex),
+                createdAt: $0.lastSyncTime,
+                updatedAt: $0.lastSyncTime
+            )
+        }
+    }
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -116,15 +157,15 @@ struct FundDashboardView: View {
                 filterChipsHeader
 
                 List {
-                    // ✅ 改进：只在真正无数据时显示空状态
-                    // 条件：watchlist 为空 且 无缓存数据 且 不在加载中
-                    if viewModel.watchlist.isEmpty && !viewModel.isLoading && viewModel.watchlistItems.isEmpty {
+                    // Offline-First: 优先显示网络数据，网络不可达时降级到 @Query 本地缓存
+                    // 真正无数据的判定：网络和本地缓存均为空，且不在加载中
+                    if displayList.isEmpty && !viewModel.isLoading && cachedItems.isEmpty {
                         emptyStateView
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
                     } else {
-                        ForEach(viewModel.sortedWatchlist) { valuation in
+                        ForEach(displayList) { valuation in
                             Button {
                                 selectedFund = valuation
                                 showFundDetail = true
@@ -185,7 +226,7 @@ struct FundDashboardView: View {
 
     @ViewBuilder
     private var filterChips: some View {
-        if !viewModel.groups.isEmpty {
+        if !displayGroups.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     FilterChip(
@@ -198,7 +239,7 @@ struct FundDashboardView: View {
                         }
                     }
 
-                    ForEach(viewModel.groups) { group in
+                    ForEach(displayGroups) { group in
                         FilterChip(
                             title: group.name,
                             color: Color(hex: group.color),
@@ -218,7 +259,7 @@ struct FundDashboardView: View {
 
     @ViewBuilder
     private var filterChipsHeader: some View {
-        if !viewModel.groups.isEmpty {
+        if !displayGroups.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
                 filterChips
                     .padding(.top, 4)

@@ -324,6 +324,8 @@ class FundViewModel {
         }
     }
     
+    /// 纯本地缓存读取 — 不发起任何网络请求。
+    /// fetchValuations 由 fetchWatchlist() 统一调度，避免在断网场景里触发注定失败的网络请求。
     private func loadFromCache() async {
         let cachedItems = await cacheManager.fetchAllItems()
         self.watchlistItems = cachedItems.map {
@@ -340,24 +342,17 @@ class FundViewModel {
             )
         }
         
-        var cachedValuations: [FundValuation] = []
-        for localItem in cachedItems {
-            if let data = localItem.cachedValuationData,
-               let valuation = try? JSONDecoder().decode(FundValuation.self, from: data) {
-                cachedValuations.append(valuation)
-            }
+        // 从 cachedValuationData blob 恢复估值数据
+        let cachedValuations = cachedItems.compactMap { item -> FundValuation? in
+            guard let data = item.cachedValuationData else { return nil }
+            return try? JSONDecoder().decode(FundValuation.self, from: data)
         }
         if !cachedValuations.isEmpty {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 self.watchlist = cachedValuations
             }
         }
-        
-        let codes = cachedItems.map { $0.fundCode }
-        
-        if !codes.isEmpty {
-            await fetchValuations(for: codes)
-        }
+        // 不在此处调用 fetchValuations —— 网络请求由 fetchWatchlist 统一调度
     }
     
     // MARK: - Add Fund
