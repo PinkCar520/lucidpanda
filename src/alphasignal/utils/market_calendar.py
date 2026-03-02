@@ -95,6 +95,7 @@ def get_market_status(region='CN', target_dt=None):
         'CN': 'Asia/Shanghai',
         'US': 'America/New_York',
         'HK': 'Asia/Hong_Kong',
+        'GOLD': 'America/New_York',
     }
     tz_name = tz_map.get(region_upper, 'Asia/Shanghai')
     tz = ZoneInfo(tz_name)
@@ -105,12 +106,14 @@ def get_market_status(region='CN', target_dt=None):
         local_dt = target_dt.astimezone(tz)
 
     target_day = local_dt.date()
+    # 这里的 is_market_open (is_trading_day) 已经处理了节假日逻辑
     if not is_market_open(region_upper, target_day):
         return "CLOSED"
 
     minute_of_day = local_dt.hour * 60 + local_dt.minute
 
     if region_upper == 'CN':
+        # A-share: 09:30-11:30, 13:00-15:00
         if 9 * 60 + 30 <= minute_of_day < 11 * 60 + 30:
             return "OPEN"
         if 11 * 60 + 30 <= minute_of_day < 13 * 60:
@@ -120,8 +123,18 @@ def get_market_status(region='CN', target_dt=None):
         return "CLOSED"
 
     if region_upper in ['US', 'HK']:
+        # US/HK: 09:30-16:00 (Coarse)
         if 9 * 60 + 30 <= minute_of_day < 16 * 60:
             return "OPEN"
         return "CLOSED"
+
+    if region_upper == 'GOLD':
+        # CME Globex Gold: 
+        # Sunday - Friday 6:00 p.m. – 5:00 p.m. ET
+        # (18:00 - 17:00 next day)
+        # Daily break: 17:00 - 18:00 ET
+        if 17 * 60 <= minute_of_day < 18 * 60:
+            return "CLOSED"
+        return "OPEN"
 
     return "CLOSED"

@@ -8,6 +8,7 @@ from src.alphasignal.models.intelligence import Intelligence, IntelligenceMobile
 from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
 from src.alphasignal.utils import v1_prepare_json
+from src.alphasignal.utils.market_calendar import get_market_status
 
 router = APIRouter()
 
@@ -42,7 +43,7 @@ async def get_mobile_dashboard_summary(
     Reduces RTT by combining watchlist, market status, and top alerts.
     """
     return v1_prepare_json({
-        "market_status": "OPEN",
+        "market_status": get_market_status('CN'),
         "watchlist": [], # List[FundMobileSummary]
         "critical_alerts": [] # List[IntelligenceMobileRead]
     })
