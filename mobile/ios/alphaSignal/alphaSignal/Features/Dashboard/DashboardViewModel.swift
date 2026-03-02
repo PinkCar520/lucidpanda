@@ -72,55 +72,68 @@ class DashboardViewModel {
         guard !isStreaming else { return }
         isStreaming = true
         connectionStatus = "dashboard.connection.connecting"
-        
+
         // 1. 先通过 REST 获取历史数据，确保页面不为空
         await fetchInitialHistory()
-        
-        do {
-            // 从会话存储获取最新 access token
-            let token = AuthTokenStore.accessToken()
-            
-            // 订阅 V1 高性能实时流 (基于 Redis Pub/Sub)
-            let streamURL = URL(string: "http://43.139.108.187:8001/api/v1/intelligence/stream")!
-            let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)
-            
-            connectionStatus = "dashboard.connection.live"
-            
-            for try await jsonString in stream {
+
+        // 重连计数器
+        var reconnectAttempts = 0
+        let maxReconnectDelay: UInt64 = 30_000_000_000 // 30 秒上限
+
+        while !Task.isCancelled {
+            do {
+                // 从会话存储获取最新 access token
+                let token = AuthTokenStore.accessToken()
+
+                // 订阅 V1 高性能实时流 (基于 Redis Pub/Sub)
+                let streamURL = URL(string: "http://43.139.108.187:8001/api/v1/intelligence/stream")!
+                let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)
+
+                connectionStatus = "dashboard.connection.live"
+                reconnectAttempts = 0 // 连接成功，重置计数器
+
+                for try await jsonString in stream {
+                    if Task.isCancelled {
+                        break
+                    }
+                    guard let data = jsonString.data(using: .utf8) else { continue }
+
+                    if let event = try? self.jsonDecoder.decode(IntelligenceEvent.self, from: data),
+                       let newItems = event.data {
+                        processNewItems(newItems)
+                    }
+                }
+
+                // 正常退出（非错误）
                 if Task.isCancelled {
                     break
                 }
-                guard let data = jsonString.data(using: .utf8) else { continue }
-                
-                if let event = try? self.jsonDecoder.decode(IntelligenceEvent.self, from: data),
-                   let newItems = event.data {
-                    processNewItems(newItems)
+
+            } catch {
+                if Task.isCancelled || isCancelledError(error) {
+                    break
                 }
+                if case APIError.unauthorized = error {
+                    connectionStatus = "dashboard.connection.disconnected"
+                    isStreaming = false
+                    return
+                }
+
+                // 连接失败，准备重连
+                reconnectAttempts += 1
+                let delay = min(UInt64(pow(2, Double(reconnectAttempts))) * 1_000_000_000, maxReconnectDelay)
+
+                logger.error("V1 stream failed (attempt \(reconnectAttempts)): \(error.localizedDescription, privacy: .public). Reconnecting in \(delay / 1_000_000_000)s...")
+
+                // 重连等待期间保持 isStreaming = true，避免状态频繁切换
+                connectionStatus = "dashboard.connection.connecting"
+                try? await Task.sleep(nanoseconds: delay)
             }
-            if Task.isCancelled {
-                connectionStatus = "dashboard.connection.disconnected"
-                isStreaming = false
-            }
-        } catch {
-            if Task.isCancelled || isCancelledError(error) {
-                connectionStatus = "dashboard.connection.disconnected"
-                isStreaming = false
-                return
-            }
-            if case APIError.unauthorized = error {
-                connectionStatus = "dashboard.connection.disconnected"
-                isStreaming = false
-                return
-            }
-            logger.error("V1 stream failed: \(error.localizedDescription, privacy: .public)")
-            connectionStatus = "dashboard.connection.disconnected"
-            isStreaming = false
-            
-            // 指数退避重连逻辑
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
-            if Task.isCancelled { return }
-            await startIntelligenceStream()
         }
+
+        // 最终退出
+        connectionStatus = "dashboard.connection.disconnected"
+        isStreaming = false
     }
 
     @MainActor

@@ -157,17 +157,17 @@ struct MainDashboardView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
                         Circle()
-                            .fill(viewModel.isStreaming ? .green : .red)
+                            .fill(statusColor)
                             .frame(width: 8, height: 8)
-                            
-                        Text(viewModel.isStreaming ? LocalizedStringKey("dashboard.system.operational") : LocalizedStringKey("dashboard.system.degraded"))
+
+                        Text(LocalizedStringKey(statusText))
                             .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundStyle(viewModel.isStreaming ? .green : .red)
+                            .foregroundStyle(statusColor)
                         Spacer()
                     }
                     .padding(.horizontal, 12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(viewModel.isStreaming ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
+                    .background(statusColor.opacity(0.1))
                     
                     Divider().opacity(0.5)
                     
@@ -201,9 +201,31 @@ struct MainDashboardView: View {
         formatter.timeZone = TimeZone(abbreviation: "UTC")
         return formatter
     }
-    
 
-    
+    // 系统状态文本（3 种状态）
+    private var statusText: String {
+        switch viewModel.connectionStatus {
+        case "dashboard.connection.live":
+            return "dashboard.system.operational"
+        case "dashboard.connection.connecting":
+            return "dashboard.connection.connecting"
+        default:
+            return "dashboard.system.degraded"
+        }
+    }
+
+    // 系统状态颜色
+    private var statusColor: Color {
+        switch viewModel.connectionStatus {
+        case "dashboard.connection.live":
+            return .green
+        case "dashboard.connection.connecting":
+            return .orange
+        default:
+            return .red
+        }
+    }
+
     private var searchAndFilterBar: some View {
         VStack(spacing: 12) {
             // 过滤器切换 - 支持横向滚动
