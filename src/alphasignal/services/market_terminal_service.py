@@ -1,7 +1,7 @@
 import akshare as ak
 import pandas as pd
-import yfinance as yf
 from datetime import datetime
+import requests
 from src.alphasignal.core.logger import logger
 from src.alphasignal.utils import format_iso8601
 
@@ -10,6 +10,7 @@ class MarketTerminalService:
     """
     市场终端数据服务 - 支持四大品种
     黄金、美元指数、原油、美债 10 年期
+    使用国内数据源（东方财富、新浪）
     """
 
     def __init__(self):
@@ -21,7 +22,7 @@ class MarketTerminalService:
         获取市场快照（四大品种实时报价）
         """
         now = datetime.now().timestamp()
-        
+
         # 检查缓存
         if "market_snapshot" in self._cache:
             entry = self._cache["market_snapshot"]
@@ -54,16 +55,14 @@ class MarketTerminalService:
             return None
 
     def _fetch_gold(self):
-        """获取黄金数据（COMEX + 国内现货）"""
+        """获取黄金数据（COMEX 黄金期货 - 东方财富）"""
         try:
-            # COMEX 黄金期货
+            # 东方财富 COMEX 黄金期货
             df = ak.futures_global_hist_em(symbol="GC00Y")
             if not df.empty:
                 latest = df.iloc[-1]
                 current_price = float(latest['最新价'])
                 open_price = float(latest['开盘价']) if '开盘价' in latest else float(latest['今开'])
-                
-                # 计算涨跌
                 previous_close = float(latest['昨结']) if '昨结' in latest else open_price
                 change = current_price - previous_close
                 change_pct = (change / previous_close) * 100 if previous_close else 0
@@ -85,45 +84,46 @@ class MarketTerminalService:
         return None
 
     def _fetch_dxy(self):
-        """获取美元指数数据"""
+        """获取美元指数数据（东方财富外汇）"""
         try:
-            # 使用 yfinance 获取美元指数
-            ticker = yf.Ticker("DX-Y.NYB")
-            data = ticker.history(period="1d", interval="1m")
-            
-            if not data.empty:
-                latest = data.iloc[-1]
-                previous = data.iloc[-2] if len(data) > 1 else latest
-                
-                change = latest['Close'] - previous['Close']
-                change_pct = (change / previous['Close']) * 100 if previous['Close'] else 0
+            # 东方财富外汇市场 - 美元指数
+            df = ak.fx_spot_quote()
+            if not df.empty:
+                # 查找美元指数
+                dxy_row = df[df['外汇名称'].str.contains('美元指数', case=False, na=False)]
+                if not dxy_row.empty:
+                    row = dxy_row.iloc[0]
+                    current_price = float(row['最新价'])
+                    open_price = float(row['开盘价']) if '开盘价' in row else current_price
+                    previous_close = float(row['昨收']) if '昨收' in row else open_price
+                    change = current_price - previous_close
+                    change_pct = (change / previous_close) * 100 if previous_close else 0
 
-                return {
-                    "symbol": "DXY",
-                    "name": "美元指数",
-                    "price": float(latest['Close']),
-                    "change": float(change),
-                    "changePercent": float(change_pct),
-                    "high_24h": float(data['High'].max()),
-                    "low_24h": float(data['Low'].min()),
-                    "open": float(latest['Open']),
-                    "previous_close": float(previous['Close']),
-                    "timestamp": datetime.now()
-                }
+                    return {
+                        "symbol": "DXY",
+                        "name": "美元指数",
+                        "price": current_price,
+                        "change": change,
+                        "changePercent": change_pct,
+                        "high_24h": float(row['最高价']) if '最高价' in row else None,
+                        "low_24h": float(row['最低价']) if '最低价' in row else None,
+                        "open": open_price,
+                        "previous_close": previous_close,
+                        "timestamp": datetime.now()
+                    }
         except Exception as e:
             logger.error(f"Failed to fetch DXY data: {e}")
         return None
 
     def _fetch_oil(self):
-        """获取原油数据（WTI）"""
+        """获取原油数据（WTI 原油期货 - 东方财富）"""
         try:
-            # WTI 原油期货
+            # 东方财富 WTI 原油期货
             df = ak.futures_global_hist_em(symbol="CL00Y")
             if not df.empty:
                 latest = df.iloc[-1]
                 current_price = float(latest['最新价'])
                 open_price = float(latest['开盘价']) if '开盘价' in latest else float(latest['今开'])
-                
                 previous_close = float(latest['昨结']) if '昨结' in latest else open_price
                 change = current_price - previous_close
                 change_pct = (change / previous_close) * 100 if previous_close else 0
@@ -145,29 +145,30 @@ class MarketTerminalService:
         return None
 
     def _fetch_us10y(self):
-        """获取美债 10 年期收益率数据"""
+        """获取美债 10 年期收益率数据（东方财富）"""
         try:
-            # 使用 yfinance 获取美债 10Y
-            ticker = yf.Ticker("TNX")
-            data = ticker.history(period="1d", interval="1m")
-            
-            if not data.empty:
-                latest = data.iloc[-1]
-                previous = data.iloc[-2] if len(data) > 1 else latest
+            # 东方财富中美债券收益率
+            df = ak.bond_zh_us_rate()
+            if not df.empty:
+                # 获取最新数据
+                latest = df.iloc[-1]
+                current_price = float(latest['10 年'])
                 
-                change = latest['Close'] - previous['Close']
-                change_pct = (change / previous['Close']) * 100 if previous['Close'] else 0
+                # 获取前一日数据计算涨跌
+                previous_price = float(df.iloc[-2]['10 年']) if len(df) > 1 else current_price
+                change = current_price - previous_price
+                change_pct = (change / previous_price) * 100 if previous_price else 0
 
                 return {
                     "symbol": "US10Y",
                     "name": "美债 10Y",
-                    "price": float(latest['Close']),
-                    "change": float(change),
-                    "changePercent": float(change_pct),
-                    "high_24h": float(data['High'].max()),
-                    "low_24h": float(data['Low'].min()),
-                    "open": float(latest['Open']),
-                    "previous_close": float(previous['Close']),
+                    "price": current_price,
+                    "change": change,
+                    "changePercent": change_pct,
+                    "high_24h": None,
+                    "low_24h": None,
+                    "open": current_price,
+                    "previous_close": previous_price,
                     "timestamp": datetime.now()
                 }
         except Exception as e:
