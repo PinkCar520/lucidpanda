@@ -111,12 +111,14 @@ struct FundDashboardView: View {
     private var dashboardContent: some View {
         ZStack(alignment: .top) {
             LiquidBackground()
-            
+
             VStack(spacing: 0) {
                 filterChipsHeader
-                
+
                 List {
-                    if viewModel.watchlist.isEmpty && !viewModel.isLoading {
+                    // ✅ 改进：只在真正无数据时显示空状态
+                    // 条件：watchlist 为空 且 无缓存数据 且 不在加载中
+                    if viewModel.watchlist.isEmpty && !viewModel.isLoading && viewModel.watchlistItems.isEmpty {
                         emptyStateView
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
