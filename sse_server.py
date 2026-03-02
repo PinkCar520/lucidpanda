@@ -8,10 +8,11 @@ to connected clients as soon as it's written to the database.
 # ... imports remaining the same ...
 import asyncio
 import json
+from datetime import datetime
 from typing import List, AsyncGenerator
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware # Import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from contextlib import asynccontextmanager

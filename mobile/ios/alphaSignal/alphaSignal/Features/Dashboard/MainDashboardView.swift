@@ -454,8 +454,8 @@ struct MarketQuoteRow: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.secondary)
 
-                if let quote = quote {
-                    Text(String(format: "%.2f", quote.price))
+                if let quote = quote, quote.price > 0 {
+                    Text(formatPrice(quote.price, symbol: symbol))
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
                         .foregroundStyle(.primary)
                 } else {
@@ -467,13 +467,13 @@ struct MarketQuoteRow: View {
 
             Spacer()
 
-            if let quote = quote {
+            if let quote = quote, quote.price > 0 {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(String(format: "%+%.2f", quote.change))
+                    Text(formatChange(quote.change))
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundStyle(quote.change >= 0 ? .red : .green)
 
-                    Text(String(format: "%+%.2f%%", quote.changePercent))
+                    Text(formatChangePercent(quote.changePercent))
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
                         .foregroundStyle(quote.change >= 0 ? .red : .green)
                 }
@@ -492,6 +492,23 @@ struct MarketQuoteRow: View {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(Color.gray.opacity(0.1), lineWidth: 1)
         )
+    }
+
+    private func formatPrice(_ price: Double, symbol: String) -> String {
+        // 美债 10Y 和美元指数保留 2 位小数，黄金和原油保留 1 位小数
+        if symbol == "美债 10Y" || symbol == "美元指数" {
+            return String(format: "%.2f", price)
+        } else {
+            return String(format: "%.1f", price)
+        }
+    }
+
+    private func formatChange(_ change: Double) -> String {
+        return String(format: "%+.2f", change)
+    }
+
+    private func formatChangePercent(_ percent: Double) -> String {
+        return String(format: "%+.2f%%", percent)
     }
 }
 
