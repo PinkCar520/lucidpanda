@@ -748,7 +748,7 @@ struct SettingsView: View {
                     // Toggle row
                     VStack(spacing: 0) {
                         HStack {
-                            Text("身份验证器应用")
+                            Text(LocalizedStringKey("settings.two_factor.authenticator_app"))
                                 .font(.system(size: 16, weight: .medium))
                                 .foregroundStyle(.primary)
                             Spacer()
@@ -770,7 +770,7 @@ struct SettingsView: View {
                             showing2FASetupModal = true
                         }
                     }
-                    Text("启用后，每次登录除密码外还需提供验证器 App（如 Google Authenticator）生成的 6 位动态验证码，有效防止账号被盗。")
+                    Text(LocalizedStringKey("settings.two_factor.hint_description"))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 16)

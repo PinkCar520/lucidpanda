@@ -59,7 +59,7 @@ struct FundPeekSheet: View {
                         
                         if linkedIntelligence.isEmpty && !isLoading {
                             LiquidGlassCard {
-                                Text("当前暂无直接关联的地缘政治情报")
+                                Text("intelligence.analysis.no_related", bundle: .main)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity, alignment: .center)
@@ -77,15 +77,15 @@ struct FundPeekSheet: View {
                     // 3. AI Deep Analysis Shortcut
                     if let firstItem = linkedIntelligence.first {
                         VStack(alignment: .leading, spacing: 12) {
-                            Label("AI 深度分析", systemImage: "sparkles")
+                            Label(LocalizedStringKey("intelligence.analysis.title"), systemImage: "sparkles")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundStyle(.purple)
                                 .padding(.horizontal)
-                            
+
                             LiquidGlassCard(backgroundColor: Color.purple.opacity(0.05)) {
                                 VStack(alignment: .leading, spacing: 10) {
                                     HStack {
-                                        Text("核心信号透传")
+                                        Text(LocalizedStringKey("intelligence.analysis.core_signal"))
                                             .font(.caption.bold())
                                             .foregroundStyle(.purple)
                                         Spacer()
@@ -93,7 +93,7 @@ struct FundPeekSheet: View {
                                             ProgressView().scaleEffect(0.6)
                                         }
                                     }
-                                    
+
                                     if let advice = aiAdvice {
                                         Text(advice)
                                             .font(.subheadline)
@@ -101,15 +101,15 @@ struct FundPeekSheet: View {
                                             .lineSpacing(4)
                                             .transition(.opacity)
                                     } else {
-                                        Text("系统正在根据关联情报 “\(firstItem.summary)” 提取核心应对策略...")
+                                        Text(String(format: NSLocalizedString("intelligence.analysis.extracting", bundle: .main, comment: ""), firstItem.summary))
                                             .font(.subheadline)
                                             .italic()
                                             .foregroundStyle(.secondary)
                                     }
-                                    
+
                                     HStack {
                                         Spacer()
-                                        Text("查看完整关联报告 →")
+                                        Text("intelligence.analysis.view_full_report", bundle: .main)
                                             .font(.caption.bold())
                                             .foregroundStyle(.blue)
                                     }
@@ -122,7 +122,7 @@ struct FundPeekSheet: View {
                 }
                 .padding(.bottom, 40)
             }
-            .navigationTitle("基金速览")
+            .navigationTitle(LocalizedStringKey("funds.peek.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

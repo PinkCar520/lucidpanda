@@ -27,7 +27,7 @@ struct FundDiscoverView: View {
                             Section {
                                 VStack(alignment: .leading, spacing: 16) {
                                     HStack {
-                                        Text("最近搜索")
+                                        Text(LocalizedStringKey("funds.search.recent"))
                                             .font(.system(size: 14, weight: .bold))
                                             .foregroundStyle(.secondary)
                                         Spacer()

@@ -453,9 +453,9 @@ class FundViewModel {
             
             // 6. 从缓存删除
             await cacheManager.deleteItem(fundCode: code)
-            
-            // 7. 清除删除信息（5 秒后自动清除）
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+
+            // 7. 清除删除信息（3 秒后自动清除）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
                 self?.lastDeletedFund = nil
             }
             

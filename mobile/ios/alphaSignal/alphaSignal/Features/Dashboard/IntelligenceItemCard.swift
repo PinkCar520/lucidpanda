@@ -180,7 +180,7 @@ struct IntelligencePeekSheet: View {
                     // AI Analysis Section
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Label("AI 深度分析", systemImage: "sparkles")
+                            Label(LocalizedStringKey("intelligence.analysis.title"), systemImage: "sparkles")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(.blue)
 
@@ -193,11 +193,11 @@ struct IntelligencePeekSheet: View {
                                     if isAnalyzing {
                                         HStack(spacing: 6) {
                                             ProgressView().scaleEffect(0.75)
-                                            Text("分析中...")
+                                            Text(LocalizedStringKey("intelligence.analysis.analyzing"))
                                                 .font(.system(size: 13, weight: .medium))
                                         }
                                     } else {
-                                        Text("立即分析")
+                                        Text(LocalizedStringKey("intelligence.analysis.start"))
                                             .font(.system(size: 13, weight: .semibold))
                                             .foregroundStyle(.white)
                                             .padding(.horizontal, 14)
@@ -230,7 +230,7 @@ struct IntelligencePeekSheet: View {
                 }
                 .padding(20)
             }
-            .navigationTitle("速览")
+            .navigationTitle(LocalizedStringKey("intelligence.analysis.quick_view"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

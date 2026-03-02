@@ -797,8 +797,9 @@ class FundEngine:
                 "fund_name": fund_name,
                 "estimated_growth": round(final_est, 4),
                 "total_weight": total_weight,
-                "components": components, 
+                "components": components,
                 "sector_attribution": sector_stats,
+                "market_status": get_market_status(infer_market_region(fund_code)),
                 "timestamp": datetime.now(tz_cn).isoformat(),
                 "source": "System Engine" + calibration_note + fx_note,
                 "fee_drag": {

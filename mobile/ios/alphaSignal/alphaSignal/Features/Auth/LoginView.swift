@@ -222,7 +222,7 @@ struct LoginView: View {
                                 .font(.system(size: 18))
                                 .frame(width: 20, height: 20)
                         }
-                        Text("使用通行密钥登录")
+                        Text(LocalizedStringKey("auth.action.passkey_login"))
                             .font(.system(size: 14, weight: .semibold))
                     }
                     .frame(maxWidth: .infinity)
