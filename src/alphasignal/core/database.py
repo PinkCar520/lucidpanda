@@ -99,10 +99,19 @@ class IntelligenceDB:
             conn = self._get_conn()
             cursor = conn.cursor()
             
-            # Ensure pg_trgm extension exists for similarity matching
-            cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
-            # pgvector 语义向量索引支持
-            cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+            # --- 扩展常常需要超级管理员权限 ---
+            # 如果只允许应用程序使用普通账号 (alphasignal)，这里有可能会报错
+            # 我们用单独的 try 捕获它，以免中断后续所有的 建库建表流程。
+            try:
+                # Ensure pg_trgm extension exists for similarity matching
+                cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+                # pgvector 语义向量索引支持
+                cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                conn.commit()
+            except Exception as e:
+                logger.warning(f"⚠️ 安装扩展时失败 (若已手动安装可忽略): {e}")
+                conn.rollback()
+
             
             # Create Table
             cursor.execute("""
