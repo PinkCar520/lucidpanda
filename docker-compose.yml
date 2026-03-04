@@ -73,16 +73,12 @@ services:
       - ./logs:/app/logs
     env_file:
       - .env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
       - REDIS_URL=redis://redis:6379/0
       - TZ=Asia/Shanghai
-      - HTTP_PROXY=http://host.docker.internal:7890
-      - HTTPS_PROXY=http://host.docker.internal:7890
-      - NO_PROXY=localhost,127.0.0.1,db,redis,api,web,postgres,.cn,sina.com,sinajs.cn,eastmoney.com,akspider.com,10jqka.com.cn,hexun.com,finance.yahoo.com,hf-mirror.com
+      # 仅调用国内 akshare/eastmoney 数据，无需代理，直连更快更稳
       - HF_ENDPOINT=https://hf-mirror.com
     restart: unless-stopped
     depends_on:
