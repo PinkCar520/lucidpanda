@@ -51,7 +51,8 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - HTTP_PROXY=http://host.docker.internal:7890
       - HTTPS_PROXY=http://host.docker.internal:7890
-      - NO_PROXY=localhost,127.0.0.1,db,redis,api,web,postgres
+      # 国内直连域名不走 Clash，大幅减少代理压力
+      - NO_PROXY=localhost,127.0.0.1,db,redis,api,web,postgres,.cn,sina.com,sinajs.cn,eastmoney.com,akspider.com,10jqka.com.cn,hexun.com,finance.yahoo.com,hf-mirror.com
       - HF_ENDPOINT=https://hf-mirror.com
     restart: unless-stopped
     depends_on:
@@ -81,7 +82,7 @@ services:
       - TZ=Asia/Shanghai
       - HTTP_PROXY=http://host.docker.internal:7890
       - HTTPS_PROXY=http://host.docker.internal:7890
-      - NO_PROXY=localhost,127.0.0.1,db,redis,api,web,postgres
+      - NO_PROXY=localhost,127.0.0.1,db,redis,api,web,postgres,.cn,sina.com,sinajs.cn,eastmoney.com,akspider.com,10jqka.com.cn,hexun.com,finance.yahoo.com,hf-mirror.com
       - HF_ENDPOINT=https://hf-mirror.com
     restart: unless-stopped
     depends_on:
