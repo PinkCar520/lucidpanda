@@ -12,17 +12,19 @@ logger = logging.getLogger(__name__)
 MAX_HISTORY = 500
 
 class NewsDeduplicator:
-    def __init__(self, model_name="paraphrase-multilingual-MiniLM-L12-v2", simhash_threshold=6, semantic_threshold=0.85):
+    def __init__(self, model_name="paraphrase-multilingual-MiniLM-L12-v2", simhash_threshold=6, semantic_threshold=0.85, db=None):
         self.simhash_threshold = simhash_threshold
         self.semantic_threshold = semantic_threshold
         self.model_name = model_name
         self._model = None
+        self.db = db  # IntelligenceDB 实例，用于 pgvector 语义查询
         
-        # History containers for batch processing
-        self.simhash_history = [] # List of Simhash objects
-        self.vec_history = []     # List of numpy arrays (vectors)
-        self.id_history = []      # List of IDs corresponding to the history
-        self.last_vector = None   # Store the last calculated vector for caching
+        # SimHash 历史（仍在内存维护，轻量级粗筛）
+        self.simhash_history = []
+        # 内存向量历史（仅当 db=None 时用作降级方案）
+        self.vec_history = []
+        self.id_history = []
+        self.last_vector = None  # 最近一次编码结果，供外部持久化使用
 
     @property
     def model(self):
@@ -100,34 +102,42 @@ class NewsDeduplicator:
 
     def is_duplicate(self, news_content, record_id=None):
         """
-        Comprehensive judgement function.
-        Updates history if NOT duplicate.
+        综合判断函数。
+        不是重复时更新历史。
         """
         clean_text = self.normalize(news_content)
         
         if not clean_text:
             return False
 
-        # 1. SimHash Rough Filter
+        # 1. SimHash 粗筛（内存，毫秒级）
         current_simhash = Simhash(clean_text)
         if self.rough_duplicate(current_simhash):
             return True
 
-        # 2. Semantic Vector Filter (Only if model loaded successfully)
+        # 2. 语义向量精筛
         current_vector = None
-        if self.model: # Check if model is available (not False/None)
+        if self.model:
             try:
                 current_vector = self.model.encode(clean_text)
-                self.last_vector = current_vector # Store for external persistence
-                if self.semantic_duplicate(current_vector):
-                    return True
+                self.last_vector = current_vector
+
+                if self.db is not None:
+                    # ★ pgvector 路径：查询 DB，O(log n)，持久化历史
+                    if self.db.is_semantic_duplicate(current_vector, self.semantic_threshold):
+                        return True
+                else:
+                    # 降级路径：内存遍历，仅用于单元测试
+                    if self.semantic_duplicate(current_vector):
+                        return True
+
             except Exception as e:
                 logger.warning(f"Semantic encoding failed: {e}")
         else:
             self.last_vector = None
 
-        # 3. Not duplicate -> Add to history
-        self.add_to_history(current_simhash, current_vector, record_id)
+        # 3. 不是重复 → 加入 SimHash 历史
+        self.add_to_history(current_simhash, current_vector if self.db is None else None, record_id)
             
         return False
 

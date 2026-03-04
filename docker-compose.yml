@@ -1,7 +1,7 @@
 services:
   # 0. PostgreSQL Database (New Data Center)
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: alphasignal_db
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-alphasignal}

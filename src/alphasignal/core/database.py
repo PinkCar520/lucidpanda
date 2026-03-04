@@ -101,6 +101,8 @@ class IntelligenceDB:
             
             # Ensure pg_trgm extension exists for similarity matching
             cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+            # pgvector 语义向量索引支持
+            cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
             
             # Create Table
             cursor.execute("""
@@ -144,7 +146,15 @@ class IntelligenceDB:
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS us10y_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS gvz_snapshot DOUBLE PRECISION;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding BYTEA;")
+            # pgvector: 原生向量列（384维，对应 paraphrase-multilingual-MiniLM-L12-v2）
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding_vec vector(384);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_status ON intelligence(status);")
+            # HNSW 近似最近邻索引（余弦距离）—— 对百万级数据仍是毫秒级响应
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_intel_embedding_hnsw
+                ON intelligence USING hnsw (embedding_vec vector_cosine_ops)
+                WITH (m = 16, ef_construction = 64);
+            """)
             
             # P2: 增量性能优化 - 对待回填记录建立部分索引 (Partial Index)
             # 这样 get_pending_outcomes 永远只需要扫描未回填的几十条记录，而不是全表几万条扫描。
@@ -372,6 +382,60 @@ class IntelligenceDB:
             # If DB init fails, we probably can't run. Let it raise or stay broken.
 
     # ... (existing methods) ...
+
+    # --- pgvector 语义去重方法 ---
+
+    def is_semantic_duplicate(self, vector, threshold: float = 0.85) -> bool:
+        """
+        查询 pgvector ，判断向量是否与历史情报语义重复。
+        使用 HNSW 近似最近邻索引，O(log n)。
+
+        Args:
+            vector: numpy array (384,) — 待检测项的 BERT 嵌入向量
+            threshold: 余弦相似度阈值，超过则判定为重复（默认 0.85）
+
+        Returns:
+            True = 重复，False = 新条目
+        """
+        try:
+            import numpy as np
+            # pgvector 要求向量为 Python list 格式
+            vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            # <=> 是余弦距离，相似度 = 1 - 距离
+            cursor.execute("""
+                SELECT 1 FROM intelligence
+                WHERE embedding_vec IS NOT NULL
+                  AND 1 - (embedding_vec <=> %s::vector) > %s
+                LIMIT 1
+            """, (vec_list, threshold))
+            row = cursor.fetchone()
+            conn.close()
+            return row is not None
+        except Exception as e:
+            logger.warning(f"⚠️ pgvector 语义查询失败，降级为非重复: {e}")
+            return False  # 查询失败时不拦截，避免漏掉有效情报
+
+    def save_embedding_vec(self, source_id: str, vector) -> None:
+        """
+        将 BERT 嵌入向量持久化到 intelligence 表的 embedding_vec 列。
+        在情报通过语义去重后立即调用，让后续情报可以与其对比。
+        """
+        try:
+            vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE intelligence
+                SET embedding_vec = %s::vector
+                WHERE source_id = %s
+            """, (vec_list, source_id))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            logger.warning(f"⚠️ 嵌入向量写入失败 [{source_id}]: {e}")
 
     # --- Watchlist Methods ---
 

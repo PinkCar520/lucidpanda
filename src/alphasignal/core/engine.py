@@ -29,7 +29,7 @@ class AlphaEngine:
         
         self.channels     = [EmailChannel(), BarkChannel()]
         self.backtester   = BacktestEngine(self.db)
-        self.deduplicator = NewsDeduplicator()
+        self.deduplicator = NewsDeduplicator(db=self.db)
         self._round_snapshot = {}  # 轮次市场快照缓存，每轮 fetch 一次供所有条目共用
         
         # Concurrency Control
@@ -40,10 +40,11 @@ class AlphaEngine:
         
     def _bootstrap_deduplicator(self):
         """Load recent intelligence from DB to initialize deduplicator history"""
-        logger.info("🧵正在初始化去重引擎历史数据...")
+        logger.info("🧵正在初始化去重引擎历史数据 (SimHash)...")
         try:
             recent_items = self.db.get_recent_intelligence(limit=200)
             if recent_items:
+                from simhash import Simhash
                 for item in reversed(recent_items):
                     summary = item.get('summary')
                     summary_text = ""
@@ -56,25 +57,11 @@ class AlphaEngine:
                     if text:
                         clean_text = self.deduplicator.normalize(text)
                         if clean_text:
-                            from simhash import Simhash
                             sh = Simhash(clean_text)
-                            
-                            vec = None
-                            db_vec_binary = item.get('embedding')
-                            if db_vec_binary:
-                                try:
-                                    import pickle
-                                    vec = pickle.loads(db_vec_binary)
-                                except: pass
-                            
-                            if vec is None and self.deduplicator.model:
-                                try:
-                                    vec = self.deduplicator.model.encode(clean_text)
-                                except: pass
-                            
-                            self.deduplicator.add_to_history(sh, vec, record_id=item.get('id'))
+                            # 仅预热 SimHash 粗筛历史。语义精筛改由 pgvector 接管，无需预热到内存。
+                            self.deduplicator.add_to_history(sh, vector=None, record_id=item.get('id'))
                 
-                logger.info(f"✅ 已加载 {len(self.deduplicator.simhash_history)} 条记录到去重引擎历史。")
+                logger.info(f"✅ 已加载 {len(self.deduplicator.simhash_history)} 条记录到 SimHash 历史。")
         except Exception as e:
             logger.error(f"❌ 初始化去重引擎失败: {e}")
 
@@ -175,6 +162,12 @@ class AlphaEngine:
                     logger.info(f"🚫 语义重复，标记为已过滤: {source_id}")
                     await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', 'Deduplicated')
                     return
+
+                # 去重通过后，将计算好的向量持久化到 pgvector（供后续新闻比对用）
+                if self.deduplicator.last_vector is not None:
+                    await asyncio.to_thread(
+                        self.db.save_embedding_vec, source_id, self.deduplicator.last_vector
+                    )
 
                 # 3. AI 分析
                 logger.info(f"🤖 正在分析({raw_data.get('extraction_method', 'UNKNOWN')}): {source_id}")
