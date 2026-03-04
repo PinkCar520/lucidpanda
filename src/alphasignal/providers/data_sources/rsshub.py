@@ -170,19 +170,17 @@ class RSSHubSource(BaseDataSource):
                 try:
                     resp = await active_client.get(url, headers=_REQUEST_HEADERS)
                     break  # 成功，跳出重试循环
-                except httpx.SSLError as exc:
-                    # 遇到 SSL 错误时切换到无验证客户端重试一次
-                    if active_client is not ssl_client:
-                        logger.warning(f"⚠️ [{name}] SSL 错误，切换无验证客户端重试: {exc}")
+                except (httpx.ConnectError, httpx.RemoteProtocolError) as exc:
+                    # 检查是否为 SSL 相关错误（兼容旧版 httpx 无 SSLError 属性的问题）
+                    if "ssl" in str(exc).lower() and active_client is not ssl_client:
+                        logger.warning(f"⚠️ [{name}] SSL 报错，切换无验证客户端重试: {exc}")
                         active_client = ssl_client
                         continue
-                    logger.warning(f"🔒 [{name}] SSL 错误，跳过: {exc}")
-                    return []
-                except (httpx.ConnectError, httpx.RemoteProtocolError) as exc:
+
                     if attempt < 2:
                         await asyncio.sleep(2 ** attempt)
                         continue
-                    logger.warning(f"🔌 [{name}] 连接错误，跳过: {exc}")
+                    logger.warning(f"🔌 [{name}] 连接/SSL错误，跳过: {exc}")
                     return []
                 except httpx.TimeoutException:
                     if attempt < 2:
