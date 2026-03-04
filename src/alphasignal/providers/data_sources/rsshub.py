@@ -26,34 +26,34 @@ from src.alphasignal.providers.data_sources.base import BaseDataSource
 # ──────────────────────────────────────────────
 TIER1_FEEDS = [
     # ── 政治风险层（黄金最直接的驱动力）────────────────────────────────
-    ("Trump Truth Social",     "https://www.trumpstruth.org/feed"),
-    ("WhiteHouse Exec Orders", "https://www.whitehouse.gov/presidential-actions/feed/"),
+    # 通过自建 RSSHub 容器代理境外信源，无需 Clash
+    ("Trump Truth Social",     "http://rsshub:1200/twitter/user/realDonaldTrump"),
+    ("WhiteHouse Exec Orders", "http://rsshub:1200/whitehouse/presidential-actions"),
 
     # ── 彭博社 Bloomberg ─────────────────────────────────────────────
-    ("Bloomberg Markets",      "https://feeds.bloomberg.com/markets/news.rss"),
-    ("Bloomberg Economics",    "https://feeds.bloomberg.com/economics/news.rss"),
-    ("Bloomberg Top News",     "https://feeds.bloomberg.com/bview/news.rss"),
+    ("Bloomberg Markets",      "http://rsshub:1200/bloomberg/markets"),
+    ("Bloomberg Economics",    "http://rsshub:1200/bloomberg/economics"),
+    ("Bloomberg Top News",     "http://rsshub:1200/bloomberg/technology"),  # top news
 
     # ── 华尔街日报 WSJ ───────────────────────────────────────────────
-    ("WSJ Markets",            "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"),
-    ("WSJ Economy",            "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml"),
-    ("WSJ Full (feedx)",       "https://feedx.net/rss/wsj.xml"),
+    ("WSJ Markets",            "http://rsshub:1200/wsj/market"),
+    ("WSJ Economy",            "http://rsshub:1200/wsj/economy"),
 
     # ── 纽约时报 NYT ─────────────────────────────────────────────────
-    ("NYT Top News",           "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"),
+    ("NYT Top News",           "http://rsshub:1200/nytimes/homepage"),
 
     # ── CNBC ────────────────────────────────────────────────────────
-    ("CNBC Top News",          "https://www.cnbc.com/id/100003114/device/rss/rss.html"),
-    ("CNBC Finance",           "https://www.cnbc.com/id/10000664/device/rss/rss.html"),
-    ("CNBC Economy",           "https://www.cnbc.com/id/20910258/device/rss/rss.html"),
+    ("CNBC Top News",          "http://rsshub:1200/cnbc/news/100003114"),
+    ("CNBC Finance",           "http://rsshub:1200/cnbc/news/10000664"),
+    ("CNBC Economy",           "http://rsshub:1200/cnbc/news/20910258"),
 
     # ── 金融时报 FT ──────────────────────────────────────────────────
-    ("Financial Times",        "https://www.ft.com/?format=rss"),
+    ("Financial Times",        "http://rsshub:1200/ft/myft/personal-finance"),
 
-    # ── 路透社 Reuters（SSL 在部分环境有问题，见 _SSL_NO_VERIFY_HOSTS）────
-    ("Reuters Top News",       "https://feeds.reuters.com/reuters/topNews"),
-    ("Reuters Business",       "https://feeds.reuters.com/reuters/businessNews"),
-    ("Reuters Commodities",    "https://feeds.reuters.com/reuters/commoditiesNews"),
+    # ── 路透社 Reuters ────────────────────────────────────────────────
+    ("Reuters Top News",       "http://rsshub:1200/reuters/category/topnews"),
+    ("Reuters Business",       "http://rsshub:1200/reuters/category/businessNews"),
+    ("Reuters Commodities",    "http://rsshub:1200/reuters/category/commoditiesNews"),
 ]
 
 

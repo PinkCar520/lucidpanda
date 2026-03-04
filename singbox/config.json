@@ -1,0 +1,268 @@
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "inbounds": [
+    {
+      "type": "http",
+      "tag": "http-in",
+      "listen": "0.0.0.0",
+      "listen_port": 7890
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": [
+        "hk-01",
+        "hk-02",
+        "hk-03",
+        "hk-04",
+        "hk-05",
+        "hk-06",
+        "hk-07",
+        "hk-08",
+        "hk-auto-01",
+        "hk-auto-02",
+        "us-01",
+        "us-02",
+        "us-03",
+        "us-04",
+        "jp-01",
+        "jp-02",
+        "jp-03",
+        "jp-04",
+        "jp-vmess",
+        "kr-01",
+        "kr-02",
+        "tw-01",
+        "tw-02",
+        "sg-01",
+        "sg-02"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-auto-01",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17088,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-auto-02",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17089,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-01",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17001,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-02",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17002,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-03",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17003,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-04",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17004,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-05",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17005,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-06",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17006,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-07",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17007,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "hk-08",
+      "server": "qy-hk.kunlun06dns.com",
+      "server_port": 17008,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-01",
+      "server": "qy-us.kunlun06dns.com",
+      "server_port": 17009,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-02",
+      "server": "qy-us.kunlun06dns.com",
+      "server_port": 17010,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-03",
+      "server": "qy-us.kunlun06dns.com",
+      "server_port": 17711,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "us-04",
+      "server": "qy-us.kunlun06dns.com",
+      "server_port": 17712,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-01",
+      "server": "qy-jp.kunlun06dns.com",
+      "server_port": 17013,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-02",
+      "server": "qy-jp.kunlun06dns.com",
+      "server_port": 17014,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-03",
+      "server": "qy-jp.kunlun06dns.com",
+      "server_port": 17015,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "jp-04",
+      "server": "qy-jp.kunlun06dns.com",
+      "server_port": 17016,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "vmess",
+      "tag": "jp-vmess",
+      "server": "qy-jp.lovehonor.top",
+      "server_port": 443,
+      "uuid": "eb9682d0-883b-41bf-8955-93c823fdcd86",
+      "security": "auto",
+      "transport": {
+        "type": "ws",
+        "path": "/go",
+        "headers": {
+          "Host": "qy-jp.lovehonor.top"
+        }
+      },
+      "tls": {
+        "enabled": true,
+        "server_name": "qy-jp.lovehonor.top"
+      }
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "kr-01",
+      "server": "qy-kr.kunlun06dns.com",
+      "server_port": 17017,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "kr-02",
+      "server": "qy-kr.kunlun06dns.com",
+      "server_port": 17018,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-01",
+      "server": "qy-tw.kunlun06dns.com",
+      "server_port": 17019,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "tw-02",
+      "server": "qy-tw.kunlun06dns.com",
+      "server_port": 17020,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-01",
+      "server": "qy-sg.kunlun06dns.com",
+      "server_port": 17721,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "shadowsocks",
+      "tag": "sg-02",
+      "server": "qy-sg.kunlun06dns.com",
+      "server_port": 17722,
+      "method": "aes-128-gcm",
+      "password": "eb9682d0-883b-41bf-8955-93c823fdcd86"
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ],
+  "route": {
+    "final": "auto"
+  }
+}
