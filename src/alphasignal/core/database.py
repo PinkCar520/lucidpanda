@@ -141,7 +141,9 @@ class IntelligenceDB:
                     exhaustion_score DOUBLE PRECISION DEFAULT 0.0,
                     dxy_snapshot DOUBLE PRECISION,
                     us10y_snapshot DOUBLE PRECISION,
-                    gvz_snapshot DOUBLE PRECISION
+                    gvz_snapshot DOUBLE PRECISION,
+                    status TEXT DEFAULT 'PENDING',
+                    last_error TEXT
                 );
             """)
             
@@ -388,7 +390,7 @@ class IntelligenceDB:
             conn.close()
         except Exception as e:
             logger.error(f"PostgreSQL Init Failed: {e}")
-            # If DB init fails, we probably can't run. Let it raise or stay broken.
+            raise  # 让 worker 启动时立即报错，而非静默损坏
 
     # ... (existing methods) ...
 
