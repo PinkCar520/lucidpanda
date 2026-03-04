@@ -104,11 +104,15 @@ class AlphaEngine:
         # 0. 异步同步收益率
         await asyncio.to_thread(self.backtester.sync_outcomes)
 
-        # 1. 发现新情报
+        # 1. 发现新情报（直接调用 fetch_async，全程在事件循环内并发执行）
         discovered_items = []
         for source in self.sources:
             try:
-                items = await asyncio.to_thread(source.fetch)
+                # 优先使用 fetch_async()（并发版），兜底使用同步 fetch()
+                if hasattr(source, 'fetch_async'):
+                    items = await source.fetch_async()
+                else:
+                    items = await asyncio.to_thread(source.fetch)
                 if items:
                     discovered_items.extend(items if isinstance(items, list) else [items])
             except Exception as e:
