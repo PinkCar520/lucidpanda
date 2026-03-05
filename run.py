@@ -13,7 +13,7 @@ async def main_loop():
     logger.info("==========================================")
     logger.info("   AlphaSignal 2.0 - 智能情报流处理系统启动")
     logger.info("==========================================")
-    logger.info(f"流式轮询间隔: {settings.CHECK_INTERVAL_MINUTES} 分钟 (异步)")
+    logger.info(f"流式模式: Redis Pub/Sub 事件驱动 (兜底间隔: {fallback_timeout//60} 分钟)")
     logger.info(f"AI 引擎并发数: 5")
 
     # 初始化 Redis 异步连接
@@ -34,7 +34,7 @@ async def main_loop():
         except Exception as e:
             logger.error(f"主循环异常: {e}")
         
-        logger.debug(f"等候新数据事件(Redis) 或 {fallback_timeout}s 兜底...")
+        logger.info(f"📡 等候新数据事件(Redis) 或 {fallback_timeout}s 兜底自动轮询...")
         
         try:
             # 阻塞等待 Redis 消息，或超时自动唤醒
