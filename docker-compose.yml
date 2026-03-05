@@ -70,7 +70,7 @@ services:
         max-size: "50m"
         max-file: "2"
 
-  # 1. Background Worker
+  # 1. AI 分析引擎（纯消费者，只处理 PENDING 记录）
   worker:
     image: pincar/alphasignal-backend:${IMAGE_TAG:-latest}
     container_name: alphasignal_worker
@@ -83,12 +83,35 @@ services:
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
       - REDIS_URL=redis://redis:6379/0
+      - HF_ENDPOINT=https://hf-mirror.com
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # 1.5 RSS 采集器（独立生产者，每2分钟拉取 RSS 写入 PENDING）
+  collector:
+    image: pincar/alphasignal-backend:${IMAGE_TAG:-latest}
+    container_name: alphasignal_collector
+    command: python run_collector.py
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      - DB_TYPE=postgres
+      - POSTGRES_HOST=db
       - RSSHUB_BASE_URL=http://rsshub:1200
       - HF_ENDPOINT=https://hf-mirror.com
       # 境外屏蔽域名（Bloomberg/NYT/FT/BBC/Guardian/Reuters/AP）走 singbox 代理
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
-      # 国内可直连域名跳过代理（内网服务 + 无需代理的境外 RSS）
+      # 国内可直连域名跳过代理
       - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,api,web,*.cn,sina.com,eastmoney.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com
     restart: unless-stopped
     depends_on:
@@ -99,7 +122,7 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "100m"
+        max-size: "50m"
         max-file: "3"
 
   # 1.5 Funds Automation Worker

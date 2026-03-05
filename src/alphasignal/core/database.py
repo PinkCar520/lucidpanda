@@ -179,6 +179,9 @@ class IntelligenceDB:
 
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS clustering_score INTEGER DEFAULT 0;")
             cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS exhaustion_score DOUBLE PRECISION DEFAULT 0.0;")
+            # 信源可信度字段：记录每个媒体的历史预测准确率（Phase 2 训练数据源）
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS source_name TEXT;")
+            cursor.execute("ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS source_credibility_score DOUBLE PRECISION;")
             
             # Market Indicators Table (Weekly/Daily)
             cursor.execute("""
@@ -448,7 +451,100 @@ class IntelligenceDB:
         except Exception as e:
             logger.warning(f"⚠️ 嵌入向量写入失败 [{source_id}]: {e}")
 
-    # --- Watchlist Methods ---
+    def compute_source_credibility(self) -> dict:
+        """
+        计算各信源的历史预测准确率，并将结果回填到 source_credibility_score 列。
+
+        准确率定义：
+          - sentiment_score > 0（看涨）且 price_1h > gold_price_snapshot → 预测正确
+          - sentiment_score < 0（看跌）且 price_1h < gold_price_snapshot → 预测正确
+          - 其余为错误或中性（排除）
+
+        调用时机：建议在 BacktestEngine.sync_outcomes() 之后调用（每轮回填完价格后）。
+        返回：{source_name: accuracy_float} 字典，便于监控日志输出。
+        """
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+
+            # 1. 统计每个信源的预测准确率（只取有完整数据的记录）
+            cursor.execute("""
+                SELECT
+                    source_name,
+                    COUNT(*) AS total,
+                    SUM(CASE
+                        WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
+                        WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
+                        ELSE 0
+                    END) AS correct
+                FROM intelligence
+                WHERE source_name IS NOT NULL
+                  AND sentiment_score IS NOT NULL
+                  AND price_1h IS NOT NULL
+                  AND gold_price_snapshot IS NOT NULL
+                  AND ABS(sentiment_score) > 0.2  -- 排除中性信号
+                GROUP BY source_name
+                HAVING COUNT(*) >= 5  -- 至少5条有效记录才计算
+            """)
+            rows = cursor.fetchall()
+
+            credibility_map = {}
+            for row in rows:
+                source = row['source_name']
+                accuracy = round(row['correct'] / row['total'], 4) if row['total'] > 0 else None
+                credibility_map[source] = accuracy
+
+            # 2. 回填 source_credibility_score 到每条记录
+            for source_name, score in credibility_map.items():
+                cursor.execute("""
+                    UPDATE intelligence
+                    SET source_credibility_score = %s
+                    WHERE source_name = %s
+                      AND source_credibility_score IS DISTINCT FROM %s
+                """, (score, source_name, score))
+
+            conn.commit()
+            conn.close()
+
+            if credibility_map:
+                top = sorted(credibility_map.items(), key=lambda x: x[1] or 0, reverse=True)
+                logger.info(
+                    f"📊 信源可信度更新完成 | 共 {len(credibility_map)} 个信源 | "
+                    f"Top3: {[(s, f'{a:.1%}') for s, a in top[:3]]}"
+                )
+            return credibility_map
+
+        except Exception as e:
+            logger.error(f"❌ 信源可信度计算失败: {e}")
+            return {}
+
+    def get_source_credibility_report(self) -> list:
+        """
+        查询当前各信源的可信度排名，供监控/API 使用。
+        返回：[{source_name, accuracy, total_signals}, ...] 按准确率降序
+        """
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT
+                    source_name,
+                    ROUND(AVG(source_credibility_score)::numeric, 4) AS accuracy,
+                    COUNT(*) AS total_signals
+                FROM intelligence
+                WHERE source_name IS NOT NULL
+                  AND source_credibility_score IS NOT NULL
+                GROUP BY source_name
+                ORDER BY accuracy DESC
+            """)
+            rows = cursor.fetchall()
+            conn.close()
+            return [dict(r) for r in rows]
+        except Exception as e:
+            logger.error(f"❌ 获取信源报告失败: {e}")
+            return []
+
+
 
     def add_to_watchlist(self, fund_code, fund_name, user_id):
         """Add a fund to the user's watchlist."""
@@ -612,8 +708,8 @@ class IntelligenceDB:
                     source_id, author, content, url, timestamp, 
                     market_session, clustering_score, exhaustion_score,
                     dxy_snapshot, us10y_snapshot, gvz_snapshot, gold_price_snapshot,
-                    fed_regime, embedding
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    fed_regime, embedding, source_name
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (source_id) DO UPDATE SET 
                     author = EXCLUDED.author -- Minimal update to trigger RETURNING
                 RETURNING id
@@ -631,7 +727,8 @@ class IntelligenceDB:
                 float(gvz) if gvz is not None else None,
                 float(gold) if gold is not None else None,
                 float(raw_data.get('fed_val', 0.0)),
-                embedding_binary
+                embedding_binary,
+                raw_data.get('source'),  # 信源名称，如 'Bloomberg Markets' / 'WSJ Economy'
             ))
             
             row = cursor.fetchone()

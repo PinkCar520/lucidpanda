@@ -7,7 +7,6 @@ from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 
 # 引入组件
-from src.alphasignal.providers.data_sources.rsshub import RSSHubSource
 from src.alphasignal.providers.llm.gemini import GeminiLLM
 from src.alphasignal.providers.llm.deepseek import DeepSeekLLM
 from src.alphasignal.providers.channels.email import EmailChannel
@@ -17,24 +16,22 @@ from src.alphasignal.core.backtest import BacktestEngine
 from src.alphasignal.core.deduplication import NewsDeduplicator
 
 class AlphaEngine:
+    """
+    AI 分析消费者。
+    不再负责采集，只消费 intelligence 表中 status=PENDING 的记录。
+    RSS 采集由独立的 RSSCollector（run_collector.py）负责。
+    """
     def __init__(self):
         self.db = IntelligenceDB()
-        self.sources = [
-            RSSHubSource(db=self.db),
-        ]
-        
         # 显式初始化 LLM 引擎，确保不遗漏
         self.primary_llm = GeminiLLM()
         self.fallback_llm = DeepSeekLLM()
-        
         self.channels     = [EmailChannel(), BarkChannel()]
         self.backtester   = BacktestEngine(self.db)
         self.deduplicator = NewsDeduplicator(db=self.db)
-        self._round_snapshot = {}  # 轮次市场快照缓存，每轮 fetch 一次供所有条目共用
-        
+        self._round_snapshot = {}
         # Concurrency Control
-        self.ai_semaphore = asyncio.Semaphore(5) # Limit to 5 concurrent AI calls
-        
+        self.ai_semaphore = asyncio.Semaphore(5)
         # Bootstrap deduplicator history from DB
         self._bootstrap_deduplicator()
         
@@ -85,66 +82,40 @@ class AlphaEngine:
         return snapshot
 
     async def run_once_async(self):
-        """核心异步流水线"""
-        logger.info(">>> 启动流式情报扫描...")
-        
-        # 0. 异步同步收益率
+        """
+        核心异步流水线（纯分析消费者）。
+        RSS 采集已由独立的 RSSCollector 负责，本方法直接处理 PENDING 记录。
+        """
+        logger.info(">>> 启动情报分析...")
+
+        # 0. 异步同步收益率 + 更新信源可信度
         await asyncio.to_thread(self.backtester.sync_outcomes)
+        await asyncio.to_thread(self.db.compute_source_credibility)
 
-        # 1. 发现新情报（直接调用 fetch_async，全程在事件循环内并发执行）
-        discovered_items = []
-        for source in self.sources:
-            try:
-                # 优先使用 fetch_async()（并发版），兜底使用同步 fetch()
-                if hasattr(source, 'fetch_async'):
-                    items = await source.fetch_async()
-                else:
-                    items = await asyncio.to_thread(source.fetch)
-                if items:
-                    discovered_items.extend(items if isinstance(items, list) else [items])
-            except Exception as e:
-                logger.error(f"数据源发现异常: {e}")
-
-        # 1.5 URL 去重
-        seen_urls: set = set()
-        unique_items: list = []
-        for item in discovered_items:
-            url = item.get("url", "") or item.get("id", "")
-            if url and url not in seen_urls:
-                seen_urls.add(url)
-                unique_items.append(item)
-        discovered_items = unique_items
-
-        # 1.75 注入快照
-        if discovered_items:
-            self._round_snapshot = await asyncio.to_thread(self._fetch_round_snapshot)
-            for item in discovered_items:
-                item.setdefault('gold_price_snapshot', self._round_snapshot.get('gold_price_snapshot'))
-                item.setdefault('dxy_snapshot',        self._round_snapshot.get('dxy_snapshot'))
-                item.setdefault('us10y_snapshot',      self._round_snapshot.get('us10y_snapshot'))
-                item.setdefault('gvz_snapshot',        self._round_snapshot.get('gvz_snapshot'))
-
-        # 2. 入库并标记为 PENDING
-        for item in discovered_items:
-            await asyncio.to_thread(self.db.save_raw_intelligence, item)
-
-        # 3. 获取所有待分析记录 (PENDING/FAILED)
+        # 1. 获取所有待分析记录 (PENDING/FAILED)
         pending_records = await asyncio.to_thread(self.db.get_pending_intelligence, limit=50)
-        
+
         if not pending_records:
             logger.info("无待分析情报，本轮结束。")
             return
 
-        # 4. 分析
+        # 2. 注入市场快照（PENDING 记录已由 collector 写入快照，这里只添加当前快照作为备用）
+        self._round_snapshot = await asyncio.to_thread(self._fetch_round_snapshot)
+        for item in pending_records:
+            item.setdefault('gold_price_snapshot', self._round_snapshot.get('gold_price_snapshot'))
+            item.setdefault('dxy_snapshot',        self._round_snapshot.get('dxy_snapshot'))
+            item.setdefault('us10y_snapshot',      self._round_snapshot.get('us10y_snapshot'))
+            item.setdefault('gvz_snapshot',        self._round_snapshot.get('gvz_snapshot'))
+
+        # 3. AI 并发分析
         enriched_items = pending_records
         for item in enriched_items:
             item.setdefault('extraction_method', 'RSS_SUMMARY')
 
-        # 5. 并行并发 AI 分析
         logger.info(f"🚀 并行分析中 (并发数: 5, 任务数: {len(enriched_items)})...")
         tasks = [self._process_single_item_async(item) for item in enriched_items]
         await asyncio.gather(*tasks)
-        logger.info("<<< 本轮流式扫描完成。")
+        logger.info("<<< 本轮分析完成。")
 
     async def _process_single_item_async(self, raw_data):
         """单条情报的异步处理状态机"""
