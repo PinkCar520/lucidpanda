@@ -4,13 +4,13 @@ AlphaSignal RSS Intelligence Source
 第一梯队极速宏观情报引擎，直接对接各大权威媒体的官方 RSS Feed。
 
 架构设计原则：
-1. 零中间层：绕过 rsshub.app 公共节点，直连媒体官方 Feed（更稳定、更低延迟）
+1. 零中间层：绕过 RSSHub 公共节点，直连媒体官方 Feed（更稳定、更低延迟）
 2. 精准聚焦：所有信源均围绕黄金价格的宏观驱动因子选取
 3. DB 级去重：通过 IntelligenceDB.source_ids_batch_exists() 做批量去重，
    彻底替代原来的文件状态方案，支持多进程/多容器场景
 4. 三级内容过滤：噪音黑名单 → 信源专属策略 → 黄金宏观关键词
-5. 并发采集：asyncio.gather() + httpx.AsyncClient，14 个信源同时拉取
-   最坏耗时从原来的 ~210s 降低到单个最慢 Feed 的耗时（约 15s）
+5. 并发采集：asyncio.gather() + httpx.AsyncClient，24 个信源并发拉取
+   最坏耗时从原来的 ~360s 降低到单个最慢 Feed 的耗时（约15s）
 """
 
 import asyncio
@@ -20,40 +20,65 @@ from src.alphasignal.core.logger import logger
 from src.alphasignal.providers.data_sources.base import BaseDataSource
 
 
-# ──────────────────────────────────────────────
-# RSS 信源配置（经过实测验证，HTTP 200）
-# 格式：(显示名称, RSS URL)
-# ──────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────
+# 信源分层（基于国内服务器网络环境）：
+#
+#   《直连》— 直接访问，无需代理（NO_PROXY 白名单）：
+#       whitehouse.gov, trumpstruth.org, rss.politico.com
+#       feeds.content.dowjones.io (WSJ), search.cnbc.com (CNBC)
+#
+#   《直连+singbox》— 官方直连 RSS，但国内被封，走 singbox 代理：
+#       feeds.bloomberg.com, rss.nytimes.com, ft.com
+#       feeds.bbci.co.uk, theguardian.com
+#
+#   《RSSHub+singbox》— 无免费官方 RSS，走 rsshub 容器（内置 singbox）：
+#       Reuters（官方 Feed 已关闭）, AP News（无官方 RSS）
+# ──────────────────────────────────────────────────────────────────────
 TIER1_FEEDS = [
-    # ── 政治风险层（黄金最直接的驱动力）────────────────────────────────
-    # 通过自建 RSSHub 容器代理境外信源，无需 Clash
-    ("Trump Truth Social",     "http://rsshub:1200/twitter/user/realDonaldTrump"),
-    ("WhiteHouse Exec Orders", "http://rsshub:1200/whitehouse/presidential-actions"),
+    # ── 直连：政治风险 ───────────────────────────────────────
+    ("Trump Truth Social",     "https://www.trumpstruth.org/feed"),
+    ("WhiteHouse Exec Orders", "https://www.whitehouse.gov/presidential-actions/feed/"),
+    ("Politico Politics",      "https://rss.politico.com/politics-news.xml"),
 
-    # ── 彭博社 Bloomberg ─────────────────────────────────────────────
-    ("Bloomberg Markets",      "http://rsshub:1200/bloomberg/markets"),
-    ("Bloomberg Economics",    "http://rsshub:1200/bloomberg/economics"),
-    ("Bloomberg Top News",     "http://rsshub:1200/bloomberg/technology"),  # top news
+    # ── singbox代理：彭博社 Bloomberg (feeds.bloomberg.com) ───────────────
+    ("Bloomberg Markets",      "https://feeds.bloomberg.com/markets/news.rss"),
+    ("Bloomberg Economics",    "https://feeds.bloomberg.com/economics/news.rss"),
+    ("Bloomberg Top News",     "https://feeds.bloomberg.com/bview/news.rss"),
 
-    # ── 华尔街日报 WSJ ───────────────────────────────────────────────
-    ("WSJ Markets",            "http://rsshub:1200/wsj/market"),
-    ("WSJ Economy",            "http://rsshub:1200/wsj/economy"),
+    # ── 直连：华尔街日报 WSJ (feeds.content.dowjones.io) ───────────────
+    ("WSJ Markets",            "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain"),
+    ("WSJ Economy",            "https://feeds.content.dowjones.io/public/rss/socialeconomyfeed"),
+    ("WSJ Politics",           "https://feeds.content.dowjones.io/public/rss/socialpoliticsfeed"),
+    ("WSJ World News",         "https://feeds.content.dowjones.io/public/rss/RSSWorldNews"),
 
-    # ── 纽约时报 NYT ─────────────────────────────────────────────────
-    ("NYT Top News",           "http://rsshub:1200/nytimes/homepage"),
+    # ── singbox代理：纽约时报 NYT (rss.nytimes.com) ─────────────────
+    ("NYT Top News",           "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"),
+    ("NYT Economy",            "https://rss.nytimes.com/services/xml/rss/nyt/Economy.xml"),
 
-    # ── CNBC ────────────────────────────────────────────────────────
-    ("CNBC Top News",          "http://rsshub:1200/cnbc/news/100003114"),
-    ("CNBC Finance",           "http://rsshub:1200/cnbc/news/10000664"),
-    ("CNBC Economy",           "http://rsshub:1200/cnbc/news/20910258"),
+    # ── 直连：CNBC (search.cnbc.com) ──────────────────────────────
+    ("CNBC Top News",          "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114"),
+    ("CNBC Finance",           "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664"),
+    ("CNBC Economy",           "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258"),
 
-    # ── 金融时报 FT ──────────────────────────────────────────────────
-    ("Financial Times",        "http://rsshub:1200/ft/myft/personal-finance"),
+    # ── singbox代理：金融时报 FT (ft.com) ─────────────────────────
+    ("Financial Times",        "https://www.ft.com/?format=rss"),
 
-    # ── 路透社 Reuters ────────────────────────────────────────────────
+    # ── singbox代理：BBC News (feeds.bbci.co.uk) ────────────────────
+    ("BBC Business",           "https://feeds.bbci.co.uk/news/business/rss.xml"),
+    ("BBC World",              "https://feeds.bbci.co.uk/news/world/rss.xml"),
+
+    # ── singbox代理：The Guardian (theguardian.com) ─────────────────
+    ("Guardian Business",      "https://www.theguardian.com/business/rss"),
+    ("Guardian World",         "https://www.theguardian.com/world/rss"),
+
+    # ── RSSHub+singbox：路透社 Reuters（官方 Feed 已关）────────────────
     ("Reuters Top News",       "http://rsshub:1200/reuters/category/topnews"),
     ("Reuters Business",       "http://rsshub:1200/reuters/category/businessNews"),
     ("Reuters Commodities",    "http://rsshub:1200/reuters/category/commoditiesNews"),
+
+    # ── RSSHub+singbox：AP News（无官方 RSS）────────────────────────
+    ("AP Top News",            "http://rsshub:1200/apnews/topics/apf-topnews"),
+    ("AP Business",            "http://rsshub:1200/apnews/topics/apf-business"),
 ]
 
 

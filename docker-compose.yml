@@ -83,9 +83,13 @@ services:
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
       - REDIS_URL=redis://redis:6379/0
-      # Clash 已关闭，国内接口直连；境外 RSS 走内网 rsshub 容器
       - RSSHUB_BASE_URL=http://rsshub:1200
       - HF_ENDPOINT=https://hf-mirror.com
+      # 境外屏蔽域名（Bloomberg/NYT/FT/BBC/Guardian/Reuters/AP）走 singbox 代理
+      - HTTP_PROXY=http://singbox:7890
+      - HTTPS_PROXY=http://singbox:7890
+      # 国内可直连域名跳过代理（内网服务 + 无需代理的境外 RSS）
+      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,api,web,*.cn,sina.com,eastmoney.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com
     restart: unless-stopped
     depends_on:
       db:
