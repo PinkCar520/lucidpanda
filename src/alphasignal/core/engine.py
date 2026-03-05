@@ -207,6 +207,14 @@ class AlphaEngine:
             or self._round_snapshot.get('gvz_snapshot')
             or self.db.get_market_snapshot("^GVZ", now)
         )
+        tnx = (
+            raw_data.get('us10y_snapshot')
+            or self.db.get_market_snapshot("^TNX", now)
+        )
+        oil = (
+            raw_data.get('oil_price_snapshot')
+            or self.db.get_market_snapshot("CL=F", now)
+        )
 
         cot = self.db.get_latest_indicator("COT_GOLD_NET", now)
         cot_info = "N/A"
@@ -222,8 +230,10 @@ class AlphaEngine:
         context = f"""
 [当前市场环境快照]:
 - 市场交易状态: {status_label}
-- 美元指数 (DXY): {dxy if dxy else '获取中'}
-- 黄金波动率 (GVZ): {gvz if gvz else '获取中'}
+- 美元指数 (DXY): {dxy if dxy is not None else '获取中'}
+- 美债10年期收益率 (TNX): {tnx if tnx is not None else '获取中'}%
+- WTI原油 (Oil): {oil if oil is not None else '获取中'}
+- 黄金波动率 (GVZ): {gvz if gvz is not None else '暂无'}
 - 基金持仓拥挤度 (COT): {cot_info}
 - 美联储宏观基调 (Regime): {fed_context}
 """
@@ -231,6 +241,8 @@ class AlphaEngine:
         raw_data['market_open'] = market_open
         raw_data['dxy_snapshot'] = dxy
         raw_data['gvz_snapshot'] = gvz
+        raw_data['us10y_snapshot'] = tnx
+        raw_data['oil_price_snapshot'] = oil
         raw_data['fed_val'] = fed['value'] if fed else 0
         
         return context
