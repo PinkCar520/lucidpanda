@@ -26,13 +26,15 @@ from src.alphasignal.providers.data_sources.base import BaseDataSource
 #   《直连》— 直接访问，无需代理（NO_PROXY 白名单）：
 #       whitehouse.gov, trumpstruth.org, rss.politico.com
 #       feeds.content.dowjones.io (WSJ), search.cnbc.com (CNBC)
+#       federalreserve.gov (Fed), sec.gov (SEC)
 #
 #   《直连+singbox》— 官方直连 RSS，但国内被封，走 singbox 代理：
 #       feeds.bloomberg.com, rss.nytimes.com, ft.com
 #       feeds.bbci.co.uk, theguardian.com
 #
-#   《RSSHub+singbox》— 无免费官方 RSS，走 rsshub 容器（内置 singbox）：
+#   《RSSHub+singbox》— 无免费官方 RSS，走 rsshub 容器：
 #       Reuters（官方 Feed 已关闭）, AP News（无官方 RSS）
+#       CFTC（无官方 RSS）
 # ──────────────────────────────────────────────────────────────────────
 TIER1_FEEDS = [
     # ── 直连：政治风险 ───────────────────────────────────────
@@ -79,7 +81,23 @@ TIER1_FEEDS = [
     # ── RSSHub+singbox：AP News（无官方 RSS）────────────────────────
     ("AP Top News",            "http://rsshub:1200/apnews/topics/apf-topnews"),
     ("AP Business",            "http://rsshub:1200/apnews/topics/apf-business"),
+
+    # ── 直连：美联储 Federal Reserve (federalreserve.gov) ─────────────
+    # 龥喊、FOMC、利率政策第一手源，黄金分析核心信源
+    ("Fed Speeches",           "https://www.federalreserve.gov/feeds/speeches.xml"),
+    ("Fed Press Releases",     "https://www.federalreserve.gov/feeds/press_all.xml"),
+
+    # ── 直连：美证会 SEC (sec.gov) ─────────────────────────────
+    # 监管扫雷、强制执行行动，与市场情绪高度相关
+    ("SEC Press Releases",     "https://www.sec.gov/rss/news/pressreleases.rss"),
+
+    # ── RSSHub+singbox：CFTC（无官方 RSS）────────────────────────
+    # COT持仓报告、期货监管执法，黄金商品多头分析不可缺少
+    ("CFTC Press Releases",    "http://rsshub:1200/cftc/pressreleases"),
 ]
+
+# NO_PROXY 补充说明：federalreserve.gov 和 sec.gov 均可直连，已在 docker-compose
+# 的 NO_PROXY 列表中添加：... federalreserve.gov,sec.gov ...
 
 
 # ──────────────────────────────────────────────
@@ -118,6 +136,17 @@ _TRUMP_MACRO_KEYWORDS = frozenset([
     "iran", "russia", "ukraine", "china", "war", "military",
     "nato", "middle east", "oil", "energy",
     "gold", "silver", "market", "stock", "crypto", "bitcoin",
+])
+
+# SEC / CFTC 二次严格过滤：只放行执法、证券欺诈、宏观监管相关内容
+_REGULATORY_MACRO_KEYWORDS = frozenset([
+    "fraud", "manipulation", "enforcement", "charges", "penalty", "fine",
+    "ponzi", "insider trading", "market manipulation", "securities",
+    "gold", "silver", "commodity", "futures", "derivatives", "etf",
+    "systemic", "financial stability", "crypto", "bitcoin", "digital asset",
+    "inflation", "treasury", "bond", "interest rate", "monetary",
+    "bank", "liquidity", "credit", "leverage", "margin",
+    "hedge fund", "short selling", "circuit breaker",
 ])
 
 _REQUEST_HEADERS = {
@@ -167,6 +196,10 @@ class RSSHubSource(BaseDataSource):
             return False
         if source_name == "Trump Truth Social":
             return self._is_trump_macro(text)
+        if source_name in ("SEC Press Releases", "CFTC Press Releases"):
+            # SEC/CFTC 内容广泛（IPO注册、普通公司文件等），只取宏观/执法相关
+            return any(kw in text for kw in _REGULATORY_MACRO_KEYWORDS)
+        # Fed speeches / press releases 均为宏观政策内容，走标准黄金相关过滤
         return self._is_gold_relevant(text)
 
     # ──────────────────────────────────────────────

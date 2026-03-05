@@ -112,7 +112,7 @@ services:
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
       # 国内可直连域名跳过代理
-      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,api,web,*.cn,sina.com,eastmoney.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com
+      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,api,web,*.cn,sina.com,eastmoney.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov,sec.gov
     restart: unless-stopped
     depends_on:
       db:
