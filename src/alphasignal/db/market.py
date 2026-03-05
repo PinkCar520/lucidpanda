@@ -90,49 +90,57 @@ class MarketRepo(DBBase):
                     logger.warning(f"EastMoney XAUUSD failed: {e}")
 
             elif ticker_symbol == "DX-Y.NYB":
-                # 方案 A: 新浪全球指数
+                # 方案 A: 新浪行情接口，美元指数 symbol = DINIW
                 try:
                     import requests
-                    url = "https://hq.sinajs.cn/list=gb_dxy"
-                    resp = requests.get(url, timeout=5)
-                    if "=\"" in resp.text:
-                        val = resp.text.split("=\"")[1].split(",")[1]
-                        return round(float(val), 3)
+                    url = "https://hq.sinajs.cn/list=DINIW"
+                    resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
+                    raw = resp.text
+                    if "=\"" in raw and len(raw.split("\"")[1].split(",")) > 1:
+                        val = raw.split("\"")[1].split(",")[1]
+                        if val and val != '0':
+                            return round(float(val), 3)
                 except: pass
-                # 方案 B: AkShare
+                # 方案 B: AkShare fx_spot_quote (容错解析不同列名)
                 try:
                     df = ak.fx_spot_quote()
-                    row = df[df['外汇名称'].str.contains('美元指数|USD Index', case=False, na=False)]
-                    if not row.empty:
-                        return round(float(row.iloc[0]['最新价']), 3)
+                    # AkShare 不同版本列名不同，尝试多种匹配
+                    name_col = next((c for c in df.columns if '名称' in c or 'name' in c.lower()), None)
+                    price_col = next((c for c in df.columns if '最新' in c or 'price' in c.lower() or '现价' in c), None)
+                    if name_col and price_col:
+                        row = df[df[name_col].str.contains('美元指数|DXY|USDX', case=False, na=False)]
+                        if not row.empty:
+                            return round(float(row.iloc[0][price_col]), 3)
                 except: pass
 
             elif ticker_symbol == "^TNX": # 10年美债收益率
-                # 方案 A: 新浪全球
-                try:
-                    import requests
-                    url = "https://hq.sinajs.cn/list=gb_ztnx"
-                    resp = requests.get(url, timeout=5)
-                    if "=\"" in resp.text:
-                        val = resp.text.split("=\"")[1].split(",")[1]
-                        return round(float(val), 3)
-                except: pass
-                # 方案 B: AkShare
+                # 方案 A: AkShare 债券数据 (最稳定)
                 try:
                     df = ak.bond_zh_us_rate()
                     if not df.empty:
-                        return round(float(df.iloc[-1]['10年']), 3)
+                        # 尝试多种日期列名
+                        rate_col = next((c for c in df.columns if '10' in c), None)
+                        if rate_col:
+                            val = df.iloc[-1][rate_col]
+                            if val and float(val) > 0:
+                                return round(float(val), 3)
                 except: pass
-
-            elif ticker_symbol == "^GVZ": # 黄金波动率
+                # 方案 B: 新浪
                 try:
                     import requests
-                    url = "https://hq.sinajs.cn/list=gb_gvz" # 尝试 GVZ
-                    resp = requests.get(url, timeout=5)
-                    if "=\"" in resp.text:
-                        val = resp.text.split("=\"")[1].split(",")[1]
-                        return round(float(val), 3)
+                    url = "https://hq.sinajs.cn/list=TB10Y"  # 新浪10年期美债 symbol
+                    resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
+                    raw = resp.text
+                    if "=\"" in raw and len(raw.split("\"")[1].split(",")) > 1:
+                        val = raw.split("\"")[1].split(",")[1]
+                        if val and val != '0':
+                            return round(float(val), 3)
                 except: pass
+
+            elif ticker_symbol == "^GVZ": # 黄金波动率 (CBOE GVZ)
+                # GVZ 是 CBOE 衍生出的 OTC 期权指数，国内没有稳定数据源
+                # 不返回 None：用金价波动的简单代理暂时跳过
+                return None
 
             return None
         except Exception as e:
