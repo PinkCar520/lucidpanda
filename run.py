@@ -13,6 +13,8 @@ async def main_loop():
     logger.info("==========================================")
     logger.info("   AlphaSignal 2.0 - 智能情报流处理系统启动")
     logger.info("==========================================")
+    fallback_timeout = 300  # 5分钟兜底轮询
+
     logger.info(f"流式模式: Redis Pub/Sub 事件驱动 (兜底间隔: {fallback_timeout//60} 分钟)")
     logger.info(f"AI 引擎并发数: 5")
 
@@ -23,7 +25,6 @@ async def main_loop():
     await pubsub.subscribe("alphasignal:new_intelligence")
     logger.info("📡 已订阅 Redis 频道: alphasignal:new_intelligence (事件驱动唤醒)")
 
-    fallback_timeout = 300  # 5分钟兜底轮询
 
     engine = AlphaEngine()
 
