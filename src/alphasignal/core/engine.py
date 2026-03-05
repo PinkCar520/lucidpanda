@@ -138,7 +138,8 @@ class AlphaEngine:
                 await asyncio.to_thread(self._enrich_market_context, raw_data)
                 
                 # 2. 语义去重
-                if self.deduplicator.is_duplicate(raw_data.get('content')):
+                is_dup = await asyncio.to_thread(self.deduplicator.is_duplicate, raw_data.get('content'))
+                if is_dup:
                     logger.info(f"🚫 语义重复，标记为已过滤: {source_id}")
                     await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', 'Deduplicated')
                     return
