@@ -78,25 +78,6 @@ class AlphaEngine:
         except Exception as e:
             logger.error(f"❌ 初始化去重引擎失败: {e}")
 
-    def _fetch_round_snapshot(self) -> dict:
-        """
-        每轮扫描调用一次，获取当前实时市场快照。
-        """
-        now = datetime.now(pytz.utc)
-        snapshot = {
-            'dxy_snapshot':        self.db.get_market_snapshot("DX-Y.NYB", now),
-            'us10y_snapshot':      self.db.get_market_snapshot("^TNX",     now),
-            'gvz_snapshot':        self.db.get_market_snapshot("^GVZ",     now),
-            'gold_price_snapshot': self.db.get_market_snapshot("GC=F",     now),
-        }
-        logger.info(
-            f"📊 本轮市场快照 | "
-            f"Gold={snapshot['gold_price_snapshot']} | "
-            f"DXY={snapshot['dxy_snapshot']} | "
-            f"GVZ={snapshot['gvz_snapshot']}"
-        )
-        return snapshot
-
     async def run_once_async(self):
         """
         核心异步流水线（纯分析消费者）。
@@ -115,13 +96,8 @@ class AlphaEngine:
             logger.info("无待分析情报，本轮结束。")
             return
 
-        # 2. 注入市场快照（PENDING 记录已由 collector 写入快照，这里只添加当前快照作为备用）
-        self._round_snapshot = await asyncio.to_thread(self._fetch_round_snapshot)
-        for item in pending_records:
-            item.setdefault('gold_price_snapshot', self._round_snapshot.get('gold_price_snapshot'))
-            item.setdefault('dxy_snapshot',        self._round_snapshot.get('dxy_snapshot'))
-            item.setdefault('us10y_snapshot',      self._round_snapshot.get('us10y_snapshot'))
-            item.setdefault('gvz_snapshot',        self._round_snapshot.get('gvz_snapshot'))
+        # 2. 市场快照已经由 Collector 注入在 PENDING 记录中，Worker 无需重复抓取
+        # 移除了原有的 fetch_round_snapshot 冗余逻辑
 
         # 2.5 事件聚类：同一事件多信源 → 只保留 lead 进 AI 分析
         lead_records, n_clustered = await asyncio.to_thread(

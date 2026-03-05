@@ -16,6 +16,15 @@ async def main_loop():
     logger.info(f"流式轮询间隔: {settings.CHECK_INTERVAL_MINUTES} 分钟 (异步)")
     logger.info(f"AI 引擎并发数: 5")
 
+    # 初始化 Redis 异步连接
+    import redis.asyncio as redis
+    redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+    pubsub = redis_client.pubsub()
+    await pubsub.subscribe("alphasignal:new_intelligence")
+    logger.info("📡 已订阅 Redis 频道: alphasignal:new_intelligence (事件驱动唤醒)")
+
+    fallback_timeout = 300  # 5分钟兜底轮询
+
     engine = AlphaEngine()
 
     while True:
@@ -25,11 +34,16 @@ async def main_loop():
         except Exception as e:
             logger.error(f"主循环异常: {e}")
         
-        # 即使间隔设为 2 分钟，我们也可以让它更频繁地检查“补课”记录
-        # 如果有待补课记录，缩短 sleep 时间
-        sleep_time = settings.CHECK_INTERVAL_MINUTES * 60
-        logger.debug(f"等候 {sleep_time} 秒进行下一轮扫描...")
-        await asyncio.sleep(sleep_time)
+        logger.debug(f"等候新数据事件(Redis) 或 {fallback_timeout}s 兜底...")
+        
+        try:
+            # 阻塞等待 Redis 消息，或超时自动唤醒
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=fallback_timeout)
+            if message:
+                logger.info(f"⚡ 收到事件唤醒信号: {message['data']} - 立即启动分析")
+        except Exception as e:
+            logger.warning(f"Redis 监听异常: {e}，将回退到 {fallback_timeout}s Sleep")
+            await asyncio.sleep(fallback_timeout)
 
 if __name__ == "__main__":
     try:
