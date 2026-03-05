@@ -142,6 +142,27 @@ class MarketRepo(DBBase):
                 # 不返回 None：用金价波动的简单代理暂时跳过
                 return None
 
+            elif ticker_symbol == "CL=F": # 原油 (WTI)
+                try:
+                    import requests
+                    url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=CL"
+                    resp = requests.get(url, timeout=5)
+                    data = resp.json()
+                    if data and isinstance(data, dict):
+                        key = list(data.keys())[0]
+                        points = data[key]
+                        if points:
+                            return round(float(points[-1][1]), 3)
+                except Exception as e:
+                    logger.warning(f"Sina WTI Crude Oil failed: {e}")
+                
+                # 备用：AkShare 国际原油
+                try:
+                    df = ak.futures_global_commodity_sina(symbol="WTI原油")
+                    if not df.empty:
+                        return round(float(df.iloc[0]['最新价']), 3)
+                except: pass
+
             return None
         except Exception as e:
             logger.warning(f"Market Snapshot Failed for {ticker_symbol}: {e}")

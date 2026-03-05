@@ -61,18 +61,21 @@ class RSSCollector:
             "dxy_snapshot":        self.db.get_market_snapshot("DX-Y.NYB",  now),
             "us10y_snapshot":      self.db.get_market_snapshot("^TNX",      now),
             "gvz_snapshot":        self.db.get_market_snapshot("^GVZ",      now),
+            "oil_price_snapshot":  self.db.get_market_snapshot("CL=F",      now),
         }
         logger.info(
             f"📊 [Collector] 市场快照 | "
             f"Gold={snapshot['gold_price_snapshot']} | "
+            f"Oil={snapshot['oil_price_snapshot']} | "
             f"DXY={snapshot['dxy_snapshot']} | "
-            f"GVZ={snapshot['gvz_snapshot']}"
+            f"TNX={snapshot['us10y_snapshot']}"
         )
         for item in unique_items:
             item.setdefault("gold_price_snapshot", snapshot["gold_price_snapshot"])
             item.setdefault("dxy_snapshot",        snapshot["dxy_snapshot"])
             item.setdefault("us10y_snapshot",      snapshot["us10y_snapshot"])
             item.setdefault("gvz_snapshot",        snapshot["gvz_snapshot"])
+            item.setdefault("oil_price_snapshot",  snapshot["oil_price_snapshot"])
 
         # 入库
         saved = 0

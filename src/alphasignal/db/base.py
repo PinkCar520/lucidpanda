@@ -143,6 +143,7 @@ class DBBase:
                     dxy_snapshot DOUBLE PRECISION,
                     us10y_snapshot DOUBLE PRECISION,
                     gvz_snapshot DOUBLE PRECISION,
+                    oil_price_snapshot DOUBLE PRECISION,
                     status TEXT DEFAULT 'PENDING',
                     last_error TEXT
                 );
@@ -158,6 +159,7 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS dxy_snapshot DOUBLE PRECISION;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS us10y_snapshot DOUBLE PRECISION;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS gvz_snapshot DOUBLE PRECISION;",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS oil_price_snapshot DOUBLE PRECISION;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding BYTEA;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding_vec vector(384);",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS clustering_score INTEGER DEFAULT 0;",

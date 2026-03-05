@@ -210,6 +210,8 @@ class IntelligenceRepo(DBBase):
             if gvz is None: gvz = self.get_market_snapshot("^GVZ", news_time)
             gold = raw_data.get('gold_price_snapshot')
             if gold is None: gold = self.get_market_snapshot("GC=F", news_time)
+            oil = raw_data.get('oil_price_snapshot')
+            if oil is None: oil = self.get_market_snapshot("CL=F", news_time)
 
             conn = self._get_conn()
             cursor = conn.cursor()
@@ -223,9 +225,9 @@ class IntelligenceRepo(DBBase):
                 INSERT INTO intelligence (
                     source_id, author, content, url, timestamp,
                     market_session, clustering_score, exhaustion_score,
-                    dxy_snapshot, us10y_snapshot, gvz_snapshot, gold_price_snapshot,
+                    dxy_snapshot, us10y_snapshot, gvz_snapshot, gold_price_snapshot, oil_price_snapshot,
                     fed_regime, embedding, source_name
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (source_id) DO NOTHING
                 RETURNING id
             """, (
@@ -241,6 +243,7 @@ class IntelligenceRepo(DBBase):
                 float(us10y) if us10y is not None else None,
                 float(gvz) if gvz is not None else None,
                 float(gold) if gold is not None else None,
+                float(oil) if oil is not None else None,
                 float(raw_data.get('fed_val', 0.0)),
                 embedding_binary,
                 raw_data.get('source'),
