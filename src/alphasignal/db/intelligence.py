@@ -226,8 +226,7 @@ class IntelligenceRepo(DBBase):
                     dxy_snapshot, us10y_snapshot, gvz_snapshot, gold_price_snapshot,
                     fed_regime, embedding, source_name
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (source_id) DO UPDATE SET
-                    author = EXCLUDED.author
+                ON CONFLICT (source_id) DO NOTHING
                 RETURNING id
             """, (
                 raw_data.get('id'),
@@ -247,6 +246,10 @@ class IntelligenceRepo(DBBase):
                 raw_data.get('source'),
             ))
             row = cursor.fetchone()
+            if not row:
+                # If DO NOTHING triggered, fetch the existing ID
+                cursor.execute("SELECT id FROM intelligence WHERE source_id = %s", (raw_data.get('id'),))
+                row = cursor.fetchone()
             conn.commit()
             conn.close()
             return row[0] if row else None
@@ -368,9 +371,6 @@ class IntelligenceRepo(DBBase):
                 to_jsonb(analysis_result.get('actionable_advice')),
                 raw_data.get('url'),
                 float(gold_price_snapshot) if gold_price_snapshot is not None else None,
-                float(price_1h) if price_1h is not None else None,
-                float(price_24h) if price_24h is not None else None,
-                news_time, market_session, clustering_score,
                 float(exhaustion_score) if exhaustion_score is not None else 0.0,
                 float(dxy) if dxy is not None else None,
                 float(us10y) if us10y is not None else None,
