@@ -90,21 +90,49 @@ class MarketRepo(DBBase):
                     logger.warning(f"EastMoney XAUUSD failed: {e}")
 
             elif ticker_symbol == "DX-Y.NYB":
+                # 方案 A: 新浪全球指数
+                try:
+                    import requests
+                    url = "https://hq.sinajs.cn/list=gb_dxy"
+                    resp = requests.get(url, timeout=5)
+                    if "=\"" in resp.text:
+                        val = resp.text.split("=\"")[1].split(",")[1]
+                        return round(float(val), 3)
+                except: pass
+                # 方案 B: AkShare
                 try:
                     df = ak.fx_spot_quote()
                     row = df[df['外汇名称'].str.contains('美元指数|USD Index', case=False, na=False)]
                     if not row.empty:
                         return round(float(row.iloc[0]['最新价']), 3)
-                except:
-                    pass
+                except: pass
 
-            elif ticker_symbol == "^TNX":
+            elif ticker_symbol == "^TNX": # 10年美债收益率
+                # 方案 A: 新浪全球
+                try:
+                    import requests
+                    url = "https://hq.sinajs.cn/list=gb_ztnx"
+                    resp = requests.get(url, timeout=5)
+                    if "=\"" in resp.text:
+                        val = resp.text.split("=\"")[1].split(",")[1]
+                        return round(float(val), 3)
+                except: pass
+                # 方案 B: AkShare
                 try:
                     df = ak.bond_zh_us_rate()
                     if not df.empty:
                         return round(float(df.iloc[-1]['10年']), 3)
-                except:
-                    pass
+                except: pass
+
+            elif ticker_symbol == "^GVZ": # 黄金波动率
+                try:
+                    import requests
+                    url = "https://hq.sinajs.cn/list=gb_gvz" # 尝试 GVZ
+                    resp = requests.get(url, timeout=5)
+                    if "=\"" in resp.text:
+                        val = resp.text.split("=\"")[1].split(",")[1]
+                        return round(float(val), 3)
+                except: pass
 
             return None
         except Exception as e:
