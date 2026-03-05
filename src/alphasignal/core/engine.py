@@ -14,6 +14,7 @@ from src.alphasignal.providers.channels.bark import BarkChannel
 from src.alphasignal.core.database import IntelligenceDB
 from src.alphasignal.core.backtest import BacktestEngine
 from src.alphasignal.core.deduplication import NewsDeduplicator
+from src.alphasignal.core.event_clusterer import EventClusterer
 
 class AlphaEngine:
     """
@@ -28,6 +29,7 @@ class AlphaEngine:
         self.fallback_llm = DeepSeekLLM()
         self.channels     = [EmailChannel(), BarkChannel()]
         self.backtester   = BacktestEngine(self.db)
+        self.clusterer    = EventClusterer(db=self.db)
         self.deduplicator = NewsDeduplicator(db=self.db)
         self._round_snapshot = {}
         # Concurrency Control
@@ -107,8 +109,15 @@ class AlphaEngine:
             item.setdefault('us10y_snapshot',      self._round_snapshot.get('us10y_snapshot'))
             item.setdefault('gvz_snapshot',        self._round_snapshot.get('gvz_snapshot'))
 
+        # 2.5 事件聚类：同一事件多信源 → 只保留 lead 进 AI 分析
+        lead_records, n_clustered = await asyncio.to_thread(
+            self.clusterer.cluster, pending_records
+        )
+        if n_clustered > 0:
+            logger.info(f"🔗 聚类压制 {n_clustered} 条重复信源报道，本轮仅分析 {len(lead_records)} 条")
+
         # 3. AI 并发分析
-        enriched_items = pending_records
+        enriched_items = lead_records
         for item in enriched_items:
             item.setdefault('extraction_method', 'RSS_SUMMARY')
 

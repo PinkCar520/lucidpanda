@@ -509,3 +509,78 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"Duplicate Check Failed: {e}")
             return False
+
+    # ── 事件聚类支持方法 ──────────────────────────────────────────────────
+
+    def find_similar_pairs(self, source_ids: list, threshold: float = 0.45,
+                           time_window_hours: int = 2) -> list:
+        """
+        在 source_ids 对应的记录中，用 pg_trgm 找出相似对。
+        单次 DB 往返，O(n²) 仅在 DB 内执行。
+
+        Returns:
+            list of (source_id_a, source_id_b) tuples
+        """
+        if len(source_ids) < 2:
+            return []
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT a.source_id, b.source_id
+                FROM intelligence a
+                JOIN intelligence b ON a.source_id < b.source_id
+                WHERE a.source_id = ANY(%s)
+                  AND b.source_id = ANY(%s)
+                  AND ABS(EXTRACT(EPOCH FROM (a.timestamp - b.timestamp))) < %s
+                  AND similarity(COALESCE(a.content,''), COALESCE(b.content,'')) > %s
+            """, (source_ids, source_ids, time_window_hours * 3600, threshold))
+            pairs = cursor.fetchall()
+            conn.close()
+            return [(r[0], r[1]) for r in pairs]
+        except Exception as e:
+            logger.error(f"find_similar_pairs 查询失败: {e}")
+            return []
+
+    def mark_clustered(self, source_ids: list, cluster_id: str, lead_source_id: str) -> None:
+        """
+        将非 lead 的同事件记录批量标记为 CLUSTERED。
+          - is_cluster_lead = FALSE  （非 lead）
+          - event_cluster_id = cluster_id
+          - status = 'CLUSTERED'
+        Lead 记录只写入 event_cluster_id，状态保持 PENDING。
+        """
+        if not source_ids:
+            return
+        follower_ids = [sid for sid in source_ids if sid != lead_source_id]
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            # 所有成员打上 cluster_id
+            cursor.execute("""
+                UPDATE intelligence
+                SET event_cluster_id = %s
+                WHERE source_id = ANY(%s)
+            """, (cluster_id, source_ids))
+            # Lead 标记
+            cursor.execute("""
+                UPDATE intelligence SET is_cluster_lead = TRUE
+                WHERE source_id = %s
+            """, (lead_source_id,))
+            # Followers → CLUSTERED
+            if follower_ids:
+                cursor.execute("""
+                    UPDATE intelligence
+                    SET is_cluster_lead = FALSE,
+                        status = 'CLUSTERED',
+                        last_error = 'Suppressed: same event as ' || %s
+                    WHERE source_id = ANY(%s)
+                """, (lead_source_id, follower_ids))
+            conn.commit()
+            conn.close()
+            logger.info(
+                f"🔗 事件聚类 [{cluster_id[:8]}] | lead={lead_source_id[:20]} | "
+                f"suppressed={len(follower_ids)} 条"
+            )
+        except Exception as e:
+            logger.error(f"mark_clustered 失败: {e}")

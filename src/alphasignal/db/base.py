@@ -162,6 +162,9 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS sentiment_score DOUBLE PRECISION;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS source_name TEXT;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS source_credibility_score DOUBLE PRECISION;",
+                # 事件聚类字段
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS event_cluster_id TEXT;",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS is_cluster_lead BOOLEAN DEFAULT TRUE;",
             ]:
                 cursor.execute(col_sql)
 
