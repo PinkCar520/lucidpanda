@@ -39,6 +39,12 @@ class DBConnectionProxy:
 
     def close(self):
         if self._pool and self._conn:
+            try:
+                # 归还连接前，强制 rollback 掉任何未提交的或报错的残留事务
+                if not getattr(self._conn, 'autocommit', False):
+                    self._conn.rollback()
+            except Exception as e:
+                logger.error(f"连接池归还清理异常: {e}")
             self._pool.putconn(self._conn)
             self._conn = None
 

@@ -59,8 +59,7 @@ services:
       - REDIS_URL=redis://redis:6379/1
       - CACHE_EXPIRE=300
       # 通过 sing-box 容器代理访问境外 Bloomberg/Reuters/WSJ
-      - HTTP_PROXY=http://singbox:7890
-      - HTTPS_PROXY=http://singbox:7890
+      - PROXY_URI=http://singbox:7890
       - NODE_TLS_REJECT_UNAUTHORIZED=0 # Disable strict TLS if cert mapping isn't enough for some feeds
     depends_on:
       - redis
@@ -85,6 +84,11 @@ services:
       - POSTGRES_HOST=db
       - REDIS_URL=redis://redis:6379/0
       - HF_ENDPOINT=https://hf-mirror.com
+      # 代理访问大模型 API
+      - HTTP_PROXY=http://singbox:7890
+      - HTTPS_PROXY=http://singbox:7890
+      # 国内可直连域名跳过代理
+      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,alphasignal_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov
     restart: unless-stopped
     depends_on:
       db:
@@ -113,7 +117,7 @@ services:
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
       # 国内可直连域名跳过代理
-      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,api,web,*.cn,sina.com,eastmoney.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov,sec.gov
+      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,alphasignal_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov
     restart: unless-stopped
     depends_on:
       db:

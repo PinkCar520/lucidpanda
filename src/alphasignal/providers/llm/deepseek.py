@@ -15,6 +15,7 @@ class DeepSeekLLM(BaseLLM):
         return await asyncio.to_thread(self.analyze, raw_data)
 
     def analyze(self, raw_data):
+        import time
         try:
             client = OpenAI(
                 api_key=settings.DEEPSEEK_API_KEY, 
@@ -23,14 +24,22 @@ class DeepSeekLLM(BaseLLM):
             
             prompt = self._get_prompt(raw_data)
             
+            logger.info(f"📤 [DeepSeek] 发起请求 -> Base: {settings.DEEPSEEK_BASE_URL} | Model: {settings.DEEPSEEK_MODEL}")
+            logger.debug(f"📤 [DeepSeek] Prompt 预览: {prompt[:300]}...")
+            
+            start_time = time.time()
             response = client.chat.completions.create(
                 model=settings.DEEPSEEK_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 temperature=0.3
             )
+            elapsed = time.time() - start_time
             
-            return json.loads(response.choices[0].message.content)
+            raw_text = response.choices[0].message.content
+            logger.info(f"📥 [DeepSeek] 响应成功 (耗时: {elapsed:.2f}s)。原始输出摘录: {raw_text[:200]}...")
+            
+            return json.loads(raw_text)
             
         except Exception as e:
             logger.error(f"DeepSeek 分析失败: {e}")

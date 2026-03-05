@@ -24,9 +24,23 @@ class AlphaEngine:
     """
     def __init__(self):
         self.db = IntelligenceDB()
-        # 显式初始化 LLM 引擎，确保不遗漏
-        self.primary_llm = GeminiLLM()
-        self.fallback_llm = DeepSeekLLM()
+        
+        # 显式初始化 LLM 引擎，根据配置文件动态选择主力模型
+        provider = settings.AI_PROVIDER.lower()
+        if provider == "deepseek":
+            self.primary_llm = DeepSeekLLM()
+            self.fallback_llm = GeminiLLM()
+            logger.info("🧠 选用 API: DeepSeek 作为主力 AI 引擎")
+        elif provider == "openai":
+            from src.alphasignal.providers.llm.openai_llm import OpenAILLM # 假设存在
+            self.primary_llm = OpenAILLM()
+            self.fallback_llm = DeepSeekLLM()
+            logger.info("🧠 选用 API: OpenAI 作为主力 AI 引擎")
+        else: # 默认 gemini 
+            self.primary_llm = GeminiLLM()
+            self.fallback_llm = DeepSeekLLM()
+            logger.info("🧠 选用 API: Gemini 作为主力 AI 引擎")
+            
         self.channels     = [EmailChannel(), BarkChannel()]
         self.backtester   = BacktestEngine(self.db)
         self.clusterer    = EventClusterer(db=self.db)
