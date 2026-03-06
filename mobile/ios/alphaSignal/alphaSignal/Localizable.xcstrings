@@ -123,11 +123,40 @@
     "analysis" : {
 
     },
-    "app.funds.added" : {
-
+    "app.funds.added_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已添加 %@"
+          }
+        }
+      }
     },
     "app.funds.removed" : {
 
+    },
+    "app.funds.removed_%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removed %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已取消 %@"
+          }
+        }
+      }
     },
     "app.search.fund_prompt" : {
       "localizations" : {

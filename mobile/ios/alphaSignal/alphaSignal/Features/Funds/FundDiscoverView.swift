@@ -156,22 +156,12 @@ struct FundDiscoverView: View {
                                 .buttonStyle(.plain)
                                 
                                 Spacer(minLength: 16)
-                                
+
                                 LiquidAddButton(isAdded: isAdded) {
                                     if !isAdded {
-                                        Task {
-                                            await performAdd(fund: fund, groupId: nil)
-                                        }
+                                        await performAdd(fund: fund, groupId: nil)
                                     } else {
-                                        addedFunds.remove(fund.code)
-                                        toastMessage = String(localized: "app.funds.removed") + " \(fund.name)"
-                                        withAnimation(.spring()) { showAddedToast = true }
-                                        
-                                        await watchlistViewModel.deleteFund(code: fund.code)
-                                        
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                            withAnimation(.easeInOut) { showAddedToast = false }
-                                        }
+                                        await performRemove(fund: fund)
                                     }
                                 }
                             }
@@ -187,14 +177,15 @@ struct FundDiscoverView: View {
                     viewModel.query = searchText
                     Task { await viewModel.performSearch() }
                 }
-                
-                // Toast Notification (Centered)
+
+                // Toast Notification (底部)
                 if showAddedToast {
+                    let isRemove = toastMessage.hasPrefix(String(localized: "app.funds.removed"))
                     VStack {
                         Spacer()
                         HStack {
-                            Image(systemName: toastMessage.contains("已取消") ? "xmark.circle.fill" : "checkmark.circle.fill")
-                                .foregroundStyle(toastMessage.contains("已取消") ? Color.secondary : Color.green)
+                            Image(systemName: isRemove ? "xmark.circle.fill" : "checkmark.circle.fill")
+                                .foregroundStyle(isRemove ? Color.secondary : Color.green)
                             Text(toastMessage)
                                 .foregroundStyle(.primary)
                         }
@@ -203,9 +194,12 @@ struct FundDiscoverView: View {
                         .padding(.horizontal, 24)
                         .glassEffect(.regular, in: .capsule)
                         .clipShape(Capsule())
-                        Spacer()
+                        .padding(.bottom, 32)
                     }
-                    .transition(.scale.combined(with: .opacity))
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .bottom).combined(with: .opacity),
+                        removal: .move(edge: .bottom).combined(with: .opacity)
+                    ))
                 }
             }
             .navigationTitle("funds.discover.title")
@@ -223,15 +217,27 @@ struct FundDiscoverView: View {
     }
     
     // MARK: - Logic
-    
+
     private func performAdd(fund: FundSearchResult, groupId: String?) async {
         addedFunds.insert(fund.code)
-        toastMessage = String(localized: "app.funds.added") + " \(fund.name)"
+        toastMessage = String(format: String(localized: "app.funds.added_%@"), arguments: [fund.name])
         withAnimation(.spring()) { showAddedToast = true }
-        
+
         saveRecentSearch(code: fund.code, name: fund.name)
         await watchlistViewModel.addFund(code: fund.code, name: fund.name, groupId: groupId)
-        
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            withAnimation(.easeInOut) { showAddedToast = false }
+        }
+    }
+
+    private func performRemove(fund: FundSearchResult) async {
+        addedFunds.remove(fund.code)
+        toastMessage = String(format: String(localized: "app.funds.removed_%@"), arguments: [fund.name])
+        withAnimation(.spring()) { showAddedToast = true }
+
+        await watchlistViewModel.deleteFund(code: fund.code)
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation(.easeInOut) { showAddedToast = false }
         }
