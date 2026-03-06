@@ -15,7 +15,7 @@ class MarketTerminalService:
 
     def __init__(self):
         self._cache = {}
-        self._cache_ttl = 60  # 1 分钟缓存
+        self._cache_ttl = 15  # 15 秒缓存
 
     def get_market_snapshot(self):
         """

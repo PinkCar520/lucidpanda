@@ -147,10 +147,10 @@ public struct MarketTerminalView: View {
                 Spacer()
 
                 // 时间范围选择器（简化版）
-                Picker("范围", selection: .constant("1d")) {
-                    Text("1 天").tag("1d")
-                    Text("1 周").tag("1w")
-                    Text("1 月").tag("1m")
+                Picker("market.range", selection: .constant("1d")) {
+                    Text("market.range.1d").tag("1d")
+                    Text("market.range.1w").tag("1w")
+                    Text("market.range.1m").tag("1m")
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 150)
@@ -177,7 +177,7 @@ public struct MarketTerminalView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.blue)
                 
-                Text("市场情报")
+                Text("market.terminal.intelligence")
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(.primary)
                 
@@ -193,7 +193,7 @@ public struct MarketTerminalView: View {
                     Image(systemName: "tray.and.arrow.down")
                         .font(.system(size: 32))
                         .foregroundStyle(.gray.opacity(0.3))
-                    Text("暂无市场情报")
+                    Text("market.terminal.no_intelligence")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -222,7 +222,7 @@ public struct MarketTerminalView: View {
                 ProgressView()
                     .scaleEffect(1.2)
                 
-                Text("正在加载市场数据...")
+                Text("market.loading")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
             }
@@ -302,7 +302,7 @@ extension MarketTerminalView {
                 HStack {
                     // 紧急度标签
                     if item.urgencyScore >= 8 {
-                        Text("警报")
+                        Text("market.intelligence.alert")
                             .font(.system(size: 9, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)

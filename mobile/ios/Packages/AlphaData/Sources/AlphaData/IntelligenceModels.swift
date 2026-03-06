@@ -100,7 +100,8 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, author, summary, content, sentiment
+        case id, timestamp, author, summary, content
+        case sentiment = "sentiment_label"
         case urgencyScore = "urgency_score"
         case goldPriceSnapshot = "gold_price_snapshot"
         case dxySnapshot = "dxy_snapshot"

@@ -123,6 +123,7 @@ struct MainDashboardView: View {
         }
         .task {
             await viewModel.startIntelligenceStream()
+            await fetchMarketData()
         }
         .onDisappear {
             viewModel.stopIntelligenceStream()
@@ -198,6 +199,14 @@ struct MainDashboardView: View {
         .padding(.top, 24)
         .onReceive(timer) { input in
             currentTime = input
+            
+            // 每 30 秒自动刷新一次市场数据卡片
+            let seconds = Calendar.current.component(.second, from: input)
+            if seconds % 30 == 0 {
+                Task {
+                    await fetchMarketData()
+                }
+            }
         }
     }
 
@@ -207,18 +216,13 @@ struct MainDashboardView: View {
             HStack {
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.blue)
-                Text("市场数据")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.primary)
+                Text("dashboard.market.title")
+                    .font(.system(size: 16, weight: .bold))
                 Spacer()
-                if isFetchingMarketData {
-                    ProgressView()
-                        .scaleEffect(0.8)
-                } else if let lastUpdated = marketQuotes["gold"]?.timestamp {
-                    Text("更新于 \(formatTime(lastUpdated))")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
+                NavigationLink(destination: MarketTerminalView()) {
+                    Text("terminal.view_all")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.blue)
                 }
             }
             .padding(.horizontal)
@@ -229,26 +233,18 @@ struct MainDashboardView: View {
             ) {
                 MarketQuoteRow(
                     symbol: "黄金",
-                    icon: "circle.fill",
-                    iconColor: .yellow,
                     quote: marketQuotes["gold"]
                 )
                 MarketQuoteRow(
                     symbol: "美元指数",
-                    icon: "dollarsign.circle.fill",
-                    iconColor: .green,
                     quote: marketQuotes["dxy"]
                 )
                 MarketQuoteRow(
                     symbol: "原油",
-                    icon: "drop.fill",
-                    iconColor: .orange,
                     quote: marketQuotes["oil"]
                 )
                 MarketQuoteRow(
                     symbol: "美债 10Y",
-                    icon: "chart.bar.fill",
-                    iconColor: .purple,
                     quote: marketQuotes["us10y"]
                 )
             }
@@ -436,19 +432,10 @@ struct MainDashboardView: View {
 /// 市场报价行组件
 struct MarketQuoteRow: View {
     let symbol: String
-    let icon: String
-    let iconColor: Color
     let quote: MarketQuote?
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(iconColor)
-                .frame(width: 32, height: 32)
-                .background(iconColor.opacity(0.1))
-                .clipShape(Circle())
-
+        HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(symbol)
                     .font(.system(size: 11, weight: .bold))

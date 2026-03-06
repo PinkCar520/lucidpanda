@@ -111,7 +111,7 @@ public class MarketTerminalViewModel {
             logger.error("Failed to load market snapshot: \(error.localizedDescription)")
             
             if marketSnapshot == nil {
-                errorMessage = "无法加载市场数据，请稍后重试"
+                errorMessage = NSLocalizedString("market.error.load", comment: "")
             }
         }
     }
