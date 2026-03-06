@@ -40,7 +40,9 @@ class FundSearchViewModel {
             guard !Task.isCancelled else { return }
             
             do {
-                let path = "/api/v1/web/funds/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&limit=15"
+                let processedQuery = query.trimmingCharacters(in: .whitespaces)
+                let normalizedQuery = processedQuery.allSatisfy(\.isLetter) ? processedQuery.uppercased() : processedQuery
+                let path = "/api/v1/web/funds/search?q=\(normalizedQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")&limit=15"
                 let response: FundSearchResponse = try await APIClient.shared.fetch(path: path)
                 
                 // 【核心修复：防竞态渲染】网络请求回来了，但如果用户在此期间改了输入框：抛弃这批旧数据

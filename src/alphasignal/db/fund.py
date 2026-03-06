@@ -390,13 +390,21 @@ class FundRepo(DBBase):
             conn.close()
 
     def search_funds_metadata(self, query, limit=20):
-        """Search funds and stocks in local metadata tables (Cross-Asset Pinyin Fuzzy Search)."""
+        """Search funds and stocks in local metadata tables (Cross-Asset Pinyin Fuzzy Search).
+        
+        Priority layers:
+          1 - Exact code prefix match
+          2 - Pinyin shorthand (first-letter abbreviation) prefix match
+          3 - Pinyin full (complete pinyin) prefix match
+          4 - Chinese name contains match
+        """
         try:
             conn = self._get_conn()
             cursor = conn.cursor(cursor_factory=DictCursor)
             
-            # Cross-asset search across funds and stocks using UNION ALL
-            # Priority: 1 (Exact code), 2 (Pinyin code match), 3 (Name fuzzy match)
+            query_upper = query.upper()
+            query_lower = query.lower()
+            
             cursor.execute("""
                 (
                     SELECT m.fund_code as code, m.fund_name as name, m.investment_type as type,
@@ -433,7 +441,7 @@ class FundRepo(DBBase):
                            c.name as company, 3 as priority
                     FROM fund_metadata m
                     LEFT JOIN fund_companies c ON m.company_id = c.company_id
-                    WHERE m.fund_name LIKE %s
+                    WHERE m.pinyin_full LIKE %s
                     AND m.fund_code NOT LIKE %s AND m.pinyin_shorthand NOT LIKE %s
                     
                     UNION ALL
@@ -441,18 +449,40 @@ class FundRepo(DBBase):
                     SELECT s.stock_code as code, s.stock_name as name, s.market as type,
                            s.industry_l1_name as company, 3 as priority
                     FROM stock_metadata s
+                    WHERE s.pinyin_full LIKE %s
+                    AND s.stock_code NOT LIKE %s AND (s.pinyin_shorthand IS NULL OR s.pinyin_shorthand NOT LIKE %s)
+                )
+                UNION ALL
+                (
+                    SELECT m.fund_code as code, m.fund_name as name, m.investment_type as type,
+                           c.name as company, 4 as priority
+                    FROM fund_metadata m
+                    LEFT JOIN fund_companies c ON m.company_id = c.company_id
+                    WHERE m.fund_name LIKE %s
+                    AND m.fund_code NOT LIKE %s AND m.pinyin_shorthand NOT LIKE %s
+                    AND (m.pinyin_full IS NULL OR m.pinyin_full NOT LIKE %s)
+                    
+                    UNION ALL
+                    
+                    SELECT s.stock_code as code, s.stock_name as name, s.market as type,
+                           s.industry_l1_name as company, 4 as priority
+                    FROM stock_metadata s
                     WHERE s.stock_name LIKE %s
                     AND s.stock_code NOT LIKE %s AND (s.pinyin_shorthand IS NULL OR s.pinyin_shorthand NOT LIKE %s)
+                    AND (s.pinyin_full IS NULL OR s.pinyin_full NOT LIKE %s)
                 )
                 ORDER BY priority ASC, code ASC LIMIT %s
             """, (
-                # Priority 1 arguments
+                # Priority 1: code prefix
                 f"{query}%", f"{query}%",
-                # Priority 2 arguments
-                f"{query.upper()}%", f"{query}%", f"{query.upper()}%", f"{query}%",
-                # Priority 3 arguments
-                f"%%{query}%%", f"{query}%", f"{query.upper()}%",
-                f"%%{query}%%", f"{query}%", f"{query.upper()}%",
+                # Priority 2: pinyin shorthand prefix
+                f"{query_upper}%", f"{query}%", f"{query_upper}%", f"{query}%",
+                # Priority 3: pinyin full contains
+                f"%%{query_lower}%%", f"{query}%", f"{query_upper}%",
+                f"%%{query_lower}%%", f"{query}%", f"{query_upper}%",
+                # Priority 4: Chinese name contains
+                f"%%{query}%%", f"{query}%", f"{query_upper}%", f"{query_lower}%",
+                f"%%{query}%%", f"{query}%", f"{query_upper}%", f"{query_lower}%",
                 limit
             ))
             
