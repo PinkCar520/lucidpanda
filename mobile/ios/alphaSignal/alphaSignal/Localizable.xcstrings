@@ -2931,6 +2931,9 @@
         }
       }
     },
+    "funds.group.default" : {
+
+    },
     "funds.group.manage_title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -3015,6 +3018,9 @@
           }
         }
       }
+    },
+    "funds.group.select" : {
+
     },
     "funds.peek.title" : {
       "localizations" : {

@@ -66,7 +66,7 @@ class LocalWatchlistGroup {
 
 actor WatchlistCacheManager {
     static let shared = WatchlistCacheManager()
-    private let logger = AppLog.watchlist
+    private let logger = Logger(subsystem: "com.pineapple.alphaSignal", category: "Watchlist")
     
     private var modelContext: ModelContext?
     private var isInitialized = false

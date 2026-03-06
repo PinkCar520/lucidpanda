@@ -13,7 +13,7 @@ struct FundDiscoverView: View {
     @State private var selectedFundToView: FundValuation?
     
     // 弹窗选择分组的状态
-    @State private var fundToAdd: FundSearchItem?
+    @State private var fundToAdd: FundSearchResult?
     @State private var showGroupSelection = false
     
     @AppStorage("recent_fund_searches") private var recentSearchesData: Data = Data()
@@ -246,7 +246,7 @@ struct FundDiscoverView: View {
     
     // MARK: - Logic
     
-    private func performAdd(fund: FundSearchItem, groupId: String?) async {
+    private func performAdd(fund: FundSearchResult, groupId: String?) async {
         addedFunds.insert(fund.code)
         toastMessage = String(localized: "app.funds.added") + " \(fund.name)"
         withAnimation(.spring()) { showAddedToast = true }
