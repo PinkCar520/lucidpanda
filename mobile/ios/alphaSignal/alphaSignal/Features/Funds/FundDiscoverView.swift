@@ -124,30 +124,17 @@ struct FundDiscoverView: View {
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets())
                     } else {
-                        // Pill Filters
+                        // Picker Filter
                         Section {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(SearchFilterType.allCases, id: \.self) { filter in
-                                        Button {
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                                searchFilter = filter
-                                            }
-                                        } label: {
-                                            Text(LocalizedStringKey(filter.rawValue))
-                                                .font(.system(size: 14, weight: .bold))
-                                                .padding(.horizontal, 18)
-                                                .padding(.vertical, 10)
-                                                .foregroundStyle(searchFilter == filter ? Color.blue : .primary)
-                                                .glassEffect(.regular, in: .capsule)
-                                                .clipShape(Capsule())
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
+                            Picker("", selection: $searchFilter) {
+                                ForEach(SearchFilterType.allCases, id: \.self) { filter in
+                                    Text(LocalizedStringKey(filter.rawValue))
+                                        .tag(filter)
                                 }
-                                .padding(.horizontal, 20)
                             }
-                            .padding(.vertical, 8)
+                            .pickerStyle(.segmented)
+                            .controlSize(.extraLarge)
+                            .glassEffect(.regular, in: .rect(cornerRadius: 12, style: .continuous))
                             .listRowInsets(EdgeInsets())
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -233,19 +220,17 @@ struct FundDiscoverView: View {
                                 
                                 // 【核心修复：实时行情感知】展示获取到的实时估值与迷你趋势图
                                 if let valuation = viewModel.valuations[fund.code] {
-                                    HStack(spacing: 12) {
+                                    VStack(alignment: .trailing, spacing: 4) {
                                         // 趋势图
                                         if let sparkData = valuation.stats?.sparklineData {
                                             FundSparkline(data: sparkData, isPositive: valuation.estimatedGrowth >= 0)
-                                                .frame(width: 44, height: 16)
+                                                .frame(width: 50, height: 18)
                                                 .opacity(0.8)
                                         }
                                         
-                                        VStack(alignment: .trailing, spacing: 4) {
-                                            Text(String(format: "%+.2f%%", valuation.estimatedGrowth))
-                                                .font(.system(size: 14, weight: .bold, design: .rounded))
-                                                .foregroundStyle(valuation.estimatedGrowth > 0 ? Color.red : (valuation.estimatedGrowth < 0 ? Color.green : Color.gray))
-                                        }
+                                        Text(String(format: "%+.2f%%", valuation.estimatedGrowth))
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundStyle(valuation.estimatedGrowth > 0 ? Color.red : (valuation.estimatedGrowth < 0 ? Color.green : Color.gray))
                                     }
                                     .padding(.trailing, 4)
                                 }
