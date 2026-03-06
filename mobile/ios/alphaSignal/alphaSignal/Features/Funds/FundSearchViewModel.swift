@@ -79,10 +79,10 @@ class FundSearchViewModel {
         do {
             let codesString = codes.joined(separator: ",")
             let path = "/api/v1/web/funds/batch-valuation?codes=\(codesString)&mode=summary"
-            let response: [FundValuation] = try await APIClient.shared.fetch(path: path)
+            let response: BatchValuationResponse = try await APIClient.shared.fetch(path: path)
             
             var newValuations: [String: FundValuation] = [:]
-            for val in response {
+            for val in response.data {
                 newValuations[val.fundCode] = val
             }
             // 增量更新或全量替换，以确保平滑过渡

@@ -29,10 +29,10 @@ enum FundSortOrder: CaseIterable {
     
     var label: String {
         switch self {
-        case .none: return "自定义"
-        case .highGrowthFirst: return "涨幅榜"
-        case .highDropFirst: return "跌幅榜"
-        case .alphabetical: return "名称"
+        case .none: return String(localized: "funds.sort.none")
+        case .highGrowthFirst: return String(localized: "funds.sort.high_growth")
+        case .highDropFirst: return String(localized: "funds.sort.high_drop")
+        case .alphabetical: return String(localized: "funds.sort.alphabetical")
         }
     }
 }

@@ -13,6 +13,9 @@
     "—" : {
 
     },
+    ":" : {
+
+    },
     "%" : {
 
     },
@@ -38,9 +41,6 @@
           }
         }
       }
-    },
-    "%@:" : {
-
     },
     "%@: %@" : {
       "localizations" : {
@@ -138,9 +138,6 @@
           }
         }
       }
-    },
-    "app.funds.removed" : {
-
     },
     "app.funds.removed_%@" : {
       "localizations" : {
@@ -250,7 +247,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "搜索"
+            "value" : "深度发现"
           }
         }
       }
@@ -2066,7 +2063,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "QDII"
+            "value" : "海外"
           }
         }
       }
@@ -2139,6 +2136,40 @@
         }
       }
     },
+    "funds.compact.metric.drawdown.shorthand" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "D"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤"
+          }
+        }
+      }
+    },
+    "funds.compact.metric.sharpe.shorthand" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "S"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "夏"
+          }
+        }
+      }
+    },
     "funds.compact.no_data" : {
       "localizations" : {
         "en" : {
@@ -2156,6 +2187,7 @@
       }
     },
     "funds.company.unknown" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2761,13 +2793,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No sector attribution data"
+            "value" : "No sector data available"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "暂无行业归因数据"
+            "value" : "暂无板块比例数据"
           }
         }
       }
@@ -2842,13 +2874,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Syncing..."
+            "value" : "SYNCING"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同步中..."
+            "value" : "同步中"
           }
         }
       }
@@ -2882,6 +2914,91 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "热门检索建议"
+          }
+        }
+      }
+    },
+    "funds.discover.suggestion.bosera_gold" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bosera Gold"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "博时黄金"
+          }
+        }
+      }
+    },
+    "funds.discover.suggestion.csi300" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CSI 300"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沪深300"
+          }
+        }
+      }
+    },
+    "funds.discover.suggestion.efund_info" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "E Fund Info"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "易方达信息"
+          }
+        }
+      }
+    },
+    "funds.discover.suggestion.huaan_gold" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Huaan Gold"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "华安黄金"
+          }
+        }
+      }
+    },
+    "funds.discover.suggestion.nasdaq100" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nasdaq 100"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "纳指100"
           }
         }
       }
@@ -3087,6 +3204,22 @@
         }
       }
     },
+    "funds.group.select_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add to Group"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择存入分组"
+          }
+        }
+      }
+    },
     "funds.peek.title" : {
       "localizations" : {
         "en" : {
@@ -3099,6 +3232,73 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "基金速览"
+          }
+        }
+      }
+    },
+    "funds.search.filter.all" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部"
+          }
+        }
+      }
+    },
+    "funds.search.filter.funds" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funds"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "基金"
+          }
+        }
+      }
+    },
+    "funds.search.filter.stocks" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stocks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "股票"
+          }
+        }
+      }
+    },
+    "funds.search.filters.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No results in this category"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该分类下暂无搜索结果"
           }
         }
       }
@@ -3191,13 +3391,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Constituents"
+            "value" : "Key Components"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "成分股明细"
+            "value" : "重点持仓"
           }
         }
       }
@@ -3207,13 +3407,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No underlying constituents data"
+            "value" : "No component data"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "暂无底层成分数据"
+            "value" : "暂无成分股数据"
           }
         }
       }
@@ -3223,13 +3423,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Contribution"
+            "value" : "Impact"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "贡献度"
+            "value" : "贡献涨跌"
           }
         }
       }
@@ -3245,7 +3445,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "行业权重"
+            "value" : "板块权重"
           }
         }
       }
@@ -3255,13 +3455,77 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Weight: %.2f%%"
+            "value" : "Weight %.2f%%"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "仓位: %.2f%%"
+            "value" : "权重 %.2f%%"
+          }
+        }
+      }
+    },
+    "funds.sort.alphabetical" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称"
+          }
+        }
+      }
+    },
+    "funds.sort.high_drop" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Drop"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跌幅榜"
+          }
+        }
+      }
+    },
+    "funds.sort.high_growth" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top Growth"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "涨幅榜"
+          }
+        }
+      }
+    },
+    "funds.sort.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义"
           }
         }
       }

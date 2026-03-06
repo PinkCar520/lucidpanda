@@ -5,14 +5,53 @@ import AlphaCore
 
 struct FundDiscoverView: View {
     @Binding var searchText: String
-    @State private var viewModel = FundSearchViewModel()
-    @State private var watchlistViewModel = FundViewModel()
+    @State private var searchFilter: SearchFilterType = .all
+    
+    // Toast
     @State private var showAddedToast = false
     @State private var toastMessage = ""
+    @State private var toastType: ToastType = .success
+    
+    // Group Selection
+    @State private var showGroupSelection = false
+    @State private var pendingFundToAdd: FundSearchResult?
+    
+    enum ToastType {
+        case success
+        case info
+        case warning
+        
+        var icon: String {
+            switch self {
+            case .success: return "checkmark.circle.fill"
+            case .info: return "info.circle.fill"
+            case .warning: return "exclamationmark.triangle.fill"
+            }
+        }
+        
+        var color: Color {
+            switch self {
+            case .success: return .green
+            case .info: return .blue
+            case .warning: return .orange
+            }
+        }
+    }
+    @State private var viewModel = FundSearchViewModel()
+    @State private var watchlistViewModel = FundViewModel()
     @State private var addedFunds = Set<String>()
     @State private var selectedFundToView: FundValuation?
     
-    
+    private var filteredResults: [FundSearchResult] {
+        switch searchFilter {
+        case .all:
+            return viewModel.results
+        case .stocks:
+            return viewModel.results.filter { $0.type == "SH" || $0.type == "SZ" || $0.type == "HK" || $0.type == "US" }
+        case .funds:
+            return viewModel.results.filter { $0.type != "SH" && $0.type != "SZ" && $0.type != "HK" && $0.type != "US" }
+        }
+    }
 
     @AppStorage("recent_fund_searches") private var recentSearchesData: Data = Data()
     @State private var recentSearches: [FundSearchHistoryItem] = []
@@ -69,11 +108,11 @@ struct FundDiscoverView: View {
                                 
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack(spacing: 8) {
-                                        suggestionChip(title: "博时黄金", code: "159937")
-                                        suggestionChip(title: "华安黄金", code: "518880")
-                                        suggestionChip(title: "易方达信息", code: "161128")
-                                        suggestionChip(title: "沪深300", code: "510300")
-                                        suggestionChip(title: "纳指100", code: "513100")
+                                        suggestionChip(titleKey: "funds.discover.suggestion.bosera_gold", code: "159937")
+                                        suggestionChip(titleKey: "funds.discover.suggestion.huaan_gold", code: "518880")
+                                        suggestionChip(titleKey: "funds.discover.suggestion.efund_info", code: "161128")
+                                        suggestionChip(titleKey: "funds.discover.suggestion.csi300", code: "510300")
+                                        suggestionChip(titleKey: "funds.discover.suggestion.nasdaq100", code: "513100")
                                     }
                                     .padding(.horizontal, 20)
                                 }
@@ -84,13 +123,52 @@ struct FundDiscoverView: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .listRowInsets(EdgeInsets())
+                    } else {
+                        // Pill Filters
+                        Section {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(SearchFilterType.allCases, id: \.self) { filter in
+                                        Button {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                searchFilter = filter
+                                            }
+                                        } label: {
+                                            Text(LocalizedStringKey(filter.rawValue))
+                                                .font(.system(size: 14, weight: .bold))
+                                                .padding(.horizontal, 18)
+                                                .padding(.vertical, 10)
+                                                .foregroundStyle(searchFilter == filter ? Color.blue : .primary)
+                                                .glassEffect(.regular, in: .capsule)
+                                                .clipShape(Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                            .padding(.vertical, 8)
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                        }
                     }
+                    
                     if viewModel.isLoading {
                         HStack {
                             Spacer()
                             ProgressView().tint(.blue)
                             Spacer()
                         }
+                        .listRowBackground(Color.clear)
+                    } else if filteredResults.isEmpty && !viewModel.results.isEmpty {
+                        VStack(spacing: 12) {
+                            Text("funds.search.filters.empty")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
                         .listRowBackground(Color.clear)
                     } else if viewModel.results.isEmpty && searchText.count >= 2 {
                         VStack(spacing: 12) {
@@ -105,7 +183,7 @@ struct FundDiscoverView: View {
                         .padding(.vertical, 40)
                         .listRowBackground(Color.clear)
                     } else {
-                        ForEach(viewModel.results) { fund in
+                        ForEach(filteredResults) { fund in
                             let isAdded = addedFunds.contains(fund.code)
                             
                             HStack(spacing: 12) {
@@ -146,10 +224,6 @@ struct FundDiscoverView: View {
                                                     .background(isAdded ? Color.gray.opacity(0.1) : Color.blue.opacity(0.1))
                                                     .clipShape(RoundedRectangle(cornerRadius: 4))
                                             }
-                                            
-                                            Text(fund.company ?? String(localized: "funds.company.unknown"))
-                                                .font(.system(size: 11))
-                                                .foregroundStyle(.gray)
                                         }
                                     }
                                 }
@@ -157,19 +231,29 @@ struct FundDiscoverView: View {
                                 
                                 Spacer(minLength: 8)
                                 
-                                // 【核心修复：实时行情感知】展示获取到的实时估值
+                                // 【核心修复：实时行情感知】展示获取到的实时估值与迷你趋势图
                                 if let valuation = viewModel.valuations[fund.code] {
-                                    VStack(alignment: .trailing, spacing: 4) {
-                                        Text(String(format: "%+.2f%%", valuation.estimatedGrowth))
-                                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                                            .foregroundStyle(valuation.estimatedGrowth > 0 ? Color.red : (valuation.estimatedGrowth < 0 ? Color.green : Color.gray))
+                                    HStack(spacing: 12) {
+                                        // 趋势图
+                                        if let sparkData = valuation.stats?.sparklineData {
+                                            FundSparkline(data: sparkData, isPositive: valuation.estimatedGrowth >= 0)
+                                                .frame(width: 44, height: 16)
+                                                .opacity(0.8)
+                                        }
+                                        
+                                        VStack(alignment: .trailing, spacing: 4) {
+                                            Text(String(format: "%+.2f%%", valuation.estimatedGrowth))
+                                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                                .foregroundStyle(valuation.estimatedGrowth > 0 ? Color.red : (valuation.estimatedGrowth < 0 ? Color.green : Color.gray))
+                                        }
                                     }
                                     .padding(.trailing, 4)
                                 }
                                 
                                 LiquidAddButton(isAdded: isAdded) {
                                     if !isAdded {
-                                        await performAdd(fund: fund, groupId: nil)
+                                        pendingFundToAdd = fund
+                                        showGroupSelection = true
                                     } else {
                                         await performRemove(fund: fund)
                                     }
@@ -190,12 +274,11 @@ struct FundDiscoverView: View {
 
                 // Toast Notification (底部)
                 if showAddedToast {
-                    let isRemove = toastMessage.hasPrefix(String(localized: "app.funds.removed"))
                     VStack {
                         Spacer()
-                        HStack {
-                            Image(systemName: isRemove ? "xmark.circle.fill" : "checkmark.circle.fill")
-                                .foregroundStyle(isRemove ? Color.secondary : Color.green)
+                        HStack(spacing: 8) {
+                            Image(systemName: toastType.icon)
+                                .foregroundStyle(toastType.color)
                             Text(toastMessage)
                                 .foregroundStyle(.primary)
                         }
@@ -216,6 +299,29 @@ struct FundDiscoverView: View {
             .navigationDestination(item: $selectedFundToView) { valuation in
                 FundDetailView(valuation: valuation)
             }
+            .confirmationDialog(
+                String(localized: "funds.group.select_title"),
+                isPresented: $showGroupSelection,
+                titleVisibility: .visible
+            ) {
+                Button("funds.group.default") {
+                    if let fund = pendingFundToAdd {
+                        Task { await performAdd(fund: fund, groupId: nil) }
+                    }
+                }
+                
+                ForEach(watchlistViewModel.groups) { group in
+                    Button(group.name) {
+                        if let fund = pendingFundToAdd {
+                            Task { await performAdd(fund: fund, groupId: group.id) }
+                        }
+                    }
+                }
+                
+                Button("funds.action.cancel", role: .cancel) {
+                    pendingFundToAdd = nil
+                }
+            }
 
             .onAppear {
                 loadRecentSearches()
@@ -231,6 +337,7 @@ struct FundDiscoverView: View {
     private func performAdd(fund: FundSearchResult, groupId: String?) async {
         addedFunds.insert(fund.code)
         toastMessage = String(format: String(localized: "app.funds.added_%@"), arguments: [fund.name])
+        toastType = .success
         withAnimation(.spring()) { showAddedToast = true }
 
         saveRecentSearch(code: fund.code, name: fund.name)
@@ -244,6 +351,7 @@ struct FundDiscoverView: View {
     private func performRemove(fund: FundSearchResult) async {
         addedFunds.remove(fund.code)
         toastMessage = String(format: String(localized: "app.funds.removed_%@"), arguments: [fund.name])
+        toastType = .info
         withAnimation(.spring()) { showAddedToast = true }
 
         await watchlistViewModel.deleteFund(code: fund.code)
@@ -287,19 +395,27 @@ struct FundDiscoverView: View {
         }
         recentSearchesData = Data()
     }
-    
-    private func suggestionChip(title: String, code: String) -> some View {
+    @ViewBuilder
+    private func suggestionChip(title: String? = nil, titleKey: String? = nil, code: String) -> some View {
         Button {
             searchText = code
         } label: {
-            Text(title)
-                .font(.system(size: 14, weight: .bold))
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-                .foregroundStyle(.blue)
-                .glassEffect(.regular, in: .capsule)
-                .clipShape(Capsule())
+            HStack(spacing: 4) {
+                if let key = titleKey {
+                    Text(LocalizedStringKey(key))
+                } else if let t = title {
+                    Text(t)
+                }
+                Text(code)
+                    .font(.system(size: 10, design: .monospaced))
+                    .opacity(0.6)
+            }
+            .font(.system(size: 12, weight: .medium))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .glassEffect(.regular, in: .capsule)
         }
+        .buttonStyle(.plain)
     }
 }
 
@@ -310,3 +426,10 @@ struct FundSearchHistoryItem: Codable, Identifiable, Equatable {
     let code: String
     let name: String
 }
+
+enum SearchFilterType: String, CaseIterable {
+    case all = "funds.search.filter.all"
+    case stocks = "funds.search.filter.stocks"
+    case funds = "funds.search.filter.funds"
+}
+

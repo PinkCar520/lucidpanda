@@ -83,8 +83,8 @@ struct FundCompactCard: View {
             HStack(alignment: .center) {
                 if let stats = valuation.stats {
                     HStack(spacing: 8) {
-                        gradeBadge(label: "S", grade: stats.sharpeGrade ?? "-", color: .orange)
-                        gradeBadge(label: "D", grade: stats.drawdownGrade ?? "-", color: .teal)
+                        gradeBadge(labelKey: "funds.compact.metric.sharpe.shorthand", grade: stats.sharpeGrade ?? "-", color: .orange)
+                        gradeBadge(labelKey: "funds.compact.metric.drawdown.shorthand", grade: stats.drawdownGrade ?? "-", color: .teal)
                     }
                     
                     Spacer()
@@ -137,9 +137,12 @@ struct FundCompactCard: View {
     
     // --- UI Helpers ---
     
-    private func gradeBadge(label: String, grade: String, color: Color) -> some View {
+    private func gradeBadge(labelKey: String, grade: String, color: Color) -> some View {
         HStack(spacing: 2) {
-            Text("\(label):")
+            Text(LocalizedStringKey(labelKey))
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.secondary)
+            Text(":")
                 .font(.system(size: 8, weight: .bold))
                 .foregroundStyle(.secondary)
             Text(grade)
