@@ -27,6 +27,13 @@ class WatchlistGroupUpdate(BaseModel):
     color: Optional[str] = None
     sort_index: Optional[int] = None
 
+class WatchlistGroupReorderItem(BaseModel):
+    group_id: str
+    sort_index: int
+
+class WatchlistGroupReorderRequest(BaseModel):
+    items: List[WatchlistGroupReorderItem]
+
 class WatchlistItemMove(BaseModel):
     group_id: Optional[str] = None
 
@@ -243,6 +250,34 @@ async def delete_watchlist_group(
             "group_id": group_id,
             "user_id": str(current_user.id)
         })
+        
+        db.commit()
+        return v1_prepare_json({"success": True})
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/groups/reorder", response_model=Dict[str, Any])
+async def reorder_watchlist_groups(
+    request: WatchlistGroupReorderRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session)
+):
+    """批量更新分组排序"""
+    try:
+        user_id = str(current_user.id)
+        
+        for item in request.items:
+            update_stmt = text("""
+                UPDATE watchlist_groups
+                SET sort_index = :sort_index, updated_at = CURRENT_TIMESTAMP
+                WHERE id = :group_id AND user_id = :user_id
+            """)
+            db.execute(update_stmt, {
+                "sort_index": item.sort_index,
+                "user_id": user_id,
+                "group_id": item.group_id
+            })
         
         db.commit()
         return v1_prepare_json({"success": True})

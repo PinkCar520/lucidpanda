@@ -618,6 +618,47 @@ class FundViewModel {
         }
     }
     
+    // MARK: - Reorder Groups
+    
+    func reorderGroups(from offsets: IndexSet, to newOffset: Int) {
+        var ordered = groups
+        ordered.move(fromOffsets: offsets, toOffset: newOffset)
+        
+        let rankById = Dictionary(uniqueKeysWithValues: ordered.enumerated().map { ($0.element.id, $0.offset) })
+        groups = groups.map { group in
+            guard let rank = rankById[group.id] else { return group }
+            return WatchlistGroup(
+                id: group.id,
+                userId: group.userId,
+                name: group.name,
+                icon: group.icon,
+                color: group.color,
+                sortIndex: rank,
+                createdAt: group.createdAt,
+                updatedAt: Date()
+            )
+        }.sorted(by: { $0.sortIndex < $1.sortIndex })
+        
+        Task { [groups] in
+            for group in groups {
+                await cacheManager.saveGroup(group)
+            }
+            
+            do {
+                let request = WatchlistGroupReorderRequest(
+                    items: groups.map { WatchlistGroupReorderItem(groupId: $0.id, sortIndex: $0.sortIndex) }
+                )
+                let _: SuccessResponse = try await APIClient.shared.send(
+                    path: "/api/v2/watchlist/groups/reorder",
+                    method: "POST",
+                    body: request
+                )
+            } catch {
+                logger.error("Failed to reorder groups: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+    
     // MARK: - Toggle Selection
     
     func toggleSelection(_ code: String) {
@@ -798,4 +839,18 @@ struct BatchValuationResponse: Codable {
 
 struct SuccessResponse: Codable {
     let success: Bool?
+}
+
+struct WatchlistGroupReorderItem: Codable {
+    let groupId: String
+    let sortIndex: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case groupId = "group_id"
+        case sortIndex = "sort_index"
+    }
+}
+
+struct WatchlistGroupReorderRequest: Codable {
+    let items: [WatchlistGroupReorderItem]
 }

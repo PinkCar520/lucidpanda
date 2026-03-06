@@ -127,6 +127,9 @@ struct FundDashboardView: View {
                     Task {
                         await viewModel.deleteGroup(groupId: groupId)
                     }
+                },
+                onMoveGroup: { indices, newOffset in
+                    viewModel.reorderGroups(from: indices, to: newOffset)
                 }
             )
         }
@@ -393,6 +396,7 @@ struct GroupManagerView: View {
     let mode: GroupManagerMode
     let onSelect: (String?) -> Void
     let onDeleteGroup: (String) -> Void
+    let onMoveGroup: ((IndexSet, Int) -> Void)?
     
     @Environment(\.dismiss) var dismiss
     
@@ -424,6 +428,9 @@ struct GroupManagerView: View {
                                 }
                             }
                         }
+                        .onMove { indices, newOffset in
+                            onMoveGroup?(indices, newOffset)
+                        }
                     }
                     
                     if mode == .moveFund {
@@ -449,6 +456,11 @@ struct GroupManagerView: View {
             .navigationTitle(mode == .filter ? Text(LocalizedStringKey("funds.group.manage_title")) : Text(LocalizedStringKey("funds.group.move_title")))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if mode == .filter {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        EditButton()
+                    }
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         dismiss()
