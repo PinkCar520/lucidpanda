@@ -57,75 +57,77 @@ class MarketTerminalService:
     def _fetch_gold(self):
         """获取黄金数据（COMEX 黄金 - 新浪财经）"""
         try:
-            # 新浪财经 COMEX 黄金期货
-            url = "https://hq.sinajs.cn/rn=1635506500000&list=NF_GC"
+            # 使用新浪期货 GlobalFuturesService 接口 (同 market.py)
+            url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
             resp = requests.get(url, timeout=5)
-            if resp.status_code == 200:
-                text = resp.text
-                # 解析：var hq_str_NF_GC="COMEX黄金，2837.50,2837.50,2851.30,..."
-                if '="' in text:
-                    parts = text.split('="')
-                    if len(parts) > 1:
-                        data = parts[1].strip('";').split(',')
-                        if len(data) >= 12:
-                            name = data[0]
-                            current = float(data[1])  # 当前价
-                            open_p = float(data[2]) if data[2] else current
-                            high = float(data[3]) if data[3] else None
-                            low = float(data[4]) if data[4] else None
-                            prev_close = float(data[11]) if data[11] else current
-                            change = current - prev_close
-                            change_pct = (change / prev_close) * 100 if prev_close else 0
-
-                            return {
-                                "symbol": "GC=F",
-                                "name": "黄金",
-                                "price": current,
-                                "change": change,
-                                "changePercent": change_pct,
-                                "high_24h": high,
-                                "low_24h": low,
-                                "open": open_p,
-                                "previous_close": prev_close,
-                                "timestamp": datetime.now()
-                            }
+            data = resp.json()
+            if data and isinstance(data, dict):
+                key = list(data.keys())[0]
+                points = data[key]
+                if points:
+                    current = float(points[-1][1])
+                    return {
+                        "symbol": "GC=F",
+                        "name": "黄金",
+                        "price": current,
+                        "change": 0.0,
+                        "changePercent": 0.0,
+                        "high_24h": None,
+                        "low_24h": None,
+                        "open": current,
+                        "previous_close": current,
+                        "timestamp": datetime.now()
+                    }
         except Exception as e:
             logger.error(f"Failed to fetch gold data: {e}")
+            
+        try:
+            # 备选: 东方财富
+            url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=120.XAUUSD&ut=fa5fd1943c0a30548d390f18a2cd7645&fields1=f1&fields2=f53&klt=1&fqt=0&lmt=1"
+            resp = requests.get(url, timeout=5)
+            data = resp.json()
+            if data and "data" in data and data["data"]["klines"]:
+                val = data["data"]["klines"][0].split(",")[1]
+                current = float(val)
+                return {
+                    "symbol": "GC=F",
+                    "name": "黄金",
+                    "price": current,
+                    "change": 0.0,
+                    "changePercent": 0.0,
+                    "high_24h": None,
+                    "low_24h": None,
+                    "open": current,
+                    "previous_close": current,
+                    "timestamp": datetime.now()
+                }
+        except Exception as e:
+            logger.error(f"Failed to fetch gold data (EastMoney): {e}")
         return None
 
     def _fetch_dxy(self):
         """获取美元指数数据（新浪财经外汇）"""
         try:
-            # 新浪财经美元指数
-            url = "https://hq.sinajs.cn/rn=1635506500000&list=s_DXY"
-            resp = requests.get(url, timeout=5)
-            if resp.status_code == 200:
-                text = resp.text
-                if '="' in text:
-                    parts = text.split('="')
-                    if len(parts) > 1:
-                        data = parts[1].strip('";').split(',')
-                        if len(data) >= 12:
-                            current = float(data[1]) if data[1] else 0
-                            open_p = float(data[2]) if data[2] else current
-                            high = float(data[3]) if data[3] else None
-                            low = float(data[4]) if data[4] else None
-                            prev_close = float(data[11]) if data[11] else current
-                            change = current - prev_close
-                            change_pct = (change / prev_close) * 100 if prev_close else 0
-
-                            return {
-                                "symbol": "DXY",
-                                "name": "美元指数",
-                                "price": current,
-                                "change": change,
-                                "changePercent": change_pct,
-                                "high_24h": high,
-                                "low_24h": low,
-                                "open": open_p,
-                                "previous_close": prev_close,
-                                "timestamp": datetime.now()
-                            }
+            # 美元指数 (DINIW)
+            url = "https://hq.sinajs.cn/list=DINIW"
+            resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
+            raw = resp.text
+            if "=\"" in raw and len(raw.split("\"")[1].split(",")) > 1:
+                val = raw.split("\"")[1].split(",")[1]
+                if val and val != '0':
+                    current = float(val)
+                    return {
+                        "symbol": "DXY",
+                        "name": "美元指数",
+                        "price": current,
+                        "change": 0.0,
+                        "changePercent": 0.0,
+                        "high_24h": None,
+                        "low_24h": None,
+                        "open": current,
+                        "previous_close": current,
+                        "timestamp": datetime.now()
+                    }
         except Exception as e:
             logger.error(f"Failed to fetch DXY data: {e}")
         return None
@@ -133,36 +135,27 @@ class MarketTerminalService:
     def _fetch_oil(self):
         """获取原油数据（WTI 原油 - 新浪财经）"""
         try:
-            # 新浪财经 WTI 原油期货
-            url = "https://hq.sinajs.cn/rn=1635506500000&list=NF_CL"
+            # 新浪期货 GlobalFuturesService 接口
+            url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=CL"
             resp = requests.get(url, timeout=5)
-            if resp.status_code == 200:
-                text = resp.text
-                if '="' in text:
-                    parts = text.split('="')
-                    if len(parts) > 1:
-                        data = parts[1].strip('";').split(',')
-                        if len(data) >= 12:
-                            current = float(data[1]) if data[1] else 0
-                            open_p = float(data[2]) if data[2] else current
-                            high = float(data[3]) if data[3] else None
-                            low = float(data[4]) if data[4] else None
-                            prev_close = float(data[11]) if data[11] else current
-                            change = current - prev_close
-                            change_pct = (change / prev_close) * 100 if prev_close else 0
-
-                            return {
-                                "symbol": "CL=F",
-                                "name": "原油",
-                                "price": current,
-                                "change": change,
-                                "changePercent": change_pct,
-                                "high_24h": high,
-                                "low_24h": low,
-                                "open": open_p,
-                                "previous_close": prev_close,
-                                "timestamp": datetime.now()
-                            }
+            data = resp.json()
+            if data and isinstance(data, dict):
+                key = list(data.keys())[0]
+                points = data[key]
+                if points:
+                    current = float(points[-1][1])
+                    return {
+                        "symbol": "CL=F",
+                        "name": "原油",
+                        "price": current,
+                        "change": 0.0,
+                        "changePercent": 0.0,
+                        "high_24h": None,
+                        "low_24h": None,
+                        "open": current,
+                        "previous_close": current,
+                        "timestamp": datetime.now()
+                    }
         except Exception as e:
             logger.error(f"Failed to fetch oil data: {e}")
         return None
@@ -170,33 +163,26 @@ class MarketTerminalService:
     def _fetch_us10y(self):
         """获取美债 10 年期收益率数据（新浪财经）"""
         try:
-            # 新浪财经美国 10 年期国债收益率
-            url = "https://hq.sinajs.cn/rn=1635506500000&list=US10Y"
-            resp = requests.get(url, timeout=5)
-            if resp.status_code == 200:
-                text = resp.text
-                if '="' in text:
-                    parts = text.split('="')
-                    if len(parts) > 1:
-                        data = parts[1].strip('";').split(',')
-                        if len(data) >= 12:
-                            current = float(data[1]) if data[1] else 0
-                            prev_close = float(data[11]) if data[11] else current
-                            change = current - prev_close
-                            change_pct = (change / prev_close) * 100 if prev_close else 0
-
-                            return {
-                                "symbol": "US10Y",
-                                "name": "美债 10Y",
-                                "price": current,
-                                "change": change,
-                                "changePercent": change_pct,
-                                "high_24h": None,
-                                "low_24h": None,
-                                "open": current,
-                                "previous_close": prev_close,
-                                "timestamp": datetime.now()
-                            }
+            # AkShare 债券数据 (同 market.py 方案 A)
+            df = ak.bond_zh_us_rate()
+            if not df.empty:
+                rate_col = next((c for c in df.columns if '10' in c), None)
+                if rate_col:
+                    val = df.iloc[-1][rate_col]
+                    if val and float(val) > 0:
+                        current = round(float(val), 3)
+                        return {
+                            "symbol": "US10Y",
+                            "name": "美债 10Y",
+                            "price": current,
+                            "change": 0.0,
+                            "changePercent": 0.0,
+                            "high_24h": None,
+                            "low_24h": None,
+                            "open": current,
+                            "previous_close": current,
+                            "timestamp": datetime.now()
+                        }
         except Exception as e:
             logger.error(f"Failed to fetch US10Y data: {e}")
         return None
