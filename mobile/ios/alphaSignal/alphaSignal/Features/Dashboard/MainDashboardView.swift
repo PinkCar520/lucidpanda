@@ -469,13 +469,21 @@ struct MarketQuoteRow: View {
 
             if let quote = quote, quote.price > 0 {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(formatChange(quote.change))
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(quote.change >= 0 ? .red : .green)
+                    let isPositive = quote.change >= 0
+                    let trendColor = isPositive ? Color.red : Color.green
+                    let icon = isPositive ? "arrow.up.right" : "arrow.down.right"
+
+                    HStack(spacing: 2) {
+                        Image(systemName: icon)
+                            .font(.system(size: 9, weight: .bold))
+                        Text(formatChange(quote.change))
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    }
+                    .foregroundStyle(trendColor)
 
                     Text(formatChangePercent(quote.changePercent))
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(quote.change >= 0 ? .red : .green)
+                        .foregroundStyle(trendColor)
                 }
             } else {
                 Text("--")
