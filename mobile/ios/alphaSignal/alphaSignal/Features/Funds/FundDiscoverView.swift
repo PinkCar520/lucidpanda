@@ -155,8 +155,18 @@ struct FundDiscoverView: View {
                                 }
                                 .buttonStyle(.plain)
                                 
-                                Spacer(minLength: 16)
-
+                                Spacer(minLength: 8)
+                                
+                                // 【核心修复：实时行情感知】展示获取到的实时估值
+                                if let valuation = viewModel.valuations[fund.code] {
+                                    VStack(alignment: .trailing, spacing: 4) {
+                                        Text(String(format: "%+.2f%%", valuation.estimatedGrowth))
+                                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                                            .foregroundStyle(valuation.estimatedGrowth > 0 ? Color.red : (valuation.estimatedGrowth < 0 ? Color.green : Color.gray))
+                                    }
+                                    .padding(.trailing, 4)
+                                }
+                                
                                 LiquidAddButton(isAdded: isAdded) {
                                     if !isAdded {
                                         await performAdd(fund: fund, groupId: nil)

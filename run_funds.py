@@ -11,6 +11,7 @@ from src.alphasignal.core.logger import logger
 from src.alphasignal.core.fund_engine import FundEngine
 from scripts.sync_stock_industries import IndustrySyncer
 from scripts.daily_tasks.calc_fund_stats import StatsEngine
+from scripts.sync_fund_metadata import sync_all_funds
 
 def run_snapshot():
     logger.info("⏰ [SCHEDULE] Triggering 15:00 Valuation Snapshot...")
@@ -32,8 +33,13 @@ def run_reconciliation():
 def run_daily_sync():
     logger.info("⏰ [SCHEDULE] Triggering Daily Industry & Stock Metadata Sync...")
     try:
+        # Sync stocks
         syncer = IndustrySyncer()
         syncer.run()
+        
+        # Sync funds
+        logger.info("⏰ [SCHEDULE] Triggering Daily Fund Metadata Sync...")
+        sync_all_funds()
     except Exception as e:
         logger.error(f"Daily sync task failed: {e}")
 

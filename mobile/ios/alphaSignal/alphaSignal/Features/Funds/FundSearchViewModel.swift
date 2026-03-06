@@ -10,6 +10,7 @@ class FundSearchViewModel {
     private let logger = AppLog.watchlist
     var query = ""
     var results: [FundSearchResult] = []
+    var valuations: [String: FundValuation] = [:]
     var isLoading = false
     
     private var searchTask: Task<Void, Never>?
@@ -49,10 +50,19 @@ class FundSearchViewModel {
                 guard !Task.isCancelled else { return }
                 
                 self.results = response.results
+                
+                // 【核心修复：实时行情感知】异步拉取涨跌幅
+                if !self.results.isEmpty {
+                    Task {
+                        await self.fetchValuations(for: self.results.map { $0.code })
+                    }
+                }
+                
             } catch {
                 guard !Task.isCancelled else { return }
                 logger.error("Search failed: \(error.localizedDescription, privacy: .public)")
                 self.results = []
+                self.valuations = [:]
             }
             
             guard !Task.isCancelled else { return }
@@ -61,6 +71,27 @@ class FundSearchViewModel {
         
         self.searchTask = task
         await task.value
+    }
+    
+    @MainActor
+    private func fetchValuations(for codes: [String]) async {
+        guard !codes.isEmpty else { return }
+        do {
+            let codesString = codes.joined(separator: ",")
+            let path = "/api/v1/web/funds/batch-valuation?codes=\(codesString)&mode=summary"
+            let response: [FundValuation] = try await APIClient.shared.fetch(path: path)
+            
+            var newValuations: [String: FundValuation] = [:]
+            for val in response {
+                newValuations[val.fundCode] = val
+            }
+            // 增量更新或全量替换，以确保平滑过渡
+            for (code, val) in newValuations {
+                self.valuations[code] = val
+            }
+        } catch {
+            logger.error("Failed to fetch batch valuations for search: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }
 
