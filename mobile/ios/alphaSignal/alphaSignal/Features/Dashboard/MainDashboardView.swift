@@ -214,8 +214,6 @@ struct MainDashboardView: View {
     private var marketDataSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "chart.line.uptrend.xyaxis")
-                    .font(.system(size: 12, weight: .bold))
                 Text("dashboard.market.title")
                     .font(.system(size: 16, weight: .bold))
                 Spacer()

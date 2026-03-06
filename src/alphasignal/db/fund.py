@@ -390,10 +390,13 @@ class FundRepo(DBBase):
             conn.close()
 
     def search_funds_metadata(self, query, limit=20):
-        """Search funds in local metadata table."""
+        """Search funds and stocks in local metadata tables (Cross-Asset Pinyin Fuzzy Search)."""
         try:
             conn = self._get_conn()
             cursor = conn.cursor(cursor_factory=DictCursor)
+            
+            # Cross-asset search across funds and stocks using UNION ALL
+            # Priority: 1 (Exact code), 2 (Pinyin code match), 3 (Name fuzzy match)
             cursor.execute("""
                 (
                     SELECT m.fund_code as code, m.fund_name as name, m.investment_type as type,
@@ -401,6 +404,13 @@ class FundRepo(DBBase):
                     FROM fund_metadata m
                     LEFT JOIN fund_companies c ON m.company_id = c.company_id
                     WHERE m.fund_code LIKE %s
+                    
+                    UNION ALL
+                    
+                    SELECT s.stock_code as code, s.stock_name as name, s.market as type,
+                           s.industry_l1_name as company, 1 as priority
+                    FROM stock_metadata s
+                    WHERE s.stock_code LIKE %s
                 )
                 UNION ALL
                 (
@@ -409,6 +419,13 @@ class FundRepo(DBBase):
                     FROM fund_metadata m
                     LEFT JOIN fund_companies c ON m.company_id = c.company_id
                     WHERE m.pinyin_shorthand LIKE %s AND m.fund_code NOT LIKE %s
+                    
+                    UNION ALL
+                    
+                    SELECT s.stock_code as code, s.stock_name as name, s.market as type,
+                           s.industry_l1_name as company, 2 as priority
+                    FROM stock_metadata s
+                    WHERE s.pinyin_shorthand LIKE %s AND s.stock_code NOT LIKE %s
                 )
                 UNION ALL
                 (
@@ -418,10 +435,27 @@ class FundRepo(DBBase):
                     LEFT JOIN fund_companies c ON m.company_id = c.company_id
                     WHERE m.fund_name LIKE %s
                     AND m.fund_code NOT LIKE %s AND m.pinyin_shorthand NOT LIKE %s
+                    
+                    UNION ALL
+                    
+                    SELECT s.stock_code as code, s.stock_name as name, s.market as type,
+                           s.industry_l1_name as company, 3 as priority
+                    FROM stock_metadata s
+                    WHERE s.stock_name LIKE %s
+                    AND s.stock_code NOT LIKE %s AND (s.pinyin_shorthand IS NULL OR s.pinyin_shorthand NOT LIKE %s)
                 )
                 ORDER BY priority ASC, code ASC LIMIT %s
-            """, (f"{query}%", f"{query.upper()}%", f"{query}%",
-                  f"%%{query}%%", f"{query}%", f"{query.upper()}%", limit))
+            """, (
+                # Priority 1 arguments
+                f"{query}%", f"{query}%",
+                # Priority 2 arguments
+                f"{query.upper()}%", f"{query}%", f"{query.upper()}%", f"{query}%",
+                # Priority 3 arguments
+                f"%%{query}%%", f"{query}%", f"{query.upper()}%",
+                f"%%{query}%%", f"{query}%", f"{query.upper()}%",
+                limit
+            ))
+            
             rows = cursor.fetchall()
             conn.close()
             return [dict(row) for row in rows]

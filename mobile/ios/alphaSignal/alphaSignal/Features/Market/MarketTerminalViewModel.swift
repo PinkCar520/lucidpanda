@@ -64,7 +64,12 @@ public class MarketTerminalViewModel {
         
         await loadMarketSnapshot()
         await loadIntelligenceHistory()
-        await startIntelligenceStream()
+        
+        // SSE 流是无限循环，不能 await，否则会阻塞 isLoading = false
+        Task {
+            await startIntelligenceStream()
+        }
+        
         startAutoRefresh()
         
         isLoading = false

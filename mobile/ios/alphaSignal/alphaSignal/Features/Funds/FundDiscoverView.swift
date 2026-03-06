@@ -12,10 +12,8 @@ struct FundDiscoverView: View {
     @State private var addedFunds = Set<String>()
     @State private var selectedFundToView: FundValuation?
     
-    // 弹窗选择分组的状态
-    @State private var fundToAdd: FundSearchResult?
-    @State private var showGroupSelection = false
     
+
     @AppStorage("recent_fund_searches") private var recentSearchesData: Data = Data()
     @State private var recentSearches: [FundSearchHistoryItem] = []
     
@@ -161,9 +159,9 @@ struct FundDiscoverView: View {
                                 
                                 LiquidAddButton(isAdded: isAdded) {
                                     if !isAdded {
-                                        fundToAdd = fund
-                                        showGroupSelection = true
-                                        // 添加逻辑移动到 ConfirmationDialog 内处理
+                                        Task {
+                                            await performAdd(fund: fund, groupId: nil)
+                                        }
                                     } else {
                                         addedFunds.remove(fund.code)
                                         toastMessage = String(localized: "app.funds.removed") + " \(fund.name)"
@@ -214,27 +212,7 @@ struct FundDiscoverView: View {
             .navigationDestination(item: $selectedFundToView) { valuation in
                 FundDetailView(valuation: valuation)
             }
-            // 选择分组弹窗
-            .confirmationDialog(
-                Text(LocalizedStringKey("funds.group.select")),
-                isPresented: $showGroupSelection,
-                titleVisibility: .visible,
-                presenting: fundToAdd
-            ) { fund in
-                // 默认分组 / 不分组选项
-                Button(LocalizedStringKey("funds.group.default")) {
-                    Task { await performAdd(fund: fund, groupId: nil) }
-                }
-                
-                // 用户自定义分组
-                ForEach(watchlistViewModel.groups) { group in
-                    Button(group.name) {
-                        Task { await performAdd(fund: fund, groupId: group.id) }
-                    }
-                }
-                
-                Button(LocalizedStringKey("funds.action.cancel"), role: .cancel) {}
-            }
+
             .onAppear {
                 loadRecentSearches()
                 Task {
