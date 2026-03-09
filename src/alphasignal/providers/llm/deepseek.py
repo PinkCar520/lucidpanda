@@ -112,7 +112,13 @@ JSON 结构定义：
     "actionable_advice": {{
         "zh": "针对黄金交易员的具体中文操作建议。注意：对反向波动需有风险规避方案。",
         "en": "Specific actionable advice for Gold traders in English."
-    }}
+    }},
+    "entities": [
+        {{
+            "name": "实体名称（如 Trump / Fed / EU Tariff）",
+            "type": "person/organization/policy/country/commodity/other",
+            "impact": "bullish/bearish/neutral"
+        }}
+    ]
 }}
 """
-

@@ -25,15 +25,45 @@ export async function GET(request: Request) {
     let query: string;
     let params: any[];
 
+    const confidenceExpr = `
+      LEAST(
+        100.0,
+        GREATEST(
+          0.0,
+          35.0
+          + 40.0 * LEAST(1.0, GREATEST(0.0, (COALESCE(corroboration_count, 1) - 1)::float / 4.0))
+          + 20.0 * LEAST(1.0, GREATEST(0.0, COALESCE(source_credibility_score, 0.5)))
+          + 5.0 * (LEAST(10.0, GREATEST(1.0, COALESCE(urgency_score, 5))) / 10.0)
+        )
+      ) AS confidence_score
+    `;
+    const confidenceLevelExpr = `
+      CASE
+        WHEN (
+          35.0
+          + 40.0 * LEAST(1.0, GREATEST(0.0, (COALESCE(corroboration_count, 1) - 1)::float / 4.0))
+          + 20.0 * LEAST(1.0, GREATEST(0.0, COALESCE(source_credibility_score, 0.5)))
+          + 5.0 * (LEAST(10.0, GREATEST(1.0, COALESCE(urgency_score, 5))) / 10.0)
+        ) >= 75 THEN 'HIGH'
+        WHEN (
+          35.0
+          + 40.0 * LEAST(1.0, GREATEST(0.0, (COALESCE(corroboration_count, 1) - 1)::float / 4.0))
+          + 20.0 * LEAST(1.0, GREATEST(0.0, COALESCE(source_credibility_score, 0.5)))
+          + 5.0 * (LEAST(10.0, GREATEST(1.0, COALESCE(urgency_score, 5))) / 10.0)
+        ) >= 55 THEN 'MEDIUM'
+        ELSE 'LOW'
+      END AS confidence_level
+    `;
+
     if (sinceId) {
       // Incremental update: only fetch items newer than since_id
       // Note: Offset is rarely used with since_id but we can support it if needed.
       // For now, we assume since_id implies "give me the newest items" efficiently.
-      query = 'SELECT * FROM intelligence WHERE id > $1 ORDER BY timestamp DESC LIMIT $2 OFFSET $3';
+      query = `SELECT *, ${confidenceExpr}, ${confidenceLevelExpr} FROM intelligence WHERE id > $1 ORDER BY timestamp DESC LIMIT $2 OFFSET $3`;
       params = [parseInt(sinceId, 10), limit, offset];
     } else {
       // Standard pagination: fetch items with limit and offset
-      query = 'SELECT * FROM intelligence ORDER BY timestamp DESC LIMIT $1 OFFSET $2';
+      query = `SELECT *, ${confidenceExpr}, ${confidenceLevelExpr} FROM intelligence ORDER BY timestamp DESC LIMIT $1 OFFSET $2`;
       params = [limit, offset];
     }
 

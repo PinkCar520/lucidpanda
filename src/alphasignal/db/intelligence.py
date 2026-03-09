@@ -13,6 +13,24 @@ from src.alphasignal.db.base import DBBase
 
 
 class IntelligenceRepo(DBBase):
+    @staticmethod
+    def _normalize_entities(entities):
+        """规范化 LLM 实体输出，确保入库结构稳定。"""
+        if not isinstance(entities, list):
+            return []
+        normalized = []
+        for entity in entities:
+            if not isinstance(entity, dict):
+                continue
+            name = str(entity.get("name", "")).strip()
+            if not name:
+                continue
+            normalized.append({
+                "name": name,
+                "type": str(entity.get("type", "unknown")).strip() or "unknown",
+                "impact": str(entity.get("impact", "neutral")).strip() or "neutral",
+            })
+        return normalized
 
     # ── pgvector 语义去重 ─────────────────────────────────────────────────
 
@@ -285,12 +303,14 @@ class IntelligenceRepo(DBBase):
             if 'embedding' in analysis_result and analysis_result['embedding'] is not None:
                 import pickle
                 embedding_binary = psycopg2.Binary(pickle.dumps(analysis_result['embedding']))
+            entities = self._normalize_entities(analysis_result.get('entities'))
 
             cursor.execute("""
                 UPDATE intelligence SET
                     summary = %s, sentiment = %s, urgency_score = %s,
                     market_implication = %s, actionable_advice = %s,
                     sentiment_score = %s, macro_adjustment = %s,
+                    entities = %s,
                     embedding = COALESCE(%s, embedding),
                     status = 'COMPLETED', last_error = NULL
                 WHERE source_id = %s
@@ -301,6 +321,7 @@ class IntelligenceRepo(DBBase):
                 to_jsonb(analysis_result.get('market_implication')),
                 to_jsonb(analysis_result.get('actionable_advice')),
                 float(sentiment_score), float(macro_adj),
+                to_jsonb(entities),
                 embedding_binary, source_id,
             ))
             conn.commit()
@@ -556,15 +577,17 @@ class IntelligenceRepo(DBBase):
         if not source_ids:
             return
         follower_ids = [sid for sid in source_ids if sid != lead_source_id]
+        corroboration_count = len(source_ids)
         try:
             conn = self._get_conn()
             cursor = conn.cursor()
             # 所有成员打上 cluster_id
             cursor.execute("""
                 UPDATE intelligence
-                SET event_cluster_id = %s
+                SET event_cluster_id = %s,
+                    corroboration_count = %s
                 WHERE source_id = ANY(%s)
-            """, (cluster_id, source_ids))
+            """, (cluster_id, corroboration_count, source_ids))
             # Lead 标记
             cursor.execute("""
                 UPDATE intelligence SET is_cluster_lead = TRUE

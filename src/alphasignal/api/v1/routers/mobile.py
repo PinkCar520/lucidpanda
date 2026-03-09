@@ -8,6 +8,7 @@ from src.alphasignal.models.intelligence import Intelligence, IntelligenceMobile
 from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
 from src.alphasignal.utils import v1_prepare_json
+from src.alphasignal.utils.confidence import calc_confidence_score, calc_confidence_level
 from src.alphasignal.utils.market_calendar import get_market_status
 from src.alphasignal.services.market_terminal_service import market_terminal_service
 
@@ -85,6 +86,12 @@ async def get_mobile_intelligence(
         elif isinstance(item.content, str):
             content_text = item.content
 
+        confidence_score = calc_confidence_score(
+            item.corroboration_count,
+            getattr(item, "source_credibility_score", None),
+            item.urgency_score
+        )
+
         mobile_items.append(
             IntelligenceMobileRead(
                 id=item.id,
@@ -102,7 +109,10 @@ async def get_mobile_intelligence(
                 price_1h=item.price_1h,
                 price_4h=item.price_4h,
                 price_12h=item.price_12h,
-                price_24h=item.price_24h
+                price_24h=item.price_24h,
+                corroboration_count=item.corroboration_count or 1,
+                confidence_score=confidence_score,
+                confidence_level=calc_confidence_level(confidence_score),
             )
         )
     return v1_prepare_json(mobile_items)

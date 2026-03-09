@@ -9,8 +9,22 @@ from src.alphasignal.auth.models import User
 from src.alphasignal.core.fund_engine import FundEngine
 from src.alphasignal.core.database import IntelligenceDB
 from src.alphasignal.utils import v1_prepare_json
+from src.alphasignal.utils.confidence import calc_confidence_score, calc_confidence_level
+from src.alphasignal.utils.fusion import merge_entities
 
 router = APIRouter()
+
+
+def _with_confidence(item: Intelligence) -> Dict[str, Any]:
+    payload = v1_prepare_json(item)
+    confidence_score = calc_confidence_score(
+        payload.get("corroboration_count"),
+        payload.get("source_credibility_score"),
+        payload.get("urgency_score"),
+    )
+    payload["confidence_score"] = confidence_score
+    payload["confidence_level"] = calc_confidence_level(confidence_score)
+    return payload
 
 @router.get("/watchlist", response_model=Dict[str, Any])
 async def get_web_watchlist(
@@ -94,7 +108,7 @@ async def get_web_intelligence_full(
     """
     statement = select(Intelligence).order_by(Intelligence.timestamp.desc()).limit(limit)
     results = db.exec(statement).all()
-    return v1_prepare_json({"data": results})
+    return {"data": [_with_confidence(item) for item in results]}
 
 from pydantic import BaseModel
 
@@ -122,7 +136,71 @@ async def remove_web_watchlist(
     success = db_legacy.remove_from_watchlist(code, str(current_user.id))
     return {"success": success}
 
-@router.get("/intelligence/{item_id}", response_model=Intelligence)
+@router.get("/intelligence/fused", response_model=Dict[str, Any])
+async def get_web_fused_intelligence(
+    limit: int = 30,
+    offset: int = 0,
+    db: Session = Depends(get_session)
+):
+    """
+    Fused intelligence view（NIE-like）:
+    - 每个事件 cluster 输出 1 条 lead 记录
+    - 聚合 corroboration_count / confidence
+    - 合并 cluster entities
+    """
+    fused_sql = text("""
+        WITH completed AS (
+            SELECT
+                *,
+                COALESCE(event_cluster_id, 'single:' || COALESCE(source_id, id::text)) AS cluster_key
+            FROM intelligence
+            WHERE status = 'COMPLETED'
+        ),
+        clusters AS (
+            SELECT
+                cluster_key,
+                COUNT(*) AS corroboration_count,
+                jsonb_agg(entities) FILTER (WHERE entities IS NOT NULL) AS entities_sets
+            FROM completed
+            GROUP BY cluster_key
+        ),
+        leads AS (
+            SELECT
+                c.*,
+                ROW_NUMBER() OVER (
+                    PARTITION BY c.cluster_key
+                    ORDER BY COALESCE(c.source_credibility_score, 0) DESC, c.timestamp DESC
+                ) AS rn
+            FROM completed c
+        )
+        SELECT
+            l.*,
+            clusters.corroboration_count,
+            clusters.entities_sets
+        FROM leads l
+        JOIN clusters ON clusters.cluster_key = l.cluster_key
+        WHERE l.rn = 1
+        ORDER BY l.timestamp DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    rows = db.exec(fused_sql, {"limit": limit, "offset": offset}).all()
+
+    items = []
+    for row in rows:
+        payload = v1_prepare_json(dict(row._mapping))
+        payload["entities"] = merge_entities(payload.get("entities_sets"))
+        payload.pop("entities_sets", None)
+        confidence_score = calc_confidence_score(
+            payload.get("corroboration_count"),
+            payload.get("source_credibility_score"),
+            payload.get("urgency_score"),
+        )
+        payload["confidence_score"] = confidence_score
+        payload["confidence_level"] = calc_confidence_level(confidence_score)
+        items.append(payload)
+    return {"data": items, "count": len(items), "limit": limit, "offset": offset}
+
+@router.get("/intelligence/{item_id}", response_model=Dict[str, Any])
 async def get_web_intelligence_item(
     item_id: int,
     db: Session = Depends(get_session)
@@ -132,7 +210,8 @@ async def get_web_intelligence_item(
     result = db.exec(statement).first()
     if not result:
         raise HTTPException(status_code=404, detail="Item not found")
-    return v1_prepare_json(result)
+    return _with_confidence(result)
+
 
 @router.get("/funds/search", response_model=Dict[str, Any])
 async def search_web_funds(q: str = "", limit: int = 20):

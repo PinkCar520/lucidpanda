@@ -144,6 +144,8 @@ class DBBase:
                     us10y_snapshot DOUBLE PRECISION,
                     gvz_snapshot DOUBLE PRECISION,
                     oil_price_snapshot DOUBLE PRECISION,
+                    corroboration_count INTEGER DEFAULT 1,
+                    entities JSONB,
                     status TEXT DEFAULT 'PENDING',
                     last_error TEXT
                 );
@@ -172,11 +174,15 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS source_credibility_score DOUBLE PRECISION;",
                 # 事件聚类字段
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS event_cluster_id TEXT;",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS corroboration_count INTEGER DEFAULT 1;",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS entities JSONB;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS is_cluster_lead BOOLEAN DEFAULT TRUE;",
             ]:
                 cursor.execute(col_sql)
+            cursor.execute("UPDATE intelligence SET corroboration_count = 1 WHERE corroboration_count IS NULL;")
 
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_status ON intelligence(status);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_event_cluster ON intelligence(event_cluster_id);")
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intel_embedding_hnsw
                 ON intelligence USING hnsw (embedding_vec vector_cosine_ops)

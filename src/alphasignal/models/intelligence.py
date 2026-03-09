@@ -15,6 +15,7 @@ class IntelligenceBase(SQLModel):
     sentiment: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     market_implication: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     actionable_advice: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
+    entities: Optional[Any] = Field(default=None, sa_column=Column(JSONB))
 
     gold_price_snapshot: Optional[float] = None
     price_15m: Optional[float] = None
@@ -28,6 +29,8 @@ class IntelligenceBase(SQLModel):
     dxy_snapshot: Optional[float] = None
     us10y_snapshot: Optional[float] = None
     gvz_snapshot: Optional[float] = None
+    corroboration_count: int = 1
+    source_credibility_score: Optional[float] = None
 
 class Intelligence(IntelligenceBase, table=True):
     __tablename__ = "intelligence"
@@ -56,3 +59,6 @@ class IntelligenceMobileRead(SQLModel):
     price_4h: Optional[float] = None
     price_12h: Optional[float] = None
     price_24h: Optional[float] = None
+    corroboration_count: int = 1
+    confidence_score: float = 0.0
+    confidence_level: str = "LOW"

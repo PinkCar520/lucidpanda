@@ -120,7 +120,14 @@ JSON 数组，每个对象包含：
     "actionable_advice": {{
         "zh": "针对黄金交易员的具体中文操作建议。注意：若持仓拥挤或波动剧烈，需体现风险规避。",
         "en": "Specific actionable advice for Gold traders in English."
-    }}
+    }},
+    "entities": [
+        {{
+            "name": "实体名称（如 Trump / Fed / EU Tariff）",
+            "type": "person/organization/policy/country/commodity/other",
+            "impact": "bullish/bearish/neutral"
+        }}
+    ]
 }}
 """
 
@@ -157,6 +164,13 @@ JSON 结构定义：
     "actionable_advice": {{
         "zh": "针对黄金交易员的具体中文操作建议。注意：若持仓拥挤或波动剧烈，需体现风险规避。",
         "en": "Specific actionable advice for Gold traders in English."
-    }}
+    }},
+    "entities": [
+        {{
+            "name": "实体名称（如 Trump / Fed / EU Tariff）",
+            "type": "person/organization/policy/country/commodity/other",
+            "impact": "bullish/bearish/neutral"
+        }}
+    ]
 }}
 """

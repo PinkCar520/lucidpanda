@@ -27,6 +27,10 @@ const IntelligenceCard = memo(function IntelligenceCard({
 }: IntelligenceCardProps) {
     const td = useTranslations('DimensionD');
     const badgeVariant = isBearish ? 'bearish' : 'bullish';
+    const corroborationCount = Math.max(1, item.corroboration_count ?? 1);
+    const confidenceStars = Math.min(5, corroborationCount);
+    const confidenceScore = Math.max(0, Math.min(100, item.confidence_score ?? 0));
+    const confidenceLevel = item.confidence_level ?? (confidenceScore >= 75 ? 'HIGH' : confidenceScore >= 55 ? 'MEDIUM' : 'LOW');
     
     // Trigger highlight when content or summary changes
     const highlightClass = useHighlight(item.id); 
@@ -60,6 +64,14 @@ const IntelligenceCard = memo(function IntelligenceCard({
                         </Badge>
                         <Badge variant={badgeVariant}>
                             {getLocalizedText(item.sentiment, locale)}
+                        </Badge>
+                        {corroborationCount > 1 && (
+                            <Badge variant="neutral">
+                                {'★'.repeat(confidenceStars)} x{corroborationCount}
+                            </Badge>
+                        )}
+                        <Badge variant="neutral">
+                            C{Math.round(confidenceScore)} {confidenceLevel}
                         </Badge>
                     </div>
                     <span className="text-slate-400 dark:text-slate-600 text-[10px] font-data">

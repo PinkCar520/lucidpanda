@@ -34,4 +34,9 @@ export interface Intelligence {
   sentiment_score?: number;
   fed_regime?: number;
   macro_adjustment?: number;
+  entities?: Array<{ name: string; type: string; impact: string }>;
+  event_cluster_id?: string | null;
+  corroboration_count?: number;
+  confidence_score?: number;
+  confidence_level?: 'LOW' | 'MEDIUM' | 'HIGH';
 }
