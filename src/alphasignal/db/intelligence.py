@@ -10,6 +10,8 @@ from psycopg2.extras import Json, DictCursor
 from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.db.base import DBBase
+from src.alphasignal.utils.confidence import calc_confidence_score
+from src.alphasignal.utils.graph_reasoning import infer_event_chains, relation_signal
 
 
 class IntelligenceRepo(DBBase):
@@ -29,6 +31,37 @@ class IntelligenceRepo(DBBase):
                 "name": name,
                 "type": str(entity.get("type", "unknown")).strip() or "unknown",
                 "impact": str(entity.get("impact", "neutral")).strip() or "neutral",
+            })
+        return normalized
+
+    @staticmethod
+    def _normalize_relations(relations):
+        """规范化 LLM 关系三元组输出。"""
+        if not isinstance(relations, list):
+            return []
+        normalized = []
+        for relation in relations:
+            if not isinstance(relation, dict):
+                continue
+            subject = str(relation.get("subject", "")).strip()
+            predicate = str(relation.get("predicate", "")).strip()
+            obj = str(relation.get("object", "")).strip()
+            if not subject or not predicate or not obj:
+                continue
+            direction = str(relation.get("direction", "forward")).strip().lower()
+            if direction not in {"forward", "bidirectional"}:
+                direction = "forward"
+            try:
+                strength = float(relation.get("strength", 0.5))
+            except Exception:
+                strength = 0.5
+            strength = max(0.0, min(1.0, strength))
+            normalized.append({
+                "subject": subject,
+                "predicate": predicate,
+                "object": obj,
+                "direction": direction,
+                "strength": strength,
             })
         return normalized
 
@@ -304,6 +337,7 @@ class IntelligenceRepo(DBBase):
                 import pickle
                 embedding_binary = psycopg2.Binary(pickle.dumps(analysis_result['embedding']))
             entities = self._normalize_entities(analysis_result.get('entities'))
+            relation_triples = self._normalize_relations(analysis_result.get('relations'))
 
             cursor.execute("""
                 UPDATE intelligence SET
@@ -311,6 +345,7 @@ class IntelligenceRepo(DBBase):
                     market_implication = %s, actionable_advice = %s,
                     sentiment_score = %s, macro_adjustment = %s,
                     entities = %s,
+                    relation_triples = %s,
                     embedding = COALESCE(%s, embedding),
                     status = 'COMPLETED', last_error = NULL
                 WHERE source_id = %s
@@ -322,6 +357,7 @@ class IntelligenceRepo(DBBase):
                 to_jsonb(analysis_result.get('actionable_advice')),
                 float(sentiment_score), float(macro_adj),
                 to_jsonb(entities),
+                to_jsonb(relation_triples),
                 embedding_binary, source_id,
             ))
             conn.commit()
@@ -610,3 +646,779 @@ class IntelligenceRepo(DBBase):
             )
         except Exception as e:
             logger.error(f"mark_clustered 失败: {e}")
+
+    # ── 事件知识图谱 ──────────────────────────────────────────────────────
+
+    def _upsert_entity_node(self, cursor, entity_name: str, entity_type: str = "unknown") -> int:
+        normalized_name = entity_name.strip().lower()
+        cursor.execute("""
+            INSERT INTO entity_nodes (entity_name, normalized_name, entity_type)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (normalized_name, entity_type)
+            DO UPDATE SET entity_name = EXCLUDED.entity_name
+            RETURNING node_id
+        """, (entity_name.strip(), normalized_name, entity_type or "unknown"))
+        return cursor.fetchone()[0]
+
+    def _upsert_graph_edge(
+        self,
+        cursor,
+        from_node_id: int,
+        to_node_id: int,
+        relation: str,
+        direction: str,
+        strength: float,
+        confidence_score: float,
+        cluster_id: str,
+        source_id: str,
+        intelligence_id: int,
+        metadata: dict | None = None,
+    ) -> None:
+        cursor.execute("""
+            INSERT INTO entity_edges (
+                from_node_id, to_node_id, relation, direction,
+                strength, confidence_score, event_cluster_id,
+                evidence_source_id, intelligence_id, metadata
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (from_node_id, to_node_id, relation, event_cluster_id, evidence_source_id)
+            DO UPDATE SET
+                strength = GREATEST(entity_edges.strength, EXCLUDED.strength),
+                confidence_score = GREATEST(entity_edges.confidence_score, EXCLUDED.confidence_score),
+                metadata = COALESCE(entity_edges.metadata, '{}'::jsonb) || EXCLUDED.metadata
+        """, (
+            from_node_id,
+            to_node_id,
+            relation,
+            direction,
+            strength,
+            confidence_score,
+            cluster_id,
+            source_id,
+            intelligence_id,
+            Json(metadata or {}),
+        ))
+
+    def _get_intelligence_context(self, cursor, source_id: str) -> dict | None:
+        cursor.execute("""
+            SELECT id, source_id, event_cluster_id, urgency_score, source_credibility_score
+            FROM intelligence
+            WHERE source_id = %s
+            LIMIT 1
+        """, (source_id,))
+        row = cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "id": row[0],
+            "source_id": row[1],
+            "event_cluster_id": row[2],
+            "urgency_score": row[3],
+            "source_credibility_score": row[4],
+        }
+
+    def _upsert_cross_asset_edges(
+        self,
+        cursor,
+        source_id: str,
+        context: dict,
+        sentiment_score: float | None,
+    ) -> None:
+        """
+        在每条情报图谱中补充跨资产传播边：
+        DXY / US10Y / Oil -> Gold
+        DXY <-> US10Y / Oil -> US10Y
+        """
+        if not context:
+            return
+        cluster_id = context.get("event_cluster_id") or f"single:{source_id}"
+        intelligence_id = context.get("id")
+        confidence_score = calc_confidence_score(
+            corroboration_count=1,
+            source_credibility_score=context.get("source_credibility_score"),
+            urgency_score=context.get("urgency_score"),
+        )
+        base_strength = 0.55
+        signal = float(sentiment_score or 0.0)
+
+        gold_id = self._upsert_entity_node(cursor, "Gold", "asset")
+        dxy_id = self._upsert_entity_node(cursor, "DXY", "asset")
+        tnx_id = self._upsert_entity_node(cursor, "US10Y", "asset")
+        oil_id = self._upsert_entity_node(cursor, "Oil", "asset")
+
+        if signal < -0.1:
+            dxy_relation = "usd_strength"
+            tnx_relation = "real_yield_up"
+        elif signal > 0.1:
+            dxy_relation = "usd_weakness"
+            tnx_relation = "yield_down"
+        else:
+            dxy_relation = "macro_coupling"
+            tnx_relation = "macro_coupling"
+
+        oil_relation = "inflation_up" if signal >= 0 else "risk_off"
+
+        self._upsert_graph_edge(
+            cursor, dxy_id, gold_id, dxy_relation, "forward",
+            base_strength, confidence_score, cluster_id, source_id, intelligence_id,
+            {"source": "cross_asset_heuristic", "asset": "DXY"}
+        )
+        self._upsert_graph_edge(
+            cursor, tnx_id, gold_id, tnx_relation, "forward",
+            base_strength, confidence_score, cluster_id, source_id, intelligence_id,
+            {"source": "cross_asset_heuristic", "asset": "US10Y"}
+        )
+        self._upsert_graph_edge(
+            cursor, oil_id, gold_id, oil_relation, "forward",
+            0.5, confidence_score, cluster_id, source_id, intelligence_id,
+            {"source": "cross_asset_heuristic", "asset": "Oil"}
+        )
+        self._upsert_graph_edge(
+            cursor, dxy_id, tnx_id, "macro_coupling", "bidirectional",
+            0.45, confidence_score, cluster_id, source_id, intelligence_id,
+            {"source": "cross_asset_heuristic"}
+        )
+        self._upsert_graph_edge(
+            cursor, tnx_id, dxy_id, "macro_coupling", "bidirectional",
+            0.45, confidence_score, cluster_id, source_id, intelligence_id,
+            {"source": "cross_asset_heuristic", "reverse": True}
+        )
+        self._upsert_graph_edge(
+            cursor, oil_id, tnx_id, "inflation_coupling", "forward",
+            0.4, confidence_score, cluster_id, source_id, intelligence_id,
+            {"source": "cross_asset_heuristic"}
+        )
+
+    def upsert_knowledge_graph(self, source_id: str, analysis_result: dict) -> None:
+        """
+        将单条情报的实体和关系写入图谱（节点/边）。
+        调用时机：update_intelligence_analysis 成功后。
+        """
+        if not source_id:
+            return
+
+        entities = self._normalize_entities((analysis_result or {}).get("entities"))
+        relations = self._normalize_relations((analysis_result or {}).get("relations"))
+        if not entities and not relations:
+            return
+
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor()
+            context = self._get_intelligence_context(cursor, source_id)
+            if not context:
+                conn.close()
+                return
+
+            cluster_id = context.get("event_cluster_id") or f"single:{source_id}"
+            confidence_score = calc_confidence_score(
+                corroboration_count=1,
+                source_credibility_score=context.get("source_credibility_score"),
+                urgency_score=context.get("urgency_score"),
+            )
+            sentiment_score = analysis_result.get("sentiment_score")
+
+            node_ids: dict[tuple[str, str], int] = {}
+            for entity in entities:
+                entity_name = entity["name"]
+                entity_type = entity.get("type", "unknown")
+                node_id = self._upsert_entity_node(cursor, entity_name, entity_type)
+                node_ids[(entity_name.strip().lower(), entity_type.strip().lower())] = node_id
+
+            for relation in relations:
+                sub_name = relation["subject"]
+                obj_name = relation["object"]
+                sub_type = "unknown"
+                obj_type = "unknown"
+                sub_key = (sub_name.strip().lower(), sub_type)
+                obj_key = (obj_name.strip().lower(), obj_type)
+
+                if sub_key not in node_ids:
+                    node_ids[sub_key] = self._upsert_entity_node(cursor, sub_name, sub_type)
+                if obj_key not in node_ids:
+                    node_ids[obj_key] = self._upsert_entity_node(cursor, obj_name, obj_type)
+
+                metadata = {"source_id": source_id, "predicate": relation["predicate"], "source": "llm_relation_extract"}
+                self._upsert_graph_edge(
+                    cursor,
+                    node_ids[sub_key],
+                    node_ids[obj_key],
+                    relation["predicate"],
+                    relation["direction"],
+                    relation["strength"],
+                    confidence_score,
+                    cluster_id,
+                    source_id,
+                    context.get("id"),
+                    metadata,
+                )
+
+                if relation["direction"] == "bidirectional":
+                    self._upsert_graph_edge(
+                        cursor,
+                        node_ids[obj_key],
+                        node_ids[sub_key],
+                        relation["predicate"],
+                        relation["direction"],
+                        relation["strength"],
+                        confidence_score,
+                        cluster_id,
+                        source_id,
+                        context.get("id"),
+                        {**metadata, "reverse": True},
+                    )
+
+            self._upsert_cross_asset_edges(cursor, source_id, context, sentiment_score)
+
+            conn.commit()
+            conn.close()
+            logger.info(f"🕸️ 图谱写入完成: source_id={source_id}, entities={len(entities)}, relations={len(relations)}")
+        except Exception as e:
+            logger.error(f"图谱写入失败 [{source_id}]: {e}")
+
+    def refresh_relation_rule_stats(self, limit: int = 5000) -> None:
+        """
+        基于历史 outcome 对关系规则做简单学习，更新 relation_rule_stats.weight。
+        """
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT relation_triples, gold_price_snapshot, price_1h
+                FROM intelligence
+                WHERE status = 'COMPLETED'
+                  AND relation_triples IS NOT NULL
+                  AND gold_price_snapshot IS NOT NULL
+                  AND price_1h IS NOT NULL
+                ORDER BY timestamp DESC
+                LIMIT %s
+            """, (max(100, limit),))
+            rows = cursor.fetchall()
+
+            stats: dict[str, dict[str, int]] = {}
+            for row in rows:
+                relation_triples = row["relation_triples"]
+                entry = float(row["gold_price_snapshot"])
+                exit_price = float(row["price_1h"])
+                price_up = exit_price > entry
+                price_down = exit_price < entry
+
+                triples = self._normalize_relations(relation_triples)
+                for triple in triples:
+                    relation = triple["predicate"].strip().lower()
+                    signal = relation_signal(relation)
+                    if signal == "NEUTRAL":
+                        continue
+                    agg = stats.setdefault(relation, {
+                        "bullish_hits": 0,
+                        "bullish_total": 0,
+                        "bearish_hits": 0,
+                        "bearish_total": 0,
+                    })
+                    if signal == "BULLISH_GOLD":
+                        agg["bullish_total"] += 1
+                        if price_up:
+                            agg["bullish_hits"] += 1
+                    elif signal == "BEARISH_GOLD":
+                        agg["bearish_total"] += 1
+                        if price_down:
+                            agg["bearish_hits"] += 1
+
+            for relation, agg in stats.items():
+                total = agg["bullish_total"] + agg["bearish_total"]
+                hits = agg["bullish_hits"] + agg["bearish_hits"]
+                if total <= 0:
+                    continue
+                hit_rate = hits / total
+                weight = max(0.6, min(1.25, 0.75 + hit_rate * 0.7))
+                cursor.execute("""
+                    INSERT INTO relation_rule_stats (
+                        relation, bullish_hits, bullish_total,
+                        bearish_hits, bearish_total, hit_rate, weight, last_updated
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (relation)
+                    DO UPDATE SET
+                        bullish_hits = EXCLUDED.bullish_hits,
+                        bullish_total = EXCLUDED.bullish_total,
+                        bearish_hits = EXCLUDED.bearish_hits,
+                        bearish_total = EXCLUDED.bearish_total,
+                        hit_rate = EXCLUDED.hit_rate,
+                        weight = EXCLUDED.weight,
+                        last_updated = NOW()
+                """, (
+                    relation,
+                    agg["bullish_hits"],
+                    agg["bullish_total"],
+                    agg["bearish_hits"],
+                    agg["bearish_total"],
+                    round(hit_rate, 4),
+                    round(weight, 4),
+                ))
+
+            conn.commit()
+            conn.close()
+            if stats:
+                logger.info(f"📚 关系规则学习更新完成: {len(stats)} 条 relation 权重")
+        except Exception as e:
+            logger.error(f"refresh_relation_rule_stats 失败: {e}")
+
+    def get_relation_rule_weights(self, relations: list[str]) -> dict[str, float]:
+        if not relations:
+            return {}
+        normalized = sorted({str(r).strip().lower() for r in relations if str(r).strip()})
+        if not normalized:
+            return {}
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT relation, weight
+                FROM relation_rule_stats
+                WHERE relation = ANY(%s)
+            """, (normalized,))
+            rows = cursor.fetchall()
+            conn.close()
+            return {row["relation"]: float(row["weight"]) for row in rows}
+        except Exception as e:
+            logger.error(f"get_relation_rule_weights 失败: {e}")
+            return {}
+
+    def get_event_graph(self, event_cluster_id: str) -> dict:
+        """按 event_cluster_id 获取图谱节点、边与可解释推理链。"""
+        if not event_cluster_id:
+            return {"nodes": [], "edges": [], "inferences": [], "evidence": []}
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+
+            cursor.execute("""
+                SELECT DISTINCT
+                    n.node_id, n.entity_name, n.entity_type
+                FROM entity_nodes n
+                JOIN entity_edges e
+                  ON n.node_id = e.from_node_id OR n.node_id = e.to_node_id
+                WHERE e.event_cluster_id = %s
+                ORDER BY n.entity_name
+            """, (event_cluster_id,))
+            nodes = [dict(row) for row in cursor.fetchall()]
+
+            cursor.execute("""
+                SELECT
+                    e.edge_id,
+                    e.relation,
+                    e.direction,
+                    e.strength,
+                    e.confidence_score,
+                    e.created_at,
+                    e.evidence_source_id,
+                    fn.node_id AS from_node_id,
+                    fn.entity_name AS from_entity,
+                    fn.entity_type AS from_type,
+                    tn.node_id AS to_node_id,
+                    tn.entity_name AS to_entity,
+                    tn.entity_type AS to_type
+                FROM entity_edges e
+                JOIN entity_nodes fn ON e.from_node_id = fn.node_id
+                JOIN entity_nodes tn ON e.to_node_id = tn.node_id
+                WHERE e.event_cluster_id = %s
+                ORDER BY e.confidence_score DESC, e.strength DESC, e.edge_id DESC
+                LIMIT 300
+            """, (event_cluster_id,))
+            edges = [dict(row) for row in cursor.fetchall()]
+            relation_weights = self.get_relation_rule_weights([edge.get("relation") for edge in edges])
+
+            cursor.execute("""
+                SELECT id, source_id, timestamp, summary
+                FROM intelligence
+                WHERE event_cluster_id = %s
+                  AND status = 'COMPLETED'
+                ORDER BY timestamp DESC
+                LIMIT 20
+            """, (event_cluster_id,))
+            evidence = [dict(row) for row in cursor.fetchall()]
+
+            conn.close()
+            return {
+                "nodes": nodes,
+                "edges": edges,
+                "inferences": infer_event_chains(edges, relation_weights=relation_weights),
+                "evidence": evidence,
+                "relation_weights": relation_weights,
+            }
+        except Exception as e:
+            logger.error(f"get_event_graph 失败 [{event_cluster_id}]: {e}")
+            return {"nodes": [], "edges": [], "inferences": [], "evidence": [], "relation_weights": {}}
+
+    def get_entity_graph(self, entity_name: str, limit: int = 100) -> dict:
+        """按实体名称返回邻接子图。"""
+        if not entity_name:
+            return {"center": None, "nodes": [], "edges": []}
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT node_id, entity_name, entity_type
+                FROM entity_nodes
+                WHERE normalized_name = %s
+                LIMIT 1
+            """, (entity_name.strip().lower(),))
+            center = cursor.fetchone()
+            if not center:
+                conn.close()
+                return {"center": None, "nodes": [], "edges": []}
+
+            center_id = center["node_id"]
+            cursor.execute("""
+                SELECT
+                    e.edge_id,
+                    e.relation,
+                    e.direction,
+                    e.strength,
+                    e.confidence_score,
+                    e.event_cluster_id,
+                    fn.node_id AS from_node_id,
+                    fn.entity_name AS from_entity,
+                    fn.entity_type AS from_type,
+                    tn.node_id AS to_node_id,
+                    tn.entity_name AS to_entity,
+                    tn.entity_type AS to_type
+                FROM entity_edges e
+                JOIN entity_nodes fn ON e.from_node_id = fn.node_id
+                JOIN entity_nodes tn ON e.to_node_id = tn.node_id
+                WHERE e.from_node_id = %s OR e.to_node_id = %s
+                ORDER BY e.confidence_score DESC, e.strength DESC
+                LIMIT %s
+            """, (center_id, center_id, max(1, limit)))
+            edges = [dict(row) for row in cursor.fetchall()]
+
+            node_map = {center_id: dict(center)}
+            for edge in edges:
+                node_map[edge["from_node_id"]] = {
+                    "node_id": edge["from_node_id"],
+                    "entity_name": edge["from_entity"],
+                    "entity_type": edge["from_type"],
+                }
+                node_map[edge["to_node_id"]] = {
+                    "node_id": edge["to_node_id"],
+                    "entity_name": edge["to_entity"],
+                    "entity_type": edge["to_type"],
+                }
+
+            conn.close()
+            return {"center": dict(center), "nodes": list(node_map.values()), "edges": edges}
+        except Exception as e:
+            logger.error(f"get_entity_graph 失败 [{entity_name}]: {e}")
+            return {"center": None, "nodes": [], "edges": []}
+
+    def find_graph_path(
+        self,
+        from_entity: str,
+        to_entity: str,
+        max_hops: int = 2,
+        min_confidence: float = 0.0,
+        relation: str | None = None,
+        event_cluster_id: str | None = None,
+    ) -> dict:
+        """搜索 from_entity 到 to_entity 的 1-hop / 2-hop 路径。"""
+        if not from_entity or not to_entity:
+            return {"paths": [], "max_hops": max_hops}
+
+        from_norm = from_entity.strip().lower()
+        to_norm = to_entity.strip().lower()
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            sql = """
+                SELECT
+                    e.edge_id,
+                    e.relation,
+                    e.direction,
+                    e.strength,
+                    e.confidence_score,
+                    e.event_cluster_id,
+                    e.created_at,
+                    fn.entity_name AS from_entity,
+                    tn.entity_name AS to_entity
+                FROM entity_edges e
+                JOIN entity_nodes fn ON e.from_node_id = fn.node_id
+                JOIN entity_nodes tn ON e.to_node_id = tn.node_id
+                WHERE e.confidence_score >= %s
+            """
+            params = [max(0.0, float(min_confidence or 0.0))]
+            if relation:
+                sql += " AND e.relation = %s"
+                params.append(relation.strip().lower())
+            if event_cluster_id:
+                sql += " AND e.event_cluster_id = %s"
+                params.append(event_cluster_id)
+            sql += " ORDER BY e.confidence_score DESC, e.strength DESC LIMIT 2000"
+            cursor.execute(sql, tuple(params))
+            edges = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+
+            paths = []
+            for edge in edges:
+                if edge["from_entity"].strip().lower() == from_norm and edge["to_entity"].strip().lower() == to_norm:
+                    paths.append({
+                        "hops": 1,
+                        "edges": [edge],
+                        "score": round(float(edge.get("confidence_score") or 50.0), 1),
+                    })
+
+            if max_hops >= 2:
+                first_hop = [e for e in edges if e["from_entity"].strip().lower() == from_norm]
+                second_hop = [e for e in edges if e["to_entity"].strip().lower() == to_norm]
+                for e1 in first_hop:
+                    for e2 in second_hop:
+                        if e1["to_entity"].strip().lower() != e2["from_entity"].strip().lower():
+                            continue
+                        score = round(
+                            (float(e1.get("confidence_score") or 50.0) + float(e2.get("confidence_score") or 50.0)) / 2.0,
+                            1
+                        )
+                        paths.append({"hops": 2, "edges": [e1, e2], "score": score})
+
+            paths = sorted(paths, key=lambda x: x["score"], reverse=True)[:10]
+            return {
+                "paths": paths,
+                "max_hops": max_hops,
+                "min_confidence": min_confidence,
+                "relation": relation,
+                "event_cluster_id": event_cluster_id,
+            }
+        except Exception as e:
+            logger.error(f"find_graph_path 失败 [{from_entity} -> {to_entity}]: {e}")
+            return {"paths": [], "max_hops": max_hops, "min_confidence": min_confidence}
+
+    # ── 事件知识图谱（Phase 2.2）──────────────────────────────────────────
+
+    def _upsert_entity_node(self, cursor, name: str, entity_type: str = "unknown") -> int | None:
+        clean_name = (name or "").strip()
+        clean_type = (entity_type or "unknown").strip().lower() or "unknown"
+        if not clean_name:
+            return None
+        normalized_name = clean_name.lower()
+        cursor.execute("""
+            INSERT INTO entity_nodes (entity_name, normalized_name, entity_type)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (normalized_name, entity_type) DO UPDATE
+                SET entity_name = EXCLUDED.entity_name
+            RETURNING node_id
+        """, (clean_name, normalized_name, clean_type))
+        row = cursor.fetchone()
+        return row[0] if row else None
+
+    def ingest_knowledge_graph(self, source_id: str, analysis_result: dict) -> bool:
+        """
+        将单条情报的实体与关系写入图谱。
+        调用时机：update_intelligence_analysis 之后。
+        """
+        entities = self._normalize_entities((analysis_result or {}).get("entities"))
+        relations = self._normalize_relations((analysis_result or {}).get("relations"))
+        if not entities and not relations:
+            return False
+
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT id, event_cluster_id, urgency_score, source_credibility_score
+                FROM intelligence
+                WHERE source_id = %s
+                LIMIT 1
+            """, (source_id,))
+            row = cursor.fetchone()
+            if not row:
+                conn.close()
+                return False
+
+            intelligence_id = row["id"]
+            cluster_id = row["event_cluster_id"] or f"single:{source_id}"
+            urgency_score = row["urgency_score"]
+            source_credibility_score = row["source_credibility_score"]
+            edge_confidence = calc_confidence_score(
+                corroboration_count=1,
+                source_credibility_score=source_credibility_score,
+                urgency_score=urgency_score
+            )
+
+            node_map: dict[tuple[str, str], int] = {}
+            for entity in entities:
+                node_id = self._upsert_entity_node(
+                    cursor,
+                    entity.get("name"),
+                    entity.get("type", "unknown"),
+                )
+                if node_id:
+                    node_map[(entity["name"].strip().lower(), entity["type"].strip().lower())] = node_id
+
+            for rel in relations:
+                subj = rel["subject"].strip()
+                obj = rel["object"].strip()
+                subj_key = (subj.lower(), "unknown")
+                obj_key = (obj.lower(), "unknown")
+
+                from_node_id = node_map.get(subj_key) or self._upsert_entity_node(cursor, subj, "unknown")
+                to_node_id = node_map.get(obj_key) or self._upsert_entity_node(cursor, obj, "unknown")
+                if not from_node_id or not to_node_id:
+                    continue
+                node_map[subj_key] = from_node_id
+                node_map[obj_key] = to_node_id
+
+                cursor.execute("""
+                    INSERT INTO entity_edges (
+                        from_node_id, to_node_id, relation, direction, strength,
+                        confidence_score, event_cluster_id, evidence_source_id, intelligence_id, metadata
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (from_node_id, to_node_id, relation, event_cluster_id, evidence_source_id)
+                    DO UPDATE SET
+                        strength = GREATEST(entity_edges.strength, EXCLUDED.strength),
+                        confidence_score = GREATEST(entity_edges.confidence_score, EXCLUDED.confidence_score),
+                        metadata = EXCLUDED.metadata
+                """, (
+                    from_node_id,
+                    to_node_id,
+                    rel["predicate"],
+                    rel["direction"],
+                    rel["strength"],
+                    edge_confidence,
+                    cluster_id,
+                    source_id,
+                    intelligence_id,
+                    Json({"source": "llm_relation_extract"}),
+                ))
+                if rel["direction"] == "bidirectional":
+                    cursor.execute("""
+                        INSERT INTO entity_edges (
+                            from_node_id, to_node_id, relation, direction, strength,
+                            confidence_score, event_cluster_id, evidence_source_id, intelligence_id, metadata
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (from_node_id, to_node_id, relation, event_cluster_id, evidence_source_id)
+                        DO UPDATE SET
+                            strength = GREATEST(entity_edges.strength, EXCLUDED.strength),
+                            confidence_score = GREATEST(entity_edges.confidence_score, EXCLUDED.confidence_score),
+                            metadata = EXCLUDED.metadata
+                    """, (
+                        to_node_id,
+                        from_node_id,
+                        rel["predicate"],
+                        rel["direction"],
+                        rel["strength"],
+                        edge_confidence,
+                        cluster_id,
+                        source_id,
+                        intelligence_id,
+                        Json({"source": "llm_relation_extract", "reverse": True}),
+                    ))
+
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.error(f"ingest_knowledge_graph 失败 [{source_id}]: {e}")
+            return False
+
+
+    def get_entity_graph(self, entity_name: str, limit: int = 60) -> dict:
+        """返回某实体的邻接子图。"""
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT node_id, entity_name, entity_type
+                FROM entity_nodes
+                WHERE normalized_name = %s
+                ORDER BY node_id ASC
+                LIMIT 1
+            """, ((entity_name or "").strip().lower(),))
+            root = cursor.fetchone()
+            if not root:
+                conn.close()
+                return {"entity": entity_name, "nodes": [], "edges": [], "inferences": []}
+
+            cursor.execute("""
+                SELECT
+                    e.edge_id,
+                    fn.entity_name AS from_entity,
+                    fn.entity_type AS from_type,
+                    tn.entity_name AS to_entity,
+                    tn.entity_type AS to_type,
+                    e.relation,
+                    e.direction,
+                    e.strength,
+                    e.confidence_score,
+                    e.event_cluster_id,
+                    e.evidence_source_id
+                FROM entity_edges e
+                JOIN entity_nodes fn ON fn.node_id = e.from_node_id
+                JOIN entity_nodes tn ON tn.node_id = e.to_node_id
+                WHERE e.from_node_id = %s OR e.to_node_id = %s
+                ORDER BY e.confidence_score DESC, e.edge_id DESC
+                LIMIT %s
+            """, (root["node_id"], root["node_id"], limit))
+            edges = [dict(row) for row in cursor.fetchall()]
+
+            node_names = {root["entity_name"]}
+            for edge in edges:
+                node_names.add(edge["from_entity"])
+                node_names.add(edge["to_entity"])
+            nodes = [{"entity_name": name} for name in sorted(node_names)]
+            conn.close()
+            return {
+                "entity": root["entity_name"],
+                "nodes": nodes,
+                "edges": edges,
+                "inferences": infer_event_chains(edges),
+            }
+        except Exception as e:
+            logger.error(f"get_entity_graph 失败 [{entity_name}]: {e}")
+            return {"entity": entity_name, "nodes": [], "edges": [], "inferences": []}
+
+    def find_graph_path(self, from_entity: str, to_entity: str, max_depth: int = 2) -> dict:
+        """查找两个实体间最多2跳路径。"""
+        from_key = (from_entity or "").strip().lower()
+        to_key = (to_entity or "").strip().lower()
+        if not from_key or not to_key:
+            return {"paths": []}
+
+        try:
+            conn = self._get_conn()
+            cursor = conn.cursor(cursor_factory=DictCursor)
+            cursor.execute("""
+                SELECT
+                    e.edge_id,
+                    fn.entity_name AS from_entity,
+                    tn.entity_name AS to_entity,
+                    e.relation,
+                    e.strength,
+                    e.event_cluster_id
+                FROM entity_edges e
+                JOIN entity_nodes fn ON fn.node_id = e.from_node_id
+                JOIN entity_nodes tn ON tn.node_id = e.to_node_id
+                ORDER BY e.confidence_score DESC
+                LIMIT 5000
+            """)
+            edges = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+
+            adjacency: dict[str, list[dict]] = {}
+            for edge in edges:
+                adjacency.setdefault(edge["from_entity"].lower(), []).append(edge)
+
+            paths = []
+            for edge in adjacency.get(from_key, []):
+                if edge["to_entity"].lower() == to_key:
+                    paths.append({"hops": 1, "edges": [edge]})
+                if max_depth < 2:
+                    continue
+                for edge2 in adjacency.get(edge["to_entity"].lower(), []):
+                    if edge2["to_entity"].lower() == to_key:
+                        paths.append({"hops": 2, "edges": [edge, edge2]})
+                if len(paths) >= 10:
+                    break
+
+            return {"from_entity": from_entity, "to_entity": to_entity, "paths": paths[:10]}
+        except Exception as e:
+            logger.error(f"find_graph_path 失败 [{from_entity} -> {to_entity}]: {e}")
+            return {"from_entity": from_entity, "to_entity": to_entity, "paths": []}

@@ -16,6 +16,7 @@ class IntelligenceBase(SQLModel):
     market_implication: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     actionable_advice: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     entities: Optional[Any] = Field(default=None, sa_column=Column(JSONB))
+    relation_triples: Optional[Any] = Field(default=None, sa_column=Column(JSONB))
 
     gold_price_snapshot: Optional[float] = None
     price_15m: Optional[float] = None

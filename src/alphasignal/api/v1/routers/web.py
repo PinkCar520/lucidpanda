@@ -200,6 +200,59 @@ async def get_web_fused_intelligence(
         items.append(payload)
     return {"data": items, "count": len(items), "limit": limit, "offset": offset}
 
+
+@router.get("/graph/event/{cluster_id}", response_model=Dict[str, Any])
+async def get_web_event_graph(cluster_id: str):
+    """按事件 cluster 返回知识图谱。"""
+    db_legacy = IntelligenceDB()
+    graph = db_legacy.get_event_graph(cluster_id)
+    return v1_prepare_json({
+        "cluster_id": cluster_id,
+        "nodes": graph.get("nodes", []),
+        "edges": graph.get("edges", []),
+        "inferences": graph.get("inferences", []),
+        "evidence": graph.get("evidence", []),
+        "relation_weights": graph.get("relation_weights", {}),
+    })
+
+
+@router.get("/graph/entity/{entity_name}", response_model=Dict[str, Any])
+async def get_web_entity_graph(entity_name: str, limit: int = 100):
+    """按实体返回邻接子图。"""
+    db_legacy = IntelligenceDB()
+    graph = db_legacy.get_entity_graph(entity_name, limit=limit)
+    return v1_prepare_json(graph)
+
+
+@router.get("/graph/path", response_model=Dict[str, Any])
+async def get_web_graph_path(
+    from_entity: str,
+    to_entity: str,
+    max_hops: int = 2,
+    min_confidence: float = 0.0,
+    relation: Optional[str] = None,
+    event_cluster_id: Optional[str] = None,
+):
+    """查找两个实体之间的1~2跳路径。"""
+    db_legacy = IntelligenceDB()
+    result = db_legacy.find_graph_path(
+        from_entity,
+        to_entity,
+        max_hops=max_hops,
+        min_confidence=min_confidence,
+        relation=relation,
+        event_cluster_id=event_cluster_id,
+    )
+    return v1_prepare_json({
+        "from_entity": from_entity,
+        "to_entity": to_entity,
+        "max_hops": max_hops,
+        "min_confidence": min_confidence,
+        "relation": relation,
+        "event_cluster_id": event_cluster_id,
+        "paths": result.get("paths", []),
+    })
+
 @router.get("/intelligence/{item_id}", response_model=Dict[str, Any])
 async def get_web_intelligence_item(
     item_id: int,

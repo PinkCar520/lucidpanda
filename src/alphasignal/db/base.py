@@ -146,6 +146,7 @@ class DBBase:
                     oil_price_snapshot DOUBLE PRECISION,
                     corroboration_count INTEGER DEFAULT 1,
                     entities JSONB,
+                    relation_triples JSONB,
                     status TEXT DEFAULT 'PENDING',
                     last_error TEXT
                 );
@@ -176,6 +177,7 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS event_cluster_id TEXT;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS corroboration_count INTEGER DEFAULT 1;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS entities JSONB;",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS relation_triples JSONB;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS is_cluster_lead BOOLEAN DEFAULT TRUE;",
             ]:
                 cursor.execute(col_sql)
@@ -196,6 +198,53 @@ class DBBase:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intelligence_timestamp ON intelligence(timestamp DESC);
                 CREATE INDEX IF NOT EXISTS idx_intelligence_source_id ON intelligence(source_id);
+            """)
+
+            # ── 事件知识图谱：节点 / 边 ───────────────────────────────────
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS entity_nodes (
+                    node_id SERIAL PRIMARY KEY,
+                    entity_name TEXT NOT NULL,
+                    normalized_name TEXT NOT NULL,
+                    entity_type TEXT NOT NULL DEFAULT 'unknown',
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(normalized_name, entity_type)
+                );
+                CREATE INDEX IF NOT EXISTS idx_entity_nodes_norm ON entity_nodes(normalized_name);
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS entity_edges (
+                    edge_id SERIAL PRIMARY KEY,
+                    from_node_id INTEGER NOT NULL REFERENCES entity_nodes(node_id) ON DELETE CASCADE,
+                    to_node_id INTEGER NOT NULL REFERENCES entity_nodes(node_id) ON DELETE CASCADE,
+                    relation TEXT NOT NULL,
+                    direction TEXT NOT NULL DEFAULT 'forward',
+                    strength DOUBLE PRECISION DEFAULT 0.5,
+                    confidence_score DOUBLE PRECISION DEFAULT 50.0,
+                    event_cluster_id TEXT,
+                    evidence_source_id TEXT,
+                    intelligence_id INTEGER REFERENCES intelligence(id) ON DELETE SET NULL,
+                    metadata JSONB,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(from_node_id, to_node_id, relation, event_cluster_id, evidence_source_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_entity_edges_cluster ON entity_edges(event_cluster_id);
+                CREATE INDEX IF NOT EXISTS idx_entity_edges_from ON entity_edges(from_node_id);
+                CREATE INDEX IF NOT EXISTS idx_entity_edges_to ON entity_edges(to_node_id);
+                CREATE INDEX IF NOT EXISTS idx_entity_edges_relation ON entity_edges(relation);
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS relation_rule_stats (
+                    relation TEXT PRIMARY KEY,
+                    bullish_hits INTEGER DEFAULT 0,
+                    bullish_total INTEGER DEFAULT 0,
+                    bearish_hits INTEGER DEFAULT 0,
+                    bearish_total INTEGER DEFAULT 0,
+                    hit_rate DOUBLE PRECISION DEFAULT 0.5,
+                    weight DOUBLE PRECISION DEFAULT 1.0,
+                    last_updated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_relation_rule_weight ON relation_rule_stats(weight DESC);
             """)
 
             # ── market_indicators ─────────────────────────────────────────

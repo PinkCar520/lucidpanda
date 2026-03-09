@@ -35,6 +35,13 @@ export interface Intelligence {
   fed_regime?: number;
   macro_adjustment?: number;
   entities?: Array<{ name: string; type: string; impact: string }>;
+  relation_triples?: Array<{
+    subject: string;
+    predicate: string;
+    object: string;
+    direction: string;
+    strength: number;
+  }>;
   event_cluster_id?: string | null;
   corroboration_count?: number;
   confidence_score?: number;

@@ -88,6 +88,7 @@ class AlphaEngine:
         # 0. 异步同步收益率 + 更新信源可信度
         await asyncio.to_thread(self.backtester.sync_outcomes)
         await asyncio.to_thread(self.db.compute_source_credibility)
+        await asyncio.to_thread(self.db.refresh_relation_rule_stats)
 
         # 1. 获取所有待分析记录 (PENDING/FAILED)
         pending_records = await asyncio.to_thread(self.db.get_pending_intelligence, limit=50)
@@ -153,6 +154,7 @@ class AlphaEngine:
                 if analysis_result:
                     analysis_result['embedding'] = self.deduplicator.last_vector
                     await asyncio.to_thread(self.db.update_intelligence_analysis, source_id, analysis_result, raw_data)
+                    await asyncio.to_thread(self.db.upsert_knowledge_graph, source_id, analysis_result)
                     await self._trigger_trade_and_dispatch(analysis_result, raw_data)
                 else:
                     raise ValueError("AI analysis returned empty result")

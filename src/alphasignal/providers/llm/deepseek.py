@@ -119,6 +119,15 @@ JSON 结构定义：
             "type": "person/organization/policy/country/commodity/other",
             "impact": "bullish/bearish/neutral"
         }}
+    ],
+    "relations": [
+        {{
+            "subject": "主体实体名",
+            "predicate": "关系（如 raises_tariff / rate_hike / risk_off）",
+            "object": "客体实体名",
+            "direction": "forward/bidirectional",
+            "strength": 0.0 to 1.0
+        }}
     ]
 }}
 """
