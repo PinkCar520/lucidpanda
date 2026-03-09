@@ -570,6 +570,8 @@ class FundViewModel {
     func reorder(from offsets: IndexSet, to newOffset: Int) {
         guard sortOrder == .none else { return } // 只在自定义排序模式下允许拖拽
 
+        let previousItems = watchlistItems
+        let previousWatchlist = watchlist
         var ordered = sortedWatchlist
         ordered.move(fromOffsets: offsets, toOffset: newOffset)
 
@@ -589,8 +591,11 @@ class FundViewModel {
             )
         }
 
-        Task { [watchlistItems] in
-            for item in watchlistItems {
+        let changedItems = watchlistItems
+
+        Task { [changedItems, previousItems, previousWatchlist, ordered] in
+            defer { Task { await syncEngine.syncChanges() } }
+            for item in changedItems {
                 await cacheManager.saveItem(item)
             }
 
@@ -602,18 +607,22 @@ class FundViewModel {
             }
 
             do {
-                let request = WatchlistReorderRequest(
-                    items: ordered.enumerated().map { idx, value in
-                        WatchlistReorderItem(fundCode: value.fundCode, sortIndex: idx)
-                    }
-                )
-                let _: SuccessResponse = try await APIClient.shared.send(
-                    path: "/api/v2/watchlist/reorder",
-                    method: "POST",
-                    body: request
+                let requestItems = ordered.enumerated().map { idx, value in
+                    WatchlistReorderItem(fundCode: value.fundCode, sortIndex: idx)
+                }
+                try await self.submitWatchlistReorderWithRetry(
+                    requestItems: requestItems,
+                    baselineItems: previousItems
                 )
             } catch {
                 logger.error("Failed to reorder watchlist: \(error.localizedDescription, privacy: .public)")
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    self.watchlistItems = previousItems
+                    self.watchlist = previousWatchlist
+                }
+                for item in previousItems {
+                    await cacheManager.saveItem(item)
+                }
             }
         }
     }
@@ -621,6 +630,7 @@ class FundViewModel {
     // MARK: - Reorder Groups
     
     func reorderGroups(from offsets: IndexSet, to newOffset: Int) {
+        let previousGroups = groups
         var ordered = groups
         ordered.move(fromOffsets: offsets, toOffset: newOffset)
         
@@ -639,24 +649,94 @@ class FundViewModel {
             )
         }.sorted(by: { $0.sortIndex < $1.sortIndex })
         
-        Task { [groups] in
+        Task { [groups, previousGroups] in
             for group in groups {
                 await cacheManager.saveGroup(group)
             }
             
             do {
                 let request = WatchlistGroupReorderRequest(
-                    items: groups.map { WatchlistGroupReorderItem(groupId: $0.id, sortIndex: $0.sortIndex) }
+                    items: groups.map { WatchlistGroupReorderItem(groupId: $0.id, sortIndex: $0.sortIndex) },
+                    clientUpdatedAt: previousGroups.map(\.updatedAt).max(),
+                    mergeStrategy: "server_wins"
                 )
+                try await self.submitGroupReorderWithRetry(request)
+            } catch {
+                logger.error("Failed to reorder groups: \(error.localizedDescription, privacy: .public)")
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    self.groups = previousGroups
+                }
+                for group in previousGroups {
+                    await cacheManager.saveGroup(group)
+                }
+            }
+        }
+    }
+
+    private func submitWatchlistReorderWithRetry(
+        requestItems: [WatchlistReorderItem],
+        baselineItems: [WatchlistItem],
+        maxAttempts: Int = 3
+    ) async throws {
+        let clientUpdatedAt = baselineItems.map(\.updatedAt).max()
+        for attempt in 1...maxAttempts {
+            do {
+                let request = WatchlistReorderRequest(
+                    items: requestItems,
+                    clientUpdatedAt: clientUpdatedAt,
+                    mergeStrategy: "server_wins"
+                )
+                let _: SuccessResponse = try await APIClient.shared.send(
+                    path: "/api/v2/watchlist/reorder",
+                    method: "POST",
+                    body: request
+                )
+                return
+            } catch {
+                if isWatchlistConflictError(error) {
+                    await fetchWatchlist()
+                    return
+                }
+                if attempt >= maxAttempts {
+                    throw error
+                }
+                let delayNs = UInt64(350_000_000 * attempt)
+                try? await Task.sleep(nanoseconds: delayNs)
+            }
+        }
+    }
+
+    private func submitGroupReorderWithRetry(
+        _ request: WatchlistGroupReorderRequest,
+        maxAttempts: Int = 3
+    ) async throws {
+        for attempt in 1...maxAttempts {
+            do {
                 let _: SuccessResponse = try await APIClient.shared.send(
                     path: "/api/v2/watchlist/groups/reorder",
                     method: "PATCH",
                     body: request
                 )
+                return
             } catch {
-                logger.error("Failed to reorder groups: \(error.localizedDescription, privacy: .public)")
+                if isWatchlistConflictError(error) {
+                    await fetchGroups()
+                    return
+                }
+                if attempt >= maxAttempts {
+                    throw error
+                }
+                let delayNs = UInt64(350_000_000 * attempt)
+                try? await Task.sleep(nanoseconds: delayNs)
             }
         }
+    }
+
+    private func isWatchlistConflictError(_ error: Error) -> Bool {
+        if case APIError.serverError(let statusCode, _) = error {
+            return statusCode == 409
+        }
+        return false
     }
     
     // MARK: - Toggle Selection
@@ -853,4 +933,12 @@ struct WatchlistGroupReorderItem: Codable {
 
 struct WatchlistGroupReorderRequest: Codable {
     let items: [WatchlistGroupReorderItem]
+    let clientUpdatedAt: Date?
+    let mergeStrategy: String?
+
+    enum CodingKeys: String, CodingKey {
+        case items
+        case clientUpdatedAt = "client_updated_at"
+        case mergeStrategy = "merge_strategy"
+    }
 }

@@ -15,7 +15,10 @@ class Settings:
 
     # Gemini
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+    # 实时分析主力（稳定版，1K RPM / 10K RPD）
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    # 批量/回填任务专用（无每日上限，成本更低）
+    GEMINI_BATCH_MODEL = os.getenv("GEMINI_BATCH_MODEL", "gemini-2.0-flash-lite")
 
     # DeepSeek
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")

@@ -4,6 +4,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import json
 import time
+import os
+import redis
 from src.alphasignal.infra.database.connection import get_session
 from src.alphasignal.models.fund import FundMetadata, FundValuationArchive
 from src.alphasignal.models.intelligence import Intelligence
@@ -15,10 +17,18 @@ from src.alphasignal.utils import v1_prepare_json
 from src.alphasignal.utils.confidence import calc_confidence_score, calc_confidence_level
 from src.alphasignal.utils.fusion import merge_entities
 from src.alphasignal.utils.graph_reasoning import BULLISH_RELATIONS, BEARISH_RELATIONS
+from src.alphasignal.utils.web_graph_ops import (
+    FusedCacheStore,
+    build_graph_quality_alerts,
+    fused_cache_key,
+)
 
 router = APIRouter()
 FUSED_CACHE_TTL_SECONDS = 30
 _fused_cache: dict[str, dict[str, Any]] = {}
+_redis_client = None
+_FUSED_CACHE_NAMESPACE = "web:fused:v1"
+_fused_cache_store = None
 
 
 def _with_confidence(item: Intelligence) -> Dict[str, Any]:
@@ -35,22 +45,68 @@ def _with_confidence(item: Intelligence) -> Dict[str, Any]:
 
 
 def _fused_cache_key(limit: int, before_timestamp: Optional[str]) -> str:
-    return json.dumps({"limit": limit, "before_timestamp": before_timestamp}, sort_keys=True)
+    return fused_cache_key(limit, before_timestamp)
+
+
+def _get_fused_redis_client():
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+    if os.getenv("FUSED_CACHE_USE_REDIS", "true").lower() not in {"1", "true", "yes", "on"}:
+        _redis_client = False
+        return None
+    try:
+        _redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
+        _redis_client.ping()
+        return _redis_client
+    except Exception:
+        _redis_client = False
+        return None
+
+
+def _fused_cache_redis_key(limit: int, before_timestamp: Optional[str]) -> str:
+    return f"{_FUSED_CACHE_NAMESPACE}:{_fused_cache_key(limit, before_timestamp)}"
+
+
+def _get_fused_cache_store() -> FusedCacheStore:
+    global _fused_cache_store
+    if _fused_cache_store is None:
+        _fused_cache_store = FusedCacheStore(
+            ttl_seconds=FUSED_CACHE_TTL_SECONDS,
+            namespace=_FUSED_CACHE_NAMESPACE,
+            redis_client_getter=_get_fused_redis_client,
+        )
+    return _fused_cache_store
 
 
 def _get_fused_cache(limit: int, before_timestamp: Optional[str]) -> Optional[Dict[str, Any]]:
+    cached = _get_fused_cache_store().get(limit, before_timestamp)
+    if cached is not None:
+        return cached
     key = _fused_cache_key(limit, before_timestamp)
-    cached = _fused_cache.get(key)
-    if not cached:
+    local_cached = _fused_cache.get(key)
+    if not local_cached:
         return None
-    if time.time() - cached["ts"] > FUSED_CACHE_TTL_SECONDS:
+    if time.time() - local_cached["ts"] > FUSED_CACHE_TTL_SECONDS:
         _fused_cache.pop(key, None)
         return None
-    return cached["payload"]
+    return local_cached["payload"]
 
 
 def _set_fused_cache(limit: int, before_timestamp: Optional[str], payload: Dict[str, Any]) -> None:
-    _fused_cache[_fused_cache_key(limit, before_timestamp)] = {"ts": time.time(), "payload": payload}
+    key = _fused_cache_key(limit, before_timestamp)
+    _fused_cache[key] = {"ts": time.time(), "payload": payload}
+    _get_fused_cache_store().set(limit, before_timestamp, payload)
+
+
+def _invalidate_fused_cache() -> Dict[str, int]:
+    local_size = len(_fused_cache)
+    _fused_cache.clear()
+    store_removed = _get_fused_cache_store().invalidate()
+    return {
+        "local_removed": local_size + int(store_removed.get("local_removed") or 0),
+        "redis_removed": int(store_removed.get("redis_removed") or 0),
+    }
 
 @router.get("/watchlist", response_model=Dict[str, Any])
 async def get_web_watchlist(
@@ -166,6 +222,7 @@ async def remove_web_watchlist(
 async def get_web_fused_intelligence(
     limit: int = 30,
     before_timestamp: Optional[str] = None,
+    force_refresh: bool = False,
     db: Session = Depends(get_session)
 ):
     """
@@ -175,7 +232,7 @@ async def get_web_fused_intelligence(
     - 合并 cluster entities
     """
     cached_payload = _get_fused_cache(limit, before_timestamp)
-    if cached_payload is not None:
+    if cached_payload is not None and not force_refresh:
         return cached_payload
 
     fused_sql = text("""
@@ -248,6 +305,17 @@ async def get_web_fused_intelligence(
     return response_payload
 
 
+@router.post("/intelligence/fused/cache/invalidate", response_model=Dict[str, Any])
+async def invalidate_web_fused_cache(current_user: User = Depends(get_current_user)):
+    del current_user
+    removed = _invalidate_fused_cache()
+    return v1_prepare_json({
+        "success": True,
+        "removed": removed,
+        "invalidated_at": datetime.utcnow(),
+    })
+
+
 @router.get("/graph/event/{cluster_id}", response_model=Dict[str, Any])
 async def get_web_event_graph(cluster_id: str):
     """按事件 cluster 返回知识图谱。"""
@@ -304,6 +372,11 @@ async def get_web_graph_path(
 @router.get("/graph/quality", response_model=Dict[str, Any])
 async def get_web_graph_quality(
     days: int = 14,
+    baseline_days: int = 14,
+    coverage_threshold: float = 60.0,
+    in_vocab_threshold: float = 70.0,
+    direction_threshold: float = 90.0,
+    malformed_threshold: float = 20.0,
     db: Session = Depends(get_session)
 ):
     """
@@ -380,6 +453,105 @@ async def get_web_graph_quality(
     valid_direction_pct = round((valid_direction_items / total_items) * 100, 2) if total_items else 0.0
     in_vocab_pct = round((in_vocab_items / total_items) * 100, 2) if total_items else 0.0
 
+    trend_sql = text("""
+        WITH day_bucket AS (
+            SELECT
+                DATE_TRUNC('day', timestamp) AS day,
+                COUNT(*) FILTER (WHERE status = 'COMPLETED') AS completed_count,
+                COUNT(*) FILTER (
+                    WHERE status = 'COMPLETED'
+                      AND relation_triples IS NOT NULL
+                      AND jsonb_typeof(relation_triples) = 'array'
+                      AND jsonb_array_length(relation_triples) > 0
+                ) AS with_relations_count,
+                COALESCE(SUM(
+                    CASE
+                        WHEN status = 'COMPLETED'
+                          AND relation_triples IS NOT NULL
+                          AND jsonb_typeof(relation_triples) = 'array'
+                        THEN jsonb_array_length(relation_triples)
+                        ELSE 0
+                    END
+                ), 0) AS relation_item_count
+            FROM intelligence
+            WHERE timestamp >= NOW() - (:days::text || ' days')::interval
+            GROUP BY DATE_TRUNC('day', timestamp)
+        )
+        SELECT day, completed_count, with_relations_count, relation_item_count
+        FROM day_bucket
+        ORDER BY day ASC
+    """)
+    trend_rows = db.exec(trend_sql, {"days": safe_days}).all()
+    trend = []
+    for row in trend_rows:
+        mapped = dict(row._mapping)
+        day_completed = int(mapped.get("completed_count") or 0)
+        day_with_rel = int(mapped.get("with_relations_count") or 0)
+        day_rel_items = int(mapped.get("relation_item_count") or 0)
+        trend.append({
+            "day": mapped.get("day"),
+            "completed_count": day_completed,
+            "with_relations_count": day_with_rel,
+            "relation_item_count": day_rel_items,
+            "relation_coverage_pct": round((day_with_rel / day_completed) * 100, 2) if day_completed else 0.0,
+            "avg_relations_per_event": round((day_rel_items / day_with_rel), 3) if day_with_rel else 0.0,
+        })
+
+    safe_baseline_days = max(3, min(120, int(baseline_days)))
+    baseline_sql = text("""
+        WITH current_window AS (
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'COMPLETED') AS completed_count,
+                COUNT(*) FILTER (
+                    WHERE status = 'COMPLETED'
+                      AND relation_triples IS NOT NULL
+                      AND jsonb_typeof(relation_triples) = 'array'
+                      AND jsonb_array_length(relation_triples) > 0
+                ) AS with_relations_count
+            FROM intelligence
+            WHERE timestamp >= NOW() - (:curr_days::text || ' days')::interval
+        ),
+        prev_window AS (
+            SELECT
+                COUNT(*) FILTER (WHERE status = 'COMPLETED') AS completed_count,
+                COUNT(*) FILTER (
+                    WHERE status = 'COMPLETED'
+                      AND relation_triples IS NOT NULL
+                      AND jsonb_typeof(relation_triples) = 'array'
+                      AND jsonb_array_length(relation_triples) > 0
+                ) AS with_relations_count
+            FROM intelligence
+            WHERE timestamp < NOW() - (:curr_days::text || ' days')::interval
+              AND timestamp >= NOW() - ((:curr_days + :base_days)::text || ' days')::interval
+        )
+        SELECT
+            current_window.completed_count AS current_completed_count,
+            current_window.with_relations_count AS current_with_relations_count,
+            prev_window.completed_count AS baseline_completed_count,
+            prev_window.with_relations_count AS baseline_with_relations_count
+        FROM current_window, prev_window
+    """)
+    baseline_row = db.exec(baseline_sql, {"curr_days": safe_days, "base_days": safe_baseline_days}).first()
+    baseline_metrics = dict(baseline_row._mapping) if baseline_row else {}
+    current_completed_count = int(baseline_metrics.get("current_completed_count") or 0)
+    current_with_relations_count = int(baseline_metrics.get("current_with_relations_count") or 0)
+    baseline_completed_count = int(baseline_metrics.get("baseline_completed_count") or 0)
+    baseline_with_relations_count = int(baseline_metrics.get("baseline_with_relations_count") or 0)
+    current_coverage = round((current_with_relations_count / current_completed_count) * 100, 2) if current_completed_count else 0.0
+    baseline_coverage = round((baseline_with_relations_count / baseline_completed_count) * 100, 2) if baseline_completed_count else 0.0
+    coverage_delta = round(current_coverage - baseline_coverage, 2)
+
+    alerts = build_graph_quality_alerts(
+        coverage_pct=coverage_pct,
+        in_vocab_pct=in_vocab_pct,
+        valid_direction_pct=valid_direction_pct,
+        malformed_pct=malformed_pct,
+        coverage_threshold=coverage_threshold,
+        in_vocab_threshold=in_vocab_threshold,
+        direction_threshold=direction_threshold,
+        malformed_threshold=malformed_threshold,
+    )
+
     return v1_prepare_json({
         "window_days": safe_days,
         "summary": {
@@ -396,6 +568,27 @@ async def get_web_graph_quality(
             "valid_direction_pct": valid_direction_pct,
             "in_vocab_items": in_vocab_items,
             "in_vocab_pct": in_vocab_pct,
+        },
+        "alerts": alerts,
+        "thresholds": {
+            "coverage_threshold": coverage_threshold,
+            "in_vocab_threshold": in_vocab_threshold,
+            "direction_threshold": direction_threshold,
+            "malformed_threshold": malformed_threshold,
+        },
+        "daily_report": {
+            "days": safe_days,
+            "trend": trend,
+            "report_date": datetime.utcnow().date(),
+        },
+        "version_compare": {
+            "current_days": safe_days,
+            "baseline_days": safe_baseline_days,
+            "coverage": {
+                "current": current_coverage,
+                "baseline": baseline_coverage,
+                "delta": coverage_delta,
+            },
         },
         "generated_at": datetime.utcnow(),
     })

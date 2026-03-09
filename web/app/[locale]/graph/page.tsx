@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { authenticatedFetch } from '@/lib/api-client';
@@ -66,7 +66,33 @@ type QualityResponse = {
     in_vocab_items: number;
     in_vocab_pct: number;
   };
+  alerts?: Array<{
+    metric: string;
+    severity: string;
+    value: number;
+    threshold: number;
+    message: string;
+  }>;
+  version_compare?: {
+    coverage?: {
+      current: number;
+      baseline: number;
+      delta: number;
+    };
+  };
 };
+
+type MatchedEdgeTrace = {
+  key: string;
+  label: string;
+  contributionPct: number;
+};
+
+const edgeKeyOf = (edge: GraphEdge): string =>
+  `${String(edge.from_entity || '').trim().toLowerCase()}|${String(edge.to_entity || '').trim().toLowerCase()}|${String(edge.relation || '').trim().toLowerCase()}`;
+
+const edgeLabelOf = (edge: GraphEdge): string =>
+  `${edge.from_entity || '-'} → ${edge.to_entity || '-'} (${edge.relation || '-'})`;
 
 function GraphPreview({
   nodes,
@@ -74,6 +100,8 @@ function GraphPreview({
   selectedFrom,
   selectedTo,
   highlightedPathKeys,
+  highlightedEvidenceKeys,
+  showEdgeLabels,
   onNodeClick,
 }: {
   nodes: GraphNode[];
@@ -81,15 +109,26 @@ function GraphPreview({
   selectedFrom?: string;
   selectedTo?: string;
   highlightedPathKeys?: Set<string>;
+  highlightedEvidenceKeys?: Set<string>;
+  showEdgeLabels?: boolean;
   onNodeClick?: (name: string) => void;
 }) {
   const width = 860;
   const height = 380;
-  const radius = Math.max(90, Math.min(150, 30 + nodes.length * 3));
+  const radius = Math.max(85, Math.min(140, 24 + nodes.length * 2.2));
   const centerX = width / 2;
   const centerY = height / 2;
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [scale, setScale] = useState(1);
+  const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const [manualPositions, setManualPositions] = useState<Map<number, { x: number; y: number }>>(new Map());
+  const [dragNodeId, setDragNodeId] = useState<number | null>(null);
+  const [fixedNodeIds, setFixedNodeIds] = useState<Set<number>>(new Set());
+  const [isPanning, setIsPanning] = useState(false);
+  const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const positions = useMemo(() => {
+  const initialPositions = useMemo(() => {
     const map = new Map<number, { x: number; y: number }>();
     nodes.forEach((node, index) => {
       const angle = (2 * Math.PI * index) / Math.max(nodes.length, 1);
@@ -101,31 +140,132 @@ function GraphPreview({
     return map;
   }, [nodes, centerX, centerY, radius]);
 
+  const positions = useMemo(() => {
+    const next = new Map<number, { x: number; y: number }>();
+    nodes.forEach((node) => {
+      const base = initialPositions.get(node.node_id);
+      if (!base) return;
+      next.set(node.node_id, manualPositions.get(node.node_id) || base);
+    });
+    return next;
+  }, [nodes, initialPositions, manualPositions]);
+
+  const denseMode = nodes.length > 80 || edges.length > 200;
+  const maxRenderEdges = denseMode ? 140 : 320;
+  const renderedEdges = useMemo(() => {
+    const sorted = [...edges].sort((a, b) => {
+      const aHighlighted = Number(highlightedPathKeys?.has(edgeKeyOf(a)) || highlightedEvidenceKeys?.has(edgeKeyOf(a)));
+      const bHighlighted = Number(highlightedPathKeys?.has(edgeKeyOf(b)) || highlightedEvidenceKeys?.has(edgeKeyOf(b)));
+      if (aHighlighted !== bHighlighted) return bHighlighted - aHighlighted;
+      const aScore = Number(a.confidence_score ?? 50) + Number(a.strength ?? 0.5) * 20;
+      const bScore = Number(b.confidence_score ?? 50) + Number(b.strength ?? 0.5) * 20;
+      return bScore - aScore;
+    });
+    return sorted.slice(0, maxRenderEdges);
+  }, [edges, highlightedPathKeys, highlightedEvidenceKeys, maxRenderEdges]);
+
+  const toSvgCoords = useCallback((clientX: number, clientY: number) => {
+    if (!svgRef.current) return { x: clientX, y: clientY };
+    const rect = svgRef.current.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - translate.x) / scale,
+      y: (clientY - rect.top - translate.y) / scale,
+    };
+  }, [scale, translate]);
+
+  const onWheel = (event: React.WheelEvent<SVGSVGElement>) => {
+    event.preventDefault();
+    const direction = event.deltaY > 0 ? -1 : 1;
+    const nextScale = Math.max(0.6, Math.min(2.6, scale + direction * 0.12));
+    setScale(nextScale);
+  };
+
+  const onBackgroundMouseDown = (event: React.MouseEvent<SVGSVGElement>) => {
+    if ((event.target as Element)?.tagName !== 'svg') return;
+    setIsPanning(true);
+    panStartRef.current = {
+      x: event.clientX - translate.x,
+      y: event.clientY - translate.y,
+    };
+  };
+
+  const onMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    if (dragNodeId != null) {
+      const point = toSvgCoords(event.clientX, event.clientY);
+      setManualPositions((prev) => {
+        const next = new Map(prev);
+        next.set(dragNodeId, { x: point.x - dragOffsetRef.current.x, y: point.y - dragOffsetRef.current.y });
+        return next;
+      });
+      return;
+    }
+    if (isPanning) {
+      setTranslate({
+        x: event.clientX - panStartRef.current.x,
+        y: event.clientY - panStartRef.current.y,
+      });
+    }
+  };
+
+  const onMouseUp = () => {
+    setDragNodeId(null);
+    setIsPanning(false);
+  };
+
   if (!nodes.length) {
     return <div className="text-xs text-slate-500">No graph data</div>;
   }
 
   return (
     <div className="w-full overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-      <svg width={width} height={height} className="min-w-[860px]">
-        {edges.map((edge, index) => {
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        className="min-w-[860px] cursor-grab"
+        onWheel={onWheel}
+        onMouseDown={onBackgroundMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+      >
+        <g transform={`translate(${translate.x}, ${translate.y}) scale(${scale})`}>
+        {renderedEdges.map((edge, index) => {
           const from = edge.from_node_id ? positions.get(edge.from_node_id) : undefined;
           const to = edge.to_node_id ? positions.get(edge.to_node_id) : undefined;
           if (!from || !to) return null;
           const score = Number(edge.confidence_score ?? 50);
-          const edgeKey = `${String(edge.from_entity || '').toLowerCase()}|${String(edge.to_entity || '').toLowerCase()}|${String(edge.relation || '').toLowerCase()}`;
+          const edgeKey = edgeKeyOf(edge);
           const isHighlighted = !!highlightedPathKeys?.has(edgeKey);
+          const isEvidenceHighlighted = !!highlightedEvidenceKeys?.has(edgeKey);
+          const stroke = isEvidenceHighlighted
+            ? '#16a34a'
+            : isHighlighted
+              ? '#f97316'
+              : (score >= 70 ? '#2563eb' : score >= 50 ? '#0ea5e9' : '#94a3b8');
           return (
-            <line
-              key={`edge-${edge.edge_id ?? index}`}
-              x1={from.x}
-              y1={from.y}
-              x2={to.x}
-              y2={to.y}
-              stroke={isHighlighted ? '#f97316' : (score >= 70 ? '#2563eb' : score >= 50 ? '#0ea5e9' : '#94a3b8')}
-              strokeOpacity={isHighlighted ? 0.95 : 0.75}
-              strokeWidth={isHighlighted ? 4 : Math.max(1, Math.min(3, Number(edge.strength ?? 0.6) * 3))}
-            />
+            <g key={`edge-${edge.edge_id ?? index}`}>
+              <line
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
+                stroke={stroke}
+                strokeOpacity={isHighlighted || isEvidenceHighlighted ? 0.95 : 0.75}
+                strokeWidth={(isHighlighted || isEvidenceHighlighted) ? 4 : Math.max(1, Math.min(3, Number(edge.strength ?? 0.6) * 3))}
+              />
+              {showEdgeLabels && renderedEdges.length <= 80 && (
+                <text
+                  x={(from.x + to.x) / 2}
+                  y={(from.y + to.y) / 2 - 4}
+                  textAnchor="middle"
+                  fill="#475569"
+                  fontSize={10}
+                >
+                  {edge.relation}
+                </text>
+              )}
+            </g>
           );
         })}
 
@@ -135,13 +275,37 @@ function GraphPreview({
           const isFrom = selectedFrom?.toLowerCase() === String(node.entity_name || '').toLowerCase();
           const isTo = selectedTo?.toLowerCase() === String(node.entity_name || '').toLowerCase();
           const fill = isFrom ? '#f59e0b' : isTo ? '#8b5cf6' : '#1d4ed8';
+          const isFixed = fixedNodeIds.has(node.node_id);
           return (
             <g
               key={`node-${node.node_id}`}
               className={onNodeClick ? 'cursor-pointer' : ''}
+              onDoubleClick={() => {
+                setFixedNodeIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(node.node_id)) next.delete(node.node_id);
+                  else next.add(node.node_id);
+                  return next;
+                });
+              }}
+              onMouseDown={(event) => {
+                event.stopPropagation();
+                if (!isFixed) return;
+                const point = toSvgCoords(event.clientX, event.clientY);
+                dragOffsetRef.current = { x: point.x - pos.x, y: point.y - pos.y };
+                setDragNodeId(node.node_id);
+              }}
               onClick={() => onNodeClick?.(node.entity_name)}
             >
-              <circle cx={pos.x} cy={pos.y} r={13} fill={fill} fillOpacity={0.92} />
+              <circle
+                cx={pos.x}
+                cy={pos.y}
+                r={13}
+                fill={fill}
+                fillOpacity={0.92}
+                stroke={isFixed ? '#111827' : 'transparent'}
+                strokeWidth={isFixed ? 2 : 0}
+              />
               <text x={pos.x} y={pos.y + 4} textAnchor="middle" fill="#fff" fontSize={10} fontWeight={700}>
                 {String(node.entity_name || '?').slice(0, 2).toUpperCase()}
               </text>
@@ -151,7 +315,13 @@ function GraphPreview({
             </g>
           );
         })}
+        </g>
       </svg>
+      {denseMode && (
+        <div className="px-3 py-2 text-[11px] text-slate-500 border-t border-slate-200 dark:border-slate-800">
+          Dense graph mode: rendering top {renderedEdges.length} / {edges.length} edges for smooth interaction.
+        </div>
+      )}
     </div>
   );
 }
@@ -175,6 +345,8 @@ export default function GraphPage() {
   const [quality, setQuality] = useState<QualityResponse | null>(null);
   const [showEvidenceSheet, setShowEvidenceSheet] = useState(false);
   const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(null);
+  const [selectedEvidenceIndex, setSelectedEvidenceIndex] = useState<number | null>(null);
+  const [showEdgeLabels, setShowEdgeLabels] = useState(false);
 
   const fetchJSON = async <T,>(url: string): Promise<T> => {
     const res = await authenticatedFetch(url, session ?? null);
@@ -241,6 +413,7 @@ export default function GraphPage() {
       const data = await fetchJSON<PathResponse>(`/api/v1/web/graph/path?${query.toString()}`);
       setPaths(data);
       setSelectedPathIndex(data.paths?.length ? 0 : null);
+      setSelectedEvidenceIndex(null);
     } catch (e) {
       setError(`${t('loadFailed')}: ${String(e)}`);
     } finally {
@@ -270,28 +443,33 @@ export default function GraphPage() {
       return new Set<string>();
     }
     return new Set(
-      (paths.paths[selectedPathIndex].edges || []).map((edge) =>
-        `${String(edge.from_entity || '').toLowerCase()}|${String(edge.to_entity || '').toLowerCase()}|${String(edge.relation || '').toLowerCase()}`
-      )
+      (paths.paths[selectedPathIndex].edges || []).map((edge) => edgeKeyOf(edge))
     );
   }, [paths, selectedPathIndex]);
 
   const evidenceWithTrace = useMemo(() => {
     const allEvidence = eventGraph?.evidence || [];
     if (selectedPathIndex == null || !paths?.paths?.[selectedPathIndex]) {
-      return allEvidence.map((item) => ({ item, matchedEdges: [] as string[] }));
+      return allEvidence.map((item) => ({ item, matchedEdges: [] as MatchedEdgeTrace[] }));
     }
     const activePath = paths.paths[selectedPathIndex];
-    const edgeLabel = (edge: GraphEdge) =>
-      `${edge.from_entity || '-'} → ${edge.to_entity || '-'} (${edge.relation || '-'})`;
+    const pathEdges = activePath.edges || [];
+    const edgeScoreMap = new Map<string, number>();
+    let totalPathScore = 0;
+    pathEdges.forEach((edge) => {
+      const edgeScore = Math.max(1, Number(edge.confidence_score ?? 50));
+      const key = edgeKeyOf(edge);
+      edgeScoreMap.set(key, edgeScore);
+      totalPathScore += edgeScore;
+    });
 
     const linkedIntelligenceIds = new Set<number>(
-      (activePath.edges || [])
+      pathEdges
         .map((edge) => Number(edge.intelligence_id))
         .filter((id) => Number.isFinite(id) && id > 0)
     );
     const linkedSourceIds = new Set<string>(
-      (activePath.edges || [])
+      pathEdges
         .map((edge) => String(edge.evidence_source_id || '').trim())
         .filter(Boolean)
     );
@@ -300,13 +478,21 @@ export default function GraphPage() {
       const directMatched = allEvidence.map((item) => {
         const itemId = Number(item.id);
         const sourceId = String(item.source_id || '').trim();
-        const matchedEdges = (activePath.edges || [])
+        const matchedEdges = pathEdges
           .filter((edge) => {
             const edgeId = Number(edge.intelligence_id);
             const edgeSource = String(edge.evidence_source_id || '').trim();
             return (Number.isFinite(itemId) && Number.isFinite(edgeId) && edgeId === itemId) || (!!sourceId && !!edgeSource && edgeSource === sourceId);
           })
-          .map(edgeLabel);
+          .map((edge) => {
+            const key = edgeKeyOf(edge);
+            const score = edgeScoreMap.get(key) || 0;
+            return {
+              key,
+              label: edgeLabelOf(edge),
+              contributionPct: totalPathScore > 0 ? Number(((score / totalPathScore) * 100).toFixed(1)) : 0,
+            };
+          });
         return { item, matchedEdges };
       });
       const directBound = directMatched.filter((entry) => entry.matchedEdges.length > 0);
@@ -320,7 +506,7 @@ export default function GraphPage() {
         ? item.summary
         : `${item.summary?.zh || ''} ${item.summary?.en || ''}`;
       const haystack = `${item.title || ''} ${summaryText}`.toLowerCase();
-      const matchedEdges = (activePath.edges || [])
+      const matchedEdges = pathEdges
         .filter((edge) => {
           const terms = [
             String(edge.from_entity || '').toLowerCase(),
@@ -329,7 +515,15 @@ export default function GraphPage() {
           ].filter(Boolean);
           return terms.some((token) => haystack.includes(token));
         })
-        .map(edgeLabel);
+        .map((edge) => {
+          const key = edgeKeyOf(edge);
+          const score = edgeScoreMap.get(key) || 0;
+          return {
+            key,
+            label: edgeLabelOf(edge),
+            contributionPct: totalPathScore > 0 ? Number(((score / totalPathScore) * 100).toFixed(1)) : 0,
+          };
+        });
       return { item, matchedEdges };
     });
     const tokenBound = tokenMatched.filter((entry) => entry.matchedEdges.length > 0);
@@ -337,12 +531,17 @@ export default function GraphPage() {
       return tokenBound;
     }
 
-    return allEvidence.map((item) => ({ item, matchedEdges: [] as string[] }));
+    return allEvidence.map((item) => ({ item, matchedEdges: [] as MatchedEdgeTrace[] }));
   }, [eventGraph, paths, selectedPathIndex]);
 
   const filteredEvidence = useMemo(() => evidenceWithTrace.map((entry) => entry.item), [evidenceWithTrace]);
 
-  const evidenceTraceFor = (index: number): string[] => evidenceWithTrace[index]?.matchedEdges || [];
+  const evidenceTraceFor = (index: number): MatchedEdgeTrace[] => evidenceWithTrace[index]?.matchedEdges || [];
+  const selectedEvidenceEdgeKeys = useMemo(() => {
+    if (selectedEvidenceIndex == null) return new Set<string>();
+    const traces = evidenceWithTrace[selectedEvidenceIndex]?.matchedEdges || [];
+    return new Set(traces.map((entry) => entry.key));
+  }, [selectedEvidenceIndex, evidenceWithTrace]);
 
   return (
     <div className="flex flex-col p-4 md:p-6 lg:p-8 gap-6 min-h-screen">
@@ -373,12 +572,28 @@ export default function GraphPage() {
         }
       >
         {quality ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
             <Badge variant="outline">{t('coverage')}: {quality.summary.relation_coverage_pct}%</Badge>
             <Badge variant="outline">{t('avgRelations')}: {quality.summary.avg_relations_per_event}</Badge>
             <Badge variant="outline">{t('inVocab')}: {quality.quality.in_vocab_pct}%</Badge>
             <Badge variant="outline">{t('directionValid')}: {quality.quality.valid_direction_pct}%</Badge>
             <Badge variant="outline">{t('malformed')}: {quality.quality.malformed_pct}%</Badge>
+            </div>
+            {!!quality.version_compare?.coverage && (
+              <div className="text-xs text-slate-500">
+                {t('coverageBaseline')}: {quality.version_compare.coverage.baseline}% → {quality.version_compare.coverage.current}% ({quality.version_compare.coverage.delta >= 0 ? '+' : ''}{quality.version_compare.coverage.delta}%)
+              </div>
+            )}
+            {!!quality.alerts?.length && (
+              <div className="flex flex-wrap gap-2">
+                {quality.alerts.map((alert, idx) => (
+                  <Badge key={`quality-alert-${idx}`} variant={alert.severity === 'critical' ? 'warning' : 'outline'}>
+                    {alert.metric}: {alert.value}% ({alert.message})
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <Button variant="outline" onClick={loadGraphQuality} disabled={loading}>{t('loadQuality')}</Button>
@@ -408,6 +623,9 @@ export default function GraphPage() {
               <Badge variant="outline">{t('edges')}: {eventGraph.edges?.length || 0}</Badge>
               <Badge variant="outline">{t('inferences')}: {eventGraph.inferences?.length || 0}</Badge>
               <Badge variant="outline">{t('evidence')}: {eventGraph.evidence?.length || 0}</Badge>
+              <Button size="sm" variant={showEdgeLabels ? 'default' : 'outline'} onClick={() => setShowEdgeLabels((prev) => !prev)}>
+                {showEdgeLabels ? t('hideEdgeLabels') : t('showEdgeLabels')}
+              </Button>
               {!!eventGraph.evidence?.length && (
                 <Button size="sm" variant="outline" onClick={() => setShowEvidenceSheet(true)}>
                   {t('openEvidence')}
@@ -420,9 +638,11 @@ export default function GraphPage() {
               selectedFrom={fromEntity}
               selectedTo={toEntity}
               highlightedPathKeys={highlightedPathKeys}
+              highlightedEvidenceKeys={selectedEvidenceEdgeKeys}
+              showEdgeLabels={showEdgeLabels}
               onNodeClick={handleGraphNodeClick}
             />
-            <div className="text-xs text-slate-500">{t('nodeClickHint')}</div>
+            <div className="text-xs text-slate-500">{t('nodeClickHint')} · {t('graphInteractionHint')}</div>
           </div>
         ) : (
           <div className="text-sm text-slate-500">{t('emptyEvent')}</div>
@@ -519,7 +739,23 @@ export default function GraphPage() {
           <div className="mt-4 space-y-3 max-h-[75vh] overflow-auto pr-2">
             {selectedPathIndex != null && <div className="text-xs text-slate-500">{t('evidenceFilteredHint')}</div>}
             {filteredEvidence.map((item, index) => (
-              <div key={`evidence-${index}`} className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+              <div
+                key={`evidence-${index}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedEvidenceIndex((prev) => (prev === index ? null : index))}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedEvidenceIndex((prev) => (prev === index ? null : index));
+                  }
+                }}
+                className={`w-full text-left p-3 rounded-lg border transition-colors cursor-pointer ${
+                  selectedEvidenceIndex === index
+                    ? 'border-emerald-400 bg-emerald-50/60 dark:bg-emerald-900/15'
+                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40'
+                }`}
+              >
                 <div className="font-semibold text-sm">
                   {item.title || (typeof item.summary === 'string' ? item.summary : (item.summary?.zh || item.summary?.en)) || '--'}
                 </div>
@@ -536,7 +772,7 @@ export default function GraphPage() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     {evidenceTraceFor(index).slice(0, 3).map((trace, traceIdx) => (
                       <Badge key={`trace-${index}-${traceIdx}`} variant="neutral">
-                        {t('matchedEdge')}: {trace}
+                        {t('matchedEdge')}: {trace.label} · {trace.contributionPct}%
                       </Badge>
                     ))}
                   </div>

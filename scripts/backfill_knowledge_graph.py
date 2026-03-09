@@ -252,8 +252,12 @@ def main():
     if args.step in ('b', 'all'):
         if args.llm == 'gemini':
             from src.alphasignal.providers.llm.gemini import GeminiLLM
+            import os
+            # 批量任务优先使用 gemini-2.0-flash-lite（无每日上限），避免占用实时分析配额
+            if not os.environ.get("GEMINI_MODEL"):
+                os.environ["GEMINI_MODEL"] = os.environ.get("GEMINI_BATCH_MODEL", "gemini-2.0-flash-lite")
             llm = GeminiLLM()
-            logger.info("使用 Gemini 作为 LLM 提供商")
+            logger.info(f"使用 Gemini 作为 LLM 提供商（模型: {os.environ.get('GEMINI_MODEL')}）")
         else:
             from src.alphasignal.providers.llm.deepseek import DeepSeekLLM
             llm = DeepSeekLLM()

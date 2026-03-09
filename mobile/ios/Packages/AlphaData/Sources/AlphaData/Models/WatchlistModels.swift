@@ -234,9 +234,23 @@ public struct WatchlistReorderItem: Codable {
 
 public struct WatchlistReorderRequest: Codable {
     public let items: [WatchlistReorderItem]
+    public let clientUpdatedAt: Date?
+    public let mergeStrategy: String?
 
-    public init(items: [WatchlistReorderItem]) {
+    public init(
+        items: [WatchlistReorderItem],
+        clientUpdatedAt: Date? = nil,
+        mergeStrategy: String? = nil
+    ) {
         self.items = items
+        self.clientUpdatedAt = clientUpdatedAt
+        self.mergeStrategy = mergeStrategy
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case items
+        case clientUpdatedAt = "client_updated_at"
+        case mergeStrategy = "merge_strategy"
     }
 }
 

@@ -37,6 +37,8 @@ class WatchlistGroupReorderItem(BaseModel):
 
 class WatchlistGroupReorderRequest(BaseModel):
     items: List[WatchlistGroupReorderItem]
+    client_updated_at: Optional[datetime] = None
+    merge_strategy: str = "server_wins"
 
 class WatchlistItemMove(BaseModel):
     group_id: Optional[str] = None
@@ -47,6 +49,8 @@ class WatchlistReorderItem(BaseModel):
 
 class WatchlistReorderRequest(BaseModel):
     items: List[WatchlistReorderItem]
+    client_updated_at: Optional[datetime] = None
+    merge_strategy: str = "server_wins"
 
 class WatchlistBatchItem(BaseModel):
     code: str
@@ -275,6 +279,29 @@ async def _reorder_watchlist_groups_impl(
         if not request.items:
             return v1_prepare_json({"success": True})
 
+        if request.client_updated_at and request.merge_strategy != "client_wins":
+            conflict_stmt = text("""
+                SELECT id, sort_index, updated_at
+                FROM watchlist_groups
+                WHERE user_id = :user_id
+                  AND updated_at > :client_updated_at
+                ORDER BY updated_at DESC
+                LIMIT 50
+            """)
+            conflicts = db.execute(conflict_stmt, {
+                "user_id": user_id,
+                "client_updated_at": request.client_updated_at,
+            }).mappings().all()
+            if conflicts:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "reason": "GROUP_ORDER_CONFLICT",
+                        "merge_strategy": request.merge_strategy,
+                        "conflicts": [dict(row) for row in conflicts],
+                    },
+                )
+
         update_count = 0
         for item in request.items:
             group_id = item.resolved_group_id()
@@ -486,6 +513,30 @@ async def reorder_watchlist(
     """批量更新排序"""
     try:
         user_id = str(current_user.id)
+
+        if request.client_updated_at and request.merge_strategy != "client_wins":
+            conflict_stmt = text("""
+                SELECT fund_code, sort_index, updated_at
+                FROM fund_watchlist
+                WHERE user_id = :user_id
+                  AND updated_at > :client_updated_at
+                  AND is_deleted = FALSE
+                ORDER BY updated_at DESC
+                LIMIT 100
+            """)
+            conflicts = db.execute(conflict_stmt, {
+                "user_id": user_id,
+                "client_updated_at": request.client_updated_at,
+            }).mappings().all()
+            if conflicts:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "reason": "WATCHLIST_ORDER_CONFLICT",
+                        "merge_strategy": request.merge_strategy,
+                        "conflicts": [dict(row) for row in conflicts],
+                    },
+                )
         
         for item in request.items:
             update_stmt = text("""
