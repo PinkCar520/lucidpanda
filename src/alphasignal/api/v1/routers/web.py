@@ -267,7 +267,7 @@ async def get_web_fused_intelligence(
         FROM leads l
         JOIN clusters ON clusters.cluster_key = l.cluster_key
         WHERE l.rn = 1
-          AND (:before_ts IS NULL OR l.timestamp < :before_ts::timestamptz)
+          AND (:before_ts IS NULL OR l.timestamp < CAST(:before_ts AS timestamptz))
         ORDER BY l.timestamp DESC
         LIMIT :limit
     """)
