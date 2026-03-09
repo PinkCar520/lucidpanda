@@ -407,7 +407,7 @@ async def get_web_graph_quality(
             ), 0) AS relation_item_count
         FROM intelligence
         WHERE status = 'COMPLETED'
-          AND timestamp >= NOW() - (:days::text || ' days')::interval
+          AND timestamp >= NOW() - (:days * INTERVAL '1 day')
     """)
     summary_row = db.execute(summary_sql, {"days": safe_days}).first()
     summary = dict(summary_row._mapping) if summary_row else {}
@@ -419,7 +419,7 @@ async def get_web_graph_quality(
             WHERE status = 'COMPLETED'
               AND relation_triples IS NOT NULL
               AND jsonb_typeof(relation_triples) = 'array'
-              AND timestamp >= NOW() - (:days::text || ' days')::interval
+              AND timestamp >= NOW() - (:days * INTERVAL '1 day')
         )
         SELECT
             COUNT(*) AS total_items,
@@ -474,7 +474,7 @@ async def get_web_graph_quality(
                     END
                 ), 0) AS relation_item_count
             FROM intelligence
-            WHERE timestamp >= NOW() - (:days::text || ' days')::interval
+            WHERE timestamp >= NOW() - (:days * INTERVAL '1 day')
             GROUP BY DATE_TRUNC('day', timestamp)
         )
         SELECT day, completed_count, with_relations_count, relation_item_count
@@ -509,7 +509,7 @@ async def get_web_graph_quality(
                       AND jsonb_array_length(relation_triples) > 0
                 ) AS with_relations_count
             FROM intelligence
-            WHERE timestamp >= NOW() - (:curr_days::text || ' days')::interval
+            WHERE timestamp >= NOW() - (:curr_days * INTERVAL '1 day')
         ),
         prev_window AS (
             SELECT
@@ -521,8 +521,8 @@ async def get_web_graph_quality(
                       AND jsonb_array_length(relation_triples) > 0
                 ) AS with_relations_count
             FROM intelligence
-            WHERE timestamp < NOW() - (:curr_days::text || ' days')::interval
-              AND timestamp >= NOW() - ((:curr_days + :base_days)::text || ' days')::interval
+            WHERE timestamp < NOW() - (:curr_days * INTERVAL '1 day')
+              AND timestamp >= NOW() - ((:curr_days + :base_days) * INTERVAL '1 day')
         )
         SELECT
             current_window.completed_count AS current_completed_count,
@@ -663,7 +663,7 @@ async def get_web_sources_dashboard(
           AND gold_price_snapshot IS NOT NULL
           AND price_1h IS NOT NULL
           AND ABS(sentiment_score) > 0.2
-          AND timestamp >= NOW() - (:days::text || ' days')::interval
+          AND timestamp >= NOW() - (:days * INTERVAL '1 day')
         GROUP BY source_name
         HAVING COUNT(*) >= 20
         ORDER BY accuracy_lower_bound DESC NULLS LAST, total_signals DESC
@@ -697,7 +697,7 @@ async def get_web_sources_dashboard(
               AND gold_price_snapshot IS NOT NULL
               AND price_1h IS NOT NULL
               AND ABS(sentiment_score) > 0.2
-              AND timestamp >= NOW() - (:days::text || ' days')::interval
+              AND timestamp >= NOW() - (:days * INTERVAL '1 day')
             GROUP BY DATE_TRUNC('day', timestamp), source_name
             ORDER BY day ASC, source_name ASC
         """)
@@ -721,7 +721,7 @@ async def get_web_sources_dashboard(
               AND gold_price_snapshot IS NOT NULL
               AND price_1h IS NOT NULL
               AND ABS(sentiment_score) > 0.2
-              AND timestamp >= NOW() - (:days::text || ' days')::interval
+              AND timestamp >= NOW() - (:days * INTERVAL '1 day')
         )
         SELECT
             COUNT(DISTINCT source_name) AS active_sources,
