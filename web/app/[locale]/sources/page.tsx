@@ -75,13 +75,13 @@ export default function SourceMonitorPage() {
                 <th className="p-3">{t('source')}</th>
                 <th className="p-3">{t('signals')}</th>
                 <th className="p-3">{t('hits')}</th>
-                <th className="p-3">{t('accuracy')}</th>
+                <th className="p-3">{t('conservativeAccuracy')}</th>
                 <th className="p-3">{t('lastSeen')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
               {leaderboard.map((row, index) => {
-                const accuracy = row.accuracy_pct ?? 0;
+                const accuracy = row.accuracy_lower_bound ?? 0;
                 const variant = accuracy >= 65 ? 'bullish' : accuracy >= 50 ? 'neutral' : 'bearish';
                 return (
                   <tr key={row.source_name} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
@@ -133,4 +133,3 @@ export default function SourceMonitorPage() {
     </div>
   );
 }
-

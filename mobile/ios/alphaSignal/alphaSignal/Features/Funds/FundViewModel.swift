@@ -650,7 +650,7 @@ class FundViewModel {
                 )
                 let _: SuccessResponse = try await APIClient.shared.send(
                     path: "/api/v2/watchlist/groups/reorder",
-                    method: "POST",
+                    method: "PATCH",
                     body: request
                 )
             } catch {

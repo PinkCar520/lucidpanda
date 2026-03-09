@@ -28,8 +28,12 @@ class WatchlistGroupUpdate(BaseModel):
     sort_index: Optional[int] = None
 
 class WatchlistGroupReorderItem(BaseModel):
-    group_id: str
+    group_id: Optional[str] = None
+    id: Optional[str] = None
     sort_index: int
+
+    def resolved_group_id(self) -> str:
+        return (self.group_id or self.id or "").strip()
 
 class WatchlistGroupReorderRequest(BaseModel):
     items: List[WatchlistGroupReorderItem]
@@ -129,6 +133,9 @@ async def create_watchlist_group(
             group['updated_at'] = group['updated_at'].isoformat()
         
         return v1_prepare_json({"data": group})
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -257,33 +264,60 @@ async def delete_watchlist_group(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+async def _reorder_watchlist_groups_impl(
+    request: WatchlistGroupReorderRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session)
+):
+    """批量更新分组排序（支持 group_id / id 两种字段）"""
+    try:
+        user_id = str(current_user.id)
+        if not request.items:
+            return v1_prepare_json({"success": True})
+
+        update_count = 0
+        for item in request.items:
+            group_id = item.resolved_group_id()
+            if not group_id:
+                raise HTTPException(status_code=400, detail="group_id (or id) is required")
+            update_stmt = text("""
+                UPDATE watchlist_groups
+                SET sort_index = :sort_index, updated_at = CURRENT_TIMESTAMP
+                WHERE id = :group_id AND user_id = :user_id
+            """)
+            result = db.execute(update_stmt, {
+                "sort_index": item.sort_index,
+                "user_id": user_id,
+                "group_id": group_id
+            })
+            update_count += int(getattr(result, "rowcount", 0) or 0)
+
+        db.commit()
+        return v1_prepare_json({"success": True, "updated": update_count})
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/groups/reorder", response_model=Dict[str, Any])
 async def reorder_watchlist_groups(
     request: WatchlistGroupReorderRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
 ):
-    """批量更新分组排序"""
-    try:
-        user_id = str(current_user.id)
-        
-        for item in request.items:
-            update_stmt = text("""
-                UPDATE watchlist_groups
-                SET sort_index = :sort_index, updated_at = CURRENT_TIMESTAMP
-                WHERE id = :group_id AND user_id = :user_id
-            """)
-            db.execute(update_stmt, {
-                "sort_index": item.sort_index,
-                "user_id": user_id,
-                "group_id": item.group_id
-            })
-        
-        db.commit()
-        return v1_prepare_json({"success": True})
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+    return await _reorder_watchlist_groups_impl(request, current_user, db)
+
+
+@router.patch("/groups/reorder", response_model=Dict[str, Any])
+async def reorder_watchlist_groups_patch(
+    request: WatchlistGroupReorderRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session)
+):
+    return await _reorder_watchlist_groups_impl(request, current_user, db)
 
 # ==================== 自选列表增强 ====================
 

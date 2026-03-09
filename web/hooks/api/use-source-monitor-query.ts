@@ -16,6 +16,7 @@ export interface SourceDashboardData {
     total_signals: number;
     hits: number;
     accuracy_pct: number | null;
+    accuracy_lower_bound: number | null;
     last_seen: string;
   }>;
   trend: Array<{
@@ -44,4 +45,3 @@ export function useSourceMonitorQuery(days: number = 14, limit: number = 15) {
     refetchInterval: 1000 * 60 * 5,
   });
 }
-

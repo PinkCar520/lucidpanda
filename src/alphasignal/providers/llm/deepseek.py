@@ -122,12 +122,20 @@ JSON 结构定义：
     ],
     "relations": [
         {{
-            "subject": "主体实体名",
-            "predicate": "关系（如 raises_tariff / rate_hike / risk_off）",
-            "object": "客体实体名",
+            "from": "主体实体名",
+            "to": "客体实体名",
+            "relation": "关系类型（必须从枚举中选择）",
             "direction": "forward/bidirectional",
             "strength": 0.0 to 1.0
         }}
     ]
 }}
+
+relations.relation 合法枚举（仅可选以下值）：
+- 利多黄金：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down
+- 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
+
+强约束：
+1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金或其驱动因子，必须至少输出 1 条 relations。
+2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
 """

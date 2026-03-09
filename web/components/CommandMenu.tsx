@@ -6,7 +6,7 @@ import {
     Search, Terminal, BarChart3, Activity, 
     User, Settings, Key, Shield, Bell, 
     LogOut, Globe, Command as CommandIcon,
-    Loader2, TrendingUp, ChevronRight, RefreshCw, Zap
+    Loader2, TrendingUp, ChevronRight, RefreshCw, Zap, Network
 } from 'lucide-react';
 import { useRouter, usePathname, Link } from '@/i18n/navigation';
 import { useParams } from 'next/navigation';
@@ -187,6 +187,13 @@ export default function CommandMenu() {
                         >
                             <Activity className="w-4 h-4 text-slate-400" />
                             <span className="text-sm">{tApp('sidebar.backtest')}</span>
+                        </Command.Item>
+                        <Command.Item
+                            onSelect={() => runCommand(() => router.push(`/graph`))}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                        >
+                            <Network className="w-4 h-4 text-slate-400" />
+                            <span className="text-sm">{tApp('sidebar.graph')}</span>
                         </Command.Item>
                     </Command.Group>
 

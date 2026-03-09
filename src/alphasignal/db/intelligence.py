@@ -11,6 +11,7 @@ from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.db.base import DBBase
 from src.alphasignal.utils.confidence import calc_confidence_score
+from src.alphasignal.utils.entity_normalizer import normalize_entity_name
 from src.alphasignal.utils.graph_reasoning import infer_event_chains, relation_signal
 
 
@@ -43,12 +44,16 @@ class IntelligenceRepo(DBBase):
         for relation in relations:
             if not isinstance(relation, dict):
                 continue
-            subject = str(relation.get("subject", "")).strip()
-            predicate = str(relation.get("predicate", "")).strip()
-            obj = str(relation.get("object", "")).strip()
+            subject = str(relation.get("subject") or relation.get("from") or "").strip()
+            predicate = str(relation.get("predicate") or relation.get("relation") or "").strip().lower()
+            obj = str(relation.get("object") or relation.get("to") or "").strip()
             if not subject or not predicate or not obj:
                 continue
             direction = str(relation.get("direction", "forward")).strip().lower()
+            if direction in {"both", "two_way"}:
+                direction = "bidirectional"
+            elif direction in {"positive", "negative"}:
+                direction = "forward"
             if direction not in {"forward", "bidirectional"}:
                 direction = "forward"
             try:
@@ -650,14 +655,15 @@ class IntelligenceRepo(DBBase):
     # ── 事件知识图谱 ──────────────────────────────────────────────────────
 
     def _upsert_entity_node(self, cursor, entity_name: str, entity_type: str = "unknown") -> int:
-        normalized_name = entity_name.strip().lower()
+        canonical_name = normalize_entity_name(entity_name)
+        normalized_name = canonical_name.strip().lower()
         cursor.execute("""
             INSERT INTO entity_nodes (entity_name, normalized_name, entity_type)
             VALUES (%s, %s, %s)
             ON CONFLICT (normalized_name, entity_type)
             DO UPDATE SET entity_name = EXCLUDED.entity_name
             RETURNING node_id
-        """, (entity_name.strip(), normalized_name, entity_type or "unknown"))
+        """, (canonical_name.strip(), normalized_name, entity_type or "unknown"))
         return cursor.fetchone()[0]
 
     def _upsert_graph_edge(
@@ -1015,6 +1021,7 @@ class IntelligenceRepo(DBBase):
                     e.confidence_score,
                     e.created_at,
                     e.evidence_source_id,
+                    e.intelligence_id,
                     fn.node_id AS from_node_id,
                     fn.entity_name AS from_entity,
                     fn.entity_type AS from_type,
@@ -1141,6 +1148,8 @@ class IntelligenceRepo(DBBase):
                     e.confidence_score,
                     e.event_cluster_id,
                     e.created_at,
+                    e.evidence_source_id,
+                    e.intelligence_id,
                     fn.entity_name AS from_entity,
                     tn.entity_name AS to_entity
                 FROM entity_edges e
@@ -1201,14 +1210,15 @@ class IntelligenceRepo(DBBase):
         clean_type = (entity_type or "unknown").strip().lower() or "unknown"
         if not clean_name:
             return None
-        normalized_name = clean_name.lower()
+        canonical_name = normalize_entity_name(clean_name)
+        normalized_name = canonical_name.lower()
         cursor.execute("""
             INSERT INTO entity_nodes (entity_name, normalized_name, entity_type)
             VALUES (%s, %s, %s)
             ON CONFLICT (normalized_name, entity_type) DO UPDATE
                 SET entity_name = EXCLUDED.entity_name
             RETURNING node_id
-        """, (clean_name, normalized_name, clean_type))
+        """, (canonical_name, normalized_name, clean_type))
         row = cursor.fetchone()
         return row[0] if row else None
 

@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from sqlmodel import Session, select, text
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import json
+import time
 from src.alphasignal.infra.database.connection import get_session
 from src.alphasignal.models.fund import FundMetadata, FundValuationArchive
 from src.alphasignal.models.intelligence import Intelligence
@@ -12,8 +14,11 @@ from src.alphasignal.core.database import IntelligenceDB
 from src.alphasignal.utils import v1_prepare_json
 from src.alphasignal.utils.confidence import calc_confidence_score, calc_confidence_level
 from src.alphasignal.utils.fusion import merge_entities
+from src.alphasignal.utils.graph_reasoning import BULLISH_RELATIONS, BEARISH_RELATIONS
 
 router = APIRouter()
+FUSED_CACHE_TTL_SECONDS = 30
+_fused_cache: dict[str, dict[str, Any]] = {}
 
 
 def _with_confidence(item: Intelligence) -> Dict[str, Any]:
@@ -27,6 +32,25 @@ def _with_confidence(item: Intelligence) -> Dict[str, Any]:
     payload["confidence_score"] = confidence_score
     payload["confidence_level"] = calc_confidence_level(confidence_score)
     return payload
+
+
+def _fused_cache_key(limit: int, before_timestamp: Optional[str]) -> str:
+    return json.dumps({"limit": limit, "before_timestamp": before_timestamp}, sort_keys=True)
+
+
+def _get_fused_cache(limit: int, before_timestamp: Optional[str]) -> Optional[Dict[str, Any]]:
+    key = _fused_cache_key(limit, before_timestamp)
+    cached = _fused_cache.get(key)
+    if not cached:
+        return None
+    if time.time() - cached["ts"] > FUSED_CACHE_TTL_SECONDS:
+        _fused_cache.pop(key, None)
+        return None
+    return cached["payload"]
+
+
+def _set_fused_cache(limit: int, before_timestamp: Optional[str], payload: Dict[str, Any]) -> None:
+    _fused_cache[_fused_cache_key(limit, before_timestamp)] = {"ts": time.time(), "payload": payload}
 
 @router.get("/watchlist", response_model=Dict[str, Any])
 async def get_web_watchlist(
@@ -141,7 +165,7 @@ async def remove_web_watchlist(
 @router.get("/intelligence/fused", response_model=Dict[str, Any])
 async def get_web_fused_intelligence(
     limit: int = 30,
-    offset: int = 0,
+    before_timestamp: Optional[str] = None,
     db: Session = Depends(get_session)
 ):
     """
@@ -150,6 +174,10 @@ async def get_web_fused_intelligence(
     - 聚合 corroboration_count / confidence
     - 合并 cluster entities
     """
+    cached_payload = _get_fused_cache(limit, before_timestamp)
+    if cached_payload is not None:
+        return cached_payload
+
     fused_sql = text("""
         WITH completed AS (
             SELECT
@@ -182,10 +210,11 @@ async def get_web_fused_intelligence(
         FROM leads l
         JOIN clusters ON clusters.cluster_key = l.cluster_key
         WHERE l.rn = 1
+          AND (:before_ts IS NULL OR l.timestamp < :before_ts::timestamptz)
         ORDER BY l.timestamp DESC
-        LIMIT :limit OFFSET :offset
+        LIMIT :limit
     """)
-    rows = db.exec(fused_sql, {"limit": limit, "offset": offset}).all()
+    rows = db.exec(fused_sql, {"limit": limit, "before_ts": before_timestamp}).all()
 
     items = []
     for row in rows:
@@ -201,7 +230,22 @@ async def get_web_fused_intelligence(
         payload["confidence_score"] = confidence_score
         payload["confidence_level"] = calc_confidence_level(confidence_score)
         items.append(payload)
-    return {"data": items, "count": len(items), "limit": limit, "offset": offset}
+    next_cursor = None
+    if items:
+        last_timestamp = items[-1].get("timestamp")
+        if isinstance(last_timestamp, datetime):
+            next_cursor = last_timestamp.isoformat()
+        elif last_timestamp:
+            next_cursor = str(last_timestamp)
+    response_payload = {
+        "data": items,
+        "count": len(items),
+        "limit": limit,
+        "before_timestamp": before_timestamp,
+        "next_cursor": next_cursor,
+    }
+    _set_fused_cache(limit, before_timestamp, response_payload)
+    return response_payload
 
 
 @router.get("/graph/event/{cluster_id}", response_model=Dict[str, Any])
@@ -257,6 +301,106 @@ async def get_web_graph_path(
     })
 
 
+@router.get("/graph/quality", response_model=Dict[str, Any])
+async def get_web_graph_quality(
+    days: int = 14,
+    db: Session = Depends(get_session)
+):
+    """
+    图谱抽取质量快照（用于 Phase 2 生产化观测）：
+    - relations 覆盖率
+    - 平均关系条数
+    - 非法/不完整关系占比
+    - 合法方向占比（forward/bidirectional）
+    """
+    safe_days = max(3, min(90, int(days)))
+    allowed_relations = sorted(BULLISH_RELATIONS.union(BEARISH_RELATIONS))
+
+    summary_sql = text("""
+        SELECT
+            COUNT(*) AS completed_count,
+            COUNT(*) FILTER (
+                WHERE relation_triples IS NOT NULL
+                  AND jsonb_typeof(relation_triples) = 'array'
+                  AND jsonb_array_length(relation_triples) > 0
+            ) AS with_relations_count,
+            COALESCE(SUM(
+                CASE
+                    WHEN relation_triples IS NOT NULL
+                     AND jsonb_typeof(relation_triples) = 'array'
+                    THEN jsonb_array_length(relation_triples)
+                    ELSE 0
+                END
+            ), 0) AS relation_item_count
+        FROM intelligence
+        WHERE status = 'COMPLETED'
+          AND timestamp >= NOW() - (:days::text || ' days')::interval
+    """)
+    summary_row = db.exec(summary_sql, {"days": safe_days}).first()
+    summary = dict(summary_row._mapping) if summary_row else {}
+
+    relation_item_sql = text("""
+        WITH rels AS (
+            SELECT jsonb_array_elements(relation_triples) AS rel
+            FROM intelligence
+            WHERE status = 'COMPLETED'
+              AND relation_triples IS NOT NULL
+              AND jsonb_typeof(relation_triples) = 'array'
+              AND timestamp >= NOW() - (:days::text || ' days')::interval
+        )
+        SELECT
+            COUNT(*) AS total_items,
+            COUNT(*) FILTER (
+                WHERE COALESCE(NULLIF(TRIM(rel->>'predicate'), ''), NULLIF(TRIM(rel->>'relation'), '')) IS NULL
+                   OR COALESCE(NULLIF(TRIM(rel->>'subject'), ''), NULLIF(TRIM(rel->>'from'), '')) IS NULL
+                   OR COALESCE(NULLIF(TRIM(rel->>'object'), ''), NULLIF(TRIM(rel->>'to'), '')) IS NULL
+            ) AS malformed_items,
+            COUNT(*) FILTER (
+                WHERE LOWER(COALESCE(rel->>'direction', 'forward')) IN ('forward', 'bidirectional')
+            ) AS valid_direction_items,
+            COUNT(*) FILTER (
+                WHERE LOWER(COALESCE(NULLIF(TRIM(rel->>'predicate'), ''), NULLIF(TRIM(rel->>'relation'), ''))) = ANY(:allowed_relations)
+            ) AS in_vocab_items
+        FROM rels
+    """)
+    relation_row = db.exec(relation_item_sql, {"days": safe_days, "allowed_relations": allowed_relations}).first()
+    relation_stats = dict(relation_row._mapping) if relation_row else {}
+
+    completed_count = int(summary.get("completed_count") or 0)
+    with_relations_count = int(summary.get("with_relations_count") or 0)
+    relation_item_count = int(summary.get("relation_item_count") or 0)
+    total_items = int(relation_stats.get("total_items") or 0)
+    malformed_items = int(relation_stats.get("malformed_items") or 0)
+    valid_direction_items = int(relation_stats.get("valid_direction_items") or 0)
+    in_vocab_items = int(relation_stats.get("in_vocab_items") or 0)
+
+    coverage_pct = round((with_relations_count / completed_count) * 100, 2) if completed_count else 0.0
+    avg_relations_per_item = round((relation_item_count / with_relations_count), 3) if with_relations_count else 0.0
+    malformed_pct = round((malformed_items / total_items) * 100, 2) if total_items else 0.0
+    valid_direction_pct = round((valid_direction_items / total_items) * 100, 2) if total_items else 0.0
+    in_vocab_pct = round((in_vocab_items / total_items) * 100, 2) if total_items else 0.0
+
+    return v1_prepare_json({
+        "window_days": safe_days,
+        "summary": {
+            "completed_count": completed_count,
+            "with_relations_count": with_relations_count,
+            "relation_item_count": relation_item_count,
+            "relation_coverage_pct": coverage_pct,
+            "avg_relations_per_event": avg_relations_per_item,
+        },
+        "quality": {
+            "total_relation_items": total_items,
+            "malformed_items": malformed_items,
+            "malformed_pct": malformed_pct,
+            "valid_direction_pct": valid_direction_pct,
+            "in_vocab_items": in_vocab_items,
+            "in_vocab_pct": in_vocab_pct,
+        },
+        "generated_at": datetime.utcnow(),
+    })
+
+
 @router.get("/sources/dashboard", response_model=Dict[str, Any])
 async def get_web_sources_dashboard(
     days: int = 14,
@@ -291,6 +435,33 @@ async def get_web_sources_dashboard(
                     / NULLIF(COUNT(*), 0)
                 ) * 100, 2
             ) AS accuracy_pct,
+            ROUND(
+                (
+                    (SUM(CASE
+                        WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
+                        WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
+                        ELSE 0
+                    END)::numeric + 1.9208)
+                    / (COUNT(*) + 3.8416)
+                    - 1.96 * SQRT(
+                        (
+                            SUM(CASE
+                                WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
+                                WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
+                                ELSE 0
+                            END)::numeric
+                            * (COUNT(*) - SUM(CASE
+                                WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
+                                WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
+                                ELSE 0
+                            END)::numeric)
+                            / NULLIF(COUNT(*), 0)
+                            + 0.9604
+                        )
+                        / (COUNT(*) + 3.8416)
+                    )
+                ) * 100, 2
+            ) AS accuracy_lower_bound,
             MAX(timestamp) AS last_seen
         FROM intelligence
         WHERE status = 'COMPLETED'
@@ -301,8 +472,8 @@ async def get_web_sources_dashboard(
           AND ABS(sentiment_score) > 0.2
           AND timestamp >= NOW() - (:days::text || ' days')::interval
         GROUP BY source_name
-        HAVING COUNT(*) >= 3
-        ORDER BY accuracy_pct DESC NULLS LAST, total_signals DESC
+        HAVING COUNT(*) >= 20
+        ORDER BY accuracy_lower_bound DESC NULLS LAST, total_signals DESC
         LIMIT :limit
     """)
     leaderboard_rows = db.exec(leaderboard_sql, {"days": safe_days, "limit": safe_limit}).all()
