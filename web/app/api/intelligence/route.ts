@@ -25,32 +25,36 @@ export async function GET(request: Request) {
     let query: string;
     let params: any[];
 
+    const baseConfidenceExpr = `
+      (
+        35.0
+        + 40.0 * LEAST(1.0, GREATEST(0.0, (COALESCE(corroboration_count, 1) - 1)::float / 4.0))
+        + 20.0 * LEAST(1.0, GREATEST(0.0, COALESCE(source_credibility_score, 0.5)))
+        + 5.0 * (LEAST(10.0, GREATEST(1.0, COALESCE(urgency_score, 5))) / 10.0)
+      )
+    `;
+    const timeDecayExpr = `
+      CASE
+        WHEN EXTRACT(EPOCH FROM (NOW() - COALESCE(timestamp, NOW()))) / 3600.0 <= 6 THEN 1.00
+        WHEN EXTRACT(EPOCH FROM (NOW() - COALESCE(timestamp, NOW()))) / 3600.0 <= 24 THEN 0.94
+        WHEN EXTRACT(EPOCH FROM (NOW() - COALESCE(timestamp, NOW()))) / 3600.0 <= 72 THEN 0.86
+        WHEN EXTRACT(EPOCH FROM (NOW() - COALESCE(timestamp, NOW()))) / 3600.0 <= 168 THEN 0.76
+        ELSE 0.66
+      END
+    `;
     const confidenceExpr = `
       LEAST(
         100.0,
         GREATEST(
           0.0,
-          35.0
-          + 40.0 * LEAST(1.0, GREATEST(0.0, (COALESCE(corroboration_count, 1) - 1)::float / 4.0))
-          + 20.0 * LEAST(1.0, GREATEST(0.0, COALESCE(source_credibility_score, 0.5)))
-          + 5.0 * (LEAST(10.0, GREATEST(1.0, COALESCE(urgency_score, 5))) / 10.0)
+          (${baseConfidenceExpr}) * (${timeDecayExpr})
         )
       ) AS confidence_score
     `;
     const confidenceLevelExpr = `
       CASE
-        WHEN (
-          35.0
-          + 40.0 * LEAST(1.0, GREATEST(0.0, (COALESCE(corroboration_count, 1) - 1)::float / 4.0))
-          + 20.0 * LEAST(1.0, GREATEST(0.0, COALESCE(source_credibility_score, 0.5)))
-          + 5.0 * (LEAST(10.0, GREATEST(1.0, COALESCE(urgency_score, 5))) / 10.0)
-        ) >= 75 THEN 'HIGH'
-        WHEN (
-          35.0
-          + 40.0 * LEAST(1.0, GREATEST(0.0, (COALESCE(corroboration_count, 1) - 1)::float / 4.0))
-          + 20.0 * LEAST(1.0, GREATEST(0.0, COALESCE(source_credibility_score, 0.5)))
-          + 5.0 * (LEAST(10.0, GREATEST(1.0, COALESCE(urgency_score, 5))) / 10.0)
-        ) >= 55 THEN 'MEDIUM'
+        WHEN ((${baseConfidenceExpr}) * (${timeDecayExpr})) >= 75 THEN 'HIGH'
+        WHEN ((${baseConfidenceExpr}) * (${timeDecayExpr})) >= 55 THEN 'MEDIUM'
         ELSE 'LOW'
       END AS confidence_level
     `;

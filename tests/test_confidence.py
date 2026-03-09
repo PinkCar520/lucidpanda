@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from src.alphasignal.utils.confidence import calc_confidence_score, calc_confidence_level
 
 
@@ -16,3 +17,20 @@ def test_confidence_level_mapping():
     assert calc_confidence_level(80) == "HIGH"
     assert calc_confidence_level(60) == "MEDIUM"
     assert calc_confidence_level(40) == "LOW"
+
+
+def test_confidence_time_decay():
+    now = datetime.now(timezone.utc)
+    fresh = calc_confidence_score(
+        corroboration_count=3,
+        source_credibility_score=0.7,
+        urgency_score=7,
+        timestamp=now,
+    )
+    old = calc_confidence_score(
+        corroboration_count=3,
+        source_credibility_score=0.7,
+        urgency_score=7,
+        timestamp=now - timedelta(days=10),
+    )
+    assert fresh > old

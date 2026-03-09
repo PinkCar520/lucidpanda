@@ -257,6 +257,7 @@ struct FundDashboardView: View {
                 .padding(.horizontal, 16)
             }
             .frame(height: 56)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -264,9 +265,24 @@ struct FundDashboardView: View {
     private var filterChipsHeader: some View {
         if !displayGroups.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                filterChips
-                    .padding(.top, 4)
-                    .padding(.bottom, 12)
+                HStack(spacing: 4) {
+                    filterChips
+
+                    Button {
+                        groupManagerMode = .filter
+                        showGroupManager = true
+                    } label: {
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 36, height: 36)
+                            .glassEffect(.regular, in: .circle)
+                    }
+                    .padding(.trailing, 16)
+                    .accessibilityLabel(Text(LocalizedStringKey("funds.group.manage_title")))
+                }
+                .padding(.top, 4)
+                .padding(.bottom, 12)
                 
                 Divider()
                     .opacity(0.4)
@@ -399,6 +415,8 @@ struct GroupManagerView: View {
     let onMoveGroup: ((IndexSet, Int) -> Void)?
     
     @Environment(\.dismiss) var dismiss
+    @State private var pendingDeleteGroup: WatchlistGroup?
+    @State private var showDeleteConfirmation = false
     
     var body: some View {
         NavigationStack {
@@ -422,7 +440,8 @@ struct GroupManagerView: View {
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
-                                    onDeleteGroup(group.id)
+                                    pendingDeleteGroup = group
+                                    showDeleteConfirmation = true
                                 } label: {
                                     Label("funds.action.delete", systemImage: "trash")
                                 }
@@ -455,6 +474,19 @@ struct GroupManagerView: View {
             }
             .navigationTitle(mode == .filter ? Text(LocalizedStringKey("funds.group.manage_title")) : Text(LocalizedStringKey("funds.group.move_title")))
             .navigationBarTitleDisplayMode(.inline)
+            .alert(
+                Text(LocalizedStringKey("funds.action.delete")),
+                isPresented: $showDeleteConfirmation,
+                presenting: pendingDeleteGroup
+            ) { group in
+                Button("funds.action.cancel", role: .cancel) { }
+                Button("funds.action.delete", role: .destructive) {
+                    onDeleteGroup(group.id)
+                    pendingDeleteGroup = nil
+                }
+            } message: { group in
+                Text(group.name)
+            }
             .toolbar {
                 if mode == .filter {
                     ToolbarItem(placement: .topBarTrailing) {

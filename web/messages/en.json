@@ -41,6 +41,7 @@
       "terminal": "Terminal",
       "alphaFunds": "AlphaFunds",
       "backtest": "Backtest",
+      "sources": "Sources",
       "monitor": "Monitor"
     },
     "shell": {
@@ -609,6 +610,7 @@
     "funds": "AlphaFunds",
     "monitor": "Monitor",
     "backtest": "Backtest",
+    "sources": "Sources",
     "settings": "Settings",
     "account": "Account Overview",
     "profile": "Profile Info",
@@ -637,5 +639,24 @@
     "navigateHint": "Navigate",
     "selectHint": "Select",
     "shellVersion": "Shell Version"
+  },
+  "SourceMonitor": {
+    "title": "Source Credibility Dashboard",
+    "subtitle": "Cross-source accuracy and stability monitor for intelligence providers.",
+    "loading": "Loading source dashboard...",
+    "loadFailed": "Failed to load source dashboard data.",
+    "windowDays": "{days}d window",
+    "activeSources": "Active Sources",
+    "totalSignals": "Evaluated Signals",
+    "overallAccuracy": "Overall Accuracy",
+    "leaderboardTitle": "Source Leaderboard",
+    "source": "Source",
+    "signals": "Signals",
+    "hits": "Hits",
+    "accuracy": "Accuracy",
+    "lastSeen": "Last Seen",
+    "trendTitle": "7-Day Accuracy Trend (Top Sources)",
+    "noTrendData": "No trend data",
+    "footnote": "Accuracy is computed with sentiment direction vs 1h realized gold move."
   }
 }

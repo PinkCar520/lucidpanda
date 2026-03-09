@@ -89,7 +89,8 @@ async def get_mobile_intelligence(
         confidence_score = calc_confidence_score(
             item.corroboration_count,
             getattr(item, "source_credibility_score", None),
-            item.urgency_score
+            item.urgency_score,
+            item.timestamp,
         )
 
         mobile_items.append(

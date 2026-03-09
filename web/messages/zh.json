@@ -41,6 +41,7 @@
             "terminal": "智能终端",
             "alphaFunds": "Alpha 基金",
             "backtest": "策略回测",
+            "sources": "信源监控",
             "monitor": "对账监控"
         },
         "shell": {
@@ -627,6 +628,7 @@
         "funds": "Alpha 基金",
         "monitor": "对账监控",
         "backtest": "策略回测",
+        "sources": "信源监控",
         "settings": "设置",
         "account": "账户总览",
         "profile": "个人资料",
@@ -637,5 +639,24 @@
         "register": "注册",
         "forgot-password": "找回密码",
         "reset-password": "重置密码"
+    },
+    "SourceMonitor": {
+        "title": "信源可信度看板",
+        "subtitle": "监控各情报信源的命中率、样本量与稳定性表现。",
+        "loading": "正在加载信源监控数据...",
+        "loadFailed": "信源监控数据加载失败。",
+        "windowDays": "{days} 天窗口",
+        "activeSources": "活跃信源数",
+        "totalSignals": "有效样本数",
+        "overallAccuracy": "总体命中率",
+        "leaderboardTitle": "信源排行榜",
+        "source": "信源",
+        "signals": "样本数",
+        "hits": "命中数",
+        "accuracy": "命中率",
+        "lastSeen": "最近活跃",
+        "trendTitle": "近 7 日命中率趋势（Top 信源）",
+        "noTrendData": "暂无趋势数据",
+        "footnote": "命中率定义：情绪方向与 1 小时后黄金实际方向一致。"
     }
 }

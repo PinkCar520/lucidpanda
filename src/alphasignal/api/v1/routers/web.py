@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
 from sqlmodel import Session, select, text
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 from src.alphasignal.infra.database.connection import get_session
 from src.alphasignal.models.fund import FundMetadata, FundValuationArchive
 from src.alphasignal.models.intelligence import Intelligence
@@ -21,6 +22,7 @@ def _with_confidence(item: Intelligence) -> Dict[str, Any]:
         payload.get("corroboration_count"),
         payload.get("source_credibility_score"),
         payload.get("urgency_score"),
+        payload.get("timestamp"),
     )
     payload["confidence_score"] = confidence_score
     payload["confidence_level"] = calc_confidence_level(confidence_score)
@@ -194,6 +196,7 @@ async def get_web_fused_intelligence(
             payload.get("corroboration_count"),
             payload.get("source_credibility_score"),
             payload.get("urgency_score"),
+            payload.get("timestamp"),
         )
         payload["confidence_score"] = confidence_score
         payload["confidence_level"] = calc_confidence_level(confidence_score)
@@ -251,6 +254,128 @@ async def get_web_graph_path(
         "relation": relation,
         "event_cluster_id": event_cluster_id,
         "paths": result.get("paths", []),
+    })
+
+
+@router.get("/sources/dashboard", response_model=Dict[str, Any])
+async def get_web_sources_dashboard(
+    days: int = 14,
+    limit: int = 15,
+    db: Session = Depends(get_session)
+):
+    """
+    信源监控 Dashboard 数据：
+    - 榜单：各信源命中率/样本数/最近活跃时间
+    - 趋势：按天统计 top sources 命中率
+    - 概览：总信源数/总样本数/总体命中率
+    """
+    safe_days = max(3, min(90, int(days)))
+    safe_limit = max(5, min(50, int(limit)))
+
+    leaderboard_sql = text("""
+        SELECT
+            source_name,
+            COUNT(*) AS total_signals,
+            SUM(CASE
+                WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
+                WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
+                ELSE 0
+            END) AS hits,
+            ROUND(
+                (
+                    SUM(CASE
+                        WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
+                        WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
+                        ELSE 0
+                    END)::numeric
+                    / NULLIF(COUNT(*), 0)
+                ) * 100, 2
+            ) AS accuracy_pct,
+            MAX(timestamp) AS last_seen
+        FROM intelligence
+        WHERE status = 'COMPLETED'
+          AND source_name IS NOT NULL
+          AND sentiment_score IS NOT NULL
+          AND gold_price_snapshot IS NOT NULL
+          AND price_1h IS NOT NULL
+          AND ABS(sentiment_score) > 0.2
+          AND timestamp >= NOW() - (:days::text || ' days')::interval
+        GROUP BY source_name
+        HAVING COUNT(*) >= 3
+        ORDER BY accuracy_pct DESC NULLS LAST, total_signals DESC
+        LIMIT :limit
+    """)
+    leaderboard_rows = db.exec(leaderboard_sql, {"days": safe_days, "limit": safe_limit}).all()
+    leaderboard = [dict(row._mapping) for row in leaderboard_rows]
+    top_source_names = [row["source_name"] for row in leaderboard]
+
+    trend = []
+    if top_source_names:
+        trend_sql = text("""
+            SELECT
+                DATE_TRUNC('day', timestamp) AS day,
+                source_name,
+                COUNT(*) AS total_signals,
+                ROUND(
+                    (
+                        SUM(CASE
+                            WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
+                            WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
+                            ELSE 0
+                        END)::numeric
+                        / NULLIF(COUNT(*), 0)
+                    ) * 100, 2
+                ) AS accuracy_pct
+            FROM intelligence
+            WHERE status = 'COMPLETED'
+              AND source_name IS NOT NULL
+              AND sentiment_score IS NOT NULL
+              AND gold_price_snapshot IS NOT NULL
+              AND price_1h IS NOT NULL
+              AND ABS(sentiment_score) > 0.2
+              AND timestamp >= NOW() - (:days::text || ' days')::interval
+            GROUP BY DATE_TRUNC('day', timestamp), source_name
+            ORDER BY day ASC, source_name ASC
+        """)
+        trend_rows = db.exec(trend_sql, {"days": safe_days}).all()
+        top_name_set = set(top_source_names)
+        trend = [dict(row._mapping) for row in trend_rows if row._mapping.get("source_name") in top_name_set]
+
+    overview_sql = text("""
+        WITH scored AS (
+            SELECT
+                source_name,
+                CASE
+                    WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
+                    WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
+                    ELSE 0
+                END AS hit
+            FROM intelligence
+            WHERE status = 'COMPLETED'
+              AND source_name IS NOT NULL
+              AND sentiment_score IS NOT NULL
+              AND gold_price_snapshot IS NOT NULL
+              AND price_1h IS NOT NULL
+              AND ABS(sentiment_score) > 0.2
+              AND timestamp >= NOW() - (:days::text || ' days')::interval
+        )
+        SELECT
+            COUNT(DISTINCT source_name) AS active_sources,
+            COUNT(*) AS total_signals,
+            ROUND(AVG(hit)::numeric * 100, 2) AS overall_accuracy_pct
+        FROM scored
+    """)
+    overview_row = db.exec(overview_sql, {"days": safe_days}).first()
+    overview = dict(overview_row._mapping) if overview_row else {
+        "active_sources": 0, "total_signals": 0, "overall_accuracy_pct": None
+    }
+
+    return v1_prepare_json({
+        "window_days": safe_days,
+        "leaderboard": leaderboard,
+        "trend": trend,
+        "overview": overview,
+        "generated_at": datetime.utcnow(),
     })
 
 @router.get("/intelligence/{item_id}", response_model=Dict[str, Any])

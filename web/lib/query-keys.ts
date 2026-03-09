@@ -34,3 +34,9 @@ export const backtestKeys = {
   results: () => [...backtestKeys.all, 'results'] as const,
   result: (params: any) => [...backtestKeys.results(), { params }] as const,
 };
+
+export const sourceMonitorKeys = {
+  all: ['source-monitor'] as const,
+  dashboards: () => [...sourceMonitorKeys.all, 'dashboard'] as const,
+  dashboard: (days: number, limit: number) => [...sourceMonitorKeys.dashboards(), { days, limit }] as const,
+};

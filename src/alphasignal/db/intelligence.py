@@ -701,7 +701,7 @@ class IntelligenceRepo(DBBase):
 
     def _get_intelligence_context(self, cursor, source_id: str) -> dict | None:
         cursor.execute("""
-            SELECT id, source_id, event_cluster_id, urgency_score, source_credibility_score
+            SELECT id, source_id, event_cluster_id, urgency_score, source_credibility_score, timestamp
             FROM intelligence
             WHERE source_id = %s
             LIMIT 1
@@ -715,6 +715,7 @@ class IntelligenceRepo(DBBase):
             "event_cluster_id": row[2],
             "urgency_score": row[3],
             "source_credibility_score": row[4],
+            "timestamp": row[5],
         }
 
     def _upsert_cross_asset_edges(
@@ -737,6 +738,7 @@ class IntelligenceRepo(DBBase):
             corroboration_count=1,
             source_credibility_score=context.get("source_credibility_score"),
             urgency_score=context.get("urgency_score"),
+            timestamp=context.get("timestamp"),
         )
         base_strength = 0.55
         signal = float(sentiment_score or 0.0)
@@ -815,6 +817,7 @@ class IntelligenceRepo(DBBase):
                 corroboration_count=1,
                 source_credibility_score=context.get("source_credibility_score"),
                 urgency_score=context.get("urgency_score"),
+                timestamp=context.get("timestamp"),
             )
             sentiment_score = analysis_result.get("sentiment_score")
 
@@ -1223,7 +1226,7 @@ class IntelligenceRepo(DBBase):
             conn = self._get_conn()
             cursor = conn.cursor(cursor_factory=DictCursor)
             cursor.execute("""
-                SELECT id, event_cluster_id, urgency_score, source_credibility_score
+                SELECT id, event_cluster_id, urgency_score, source_credibility_score, timestamp
                 FROM intelligence
                 WHERE source_id = %s
                 LIMIT 1
@@ -1237,10 +1240,12 @@ class IntelligenceRepo(DBBase):
             cluster_id = row["event_cluster_id"] or f"single:{source_id}"
             urgency_score = row["urgency_score"]
             source_credibility_score = row["source_credibility_score"]
+            intel_timestamp = row["timestamp"]
             edge_confidence = calc_confidence_score(
                 corroboration_count=1,
                 source_credibility_score=source_credibility_score,
-                urgency_score=urgency_score
+                urgency_score=urgency_score,
+                timestamp=intel_timestamp,
             )
 
             node_map: dict[tuple[str, str], int] = {}

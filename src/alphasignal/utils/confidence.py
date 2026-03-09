@@ -1,10 +1,12 @@
 from typing import Any
+from datetime import datetime, timezone
 
 
 def calc_confidence_score(
     corroboration_count: Any,
     source_credibility_score: Any = None,
-    urgency_score: Any = None
+    urgency_score: Any = None,
+    timestamp: Any = None,
 ) -> float:
     """
     计算统一置信度分值（0~100）。
@@ -13,6 +15,7 @@ def calc_confidence_score(
       - 历史信源可信度（20%）
       - 事件紧急度（5%）
       - 基础分（35%）
+      - 时间衰减（乘法）
     """
     try:
         count = int(corroboration_count or 1)
@@ -33,14 +36,46 @@ def calc_confidence_score(
     urgency = max(1.0, min(10.0, urgency))
 
     corroboration_norm = min(1.0, (count - 1) / 4.0)
+    time_decay = _confidence_time_decay(timestamp)
 
     score = (
         35.0
         + 40.0 * corroboration_norm
         + 20.0 * source_score
         + 5.0 * (urgency / 10.0)
-    )
+    ) * time_decay
     return round(max(0.0, min(100.0, score)), 1)
+
+
+def _confidence_time_decay(timestamp: Any) -> float:
+    """
+    confidence 的跨时间衰减：
+      <=6h   : 1.00
+      <=24h  : 0.94
+      <=72h  : 0.86
+      <=7d   : 0.76
+      >7d    : 0.66
+    """
+    if not timestamp:
+        return 1.0
+    try:
+        ts = timestamp
+        if isinstance(ts, str):
+            ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        age_hours = (datetime.now(timezone.utc) - ts.astimezone(timezone.utc)).total_seconds() / 3600.0
+        if age_hours <= 6:
+            return 1.0
+        if age_hours <= 24:
+            return 0.94
+        if age_hours <= 72:
+            return 0.86
+        if age_hours <= 24 * 7:
+            return 0.76
+        return 0.66
+    except Exception:
+        return 1.0
 
 
 def calc_confidence_level(score: Any) -> str:
