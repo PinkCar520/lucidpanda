@@ -1,5 +1,4 @@
 import json
-import os
 from google import genai
 from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
@@ -9,28 +8,10 @@ from src.alphasignal.providers.llm.base import BaseLLM
 CONTENT_MAX_CHARS   = 800   # 单条分析最多输入字符数
 BATCH_CONTENT_CHARS = 400   # 批量分析每条最多输入字符数
 
+# NOTE：代理配置
+# google-genai SDK 底层使用 httpx，httpx 自动读取系统环境变量 HTTPS_PROXY / HTTP_PROXY。
+# 在 docker exec 时通过 -e HTTPS_PROXY=http://singbox:7890 注入即可，无需代码层面手动配置。
 
-def _build_gemini_client() -> genai.Client:
-    """
-    构建 Gemini Client。
-    若环境变量 HTTPS_PROXY 或 HTTP_PROXY 存在，自动传入代理，
-    解决国内服务器无法直连 Gemini API 的问题。
-    google-genai SDK 的 HttpOptions 通过 proxy_url 字符串字段配置代理。
-    """
-    proxy_url = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") \
-                or os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
-    if proxy_url:
-        try:
-            from google.genai import types as genai_types
-            http_options = genai_types.HttpOptions(proxy_url=proxy_url)
-            logger.debug(f"GeminiLLM: 使用代理 {proxy_url}")
-            return genai.Client(
-                api_key=settings.GEMINI_API_KEY,
-                http_options=http_options,
-            )
-        except Exception as e:
-            logger.warning(f"GeminiLLM: 代理初始化失败，回退到直连模式: {e}")
-    return genai.Client(api_key=settings.GEMINI_API_KEY)
 
 
 class GeminiLLM(BaseLLM):
@@ -41,7 +22,7 @@ class GeminiLLM(BaseLLM):
 
     def analyze(self, raw_data):
         try:
-            client = _build_gemini_client()
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
             config = {
                 "temperature": 0.2,
