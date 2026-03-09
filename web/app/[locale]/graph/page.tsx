@@ -623,7 +623,7 @@ export default function GraphPage() {
               <Badge variant="outline">{t('edges')}: {eventGraph.edges?.length || 0}</Badge>
               <Badge variant="outline">{t('inferences')}: {eventGraph.inferences?.length || 0}</Badge>
               <Badge variant="outline">{t('evidence')}: {eventGraph.evidence?.length || 0}</Badge>
-              <Button size="sm" variant={showEdgeLabels ? 'default' : 'outline'} onClick={() => setShowEdgeLabels((prev) => !prev)}>
+              <Button size="sm" variant={showEdgeLabels ? 'primary' : 'outline'} onClick={() => setShowEdgeLabels((prev) => !prev)}>
                 {showEdgeLabels ? t('hideEdgeLabels') : t('showEdgeLabels')}
               </Button>
               {!!eventGraph.evidence?.length && (
