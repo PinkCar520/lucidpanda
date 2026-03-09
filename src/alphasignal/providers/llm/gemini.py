@@ -1,4 +1,5 @@
 import json
+import os
 from google import genai
 from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
@@ -9,6 +10,29 @@ CONTENT_MAX_CHARS   = 800   # 单条分析最多输入字符数
 BATCH_CONTENT_CHARS = 400   # 批量分析每条最多输入字符数
 
 
+def _build_gemini_client() -> genai.Client:
+    """
+    构建 Gemini Client。
+    若环境变量 HTTPS_PROXY 或 HTTP_PROXY 存在，自动通过 httpx 传入代理，
+    解决国内服务器无法直连 Gemini API 的问题。
+    """
+    proxy_url = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") \
+                or os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
+    if proxy_url:
+        try:
+            import httpx
+            transport = httpx.HTTPTransport(proxy=proxy_url)
+            http_client = httpx.Client(transport=transport)
+            logger.debug(f"GeminiLLM: 使用代理 {proxy_url}")
+            return genai.Client(
+                api_key=settings.GEMINI_API_KEY,
+                http_options={"client": http_client},
+            )
+        except Exception as e:
+            logger.warning(f"GeminiLLM: 代理初始化失败，回退到直连模式: {e}")
+    return genai.Client(api_key=settings.GEMINI_API_KEY)
+
+
 class GeminiLLM(BaseLLM):
     async def analyze_async(self, raw_data):
         """异步版本的分析方法"""
@@ -17,27 +41,28 @@ class GeminiLLM(BaseLLM):
 
     def analyze(self, raw_data):
         try:
-            client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            
+            client = _build_gemini_client()
+
             config = {
                 "temperature": 0.2,
                 "response_mime_type": "application/json",
             }
-            
+
             prompt = self._get_prompt(raw_data)
-            
+
             response = client.models.generate_content(
                 model=settings.GEMINI_MODEL,
                 contents=prompt,
                 config=config
             )
-            
+
             clean_text = response.text.replace("```json", "").replace("```", "").strip()
             res = json.loads(clean_text)
             logger.debug(f"🤖 AI Raw Analysis (Single): {json.dumps(res, ensure_ascii=False)[:200]}...")
             return res
-            
+
         except Exception as e:
+
             logger.error(f"Gemini 分析失败: {e}")
             raise e
 
