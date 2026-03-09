@@ -3,50 +3,58 @@
 
 BEGIN;
 
--- 步骤 1：对每个 normalized_name，找出「主节点」（非 unknown type 中 edge_count 最多的那个）
--- 步骤 2：把所有 unknown 类型节点的边重新指向主节点
--- 步骤 3：删除现在没有边的 unknown 节点
+-- 步骤 1：创建映射表，记录 bad_node_id -> good_node_id
+CREATE TEMP TABLE node_mapping AS
+SELECT 
+    bad.node_id AS bad_id, 
+    good.node_id AS good_id
+FROM entity_nodes bad
+JOIN entity_nodes good 
+    ON good.normalized_name = bad.normalized_name 
+    AND good.entity_type != 'unknown'
+WHERE bad.entity_type = 'unknown';
+
+-- 步骤 2：处理 from_node_id 冲突
+-- 删除那些如果更新后会与现有边重复的“坏边”
+DELETE FROM entity_edges e
+USING node_mapping m, entity_edges existing
+WHERE e.from_node_id = m.bad_id
+  AND existing.from_node_id = m.good_id
+  AND existing.to_node_id = e.to_node_id
+  AND existing.relation = e.relation
+  AND existing.event_cluster_id = e.event_cluster_id
+  AND existing.evidence_source_id = e.evidence_source_id;
 
 -- 1a) 迁移 entity_edges 的 from_node_id
 UPDATE entity_edges e
-SET from_node_id = canonical.node_id
-FROM (
-    SELECT
-        bad.node_id AS bad_node_id,
-        good.node_id
-    FROM entity_nodes bad
-    JOIN entity_nodes good
-        ON good.normalized_name = bad.normalized_name
-        AND good.entity_type != 'unknown'
-    WHERE bad.entity_type = 'unknown'
-) canonical
-WHERE e.from_node_id = canonical.bad_node_id;
+SET from_node_id = m.good_id
+FROM node_mapping m
+WHERE e.from_node_id = m.bad_id;
+
+-- 步骤 3：处理 to_node_id 冲突
+-- 同理，删除更新后会重复的边
+DELETE FROM entity_edges e
+USING node_mapping m, entity_edges existing
+WHERE e.to_node_id = m.bad_id
+  AND existing.to_node_id = m.good_id
+  AND existing.from_node_id = e.from_node_id
+  AND existing.relation = e.relation
+  AND existing.event_cluster_id = e.event_cluster_id
+  AND existing.evidence_source_id = e.evidence_source_id;
 
 -- 1b) 迁移 entity_edges 的 to_node_id
 UPDATE entity_edges e
-SET to_node_id = canonical.node_id
-FROM (
-    SELECT
-        bad.node_id AS bad_node_id,
-        good.node_id
-    FROM entity_nodes bad
-    JOIN entity_nodes good
-        ON good.normalized_name = bad.normalized_name
-        AND good.entity_type != 'unknown'
-    WHERE bad.entity_type = 'unknown'
-) canonical
-WHERE e.to_node_id = canonical.bad_node_id;
+SET to_node_id = m.good_id
+FROM node_mapping m
+WHERE e.to_node_id = m.bad_id;
 
--- 2) 删除已无边的 unknown 节点（有主节点覆盖的）
+-- 2) 删除已无边的 unknown 节点
 DELETE FROM entity_nodes
-WHERE entity_type = 'unknown'
-  AND normalized_name IN (
-      SELECT normalized_name FROM entity_nodes WHERE entity_type != 'unknown'
-  )
+WHERE node_id IN (SELECT bad_id FROM node_mapping)
   AND node_id NOT IN (
-      SELECT DISTINCT from_node_id FROM entity_edges
+      SELECT from_node_id FROM entity_edges
       UNION
-      SELECT DISTINCT to_node_id FROM entity_edges
+      SELECT to_node_id FROM entity_edges
   );
 
 COMMIT;
