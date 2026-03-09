@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { authenticatedFetch } from '@/lib/api-client';
+import { Link } from '@/i18n/navigation';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -275,12 +276,15 @@ export default function GraphPage() {
     );
   }, [paths, selectedPathIndex]);
 
-  const filteredEvidence = useMemo(() => {
+  const evidenceWithTrace = useMemo(() => {
     const allEvidence = eventGraph?.evidence || [];
     if (selectedPathIndex == null || !paths?.paths?.[selectedPathIndex]) {
-      return allEvidence;
+      return allEvidence.map((item) => ({ item, matchedEdges: [] as string[] }));
     }
     const activePath = paths.paths[selectedPathIndex];
+    const edgeLabel = (edge: GraphEdge) =>
+      `${edge.from_entity || '-'} → ${edge.to_entity || '-'} (${edge.relation || '-'})`;
+
     const linkedIntelligenceIds = new Set<number>(
       (activePath.edges || [])
         .map((edge) => Number(edge.intelligence_id))
@@ -293,29 +297,52 @@ export default function GraphPage() {
     );
 
     if (linkedIntelligenceIds.size || linkedSourceIds.size) {
-      const directMatched = allEvidence.filter((item) => {
+      const directMatched = allEvidence.map((item) => {
         const itemId = Number(item.id);
         const sourceId = String(item.source_id || '').trim();
-        return (Number.isFinite(itemId) && linkedIntelligenceIds.has(itemId)) || (!!sourceId && linkedSourceIds.has(sourceId));
+        const matchedEdges = (activePath.edges || [])
+          .filter((edge) => {
+            const edgeId = Number(edge.intelligence_id);
+            const edgeSource = String(edge.evidence_source_id || '').trim();
+            return (Number.isFinite(itemId) && Number.isFinite(edgeId) && edgeId === itemId) || (!!sourceId && !!edgeSource && edgeSource === sourceId);
+          })
+          .map(edgeLabel);
+        return { item, matchedEdges };
       });
-      if (directMatched.length) {
-        return directMatched;
+      const directBound = directMatched.filter((entry) => entry.matchedEdges.length > 0);
+      if (directBound.length) {
+        return directBound;
       }
     }
 
-    const tokens = (activePath.edges || []).flatMap((edge) => [
-      String(edge.from_entity || '').toLowerCase(),
-      String(edge.to_entity || '').toLowerCase(),
-      String(edge.relation || '').toLowerCase(),
-    ]).filter(Boolean);
-    if (!tokens.length) return allEvidence;
-
-    const matched = allEvidence.filter((item) => {
-      const haystack = `${item.title || ''} ${item.summary || ''}`.toLowerCase();
-      return tokens.some((token) => haystack.includes(token));
+    const tokenMatched = allEvidence.map((item) => {
+      const summaryText = typeof item.summary === 'string'
+        ? item.summary
+        : `${item.summary?.zh || ''} ${item.summary?.en || ''}`;
+      const haystack = `${item.title || ''} ${summaryText}`.toLowerCase();
+      const matchedEdges = (activePath.edges || [])
+        .filter((edge) => {
+          const terms = [
+            String(edge.from_entity || '').toLowerCase(),
+            String(edge.to_entity || '').toLowerCase(),
+            String(edge.relation || '').toLowerCase(),
+          ].filter(Boolean);
+          return terms.some((token) => haystack.includes(token));
+        })
+        .map(edgeLabel);
+      return { item, matchedEdges };
     });
-    return matched.length ? matched : allEvidence;
+    const tokenBound = tokenMatched.filter((entry) => entry.matchedEdges.length > 0);
+    if (tokenBound.length) {
+      return tokenBound;
+    }
+
+    return allEvidence.map((item) => ({ item, matchedEdges: [] as string[] }));
   }, [eventGraph, paths, selectedPathIndex]);
+
+  const filteredEvidence = useMemo(() => evidenceWithTrace.map((entry) => entry.item), [evidenceWithTrace]);
+
+  const evidenceTraceFor = (index: number): string[] => evidenceWithTrace[index]?.matchedEdges || [];
 
   return (
     <div className="flex flex-col p-4 md:p-6 lg:p-8 gap-6 min-h-screen">
@@ -443,7 +470,7 @@ export default function GraphPage() {
             <div className="flex items-center gap-2 w-full md:w-auto">
               <Input value={fromEntity} onChange={(e) => setFromEntity(e.target.value)} placeholder={t('from')} className="w-32" />
               <Input value={toEntity} onChange={(e) => setToEntity(e.target.value)} placeholder={t('to')} className="w-32" />
-              <Button size="sm" onClick={loadGraphPath} disabled={loading || !fromEntity.trim() || !toEntity.trim()}>
+              <Button size="sm" onClick={() => { void loadGraphPath(); }} disabled={loading || !fromEntity.trim() || !toEntity.trim()}>
                 {t('query')}
               </Button>
             </div>
@@ -501,6 +528,19 @@ export default function GraphPage() {
                   <span>·</span>
                   <span>{item.timestamp ? new Date(item.timestamp).toLocaleString() : '--'}</span>
                 </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {item.id != null && <Badge variant="outline">intel_id: {item.id}</Badge>}
+                  {item.source_id && <Badge variant="outline">source_id: {item.source_id}</Badge>}
+                </div>
+                {evidenceTraceFor(index).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {evidenceTraceFor(index).slice(0, 3).map((trace, traceIdx) => (
+                      <Badge key={`trace-${index}-${traceIdx}`} variant="neutral">
+                        {t('matchedEdge')}: {trace}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
                 {item.source_url && (
                   <a
                     href={item.source_url}
@@ -511,6 +551,17 @@ export default function GraphPage() {
                     {t('openSource')}
                     <ExternalLink className="w-3 h-3" />
                   </a>
+                )}
+                {item.id != null && (
+                  <div className="mt-2">
+                    <Link
+                      href={`/intelligence/${item.id}`}
+                      className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
+                    >
+                      {t('openIntelligence')}
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+                  </div>
                 )}
               </div>
             ))}

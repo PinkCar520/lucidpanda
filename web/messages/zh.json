@@ -697,7 +697,9 @@
         "evidenceTitle": "证据新闻抽屉",
         "evidenceSubtitle": "用于解释当前事件图谱边的原始新闻证据。",
         "evidenceFilteredHint": "当前证据按已选路径关键词过滤展示。",
+        "matchedEdge": "命中边",
         "openSource": "打开原文",
+        "openIntelligence": "打开情报详情",
         "emptyEvidence": "当前事件暂无可展示的证据新闻。"
     }
 }

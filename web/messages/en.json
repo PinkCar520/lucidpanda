@@ -697,7 +697,9 @@
     "evidenceTitle": "Evidence News Drawer",
     "evidenceSubtitle": "Raw news evidence used to explain current graph relations.",
     "evidenceFilteredHint": "Evidence is filtered by selected path keywords.",
+    "matchedEdge": "Matched edge",
     "openSource": "Open source",
+    "openIntelligence": "Open intelligence detail",
     "emptyEvidence": "No evidence news available for this event."
   }
 }
