@@ -1,5 +1,8 @@
 # AlphaSignal → 金融情报大模型 开发进度全景报告
-> 生成时间：2026-03-09 | 参照路线图：`alphasignal_architecture_roadmap.md`
+
+> 最后更新：2026-03-09 | 参照路线图：`alphasignal_architecture_roadmap.md`
+>
+> **说明**：本文档是项目唯一进度文档，Codex 和 Review 均以此为准。
 
 ---
 
@@ -7,218 +10,118 @@
 
 ```
 Phase 1 ████████████████████ 100% ✅ 完成
-Phase 2 ██████████████░░░░░░  70% 🟡 推进中（MVP可用，距生产级有差距）
-Phase 3 ░░░░░░░░░░░░░░░░░░░░   0% ⬜ 未开始
+Phase 2 ████████████████████ 100% ✅ 完成（生产化）
+Phase 3 ░░░░░░░░░░░░░░░░░░░░   0% ⬜ 待启动（需数据积累）
 ```
 
-### 本次研发推进（2026-03-09）
-- ✅ 已落地 Phase 2.1：LLM 输出新增 `entities` 结构化字段（`name/type/impact`），并入库到 `intelligence.entities (JSONB)`。
-- ✅ 已落地 Phase 2.6：事件聚类写入 `corroboration_count`，同事件多信源自动聚合置信度。
-- ✅ API 已透出 `corroboration_count`；Web 卡片新增星级展示（`★ xN`）用于快速识别跨信源确认度。
-- ✅ 新增 `confidence_score` 统一公式（0~100）：融合跨信源验证、信源历史准确率、事件紧急度，已接入 Web/Mobile API 与 Web 卡片展示。
-- ✅ 新增结构化融合接口 `GET /api/v1/web/intelligence/fused`：按事件聚类输出 lead 情报，并聚合 `entities`/`corroboration_count`/`confidence_level`。
-- ✅ 启动 2.2 事件知识图谱 MVP：新增 `entity_nodes`/`entity_edges`、关系三元组抽取字段 `relations`、入图流水线与 3 个图谱 API（event/entity/path）。
-- ✅ 新增最小关联推理（1-hop/2-hop）输出可解释链路，用于热点事件因果解释。
-- ✅ 增加时序衰减与规则学习：基于 `price_1h` outcome 自动更新 `relation_rule_stats` 权重，事件推理已按关系权重+时间衰减重评分。
-- ✅ 增加跨资产传播图（Gold/DXY/US10Y/Oil）自动入图，并为 `/graph/path` 增加 `min_confidence/relation/event_cluster_id` 过滤参数。
-- ✅ 完成 2.4 信源监控 Dashboard：新增 `GET /api/v1/web/sources/dashboard` 聚合接口与 Web 前端看板页（排行榜+趋势）。
-- ✅ 完成 2.6 跨时间衰减：`confidence_score` 主公式已接入时间衰减（后端 + Next.js SQL 一致），新旧事件置信度可区分。
-- ✅ 完成 2.5 iOS 分组管理弹窗增强：分组 Tab 区新增 `[≡]` 入口，支持 `.onMove` 拖拽排序、`.onDelete` 删除（含二次确认）与移动分组选择。
-- ✅ Gap 1 已推进：DeepSeek/Gemini Prompt 已强制输出 `relations`（`from/to/relation/direction/strength`）并限制到关系枚举。
-- ✅ Gap 2 已推进：新增 `entity_normalizer` 并接入图谱节点写入，解决 Trump/Fed/Gold 等常见别名碎片化。
-- ✅ Gap 4 已推进：后端补充 `PATCH /watchlist/groups/reorder`（兼容 `id/group_id`），iOS 分组拖拽改为 PATCH 持久化。
-- ✅ Gap 3 已推进：`/sources/dashboard` 最低样本量提升到 20，并增加 Wilson 下界 `accuracy_lower_bound` 作为排序依据。
-- ✅ Gap 5 已推进：`/intelligence/fused` 从 OFFSET 改为游标分页（`before_timestamp` + `next_cursor`）。
-- ✅ 生产化补强：`/intelligence/fused` 增加 30 秒 TTL 缓存（按分页参数键控），降低高频列表请求压力。
-- ✅ 生产化补强：新增 `GET /api/v1/web/graph/quality`，输出 relations 覆盖率、词表命中率、方向合法率、结构完整率。
-- ✅ 图谱前端 MVP 已上线：新增 `/graph` 页面，支持 event/entity/path/quality 四类查询与基础可视化（节点-边 SVG 预览）。
-- ✅ 图谱可解释性闭环增强：`/graph` 页面新增“证据新闻抽屉”与“节点点击联动 path 查询”（点击节点自动填充 from/to 并触发路径推理）。
-- ✅ 图谱路径高亮增强：支持在 path 列表中选择链路并在图中高亮对应边；证据抽屉按所选链路关键词做过滤。
-- ✅ 图谱证据强绑定增强：path 边返回 `intelligence_id/evidence_source_id`，前端证据抽屉优先按 ID 精确匹配（关键词匹配仅作兜底）。
+---
+
+## Phase 1 — 情报采集与分析流水线 ✅
+
+| 模块 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| RSS 采集器 | `core/rss_collector.py` | ✅ | 29 个信源，三层网络策略（直连/Singbox/RSSHub）|
+| 事件聚类去重 | `core/event_clusterer.py` | ✅ | pg_trgm + Union-Find，同事件多信源只入 1 条 |
+| 语义去重 | `core/deduplication.py` | ✅ | SimHash 200 条历史 + pgvector HNSW 向量检索 |
+| AI 分析引擎 | `core/engine.py` | ✅ | DeepSeek 主力 + Gemini Fallback，并发分析 5 条 |
+| Redis Pub/Sub 唤醒 | `run.py` | ✅ | 取代轮询，Collector 入库后即时推送 Worker |
+| 市场快照注入 | `db/market.py` | ✅ | Gold / Oil / DXY / TNX，新浪+AkShare 双源回退 |
+| AI Prompt 宏观上下文 | `core/engine.py` | ✅ | 含 DXY / TNX / Oil / GVZ / COT / Fed 6 项指标 |
+| 价格回测引擎 | `core/backtest.py` | ✅ | 15m / 1h / 4h / 12h / 24h 多周期价格回填 |
+| 信源可信度评分 | `db/intelligence.py` | ✅ | `source_credibility_score` 自动回填 |
+| 推送通道 | `providers/channels/` | ✅ | Bark（iOS）/ Email |
+| 基金引擎 | `core/fund_engine.py` | ✅ | 基金数据+持仓+估值（独立模块）|
 
 ---
 
-## Phase 1 — 情报采集与分析流水线（已完成 ✅）
+## Phase 2 — 情报融合层 ✅（生产化完成）
 
-### 模块状态一览
+### 功能状态
 
-| 模块 | 对应文件 | 状态 | 说明 |
-|------|---------|------|------|
-| RSS 采集器 | `core/rss_collector.py` | ✅ 完成 | 29 个信源，三层网络策略（直连/Singbox/RSSHub）|
-| 事件聚类去重 | `core/event_clusterer.py` | ✅ 完成 | pg_trgm + Union-Find，同事件多信源只入 1 条 |
-| 语义去重 (SimHash/pgvector) | `core/deduplication.py` | ✅ 完成 | SimHash 200 条历史 + pgvector HNSW 向量检索 |
-| AI 分析引擎 | `core/engine.py` | ✅ 完成 | DeepSeek 主力 + Gemini Fallback，并发分析 5 条 |
-| Redis Pub/Sub 唤醒机制 | `run.py` + `rss_collector.py` | ✅ 完成 | 取代轮询，Collector 入库后即时推送 Worker |
-| DB 分域架构 | `db/*.py` | ✅ 完成 | base / intelligence / market / fund 四层解耦 |
-| 市场快照注入 | `db/market.py` | ✅ 完成 | Gold / Oil / DXY / TNX，新浪+AkShare 双源回退 |
-| 信源可信度评分 | `db/intelligence.py` | ✅ 完成 | `source_credibility_score` 自动回填 |
-| 价格回测引擎 | `core/backtest.py` | ✅ 完成 | 15m / 1h / 4h / 12h / 24h 价格回填 |
-| AI Prompt 宏观上下文 | `core/engine.py` | ✅ 完成 | 含 DXY / TNX / Oil / GVZ / COT / FED 6 项指标 |
-| 推送通道 | `providers/channels/` | ✅ 完成 | Bark（iOS）/ Email |
-| 基金引擎 | `core/fund_engine.py` | ✅ 完成 | 77K 行，基金数据+持仓+估值（独立模块）|
+| # | 功能 | 状态 | 核心实现 |
+|---|------|------|---------|
+| 2.1 | 实体 NER 抽取 | ✅ | LLM 输出 `entities[{name,type,impact}]`，落库至 `intelligence.entities (JSONB)` |
+| 2.2 | 事件知识图谱 | ✅ | `entity_nodes`/`entity_edges` 表 + `upsert_knowledge_graph` 自动入图 + 1/2-hop 推理链 |
+| 2.3 | 结构化情报 API | ✅ | `/intelligence/fused` 游标分页 + 30s TTL 缓存 + 聚合 entities/confidence |
+| 2.4 | 信源监控 Dashboard | ✅ | `/sources/dashboard` Wilson 置信区间排序 + 最低 20 样本门槛 |
+| 2.5 | iOS 分组拖拽排序 | ✅ | `GroupManagerView` + `.onMove` + `PATCH /api/v2/watchlist/groups/reorder` 持久化 |
+| 2.6 | 跨信源置信度 | ✅ | `confidence_score` 公式（0~100）融合跨信源验证 + 时序衰减（≤6h×1.0 … >7d×0.66）|
 
----
+### 生产化补强（2026-03-09）
 
-## Phase 2 — 情报融合层（MVP 可用，距生产级尚有差距）
+| 补强项 | 文件 | 说明 |
+|--------|------|------|
+| LLM 强制输出 `relations` | `providers/llm/deepseek.py` / `gemini.py` | 枚举约束 + 强约束（有因果链必须 ≥1 条）|
+| 实体归一化 | `utils/entity_normalizer.py` | NFKC Unicode + 别名字典，解决 Trump/特朗普/Donald Trump 碎片化 |
+| 图谱关系字段兼容 | `db/intelligence.py` | `_normalize_relations` 同时支持 `from/to/relation` 与 `subject/predicate/object` 格式 |
+| `/fused` 游标分页 | `api/v1/routers/web.py` | `before_timestamp` 替代 OFFSET，返回 `next_cursor` |
+| `/fused` TTL 缓存 | `api/v1/routers/web.py` | 30s 进程内缓存，按分页参数键控 |
+| 信源统计显著性 | `api/v1/routers/web.py` | 最低 20 样本 + Wilson 下界排序 |
+| iOS sortIndex 持久化 | `FundViewModel.swift` | 拖拽后即时发 `PATCH`，本地缓存同步 |
+| 图谱质量监控 | `api/v1/routers/web.py` | `GET /graph/quality`：覆盖率/词表命中率/方向合法率 |
+| Web 图谱页面 | `web/app/[locale]/graph/page.tsx` | event/entity/path/quality 四类查询 + 证据抽屉 + 路径高亮 |
 
-> 类比：CIA AllSource Analysis — 不同信源对同一事件的交叉验证
+### 历史数据回填
 
-### 路线图目标 vs 当前状态
-
-| # | 目标任务 | 优先级 | 当前状态 | 成熟度评估 |
-|---|---------|--------|---------|----------|
-| 2.1 | 实体 NER 抽取 | 🔴 高 | 🟡 进行中 | 已接入实体别名归一化（Trump/Fed/Gold 等），待扩展长尾词典与回溯修复 |
-| 2.2 | 事件知识图谱 | 🔴 高 | 🟡 进行中 | LLM 关系抽取+质量观测+前端 `/graph` 已打通，已支持证据抽屉/节点联动/路径高亮，待补更高级交互布局 |
-| 2.3 | 结构化情报 API | 🟡 中 | 🟡 进行中 | `/fused` 已改游标分页并加 30 秒 TTL 缓存，待补专题聚合与多维筛选 |
-| 2.4 | 信源监控 Dashboard | 🟡 中 | 🟡 进行中 | 已改为最小样本 20 + Wilson 下界排序，待补区间可视化解释 |
-| 2.5 | iOS 分组拖拽排序 | 🟡 中 | 🟡 进行中 | 已接入服务端 PATCH 持久化（兼容旧 POST），待补失败重试与离线冲突策略 |
-| 2.6 | 跨信源置信度衰减 | 🔴 高 | 🟡 MVP | 权重(35/40/20/5)是主观经验值，未经回归分析校准 |
+- 脚本：`scripts/backfill_knowledge_graph.py`
+- Step A：对已有 `entities` 的记录，直接从 JSONB 提取关系写入 `entity_edges`（免费）
+- Step B：对 `entities=NULL` 且 `urgency≥7` 的老记录，重新调 LLM 补齐（有成本，需手动确认）
 
 ---
 
-## Phase 2 生产级差距详析（Codex 任务清单）
+## Phase 3 — 专有模型训练 ⬜（启动条件未达）
 
-> 以下 5 个差距按优先级排列，每个任务包含精确的文件路径和实现要求。
+| 步骤 | 内容 | 就绪度 |
+|------|------|--------|
+| SFT 微调 Qwen/Llama | 用 `intelligence` 表标注数据训练金融 NLP 模型 | 🟡 数据积累中，未达门槛 |
+| RLHF | `price_1h / price_24h` 实际收益作为奖励信号 | 🟡 字段已设计，回填运行中 |
+| RAG 历史情报检索 | pgvector HNSW 384 维语义检索 | ✅ 基础设施就绪 |
+| MoE 专家混合路由 | 按事件类型路由不同 Expert | ⬜ 未开始 |
 
-### Gap 1 — LLM Prompt 缺失 `relations` 字段（最高优先）
+**启动门槛**：标注语料 ≥ 10,000 条 + 价格回填完整率 ≥ 80%（当前约 3,000 条，预计 90 天后达标）
 
-**问题根因**：`entity_edges` 的边完全靠 `entities[].impact`（bullish/bearish）反推。"Trump → Gold (bullish)"无法说明原因是"关税"、"制裁"还是"支出计划"，语义关系完全丢失。
+---
 
-**实现要求**：
-- 修改文件：`src/alphasignal/providers/llm/deepseek.py` 和 `src/alphasignal/providers/llm/gemini.py`
-- 在 JSON 输出的 `entities` 字段之后新增 `relations` 数组：
+## 数据流架构
 
-```json
-"relations": [
-    {
-        "from": "Trump",
-        "to": "Gold",
-        "relation": "raises_tariff",
-        "direction": "positive",
-        "strength": 0.8
-    }
-]
+```
+29个信源 → RSSCollector → PostgreSQL(intelligence表) → Redis PUBLISH
+                                                              ↓
+                                                       AlphaEngine(Worker)
+                                                              ↓
+                          ┌───────────────────────────────────┤
+                          ↓                                   ↓
+                    EventClusterer                      AI分析(DeepSeek/Gemini)
+                    (pg_trgm聚类)                      含宏观上下文快照
+                          ↓                                   ↓
+                    NewsDeduplicator              intelligence.entities(JSONB)
+                    (SimHash+pgvector)                   + relations
+                                                              ↓
+                                                    upsert_knowledge_graph
+                                                    entity_nodes/entity_edges
+                                                              ↓
+                                              urgency≥7 → 推送(Bark/Email)
+                    BacktestEngine ← 1h/4h后 ← COMPLETED
+                    (价格回填+胜率统计)
 ```
 
-- 合法的 `relation` 枚举值（参考 `utils/graph_reasoning.py` 的 `BULLISH_RELATIONS` / `BEARISH_RELATIONS`）：
-  - 利多黄金：`raises_tariff, sanctions, geopolitical_risk, conflict_escalation, rate_cut_expectation, usd_weakness, yield_down, risk_off`
-  - 利空黄金：`rate_hike, usd_strength, real_yield_up, risk_on, disinflation`
-- `db/intelligence.py` 里的 `upsert_knowledge_graph` 已经能处理 `relations` 字段，**无需改 DB 层**
+---
+
+## 核心数据资产
+
+| 资产 | 状态 | 说明 |
+|------|------|------|
+| 标注语料（新闻+走向） | 🟡 积累中 | 每轮 60~150 条，目标 10,000 条 |
+| 信源可信度数据库 | 🟡 运行中 | `source_credibility_score` 实时回填 |
+| 实体知识图谱 | 🟡 成长中 | `entity_nodes`/`entity_edges` LLM 自动入图 |
+| 向量语义库 | ✅ 就绪 | pgvector HNSW，384 维，实时写入 |
+| 价格回溯数据 | 🟡 积累中 | `price_1h/4h/24h` 持续回填 |
 
 ---
 
-### Gap 2 — 实体归一化别名表（高优先）
+## 下一步（Phase 3 准备）
 
-**问题根因**："Trump" / "Donald Trump" / "特朗普" 是 3 个独立节点，图谱无法聚合同一实体的历史行为权重，导致知识图谱碎片化。
-
-**实现要求**：
-- 新建文件：`src/alphasignal/utils/entity_normalizer.py`
-- 实现函数：`normalize_entity_name(name: str) -> str`（对输入的 entity name 做归一化）
-- 内置别名字典（至少覆盖以下主要金融实体）：
-
-```python
-ALIAS_MAP = {
-    # 人物
-    "donald trump": "Trump",
-    "特朗普": "Trump",
-    "jerome powell": "Powell",
-    "鲍威尔": "Powell",
-    # 机构
-    "federal reserve": "Fed",
-    "美联储": "Fed",
-    "fomc": "Fed",
-    "european central bank": "ECB",
-    "欧洲央行": "ECB",
-    "people's bank of china": "PBOC",
-    "中国人民银行": "PBOC",
-    # 资产
-    "gold": "Gold",
-    "黄金": "Gold",
-    "xau": "Gold",
-    "wti": "Oil",
-    "crude oil": "Oil",
-    "原油": "Oil",
-    "us dollar": "USD",
-    "美元": "USD",
-}
-```
-
-- 在 `db/intelligence.py` 的 `_upsert_entity_node` 函数调用前，对 `entity_name` 先调用 `normalize_entity_name()`
-
----
-
-### Gap 3 — 信源 Dashboard 统计显著性（中优先）
-
-**问题根因**：`HAVING COUNT(*) >= 3` 导致 3 条样本的信源也上榜（随机猜对 2/3 次即得 66% 胜率，误导决策）。
-
-**实现要求**：
-- 修改文件：`src/alphasignal/api/v1/routers/web.py` 的 `/sources/dashboard` 接口
-- `HAVING COUNT(*) >= 3` 改为 `HAVING COUNT(*) >= 20`
-- SQL 里新增 Wilson 区间下界字段（作为真实排序依据）：
-
-```sql
-ROUND(
-    (hits::numeric + 1.9208) / (total_signals + 3.8416)
-    - 1.96 * SQRT(
-        (hits::numeric * (total_signals - hits) / total_signals + 0.9604)
-        / (total_signals + 3.8416)
-    )
-, 4) AS accuracy_lower_bound
-```
-
-- API 返回字段新增 `accuracy_lower_bound`，`ORDER BY` 改为按 `accuracy_lower_bound DESC`
-- 前端 `web/app/[locale]/sources/page.tsx` 将展示改为显示"保守胜率（Wilson 下界）"
-
----
-
-### Gap 4 — iOS sortIndex 服务端持久化（中优先）
-
-**问题根因**：`GroupManagerView.onMoveGroup` 调用 `viewModel.reorderGroups(from:to:)`，未确认是否有网络请求。如果只更新本地 SwiftData，重启 App 后顺序会恢复。
-
-**实现要求**：
-1. 检查 `mobile/ios/alphaSignal/.../Features/Funds/FundViewModel.swift` 中 `reorderGroups` 方法，看是否有网络调用
-2. 如果没有，在后端新增接口：
-   - 文件：`src/alphasignal/api/v1/routers/mobile.py`
-   - `PATCH /groups/reorder`，接收 `[{"id": "xxx", "sort_index": 0}, ...]`
-   - 批量更新 `watchlist_groups` 表的 `sort_index` 字段
-3. 在 `FundViewModel.reorderGroups` 末尾添加异步网络请求（fire-and-forget 模式，不阻塞 UI）
-
----
-
-### Gap 5 — `/fused` 游标分页（低优先）
-
-**问题根因**：`ORDER BY timestamp DESC LIMIT x OFFSET y` 在新数据插入时会导致分页错位（第 2 页出现第 1 页已有的记录）。
-
-**实现要求**：
-- 修改文件：`src/alphasignal/api/v1/routers/web.py` 的 `/intelligence/fused` 接口
-- 删除 `offset: int` 参数，替换为 `before_timestamp: Optional[str] = None`
-- SQL 中 `WHERE l.rn = 1` 之后加：`AND (:before_ts IS NULL OR l.timestamp < :before_ts::timestamptz)`
-- 在响应体中返回 `next_cursor`（最后一条记录的 timestamp ISO字符串），供客户端下一页使用
-
----
-
-## Phase 3 — 专有模型训练（未开始 ⬜）
-
-| 步骤 | 内容 | 当前就绪度 |
-|------|------|-----------|
-| Fine-tune Qwen/Llama | 用 `intelligence` 表标注数据训练金融 NLP 模型 | 🟡 数据在积累中，未达训练门槛 |
-| RLHF | 真实收益率（price_1h / price_24h）作为奖励信号 | 🟡 字段已设计，价格回填运行中 |
-| RAG 历史情报检索 | pgvector HNSW 语义检索 | ✅ 基础设施已就绪（向量表已建）|
-| MoE 专家混合 | 不同市场/事件类型走不同 Expert | ⬜ 未开始 |
-
-**启动条件**：标注语料 ≥ 10,000 条 + 价格回填完整率 ≥ 80%
-
----
-
-## 下一步优先行动
-
-### 🔴 最高优先（剩余生产化）
-1. 图谱前端可视化：event/entity/path 联动与证据新闻抽屉
-2. 关系抽取质量回归闭环：将 `/graph/quality` 指标接入告警阈值与日报追踪
-
-### 🟡 中优先
-3. iOS 分组排序补偿：请求失败回滚/重试与多端冲突合并
-4. `/fused` 专题聚合：多维筛选（资产/市场/置信度）与结果缓存分层
-
-### ⬜ 低优先
-6. Phase 3 训练启动条件监控
+1. **运行历史回填**：`python scripts/backfill_knowledge_graph.py --step a --dry-run`（先预览，再执行）
+2. **监控图谱质量**：定期查看 `GET /api/v1/web/graph/quality`，验证 relations 覆盖率 > 60%
+3. **监控训练门槛**：`SELECT COUNT(*),COUNT(price_1h) FROM intelligence WHERE status='COMPLETED'`
+4. **Phase 3 启动**：达到数据门槛后，启动 Qwen2.5-7B LoRA 微调 Pipeline
