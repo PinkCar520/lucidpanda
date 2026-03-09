@@ -11,7 +11,7 @@ from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.db.base import DBBase
 from src.alphasignal.utils.confidence import calc_confidence_score
-from src.alphasignal.utils.entity_normalizer import normalize_entity_name
+from src.alphasignal.utils.entity_normalizer import normalize_entity_name, normalize_entity_type
 from src.alphasignal.utils.graph_reasoning import infer_event_chains, relation_signal
 
 
@@ -657,13 +657,15 @@ class IntelligenceRepo(DBBase):
     def _upsert_entity_node(self, cursor, entity_name: str, entity_type: str = "unknown") -> int:
         canonical_name = normalize_entity_name(entity_name)
         normalized_name = canonical_name.strip().lower()
+        # 规范化 entity_type：对已知实体强制使用标准类型，防止 Gold/Oil/Trump 因 type 不同产生多节点
+        canonical_type = normalize_entity_type(canonical_name, entity_type)
         cursor.execute("""
             INSERT INTO entity_nodes (entity_name, normalized_name, entity_type)
             VALUES (%s, %s, %s)
             ON CONFLICT (normalized_name, entity_type)
             DO UPDATE SET entity_name = EXCLUDED.entity_name
             RETURNING node_id
-        """, (canonical_name.strip(), normalized_name, entity_type or "unknown"))
+        """, (canonical_name.strip(), normalized_name, canonical_type))
         return cursor.fetchone()[0]
 
     def _upsert_graph_edge(
