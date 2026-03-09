@@ -13,20 +13,20 @@ BATCH_CONTENT_CHARS = 400   # 批量分析每条最多输入字符数
 def _build_gemini_client() -> genai.Client:
     """
     构建 Gemini Client。
-    若环境变量 HTTPS_PROXY 或 HTTP_PROXY 存在，自动通过 httpx 传入代理，
+    若环境变量 HTTPS_PROXY 或 HTTP_PROXY 存在，自动传入代理，
     解决国内服务器无法直连 Gemini API 的问题。
+    google-genai SDK 的 HttpOptions 通过 proxy_url 字符串字段配置代理。
     """
     proxy_url = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") \
                 or os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
     if proxy_url:
         try:
-            import httpx
-            transport = httpx.HTTPTransport(proxy=proxy_url)
-            http_client = httpx.Client(transport=transport)
+            from google.genai import types as genai_types
+            http_options = genai_types.HttpOptions(proxy_url=proxy_url)
             logger.debug(f"GeminiLLM: 使用代理 {proxy_url}")
             return genai.Client(
                 api_key=settings.GEMINI_API_KEY,
-                http_options={"client": http_client},
+                http_options=http_options,
             )
         except Exception as e:
             logger.warning(f"GeminiLLM: 代理初始化失败，回退到直连模式: {e}")
