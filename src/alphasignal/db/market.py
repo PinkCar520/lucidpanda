@@ -36,21 +36,20 @@ class MarketRepo(DBBase):
         Returns (clustering_score: int, exhaustion_score: float)
         """
         try:
-            conn = self._get_conn()
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT COUNT(*) FROM intelligence
-                WHERE timestamp BETWEEN %s - INTERVAL '1 hour' AND %s + INTERVAL '1 hour'
-            """, (dt, dt))
-            clustering_score = cursor.fetchone()[0]
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM intelligence
+                        WHERE timestamp BETWEEN %s - INTERVAL '1 hour' AND %s + INTERVAL '1 hour'
+                    """, (dt, dt))
+                    clustering_score = cursor.fetchone()[0]
 
-            cursor.execute("""
-                SELECT COUNT(*) FROM intelligence
-                WHERE timestamp BETWEEN %s - INTERVAL '24 hours' AND %s
-                AND urgency_score >= 5
-            """, (dt, dt))
-            exhaustion_score = float(cursor.fetchone()[0])
-            conn.close()
+                    cursor.execute("""
+                        SELECT COUNT(*) FROM intelligence
+                        WHERE timestamp BETWEEN %s - INTERVAL '24 hours' AND %s
+                        AND urgency_score >= 5
+                    """, (dt, dt))
+                    exhaustion_score = float(cursor.fetchone()[0])
             return clustering_score, exhaustion_score
         except:
             return 0, 0.0
@@ -215,15 +214,14 @@ class MarketRepo(DBBase):
         try:
             if not dt:
                 dt = datetime.now()
-            conn = self._get_conn()
-            cursor = conn.cursor(cursor_factory=DictCursor)
-            cursor.execute("""
-                SELECT * FROM market_indicators
-                WHERE indicator_name = %s AND timestamp <= %s
-                ORDER BY timestamp DESC LIMIT 1
-            """, (indicator_name, dt))
-            row = cursor.fetchone()
-            conn.close()
+            with self._get_conn() as conn:
+                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                    cursor.execute("""
+                        SELECT * FROM market_indicators
+                        WHERE indicator_name = %s AND timestamp <= %s
+                        ORDER BY timestamp DESC LIMIT 1
+                    """, (indicator_name, dt))
+                    row = cursor.fetchone()
             return dict(row) if row else None
         except Exception as e:
             logger.error(f"Get Indicator Failed: {e}")
@@ -232,17 +230,16 @@ class MarketRepo(DBBase):
     def save_indicator(self, dt, name, value, percentile=None, description=None):
         """Save or update a market indicator."""
         try:
-            conn = self._get_conn()
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO market_indicators (timestamp, indicator_name, value, percentile, description)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (timestamp, indicator_name) DO UPDATE SET
-                    value = EXCLUDED.value,
-                    percentile = EXCLUDED.percentile,
-                    description = EXCLUDED.description
-            """, (dt, name, value, percentile, description))
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO market_indicators (timestamp, indicator_name, value, percentile, description)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (timestamp, indicator_name) DO UPDATE SET
+                            value = EXCLUDED.value,
+                            percentile = EXCLUDED.percentile,
+                            description = EXCLUDED.description
+                    """, (dt, name, value, percentile, description))
+                    conn.commit()
         except Exception as e:
             logger.error(f"Save Indicator Failed: {e}")
