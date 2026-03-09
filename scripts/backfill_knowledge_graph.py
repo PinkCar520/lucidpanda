@@ -43,6 +43,10 @@ def parse_args():
                         help='执行阶段: a=已有entities回填, b=重新调LLM补齐, all=全部')
     parser.add_argument('--dry-run', action='store_true',
                         help='只统计数量，不执行写入')
+    parser.add_argument('--yes', '-y', action='store_true',
+                        help='Step B 自动确认，跳过交互式提示（适用于 Docker 非交互终端）')
+    parser.add_argument('--llm', choices=['deepseek', 'gemini'], default='deepseek',
+                        help='Step B 使用的 LLM 提供商（默认 deepseek）')
     parser.add_argument('--batch-size', type=int, default=50,
                         help='每批处理的记录数量（默认 50）')
     parser.add_argument('--min-urgency', type=int, default=7,
@@ -124,7 +128,7 @@ def step_a_backfill(db, batch_size: int, dry_run: bool) -> int:
 
 
 def step_b_backfill(db, llm, batch_size: int, min_urgency: int,
-                    sleep_ms: int, dry_run: bool) -> int:
+                    sleep_ms: int, dry_run: bool, auto_yes: bool = False) -> int:
     """
     Step B：对 entities IS NULL 的高价值记录，重新调 LLM 补齐 entities，再写图谱。
     有 API 调用成本，建议先通过 --dry-run 确认数量。
@@ -158,11 +162,20 @@ def step_b_backfill(db, llm, batch_size: int, min_urgency: int,
         conn.close()
         return 0
 
-    confirm = input(f"\n将调用 DeepSeek LLM {total} 次，预计费用约 ${total * 0.002:.2f}。继续? [y/N]: ")
-    if confirm.strip().lower() != 'y':
-        logger.info("用户取消，退出 Step B")
-        conn.close()
-        return 0
+    if not auto_yes:
+        try:
+            confirm = input(f"\n将调用 LLM {total} 次，预计费用约 ${total * 0.002:.2f}。继续? [y/N]: ")
+            if confirm.strip().lower() != 'y':
+                logger.info("用户取消，退出 Step B")
+                conn.close()
+                return 0
+        except EOFError:
+            logger.error("非交互式终端无法读取确认输入。请使用 --yes 参数跳过确认，例如：")
+            logger.error("  docker exec alphasignal_api python scripts/backfill_knowledge_graph.py --step b --yes --llm gemini")
+            conn.close()
+            return 0
+    else:
+        logger.info(f"--yes 模式：自动确认，将调用 LLM {total} 次（预计费用约 ${total * 0.002:.2f}）")
 
     processed = 0
     success = 0
@@ -237,14 +250,21 @@ def main():
         total_written += step_a_backfill(db, args.batch_size, args.dry_run)
 
     if args.step in ('b', 'all'):
-        from src.alphasignal.providers.llm.deepseek import DeepSeekLLM
-        llm = DeepSeekLLM()
+        if args.llm == 'gemini':
+            from src.alphasignal.providers.llm.gemini import GeminiLLM
+            llm = GeminiLLM()
+            logger.info("使用 Gemini 作为 LLM 提供商")
+        else:
+            from src.alphasignal.providers.llm.deepseek import DeepSeekLLM
+            llm = DeepSeekLLM()
+            logger.info("使用 DeepSeek 作为 LLM 提供商")
         total_written += step_b_backfill(
             db, llm,
             batch_size=args.batch_size,
             min_urgency=args.min_urgency,
             sleep_ms=args.sleep_ms,
             dry_run=args.dry_run,
+            auto_yes=args.yes,
         )
 
     logger.info("=" * 60)
