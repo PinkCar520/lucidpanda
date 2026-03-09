@@ -271,7 +271,7 @@ async def get_web_fused_intelligence(
         ORDER BY l.timestamp DESC
         LIMIT :limit
     """)
-    rows = db.exec(fused_sql, {"limit": limit, "before_ts": before_timestamp}).all()
+    rows = db.execute(fused_sql, {"limit": limit, "before_ts": before_timestamp}).all()
 
     items = []
     for row in rows:
@@ -409,7 +409,7 @@ async def get_web_graph_quality(
         WHERE status = 'COMPLETED'
           AND timestamp >= NOW() - (:days::text || ' days')::interval
     """)
-    summary_row = db.exec(summary_sql, {"days": safe_days}).first()
+    summary_row = db.execute(summary_sql, {"days": safe_days}).first()
     summary = dict(summary_row._mapping) if summary_row else {}
 
     relation_item_sql = text("""
@@ -436,7 +436,7 @@ async def get_web_graph_quality(
             ) AS in_vocab_items
         FROM rels
     """)
-    relation_row = db.exec(relation_item_sql, {"days": safe_days, "allowed_relations": allowed_relations}).first()
+    relation_row = db.execute(relation_item_sql, {"days": safe_days, "allowed_relations": allowed_relations}).first()
     relation_stats = dict(relation_row._mapping) if relation_row else {}
 
     completed_count = int(summary.get("completed_count") or 0)
@@ -481,7 +481,7 @@ async def get_web_graph_quality(
         FROM day_bucket
         ORDER BY day ASC
     """)
-    trend_rows = db.exec(trend_sql, {"days": safe_days}).all()
+    trend_rows = db.execute(trend_sql, {"days": safe_days}).all()
     trend = []
     for row in trend_rows:
         mapped = dict(row._mapping)
@@ -531,7 +531,7 @@ async def get_web_graph_quality(
             prev_window.with_relations_count AS baseline_with_relations_count
         FROM current_window, prev_window
     """)
-    baseline_row = db.exec(baseline_sql, {"curr_days": safe_days, "base_days": safe_baseline_days}).first()
+    baseline_row = db.execute(baseline_sql, {"curr_days": safe_days, "base_days": safe_baseline_days}).first()
     baseline_metrics = dict(baseline_row._mapping) if baseline_row else {}
     current_completed_count = int(baseline_metrics.get("current_completed_count") or 0)
     current_with_relations_count = int(baseline_metrics.get("current_with_relations_count") or 0)
@@ -669,7 +669,7 @@ async def get_web_sources_dashboard(
         ORDER BY accuracy_lower_bound DESC NULLS LAST, total_signals DESC
         LIMIT :limit
     """)
-    leaderboard_rows = db.exec(leaderboard_sql, {"days": safe_days, "limit": safe_limit}).all()
+    leaderboard_rows = db.execute(leaderboard_sql, {"days": safe_days, "limit": safe_limit}).all()
     leaderboard = [dict(row._mapping) for row in leaderboard_rows]
     top_source_names = [row["source_name"] for row in leaderboard]
 
@@ -701,7 +701,7 @@ async def get_web_sources_dashboard(
             GROUP BY DATE_TRUNC('day', timestamp), source_name
             ORDER BY day ASC, source_name ASC
         """)
-        trend_rows = db.exec(trend_sql, {"days": safe_days}).all()
+        trend_rows = db.execute(trend_sql, {"days": safe_days}).all()
         top_name_set = set(top_source_names)
         trend = [dict(row._mapping) for row in trend_rows if row._mapping.get("source_name") in top_name_set]
 
@@ -729,7 +729,7 @@ async def get_web_sources_dashboard(
             ROUND(AVG(hit)::numeric * 100, 2) AS overall_accuracy_pct
         FROM scored
     """)
-    overview_row = db.exec(overview_sql, {"days": safe_days}).first()
+    overview_row = db.execute(overview_sql, {"days": safe_days}).first()
     overview = dict(overview_row._mapping) if overview_row else {
         "active_sources": 0, "total_signals": 0, "overall_accuracy_pct": None
     }
