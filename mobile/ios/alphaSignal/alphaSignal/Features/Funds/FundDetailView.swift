@@ -864,7 +864,7 @@ struct HoldingsPenetrationView: View {
                         }
                     }
                     .padding()
-                    .background(.ultraThinMaterial)
+                    .background(Color.clear)
                     
                     ScrollView {
                         LazyVStack(spacing: 10) {

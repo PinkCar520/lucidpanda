@@ -1,9 +1,11 @@
 import SwiftUI
 import AlphaDesign
 import AlphaData
+import AlphaCore
 
 struct FundCompactCard: View {
     let valuation: FundValuation
+    var calendarViewModel: CalendarViewModel? = nil
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
@@ -16,7 +18,7 @@ struct FundCompactCard: View {
                             .font(.system(size: 15, weight: .bold))
                             .foregroundStyle(colorScheme == .dark ? .white : Color(red: 0.06, green: 0.09, blue: 0.16))
                             .lineLimit(1)
-                        
+
                         if valuation.isQdii == true {
                             Text("funds.compact.badge.qdii")
                                 .font(.system(size: 8, weight: .black))
@@ -25,6 +27,12 @@ struct FundCompactCard: View {
                                 .background(Color.blue.opacity(0.1))
                                 .foregroundStyle(.blue)
                                 .clipShape(RoundedRectangle(cornerRadius: 2))
+                        }
+
+                        // Calendar badge — only shown when there's an upcoming event
+                        if let vm = calendarViewModel,
+                           let badge = vm.badge(for: valuation.fundCode) {
+                            calendarBadgeView(badge)
                         }
                     }
                     
@@ -192,6 +200,22 @@ struct FundCompactCard: View {
         case .closed:
             return .gray
         }
+    }
+
+    @ViewBuilder
+    private func calendarBadgeView(_ badge: CalendarBadge) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: badge.icon)
+                .font(.system(size: 7, weight: .black))
+            Text(badge.label)
+                .font(.system(size: 8, weight: .black))
+        }
+        .foregroundStyle(badge.color)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .background(badge.color.opacity(0.1))
+        .clipShape(Capsule())
+        .transition(.scale(scale: 0.8).combined(with: .opacity))
     }
 }
 

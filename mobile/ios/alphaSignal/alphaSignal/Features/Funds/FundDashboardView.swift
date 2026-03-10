@@ -38,6 +38,8 @@ struct FundDashboardView: View {
     @State private var showCreateGroupOnly = false
     @State private var groupManagerMode: GroupManagerMode = .filter
     @State private var scrollOffset: CGFloat = 0
+    @State private var isCalendarExpanded = false
+    @State private var calendarViewModel = CalendarViewModel()
 
     // 从 SwiftData 本地缓存 blob 恢复 FundValuation，用于网络不可达时的降级展示
     private var cachedValuations: [FundValuation] {
@@ -89,6 +91,7 @@ struct FundDashboardView: View {
             viewModel.setModelContext(modelContext)
             await viewModel.fetchWatchlist()
             await viewModel.fetchGroups()
+            await calendarViewModel.load()
         }
         .onAppear {
             viewModel.startLiveUpdates()
@@ -158,7 +161,7 @@ struct FundDashboardView: View {
             LiquidBackground()
 
             VStack(spacing: 0) {
-                filterChipsHeader
+                filterAndCalendarHeader
 
                 List {
                     // Offline-First: 优先显示网络数据，网络不可达时降级到 @Query 本地缓存
@@ -174,7 +177,10 @@ struct FundDashboardView: View {
                                 selectedFund = valuation
                                 showFundDetail = true
                             } label: {
-                                FundCompactCard(valuation: valuation)
+                                FundCompactCard(
+                                    valuation: valuation,
+                                    calendarViewModel: calendarViewModel
+                                )
                             }
                             .buttonStyle(LiquidScaleButtonStyle())
                             .scrollTransition(
@@ -263,15 +269,26 @@ struct FundDashboardView: View {
     }
 
     @ViewBuilder
-    private var filterChipsHeader: some View {
-        if !displayGroups.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
+    private var filterAndCalendarHeader: some View {
+        VStack(spacing: 0) {
+            // 分组 chips 仅有分组时显示
+            if !displayGroups.isEmpty {
                 filterChips
-                .padding(.top, 4)
-                .padding(.bottom, 12)
-                
-                Divider()
-                    .opacity(0.4)
+            }
+
+            // 日历展开面板（始终可触发，无论是否有分组）
+            if isCalendarExpanded {
+                FinancialCalendarStrip(viewModel: calendarViewModel)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            Divider().opacity(0.4)
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isCalendarExpanded)
+        // Fix: 当分组消失时重置展开状态，避免幽灵状态
+        .onChange(of: displayGroups.isEmpty) { _, isEmpty in
+            if isEmpty && isCalendarExpanded {
+                isCalendarExpanded = false
             }
         }
     }
@@ -279,6 +296,13 @@ struct FundDashboardView: View {
     @ToolbarContentBuilder
     private var dashboardToolbar: some ToolbarContent {
         ToolbarSpacer(.flexible)
+        ToolbarItem() {
+            CalendarAnchorButton(
+                viewModel: calendarViewModel,
+                isExpanded: $isCalendarExpanded
+            )
+        }
+        ToolbarSpacer(.fixed)
         ToolbarItem() {
             Button {
                 withAnimation(.spring()) {
