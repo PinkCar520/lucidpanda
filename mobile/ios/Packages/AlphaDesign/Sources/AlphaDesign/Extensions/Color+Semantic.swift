@@ -10,9 +10,6 @@ public extension Color {
         /// Primary brand color (Cobalt Blue). Used for core actions, active states.
         public static let primary = Color(hex: "#2563EB")
         
-        /// App background. Light mode: Very light navy-tinted gray. Dark mode: Deep Navy.
-        @Environment(\.colorScheme) private static var colorScheme
-        
         // Use a dynamic property to resolve Light/Dark mode backgrounds
         public static var background: Color {
             Color(UIColor { traitCollection in

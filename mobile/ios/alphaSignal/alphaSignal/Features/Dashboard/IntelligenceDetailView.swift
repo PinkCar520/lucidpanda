@@ -14,6 +14,7 @@ struct IntelligenceDetailView: View {
             
             ScrollView {
                 VStack(spacing: 24) {
+                    VStack(alignment: .leading, spacing: 16) {
                         HStack {
                             DetailBadge(text: "\(String(localized: "dashboard.urgency_label")) \(item.urgencyScore)", color: item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.primary)
                             Spacer()
