@@ -8,31 +8,28 @@ import OSLog
 
 // MARK: - 排序模式
 
-enum FundSortOrder: CaseIterable {
-    case none           // 自定义排序
-    case highGrowthFirst  // 涨幅榜
-    case highDropFirst    // 跌幅榜
-    case alphabetical     // 名称 A-Z
+enum FundSortOrder: CaseIterable, Hashable {
+    case `default`      // 默认排序（按自定义顺序）
+    case ascending       // 净值涨跌升序
+    case descending      // 净值涨跌降序
 
     static var menuOrders: [FundSortOrder] {
-        [.highGrowthFirst, .highDropFirst]
+        [.default, .ascending, .descending]
     }
     
     var icon: String {
         switch self {
-        case .none: return "line.3.horizontal.decrease.circle"
-        case .highGrowthFirst: return "arrow.up.circle.fill"
-        case .highDropFirst: return "arrow.down.circle.fill"
-        case .alphabetical: return "textformat"
+        case .default: return "line.3.horizontal.decrease.circle"
+        case .ascending: return "arrow.up.circle.fill"
+        case .descending: return "arrow.down.circle.fill"
         }
     }
     
     var label: String {
         switch self {
-        case .none: return String(localized: "funds.sort.none")
-        case .highGrowthFirst: return String(localized: "funds.sort.high_growth")
-        case .highDropFirst: return String(localized: "funds.sort.high_drop")
-        case .alphabetical: return String(localized: "funds.sort.alphabetical")
+        case .default: return String(localized: "funds.sort.none")
+        case .ascending: return String(localized: "funds.sort.high_drop")
+        case .descending: return String(localized: "funds.sort.high_growth")
         }
     }
 }
@@ -55,7 +52,7 @@ class FundViewModel {
     var watchlist: [FundValuation] = []
     var watchlistItems: [WatchlistItem] = []
     var groups: [WatchlistGroup] = []
-    var sortOrder: FundSortOrder = .highGrowthFirst
+    var sortOrder: FundSortOrder = .default
     var viewMode: WatchlistViewMode = .all
     var selectedGroupId: String? {
         if case .group(let id) = viewMode {
@@ -120,24 +117,16 @@ class FundViewModel {
         }
 
         switch sortOrder {
-        case .none:
+        case .default:
             return filtered.sorted { sortIndex(for: $0) < sortIndex(for: $1) }
-        case .alphabetical:
-            return filtered.sorted {
-                let cmp = $0.fundName.localizedStandardCompare($1.fundName)
-                if cmp == .orderedSame {
-                    return sortIndex(for: $0) < sortIndex(for: $1)
-                }
-                return cmp == .orderedAscending
-            }
-        case .highGrowthFirst:
+        case .descending:
             return filtered.sorted {
                 if $0.estimatedGrowth == $1.estimatedGrowth {
                     return sortIndex(for: $0) < sortIndex(for: $1)
                 }
                 return $0.estimatedGrowth > $1.estimatedGrowth
             }
-        case .highDropFirst:
+        case .ascending:
             return filtered.sorted {
                 if $0.estimatedGrowth == $1.estimatedGrowth {
                     return sortIndex(for: $0) < sortIndex(for: $1)
@@ -568,7 +557,7 @@ class FundViewModel {
     // MARK: - Reorder
     
     func reorder(from offsets: IndexSet, to newOffset: Int) {
-        guard sortOrder == .none else { return } // 只在自定义排序模式下允许拖拽
+        guard sortOrder == .default else { return } // 只在默认排序模式下允许拖拽
 
         let previousItems = watchlistItems
         let previousWatchlist = watchlist
@@ -755,7 +744,7 @@ class FundViewModel {
             let nextIndex = (currentIndex + 1) % orders.count
             sortOrder = orders[nextIndex]
         } else {
-            sortOrder = orders.first ?? .highGrowthFirst
+            sortOrder = orders.first ?? .default
         }
     }
     

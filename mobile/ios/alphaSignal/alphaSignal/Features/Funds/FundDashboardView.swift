@@ -265,22 +265,7 @@ struct FundDashboardView: View {
     private var filterChipsHeader: some View {
         if !displayGroups.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 4) {
-                    filterChips
-
-                    Button {
-                        groupManagerMode = .filter
-                        showGroupManager = true
-                    } label: {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.primary)
-                            .frame(width: 36, height: 36)
-                            .glassEffect(.regular, in: .circle)
-                    }
-                    .padding(.trailing, 16)
-                    .accessibilityLabel(Text(LocalizedStringKey("funds.group.manage_title")))
-                }
+                filterChips
                 .padding(.top, 4)
                 .padding(.bottom, 12)
                 
@@ -292,16 +277,32 @@ struct FundDashboardView: View {
 
     @ToolbarContentBuilder
     private var dashboardToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Menu {
+                Button {
+                    groupManagerMode = .filter
+                    showGroupManager = true
+                } label: {
+                    Label(LocalizedStringKey("funds.group.manage_title"), systemImage: "line.3.horizontal")
+                }
+            } label: {
+                ZStack {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                }
+            }
+        }
+
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 showCreateGroupOnly = true
             } label: {
                 Image(systemName: "folder.badge.plus")
-                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.primary)
             }
         }
-        
+
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 withAnimation(.spring()) {
@@ -309,8 +310,8 @@ struct FundDashboardView: View {
                 }
             } label: {
                 Image(systemName: viewModel.sortOrder.icon)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.primary)
+                    .accessibilityLabel(Text(viewModel.sortOrder.label))
             }
         }
     }

@@ -3467,6 +3467,7 @@
       }
     },
     "funds.sort.alphabetical" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3487,13 +3488,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Top Drop"
+            "value" : "Ascending"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "跌幅榜"
+            "value" : "升序"
           }
         }
       }
@@ -3503,13 +3504,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Top Growth"
+            "value" : "Descending"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "涨幅榜"
+            "value" : "降序"
           }
         }
       }
@@ -3519,13 +3520,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Custom"
+            "value" : "Default"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "自定义"
+            "value" : "默认"
           }
         }
       }
