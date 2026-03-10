@@ -4,7 +4,7 @@ public struct LiquidBackground: View {
     public init() {}
 
     public var body: some View {
-        Color.Alpha.background
+        Color(uiColor: .systemGray6)
         .ignoresSafeArea()
     }
 }
@@ -24,11 +24,11 @@ public struct LiquidGlassCard<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(backgroundColor ?? Color.Alpha.surface)
+                    .fill(backgroundColor ?? Color(uiColor: .systemBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.Alpha.separator.opacity(0.5), lineWidth: 0.6)
+                    .stroke(Color(uiColor: .separator).opacity(0.22), lineWidth: 0.6)
             )
             .shadow(color: .black.opacity(0.03), radius: 8, x: 0, y: 2)
     }
@@ -42,11 +42,11 @@ public struct GlassTextFieldStyle: TextFieldStyle {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.Alpha.surface)
+                    .fill(Color(uiColor: .secondarySystemBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color.Alpha.separator, lineWidth: 0.5)
+                    .stroke(Color(uiColor: .separator).opacity(0.25), lineWidth: 0.5)
             )
     }
 }
@@ -59,12 +59,12 @@ public struct FintechPrimaryButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color(uiColor: .systemBackground))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.Alpha.primary)
+                    .fill(Color(uiColor: .label))
             )
             .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1.0) : 0.45)
             .scaleEffect(configuration.isPressed ? 0.99 : 1.0)
@@ -80,16 +80,16 @@ public struct FintechSecondaryButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline.weight(.semibold))
-            .foregroundStyle(Color.Alpha.textPrimary)
+            .foregroundStyle(Color(uiColor: .label))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 13)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.Alpha.surface)
+                    .fill(Color(uiColor: .secondarySystemBackground))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.Alpha.separator, lineWidth: 0.7)
+                    .stroke(Color(uiColor: .separator).opacity(0.28), lineWidth: 0.7)
             )
             .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1.0) : 0.5)
             .scaleEffect(configuration.isPressed ? 0.99 : 1.0)

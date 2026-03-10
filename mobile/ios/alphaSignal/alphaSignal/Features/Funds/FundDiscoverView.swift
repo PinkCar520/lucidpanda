@@ -134,7 +134,7 @@ struct FundDiscoverView: View {
                             }
                             .pickerStyle(.segmented)
                             .controlSize(.extraLarge)
-                            .glassEffect(.regular, in: .rect(cornerRadius: 12, style: .continuous))
+                            .glassEffect(.regular, in: .capsule)
                             .listRowInsets(EdgeInsets())
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
