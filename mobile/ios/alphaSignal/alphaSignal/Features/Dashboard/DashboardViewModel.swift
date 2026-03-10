@@ -71,7 +71,8 @@ class DashboardViewModel {
     func startIntelligenceStream() async {
         guard !isStreaming else { return }
         isStreaming = true
-        connectionStatus = "dashboard.connection.connecting"
+        // Optimistic UI: 仿照 Web 端，直接显示“实时”，避免给用户带来“连接中”的焦虑感
+        connectionStatus = "dashboard.connection.live"
 
         // 1. 先通过 REST 获取历史数据，确保页面不为空
         await fetchInitialHistory()
@@ -125,8 +126,10 @@ class DashboardViewModel {
 
                 logger.error("V1 stream failed (attempt \(reconnectAttempts)): \(error.localizedDescription, privacy: .public). Reconnecting in \(delay / 1_000_000_000)s...")
 
-                // 重连等待期间保持 isStreaming = true，避免状态频繁切换
-                connectionStatus = "dashboard.connection.connecting"
+                // 重连等待期间，如果重试次数过多显示离线，否则保持 optimstic live
+                if reconnectAttempts > 2 {
+                    connectionStatus = "dashboard.connection.disconnected"
+                }
                 try? await Task.sleep(nanoseconds: delay)
             }
         }

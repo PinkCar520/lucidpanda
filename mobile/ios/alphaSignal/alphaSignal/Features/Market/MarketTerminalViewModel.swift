@@ -141,7 +141,8 @@ public class MarketTerminalViewModel {
     public func startIntelligenceStream() async {
         guard !isStreaming else { return }
         isStreaming = true
-        connectionStatus = "market.connection.connecting"
+        // Optimistic UI: 直接显示“实时”，而不是“连接中”，减轻用户焦虑
+        connectionStatus = "market.connection.live"
         
         var reconnectAttempts = 0
         let maxReconnectDelay: UInt64 = 30_000_000_000
@@ -199,7 +200,11 @@ public class MarketTerminalViewModel {
                 let delay = min(UInt64(pow(2, Double(reconnectAttempts))) * 1_000_000_000, maxReconnectDelay)
                 
                 logger.error("SSE stream failed (attempt \(reconnectAttempts)): \(error.localizedDescription)")
-                connectionStatus = "market.connection.connecting"
+                
+                // 重试多次后才显示断开，否则保持 optimistic live
+                if reconnectAttempts > 2 {
+                    connectionStatus = "market.connection.disconnected"
+                }
                 
                 try? await Task.sleep(nanoseconds: delay)
             }

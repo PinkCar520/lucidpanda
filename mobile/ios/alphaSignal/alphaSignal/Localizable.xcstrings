@@ -1918,13 +1918,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "System Operational"
+            "value" : "Live"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "系统运行中"
+            "value" : "实时"
           }
         }
       }
