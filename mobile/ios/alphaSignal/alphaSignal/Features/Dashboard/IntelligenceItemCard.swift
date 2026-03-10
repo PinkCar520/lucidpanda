@@ -21,8 +21,8 @@ struct IntelligenceItemCard: View {
                     .font(.system(size: 10, weight: .black, design: .monospaced))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(item.urgencyScore >= 8 ? Color.red.opacity(0.12) : Color(uiColor: .secondarySystemFill))
-                    .foregroundStyle(item.urgencyScore >= 8 ? Color.red : Color.primary)
+                    .background(item.urgencyScore >= 8 ? Color.Alpha.down.opacity(0.12) : Color.Alpha.surface.opacity(0.5))
+                    .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.textPrimary)
                     .clipShape(Capsule())
 
                     Spacer()
@@ -127,8 +127,8 @@ struct IntelligencePeekSheet: View {
                         .font(.system(size: 11, weight: .black, design: .monospaced))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(item.urgencyScore >= 8 ? Color.red.opacity(0.12) : Color(uiColor: .secondarySystemFill))
-                        .foregroundStyle(item.urgencyScore >= 8 ? Color.red : Color.primary)
+                        .background(item.urgencyScore >= 8 ? Color.Alpha.down.opacity(0.12) : Color.Alpha.surface.opacity(0.5))
+                        .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.textPrimary)
                         .clipShape(Capsule())
 
                         Spacer()
@@ -182,7 +182,7 @@ struct IntelligencePeekSheet: View {
                         HStack {
                             Label(LocalizedStringKey("intelligence.analysis.title"), systemImage: "sparkles")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(Color.Alpha.primary)
 
                             Spacer()
 
@@ -202,7 +202,7 @@ struct IntelligencePeekSheet: View {
                                             .foregroundStyle(.white)
                                             .padding(.horizontal, 14)
                                             .padding(.vertical, 7)
-                                            .background(Color.blue)
+                                            .background(Color.Alpha.primary)
                                             .clipShape(Capsule())
                                     }
                                 }
@@ -216,7 +216,7 @@ struct IntelligencePeekSheet: View {
                                 .foregroundStyle(.primary.opacity(0.85))
                                 .lineSpacing(4)
                                 .padding(14)
-                                .background(Color.blue.opacity(0.06))
+                                .background(Color.Alpha.primary.opacity(0.06))
                                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
                         }

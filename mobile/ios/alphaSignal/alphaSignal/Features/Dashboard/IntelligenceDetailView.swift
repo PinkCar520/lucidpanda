@@ -14,9 +14,8 @@ struct IntelligenceDetailView: View {
             
             ScrollView {
                 VStack(spacing: 24) {
-                    VStack(alignment: .leading, spacing: 16) {
                         HStack {
-                            DetailBadge(text: "\(String(localized: "dashboard.urgency_label")) \(item.urgencyScore)", color: item.urgencyScore >= 8 ? .red : .blue)
+                            DetailBadge(text: "\(String(localized: "dashboard.urgency_label")) \(item.urgencyScore)", color: item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.primary)
                             Spacer()
                             Text(item.timestamp.formatted())
                                 .font(.caption2)
@@ -26,7 +25,7 @@ struct IntelligenceDetailView: View {
                         Text(item.summary)
                             .font(.title2)
                             .fontWeight(.black)
-                            .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
+                            .foregroundStyle(Color.Alpha.textPrimary)
                         
                         Button {
                             runAISummary()
@@ -36,7 +35,7 @@ struct IntelligenceDetailView: View {
                                 Text(isSummarizing ? "intelligence.summary.generating" : "intelligence.summary.generate")
                             }
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.Alpha.primary)
                             .padding(.vertical, 10)
                             .padding(.horizontal, 16)
                             .glassEffect(.regular, in: .capsule)
@@ -54,11 +53,11 @@ struct IntelligenceDetailView: View {
                         
                         Text(item.content)
                             .font(.body)
-                            .foregroundStyle(.black.opacity(0.8))
+                            .foregroundStyle(Color.Alpha.textPrimary.opacity(0.8))
                             .lineSpacing(6)
                     }
                     .padding()
-                    .background(Color.white)
+                    .background(Color.Alpha.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 24))
                     .shadow(color: .black.opacity(0.05), radius: 10)
                 }

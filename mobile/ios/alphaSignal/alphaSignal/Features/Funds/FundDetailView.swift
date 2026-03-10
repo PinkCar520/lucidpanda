@@ -100,11 +100,11 @@ struct FundDetailView: View {
         VStack(spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 LiquidTicker(value: viewModel.liveGrowth, precision: 2, prefix: viewModel.liveGrowth >= 0 ? "+" : "")
-                    .foregroundStyle(viewModel.liveGrowth >= 0 ? .red : .green)
+                    .foregroundStyle(viewModel.liveGrowth >= 0 ? Color.Alpha.down : Color.Alpha.up)
                 
                 Text("%")
                     .font(.system(size: 16, weight: .black, design: .monospaced))
-                    .foregroundStyle(viewModel.liveGrowth >= 0 ? .red : .green)
+                    .foregroundStyle(viewModel.liveGrowth >= 0 ? Color.Alpha.down : Color.Alpha.up)
             }
             
             TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -371,7 +371,7 @@ struct FundDetailView: View {
                                                 Spacer()
                                                 Text(String(format: "%+.3f%%", subStat.impact))
                                                     .font(.system(size: 13, weight: .black, design: .monospaced))
-                                                    .foregroundStyle(subStat.impact >= 0 ? .red : .green)
+                                                    .foregroundStyle(subStat.impact >= 0 ? Color.Alpha.down : Color.Alpha.up)
                                                 
                                                 Image(systemName: "chevron.right")
                                                     .font(.system(size: 10, weight: .bold))
@@ -393,7 +393,7 @@ struct FundDetailView: View {
                                 LiquidGlassCard {
                                     HStack(spacing: 12) {
                                         RoundedRectangle(cornerRadius: 4)
-                                            .fill(stat.impact >= 0 ? Color.red : Color.green)
+                                            .fill(stat.impact >= 0 ? Color.Alpha.down : Color.Alpha.up)
                                             .frame(width: 4, height: 24)
                                             .opacity(0.8)
                                         
@@ -414,7 +414,7 @@ struct FundDetailView: View {
                                         
                                         Text(String(format: "%+.2f%%", stat.impact))
                                             .font(.system(size: 13, weight: .black, design: .monospaced))
-                                            .foregroundStyle(stat.impact >= 0 ? .red : .green)
+                                            .foregroundStyle(stat.impact >= 0 ? Color.Alpha.down : Color.Alpha.up)
                                         
                                         Image(systemName: "chevron.right")
                                             .font(.system(size: 10, weight: .bold))
@@ -594,13 +594,13 @@ struct FundDetailView: View {
                                                 let est = record.frozenEstGrowth ?? 0.0
                                                 Text(formatPct(est))
                                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                                    .foregroundStyle(est >= 0 ? .red : .green)
+                                                    .foregroundStyle(est >= 0 ? Color.Alpha.down : Color.Alpha.up)
                                                     .frame(width: 60, alignment: .trailing)
                                                 
                                                 let official = record.officialGrowth ?? 0.0
                                                 Text(formatPct(official))
                                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                                    .foregroundStyle(official >= 0 ? .red : .green)
+                                                    .foregroundStyle(official >= 0 ? Color.Alpha.down : Color.Alpha.up)
                                                     .frame(width: 60, alignment: .trailing)
                                                 
                                                 Text(formatPct(record.deviation ?? 0.0))
@@ -704,7 +704,7 @@ struct FundDetailView: View {
             if let val = value {
                 Text("\(val > 0 ? "+" : "")\(String(format: "%.1f", val))%")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(val >= 0 ? .red : .green)
+                    .foregroundStyle(val >= 0 ? Color.Alpha.down : Color.Alpha.up)
             } else {
                 Text("-")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
@@ -715,9 +715,9 @@ struct FundDetailView: View {
     
     private func confidenceColor(_ level: String) -> Color {
         switch level {
-        case "high": return .green
+        case "high": return Color.Alpha.up
         case "medium": return .blue
-        case "low": return .red
+        case "low": return Color.Alpha.down
         default: return .gray
         }
     }
@@ -725,7 +725,7 @@ struct FundDetailView: View {
     private func marketStatusColor(_ status: MarketSessionStatus) -> Color {
         switch status {
         case .open:
-            return .green
+            return Color.Alpha.up
         case .lunchBreak:
             return .orange
         case .closed:
@@ -741,7 +741,7 @@ struct HoldingRow: View {
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
-        let bgColor: Color? = component.changePct > 0 ? Color.red.opacity(0.05) : (component.changePct < 0 ? Color.green.opacity(0.05) : nil)
+        let bgColor: Color? = component.changePct > 0 ? Color.Alpha.down.opacity(0.05) : (component.changePct < 0 ? Color.Alpha.up.opacity(0.05) : nil)
         LiquidGlassCard(backgroundColor: bgColor) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -756,7 +756,7 @@ struct HoldingRow: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("\(component.changePct > 0 ? "+" : "")\(String(format: "%.2f", component.changePct))%")
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundStyle(component.changePct >= 0 ? .red : .green)
+                        .foregroundStyle(component.changePct >= 0 ? Color.Alpha.down : Color.Alpha.up)
                     
                     HStack(spacing: 4) {
                         Text(

@@ -31,9 +31,9 @@ struct FundDiscoverView: View {
         
         var color: Color {
             switch self {
-            case .success: return .green
-            case .info: return .blue
-            case .warning: return .orange
+            case .success: return Color.Alpha.up
+            case .info: return Color.Alpha.primary
+            case .warning: return Color.Alpha.down
             }
         }
     }
@@ -230,7 +230,7 @@ struct FundDiscoverView: View {
                                         
                                         Text(String(format: "%+.2f%%", valuation.estimatedGrowth))
                                             .font(.system(size: 14, weight: .bold, design: .rounded))
-                                            .foregroundStyle(valuation.estimatedGrowth > 0 ? Color.red : (valuation.estimatedGrowth < 0 ? Color.green : Color.gray))
+                                            .foregroundStyle(valuation.estimatedGrowth > 0 ? Color.Alpha.down : (valuation.estimatedGrowth < 0 ? Color.Alpha.up : Color.Alpha.neutral))
                                     }
                                     .padding(.trailing, 4)
                                 }

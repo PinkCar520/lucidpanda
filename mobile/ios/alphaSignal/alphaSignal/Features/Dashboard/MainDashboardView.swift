@@ -348,7 +348,7 @@ struct MainDashboardView: View {
                 Text(LocalizedStringKey(mode == .bullish ? "dashboard.correlation.bullish_title" : "dashboard.correlation.bearish_title"))
             }
             .font(.headline)
-            .foregroundStyle(mode == .bullish ? .green : .red)
+            .foregroundStyle(mode == .bullish ? Color.Alpha.up : Color.Alpha.down)
             
             Text(LocalizedStringKey(mode == .bullish ? "dashboard.correlation.bullish_desc" : "dashboard.correlation.bearish_desc"))
                 .font(.caption)
@@ -366,12 +366,12 @@ struct MainDashboardView: View {
             // Timeline line & dot
             VStack(spacing: 0) {
                 Circle()
-                    .fill(item.urgencyScore >= 8 ? .red : .blue)
+                    .fill(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.primary)
                     .frame(width: 10, height: 10)
                     .overlay(
-                        Circle().stroke(Color(uiColor: .systemBackground), lineWidth: 2)
+                        Circle().stroke(Color.Alpha.surface, lineWidth: 2)
                     )
-                    .shadow(color: (item.urgencyScore >= 8 ? Color.red : Color.blue).opacity(0.3), radius: 4)
+                    .shadow(color: (item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.primary).opacity(0.3), radius: 4)
 
                 if !isLast {
                     Rectangle()
@@ -455,7 +455,7 @@ struct MarketQuoteRow: View {
             if let quote = quote, quote.price > 0 {
                 VStack(alignment: .trailing, spacing: 2) {
                     let isPositive = quote.change >= 0
-                    let trendColor = isPositive ? Color.red : Color.green
+                    let trendColor = isPositive ? Color.Alpha.down : Color.Alpha.up
                     let icon = isPositive ? "arrow.up.right" : "arrow.down.right"
 
                     HStack(spacing: 2) {

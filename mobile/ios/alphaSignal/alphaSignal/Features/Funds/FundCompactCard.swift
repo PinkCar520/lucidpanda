@@ -63,7 +63,7 @@ struct FundCompactCard: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(valuation.estimatedGrowth >= 0 ? "+" : "")\(String(format: "%.2f", valuation.estimatedGrowth))%")
                         .font(.system(size: 18, weight: .black, design: .monospaced))
-                        .foregroundStyle(valuation.estimatedGrowth >= 0 ? .red : .green)
+                        .foregroundStyle(valuation.estimatedGrowth >= 0 ? Color.Alpha.down : Color.Alpha.up)
                     
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         let marketStatus = MarketSessionStatusResolver.status(for: valuation, now: context.date)
@@ -159,7 +159,7 @@ struct FundCompactCard: View {
         switch risk {
         case "R1", "R2": return .blue
         case "R3": return .orange
-        case "R4": return .red
+        case "R4": return Color.Alpha.down
         case "R5": return .purple
         default: return .gray
         }
@@ -178,7 +178,7 @@ struct FundCompactCard: View {
         switch level {
         case "high": return .green
         case "medium": return .blue
-        case "low": return .red
+        case "low": return Color.Alpha.down
         default: return .gray
         }
     }
@@ -186,7 +186,7 @@ struct FundCompactCard: View {
     private func statusColor(_ status: MarketSessionStatus) -> Color {
         switch status {
         case .open:
-            return .green
+            return Color.Alpha.up
         case .lunchBreak:
             return .orange
         case .closed:

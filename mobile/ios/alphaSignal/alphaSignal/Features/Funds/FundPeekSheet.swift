@@ -29,7 +29,7 @@ struct FundPeekSheet: View {
                             
                             Text("\(valuation.estimatedGrowth >= 0 ? "+" : "")\(String(format: "%.2f", valuation.estimatedGrowth))%")
                                 .font(.system(size: 20, weight: .black, design: .monospaced))
-                                .foregroundStyle(valuation.estimatedGrowth >= 0 ? .red : .green)
+                                .foregroundStyle(valuation.estimatedGrowth >= 0 ? Color.Alpha.down : Color.Alpha.up)
                         }
                         
                         Text(valuation.fundCode)
@@ -181,8 +181,8 @@ struct IntelligenceBriefRow: View {
                         .font(.system(size: 9, weight: .bold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(item.urgencyScore >= 8 ? Color.red.opacity(0.12) : Color.blue.opacity(0.12))
-                        .foregroundStyle(item.urgencyScore >= 8 ? .red : .blue)
+                        .background(item.urgencyScore >= 8 ? Color.Alpha.down.opacity(0.12) : Color.Alpha.primary.opacity(0.12))
+                        .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.primary)
                         .clipShape(Capsule())
                     
                     Spacer()
