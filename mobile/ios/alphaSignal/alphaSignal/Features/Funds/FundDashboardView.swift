@@ -77,6 +77,7 @@ struct FundDashboardView: View {
             dashboardContent
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { dashboardToolbar }
+                .toolbar(removing: .title)
                 .navigationDestination(isPresented: $showFundDetail) {
                     if let fund = selectedFund {
                         FundDetailView(valuation: fund)
@@ -277,7 +278,19 @@ struct FundDashboardView: View {
 
     @ToolbarContentBuilder
     private var dashboardToolbar: some ToolbarContent {
-        ToolbarItem(placement: .topBarLeading) {
+        ToolbarSpacer(.flexible)
+        ToolbarItem() {
+            Button {
+                withAnimation(.spring()) {
+                    viewModel.toggleSortOrder()
+                }
+            } label: {
+                Image(systemName: viewModel.sortOrder.icon)
+                    .accessibilityLabel(Text(viewModel.sortOrder.label))
+            }
+        }
+        ToolbarSpacer(.fixed)
+        ToolbarItem() {
             Menu {
                 Button {
                     groupManagerMode = .filter
@@ -285,33 +298,18 @@ struct FundDashboardView: View {
                 } label: {
                     Label(LocalizedStringKey("funds.group.manage_title"), systemImage: "line.3.horizontal")
                 }
+
+                Button {
+                    showCreateGroupOnly = true
+                } label: {
+                    Label(LocalizedStringKey("funds.group.new"), systemImage: "folder.badge.plus")
+                }
             } label: {
                 ZStack {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.primary)
                 }
-            }
-        }
-
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                showCreateGroupOnly = true
-            } label: {
-                Image(systemName: "folder.badge.plus")
-                    .foregroundStyle(.primary)
-            }
-        }
-
-        ToolbarItem(placement: .topBarTrailing) {
-            Button {
-                withAnimation(.spring()) {
-                    viewModel.toggleSortOrder()
-                }
-            } label: {
-                Image(systemName: viewModel.sortOrder.icon)
-                    .foregroundStyle(.primary)
-                    .accessibilityLabel(Text(viewModel.sortOrder.label))
             }
         }
     }
