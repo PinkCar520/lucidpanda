@@ -86,7 +86,8 @@ def get_market_status(region='CN', target_dt=None):
     Values: OPEN / LUNCH_BREAK / CLOSED
     """
     if target_dt is None:
-        target_dt = datetime.now()
+        from datetime import timezone
+        target_dt = datetime.now(timezone.utc)
     if isinstance(target_dt, date) and not isinstance(target_dt, datetime):
         target_dt = datetime.combine(target_dt, datetime.min.time())
 
