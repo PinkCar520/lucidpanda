@@ -16,6 +16,9 @@
     ":" : {
 
     },
+    "(%@)" : {
+
+    },
     "%" : {
 
     },
@@ -1537,6 +1540,57 @@
         }
       }
     },
+    "calendar.macro.actual" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Act"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "公布"
+          }
+        }
+      }
+    },
+    "calendar.macro.forecast" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Est"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预期"
+          }
+        }
+      }
+    },
+    "calendar.macro.previous" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prev"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前值"
+          }
+        }
+      }
+    },
     "calendar.mock.aapl.desc" : {
       "localizations" : {
         "en" : {
@@ -1629,6 +1683,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "美国非农就业数据"
+          }
+        }
+      }
+    },
+    "calendar.period.after_hours" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AMC"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "盘后"
+          }
+        }
+      }
+    },
+    "calendar.period.during" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "During"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "盘中"
+          }
+        }
+      }
+    },
+    "calendar.period.pre_market" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "BMO"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "盘前"
           }
         }
       }

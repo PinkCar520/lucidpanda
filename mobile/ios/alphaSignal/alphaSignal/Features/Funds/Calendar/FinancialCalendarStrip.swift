@@ -7,6 +7,7 @@ import AlphaDesign
 /// Tapping a day opens `CalendarEventSheet` as a bottom sheet.
 struct FinancialCalendarStrip: View {
     let viewModel: CalendarViewModel
+    var onSymbolTap: ((String) -> Void)? = nil
     @State private var selectedSummary: CalendarDaySummary? = nil
     @State private var showSheet = false
 
@@ -61,7 +62,7 @@ struct FinancialCalendarStrip: View {
         }
         .sheet(isPresented: $showSheet) {
             if let summary = selectedSummary {
-                CalendarEventSheet(date: summary.date, events: summary.events)
+                CalendarEventSheet(date: summary.date, events: summary.events, onSymbolTap: onSymbolTap)
             }
         }
     }

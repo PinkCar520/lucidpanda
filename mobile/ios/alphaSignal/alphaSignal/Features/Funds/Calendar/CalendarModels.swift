@@ -59,6 +59,33 @@ enum CalendarImpactLevel: String, Codable {
     var dotColor: Color { color }
 }
 
+// MARK: - Event Period
+
+enum EventPeriod: String, Codable {
+    case preMarket   = "pre_market"   // 盘前 (BMO)
+    case during      = "during"       // 盘中
+    case afterHours  = "after_hours"  // 盘后 (AMC)
+    case unknown     = "unknown"
+
+    var localizedLabel: String? {
+        switch self {
+        case .preMarket:  return String(localized: "calendar.period.pre_market")
+        case .during:     return String(localized: "calendar.period.during")
+        case .afterHours: return String(localized: "calendar.period.after_hours")
+        case .unknown:    return nil
+        }
+    }
+}
+
+// MARK: - Macro Details
+
+struct MacroDetails: Codable {
+    let actual: Float?
+    let forecast: Float?
+    let previous: Float?
+    let unit: String?
+}
+
 // MARK: - Calendar Event Model
 
 struct CalendarEvent: Identifiable, Codable {
@@ -71,11 +98,14 @@ struct CalendarEvent: Identifiable, Codable {
     let impact: CalendarImpactLevel
     let relatedSymbols: [String]
     let isWatchlistRelated: Bool
+    let period: EventPeriod
+    let macroDetails: MacroDetails?
 
     enum CodingKeys: String, CodingKey {
-        case id, date, time, type, title, description, impact
+        case id, date, time, type, title, description, impact, period
         case relatedSymbols     = "related_symbols"
         case isWatchlistRelated = "is_watchlist_related"
+        case macroDetails       = "macro_details"
     }
 
     var parsedDate: Date? {
@@ -130,6 +160,7 @@ struct CalendarBadge {
     let color: Color        // impact accent color
     let eventDate: Date
     let icon: String        // SF Symbol name
+    let period: EventPeriod? // Added: BMO/AMC
 
     static func make(from event: CalendarEvent) -> CalendarBadge? {
         guard let eventDate = event.parsedDate else { return nil }
@@ -142,7 +173,13 @@ struct CalendarBadge {
         case .economic:     label = String(localized: "calendar.type.economic");      icon = "globe.americas"
         case .announcement: label = String(localized: "calendar.type.announcement");  icon = "megaphone"
         }
-        return CalendarBadge(label: label, color: event.impact.dotColor, eventDate: eventDate, icon: icon)
+        return CalendarBadge(
+            label: label,
+            color: event.impact.dotColor,
+            eventDate: eventDate,
+            icon: icon,
+            period: event.period == .unknown ? nil : event.period
+        )
     }
 }
 

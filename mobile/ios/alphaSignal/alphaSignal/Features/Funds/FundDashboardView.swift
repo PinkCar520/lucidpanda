@@ -278,8 +278,13 @@ struct FundDashboardView: View {
 
             // 日历展开面板（始终可触发，无论是否有分组）
             if isCalendarExpanded {
-                FinancialCalendarStrip(viewModel: calendarViewModel)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                FinancialCalendarStrip(viewModel: calendarViewModel) { symbol in
+                    if let valuation = displayList.first(where: { $0.fundCode == symbol }) {
+                        selectedFund = valuation
+                        showFundDetail = true
+                    }
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             Divider().opacity(0.4)

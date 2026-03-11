@@ -5,6 +5,7 @@ import AlphaDesign
 struct CalendarEventSheet: View {
     let date: Date
     let events: [CalendarEvent]
+    var onSymbolTap: ((String) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     private var dateTitle: String {
@@ -58,9 +59,13 @@ struct CalendarEventSheet: View {
             ForEach(groupedEvents, id: \.0) { type, eventsInGroup in
                 Section {
                     ForEach(eventsInGroup) { event in
-                        CalendarEventCard(event: event)
+                        CalendarEventCard(event: event) { symbol in
+                            onSymbolTap?(symbol)
+                            dismiss()
+                        }
                     }
-                } header: {
+                }
+ header: {
                     HStack(spacing: 6) {
                         Image(systemName: type.systemImage)
                         Text(type.displayName)

@@ -9,6 +9,7 @@ final class CalendarViewModel {
 
     var daySummaries: [CalendarDaySummary] = []
     var selectedDate: Date? = nil
+    var selectedEvent: CalendarEvent? = nil
     var isLoading: Bool = false
     var errorMessage: String? = nil
 
@@ -19,6 +20,10 @@ final class CalendarViewModel {
     }
 
     // MARK: - Public
+
+    func handleEventTap(_ event: CalendarEvent) {
+        selectedEvent = event
+    }
 
     func load() async {
         await MainActor.run { isLoading = true }
@@ -153,7 +158,9 @@ final class CalendarViewModel {
                 description: String(localized: "calendar.mock.cpi.desc"),
                 impact: .high,
                 relatedSymbols: [],
-                isWatchlistRelated: false
+                isWatchlistRelated: false,
+                period: .unknown,
+                macroDetails: MacroDetails(actual: 3.1, forecast: 2.9, previous: 3.2, unit: "%")
             ),
             // Today - medium watchlist earnings
             CalendarEvent(
@@ -165,7 +172,9 @@ final class CalendarViewModel {
                 description: String(localized: "calendar.mock.aapl.desc"),
                 impact: .medium,
                 relatedSymbols: ["AAPL"],
-                isWatchlistRelated: true
+                isWatchlistRelated: true,
+                period: .afterHours,
+                macroDetails: nil
             ),
             // Tomorrow - Fed meeting
             CalendarEvent(
@@ -177,7 +186,9 @@ final class CalendarViewModel {
                 description: nil,
                 impact: .high,
                 relatedSymbols: [],
-                isWatchlistRelated: false
+                isWatchlistRelated: false,
+                period: .unknown,
+                macroDetails: nil
             ),
             // Day+2 - dividend
             CalendarEvent(
@@ -189,7 +200,9 @@ final class CalendarViewModel {
                 description: nil,
                 impact: .low,
                 relatedSymbols: ["MSFT"],
-                isWatchlistRelated: true
+                isWatchlistRelated: true,
+                period: .unknown,
+                macroDetails: nil
             ),
             // Day+3 - IPO
             CalendarEvent(
@@ -201,7 +214,9 @@ final class CalendarViewModel {
                 description: nil,
                 impact: .medium,
                 relatedSymbols: [],
-                isWatchlistRelated: false
+                isWatchlistRelated: false,
+                period: .preMarket,
+                macroDetails: nil
             ),
             // Day+5 - Non-Farm Payrolls
             CalendarEvent(
@@ -213,7 +228,9 @@ final class CalendarViewModel {
                 description: nil,
                 impact: .high,
                 relatedSymbols: [],
-                isWatchlistRelated: false
+                isWatchlistRelated: false,
+                period: .unknown,
+                macroDetails: MacroDetails(actual: nil, forecast: 200, previous: 350, unit: "K")
             ),
         ]
     }

@@ -209,6 +209,12 @@ struct FundCompactCard: View {
                 .font(.system(size: 7, weight: .black))
             Text(badge.label)
                 .font(.system(size: 8, weight: .black))
+            
+            if let periodLabel = badge.period?.localizedLabel {
+                Text("(\(periodLabel))")
+                    .font(.system(size: 7, weight: .bold))
+                    .opacity(0.8)
+            }
         }
         .foregroundStyle(badge.color)
         .padding(.horizontal, 5)

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta
 from pydantic import BaseModel
+from enum import Enum
 from sqlmodel import Session, text, select
 import asyncio
 from src.alphasignal.models.macro_event import MacroEvent
@@ -18,6 +19,18 @@ router = APIRouter(prefix="/calendar", tags=["calendar"])
 
 # ==================== DTOs ====================
 
+class EventPeriod(str, Enum):
+    PRE_MARKET = "pre_market"   # 盘前 (BMO)
+    DURING_MARKET = "during"    # 盘中
+    AFTER_HOURS = "after_hours" # 盘后 (AMC)
+    UNKNOWN = "unknown"
+
+class MacroDetails(BaseModel):
+    actual: Optional[float] = None
+    forecast: Optional[float] = None
+    previous: Optional[float] = None
+    unit: Optional[str] = None
+
 class CalendarEventSchema(BaseModel):
     id: str
     date: str           # "YYYY-MM-DD"
@@ -28,6 +41,8 @@ class CalendarEventSchema(BaseModel):
     impact: str         # high | medium | low
     related_symbols: List[str] = []
     is_watchlist_related: bool = False
+    period: EventPeriod = EventPeriod.UNKNOWN
+    macro_details: Optional[MacroDetails] = None
 
 class CalendarResponse(BaseModel):
     events: List[CalendarEventSchema]
@@ -77,22 +92,21 @@ def _as_date(value: Any) -> Optional[date]:
     return None
 
 
-def _extract_yfinance_calendar_dates(cal_df: Any) -> Dict[str, date]:
+def _extract_yfinance_calendar_dates(cal_df: Any) -> Dict[str, Any]:
     """
     yfinance `Ticker.calendar` format is not stable; normalize a few known fields.
-    Returns mapping: {"earnings": date, "ex_dividend": date}
+    Returns mapping: {"earnings": {"date": date, "period": EventPeriod}, ...}
     """
     if cal_df is None:
         return {}
     if pd is not None and isinstance(cal_df, pd.DataFrame) and cal_df.empty:
         return {}
 
-    result: Dict[str, date] = {}
+    result: Dict[str, Any] = {}
 
     try:
         if pd is not None and isinstance(cal_df, pd.DataFrame):
             # Common format: index = event name, single column.
-            # Try a couple of access paths.
             for key, out_key in [
                 ("Earnings Date", "earnings"),
                 ("Ex-Dividend Date", "ex_dividend"),
@@ -103,13 +117,17 @@ def _extract_yfinance_calendar_dates(cal_df: Any) -> Dict[str, date]:
                         value = raw.iloc[0] if len(raw) else None
                     else:
                         value = raw
+                    
                     d = _as_date(value)
                     if d:
-                        result[out_key] = d
-                elif key in getattr(cal_df, "columns", []):
-                    d = _as_date(cal_df[key].iloc[0] if len(cal_df[key]) else None)
-                    if d:
-                        result[out_key] = d
+                        period = EventPeriod.UNKNOWN
+                        # Try to detect period from timestamp if available
+                        if hasattr(value, "hour"):
+                            h = value.hour
+                            if h < 12: period = EventPeriod.PRE_MARKET
+                            elif h >= 16: period = EventPeriod.AFTER_HOURS
+                        
+                        result[out_key] = {"date": d, "period": period}
     except Exception:
         return result
 
@@ -138,9 +156,9 @@ def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> Lis
     except Exception:
         return []
 
-    earnings_date = dates.get("earnings")
-    if earnings_date and _date_in_window(earnings_date, date_from, date_to):
-        ds = earnings_date.strftime("%Y-%m-%d")
+    earnings_info = dates.get("earnings")
+    if earnings_info and _date_in_window(earnings_info["date"], date_from, date_to):
+        ds = earnings_info["date"].strftime("%Y-%m-%d")
         events.append(
             CalendarEventSchema(
                 id=f"yf-{sym}-earnings-{ds}",
@@ -152,12 +170,13 @@ def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> Lis
                 impact="medium",
                 related_symbols=[sym],
                 is_watchlist_related=True,
+                period=earnings_info["period"]
             )
         )
 
-    ex_div_date = dates.get("ex_dividend")
-    if ex_div_date and _date_in_window(ex_div_date, date_from, date_to):
-        ds = ex_div_date.strftime("%Y-%m-%d")
+    ex_div_info = dates.get("ex_dividend")
+    if ex_div_info and _date_in_window(ex_div_info["date"], date_from, date_to):
+        ds = ex_div_info["date"].strftime("%Y-%m-%d")
         events.append(
             CalendarEventSchema(
                 id=f"yf-{sym}-exdiv-{ds}",
@@ -169,6 +188,7 @@ def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> Lis
                 impact="low",
                 related_symbols=[sym],
                 is_watchlist_related=True,
+                period=ex_div_info["period"]
             )
         )
 
@@ -353,6 +373,23 @@ async def get_calendar_events(
             if m.forecast_value: desc_parts.append(f"预:{m.forecast_value}")
             if m.actual_value:   desc_parts.append(f"今:{m.actual_value}")
             
+            # Try to parse string values to floats for macro_details
+            def _try_float(v: Optional[str]) -> Optional[float]:
+                if not v: return None
+                try:
+                    # Clean common symbols like %, $, K, M
+                    clean_v = v.replace("%", "").replace("$", "").replace("K", "").replace("M", "").strip()
+                    return float(clean_v)
+                except ValueError:
+                    return None
+
+            macro_details = MacroDetails(
+                actual=_try_float(m.actual_value),
+                forecast=_try_float(m.forecast_value),
+                previous=_try_float(m.previous_value),
+                unit="%" if m.actual_value and "%" in m.actual_value else None
+            )
+            
             macro_events.append(CalendarEventSchema(
                 id=str(m.id),
                 date=m.release_date.strftime("%Y-%m-%d"),
@@ -363,9 +400,11 @@ async def get_calendar_events(
                 impact=m.impact_level,
                 related_symbols=[],
                 is_watchlist_related=False,
+                period=EventPeriod.UNKNOWN,
+                macro_details=macro_details
             ))
-    except Exception as e:
-        pass # Optional logging could go here if needed
+    except Exception:
+        pass
 
     events: List[CalendarEventSchema] = list(yf_events) + list(ak_events) + macro_events
 
