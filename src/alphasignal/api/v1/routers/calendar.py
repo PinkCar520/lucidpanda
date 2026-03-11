@@ -369,11 +369,11 @@ async def get_calendar_events(
 
     events: List[CalendarEventSchema] = list(yf_events) + list(ak_events) + macro_events
 
-    # Deduplicate by (symbols, type, date)
+    # Deduplicate by (symbols, type, date, title)
     seen: set = set()
     deduped: List[CalendarEventSchema] = []
     for e in events:
-        key = (tuple(sorted(e.related_symbols)), e.type, e.date)
+        key = (tuple(sorted(e.related_symbols)), e.type, e.date, e.title)
         if key not in seen:
             seen.add(key)
             deduped.append(e)

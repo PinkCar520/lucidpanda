@@ -9,7 +9,7 @@ struct CalendarEventSheet: View {
 
     private var dateTitle: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "M月d日（EEE）"
+        formatter.dateFormat = "M月d日 (EEE)"
         formatter.locale = Locale(identifier: "zh_CN")
         return formatter.string(from: date)
     }
@@ -28,9 +28,7 @@ struct CalendarEventSheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(.systemGroupedBackground).ignoresSafeArea()
-
+            Group {
                 if events.isEmpty {
                     emptyState
                 } else {
@@ -44,54 +42,36 @@ struct CalendarEventSheet: View {
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 20))
-                            .foregroundStyle(.secondary)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
                     }
                 }
             }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(24)
     }
 
     private var eventList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16, pinnedViews: .sectionHeaders) {
-                ForEach(groupedEvents, id: \.0) { type, eventsInGroup in
-                    Section {
-                        VStack(spacing: 8) {
-                            ForEach(eventsInGroup) { event in
-                                CalendarEventCard(event: event)
-                            }
-                        }
-                    } header: {
-                        HStack(spacing: 6) {
-                            Image(systemName: type.systemImage)
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(type.tintColor)
-
-                            Text(type.displayName)
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundStyle(type.tintColor)
-
-                            Spacer()
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 6)
-                        .background(
-                            Color(.systemGroupedBackground)
-                                .opacity(0.95)
-                        )
+        List {
+            ForEach(groupedEvents, id: \.0) { type, eventsInGroup in
+                Section {
+                    ForEach(eventsInGroup) { event in
+                        CalendarEventCard(event: event)
                     }
+                } header: {
+                    HStack(spacing: 6) {
+                        Image(systemName: type.systemImage)
+                        Text(type.displayName)
+                    }
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(type.tintColor)
+                    .textCase(nil)
                 }
-
-                Spacer(minLength: 32)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
         }
+        .listStyle(.insetGrouped) // Apple 原生 List 分组排版，去除了自定义的安卓感卡片
     }
 
     private var emptyState: some View {
@@ -103,5 +83,7 @@ struct CalendarEventSheet: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
     }
 }

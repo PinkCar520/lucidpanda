@@ -23,36 +23,33 @@ struct CalendarEventCard: View {
             // Content
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    // Time or all-day
                     if let time = event.time {
                         Text(time)
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
                             .foregroundStyle(.secondary)
                     } else {
                         Text("calendar.event.allday")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.secondary)
                     }
 
                     Spacer()
 
-                    // Impact badge
                     impactBadge
                 }
 
                 Text(event.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
 
-                if let desc = event.description {
+                if let desc = event.description, !desc.isEmpty {
                     Text(desc)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
 
-                // Related symbols chips
                 if !event.relatedSymbols.isEmpty {
                     HStack(spacing: 6) {
                         ForEach(event.relatedSymbols, id: \.self) { symbol in
@@ -65,25 +62,11 @@ struct CalendarEventCard: View {
                                 .clipShape(Capsule())
                         }
                     }
-                    .padding(.top, 2)
+                    .padding(.top, 4)
                 }
             }
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(
-                    event.isWatchlistRelated
-                        ? event.type.tintColor.opacity(0.3)
-                        : Color.gray.opacity(0.1),
-                    lineWidth: event.isWatchlistRelated ? 1.5 : 1
-                )
-        )
+        .padding(.vertical, 6)
     }
 
     @ViewBuilder
