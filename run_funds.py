@@ -51,6 +51,14 @@ def run_macro_sync():
     except Exception as e:
         logger.error(f"Macro sync task failed: {e}")
 
+def run_holiday_sync():
+    from scripts.daily_tasks.sync_market_holidays import sync_market_holidays
+    logger.info("⏰ [SCHEDULE] Triggering Market Holiday Sync...")
+    try:
+        sync_market_holidays()
+    except Exception as e:
+        logger.error(f"Holiday sync task failed: {e}")
+
 def run_stats_calc():
     logger.info("⏰ [SCHEDULE] Triggering Fund Performance Stats Calculation...")
     try:
@@ -84,6 +92,9 @@ def main():
     
     # Macroeconomic Calendar Sync at 02:00
     schedule.every().day.at("02:00").do(run_macro_sync)
+    
+    # Market Holiday Sync at 02:05
+    schedule.every().day.at("02:05").do(run_holiday_sync)
 
     # Log next runs
     for job in schedule.get_jobs():
