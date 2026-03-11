@@ -3,6 +3,7 @@ import sys
 import logging
 from datetime import datetime, date, timedelta
 import akshare as ak
+import pandas as pd
 from sqlmodel import Session, select
 import math
 
@@ -23,16 +24,23 @@ def sync_macro_calendar(days_ahead: int = 14):
     logger.info(f"Starting Macro Calendar Sync: scanning {days_ahead} days ahead.")
     
     today = datetime.now().date()
-    # Typically ak.macro_cons_gold() returns a chunk of current and upcoming events
-    try:
-        df = ak.macro_cons_gold()
-    except Exception as e:
-        logger.error(f"Failed to fetch macro data: {e}")
-        return
-        
-    if df is None or df.empty:
+    # Use news_economic_baidu for each day in the window
+    dfs = []
+    for i in range(days_ahead + 1):
+        target_date = today + timedelta(days=i)
+        d_str = target_date.strftime("%Y%m%d")
+        try:
+            day_df = ak.news_economic_baidu(date=d_str)
+            if day_df is not None and not day_df.empty:
+                dfs.append(day_df)
+        except Exception as e:
+            logger.warning(f"Failed to fetch macro data for {d_str}: {e}")
+            
+    if not dfs:
         logger.warning("No macro data returned from akshare.")
         return
+        
+    df = pd.concat(dfs, ignore_index=True)
         
     # Standardize columns: ['日期', '时间', '地区', '事件', '公布', '预期', '前值', '重要性']
     records_inserted = 0
@@ -57,17 +65,41 @@ def sync_macro_calendar(days_ahead: int = 14):
                     
                 # 2. Filter out low impact noise (keep >= 3 stars)
                 importance = row.get("重要性", 1)
-                if isinstance(importance, str) and importance.isdigit():
-                    importance = int(importance)
-                if importance < 3:
+                
+                # Check for nan/float parsing issues
+                if isinstance(importance, float) and math.isnan(importance):
+                    importance = 1
+                elif isinstance(importance, str):
+                    import re
+                    # extract digits from string like '3星'
+                    m = re.search(r'\d+', importance)
+                    importance = int(m.group()) if m else 1
+                else:
+                    try:
+                        importance = int(importance)
+                    except Exception:
+                        importance = 1
+                        
+                if importance < 2:
                     continue
                     
-                impact_level = "high" if importance >= 4 else "medium"
+                impact_level = "high" if importance >= 2 else "medium"
                 
                 # 3. Parse fields
                 country = str(row.get("地区", "Global"))
                 title = str(row.get("事件", ""))
                 event_code = f"{country}_{title[:10]}" # Generate a pseudo unique code
+                
+                # --- NOISE REDUCTION FILTER ---
+                # We KEEP Gold, Silver, and Crude Oil as they are critical to the fund's strategy.
+                # We ONLY remove irrelevant agricultural and non-core industrial noise.
+                noise_keywords = [
+                    "农产品", "大豆", "玉米", "小麦", "棉花", "豆粕", "菜粕", "苹果",
+                    "红枣", "玻璃", "纯碱", "铁矿石", "螺纹钢", "猪肉", "生猪"
+                ]
+                if any(kw in title for kw in noise_keywords):
+                    continue
+                # ------------------------------
                 
                 t_val = str(row.get("时间", ""))
                 release_time = t_val if t_val and len(t_val) >= 4 and t_val != "nan" else None
