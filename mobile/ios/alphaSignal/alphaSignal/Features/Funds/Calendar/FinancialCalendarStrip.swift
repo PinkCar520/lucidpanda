@@ -71,7 +71,9 @@ struct FinancialCalendarStrip: View {
 
 private let _weekdayFormatter: DateFormatter = {
     let f = DateFormatter()
-    f.dateFormat = "EEE"
+    // "E" produces "周一", "周二" in zh_CN. 
+    // We want just "一", "二", "三"
+    f.dateFormat = "E"
     f.locale = Locale(identifier: "zh_CN")
     return f
 }()
@@ -95,7 +97,9 @@ private struct DayCellView: View {
     }
 
     private var weekdayStr: String {
-        _weekdayFormatter.string(from: summary.date).uppercased()
+        // "周一" -> "一"
+        let str = _weekdayFormatter.string(from: summary.date)
+        return str.replacingOccurrences(of: "周", with: "")
     }
 
     private var dayStr: String {
@@ -112,75 +116,44 @@ private struct DayCellView: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            // Weekday abbreviation
+        VStack(spacing: 8) {
+            // Weekday (Just "一", "二")
             Text(weekdayStr)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(isToday ? .blue : .secondary)
+                .font(.system(size: 11, weight: isToday ? .bold : .medium))
+                .foregroundStyle(isToday ? .blue : .secondary.opacity(0.8))
 
-            // Day number circle
-            ZStack {
-                if isToday {
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 32, height: 32)
+            // Day Number
+            Text(dayStr)
+                .font(.system(size: 18, weight: isToday ? .heavy : .bold, design: .rounded))
+                .foregroundStyle(isToday ? .blue : .primary)
+
+            // Event Dots (Minimalist Track)
+            HStack(spacing: 4) {
+                if dots.isEmpty {
+                    Circle().fill(Color.clear).frame(width: 4, height: 4) // Invisible placeholder
                 } else {
-                    Circle()
-                        .fill(Color(.secondarySystemFill))
-                        .frame(width: 32, height: 32)
-                }
-
-                Text(dayStr)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(isToday ? .white : .primary)
-            }
-
-            // Impact dots row
-            if dots.isEmpty {
-                // Invisible placeholder so cells have consistent height
-                Circle()
-                    .fill(Color.clear)
-                    .frame(width: 5, height: 5)
-            } else {
-                HStack(spacing: 3) {
                     ForEach(dots.indices, id: \.self) { i in
                         Circle()
                             .fill(dots[i].dotColor)
-                            .frame(width: 5, height: 5)
+                            .frame(width: 4, height: 4)
                     }
                 }
             }
-
-            // "自选" watchlist indicator
+            .frame(height: 4)
+        }
+        .frame(width: 40, height: 64)
+        // Completely transparent background per minimal design
+        .background(Color.clear)
+        // Watchlist indicator - a sleek corner dot instead of a big "W" capsule
+        .overlay(alignment: .topTrailing) {
             if summary.hasWatchlistEvent {
-                Text("W")
-                    .font(.system(size: 8, weight: .black, design: .monospaced))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Color.blue.opacity(0.8)))
-            } else {
-                Color.clear.frame(height: 12) // height placeholder
+                Circle()
+                    .fill(Color.blue)
+                    .frame(width: 5, height: 5)
+                    .offset(x: -2, y: 12) // Adjusted to sit nicely next to the date number
             }
         }
-        .frame(width: 44)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(
-                    summary.hasWatchlistEvent
-                        ? Color.blue.opacity(0.06)
-                        : Color(.tertiarySystemFill).opacity(0.5)
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(
-                    isToday ? Color.blue.opacity(0.4) : Color.clear,
-                    lineWidth: 1.5
-                )
-        )
-        .scaleEffect(summary.events.isEmpty ? 0.95 : 1.0)
+        .scaleEffect(summary.events.isEmpty ? 0.98 : 1.0)
         .animation(.spring(response: 0.3), value: summary.events.count)
     }
 }

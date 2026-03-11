@@ -24,6 +24,27 @@ final class CalendarViewModel {
         await MainActor.run { isLoading = true }
         defer { Task { @MainActor in isLoading = false } }
 
+        let cacheKey = "calendar_events_cache"
+        let dateKey = "calendar_events_cache_date"
+        let defaults = UserDefaults.standard
+
+        // 1. Try to load from cache
+        var cachedEvents: [CalendarEvent]? = nil
+        var cacheDate: Date? = nil
+
+        if let data = defaults.data(forKey: cacheKey),
+           let events = try? JSONDecoder().decode([CalendarEvent].self, from: data) {
+            cachedEvents = events
+            cacheDate = defaults.object(forKey: dateKey) as? Date
+        }
+
+        // 2. If we have valid cache (< 4 hours), use it and return
+        if let events = cachedEvents, let cDate = cacheDate, Date().timeIntervalSince(cDate) < 4 * 3600 {
+            await MainActor.run { buildDaySummaries(from: events) }
+            return
+        }
+
+        // 3. Otherwise, fetch from network
         do {
             let today = Date()
             let toDate = Calendar.current.date(byAdding: .day, value: 7, to: today)!
@@ -34,14 +55,22 @@ final class CalendarViewModel {
 
             let path = "/api/v1/calendar/events?date_from=\(from)&date_to=\(to)"
             let response: CalendarAPIResponse = try await APIClient.shared.fetch(path: path)
-            await MainActor.run {
-                buildDaySummaries(from: response.events)
+
+            // Save to cache
+            if let data = try? JSONEncoder().encode(response.events) {
+                defaults.set(data, forKey: cacheKey)
+                defaults.set(Date(), forKey: dateKey)
             }
+
+            await MainActor.run { buildDaySummaries(from: response.events) }
         } catch {
-            // Network unavailable or server error — fall back to mock data
-            let fallback = Self.mockEvents()
+            // Network failed. Fall back to expired cache if available, else mock data.
             await MainActor.run {
-                buildDaySummaries(from: fallback)
+                if let events = cachedEvents {
+                    buildDaySummaries(from: events)
+                } else {
+                    buildDaySummaries(from: Self.mockEvents())
+                }
                 errorMessage = error.localizedDescription
             }
         }
