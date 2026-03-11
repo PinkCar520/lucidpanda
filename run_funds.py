@@ -43,6 +43,14 @@ def run_daily_sync():
     except Exception as e:
         logger.error(f"Daily sync task failed: {e}")
 
+def run_macro_sync():
+    from scripts.daily_tasks.sync_macro_calendar import sync_macro_calendar
+    logger.info("⏰ [SCHEDULE] Triggering Global Macroeconomic Calendar Sync...")
+    try:
+        sync_macro_calendar(days_ahead=14)
+    except Exception as e:
+        logger.error(f"Macro sync task failed: {e}")
+
 def run_stats_calc():
     logger.info("⏰ [SCHEDULE] Triggering Fund Performance Stats Calculation...")
     try:
@@ -73,6 +81,9 @@ def main():
 
     # Stats calculation at 01:30
     schedule.every().day.at("01:30").do(run_stats_calc)
+    
+    # Macroeconomic Calendar Sync at 02:00
+    schedule.every().day.at("02:00").do(run_macro_sync)
 
     # Log next runs
     for job in schedule.get_jobs():

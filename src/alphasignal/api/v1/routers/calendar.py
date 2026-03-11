@@ -2,8 +2,9 @@ from fastapi import APIRouter, Depends, Query
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime, timedelta
 from pydantic import BaseModel
-from sqlmodel import Session, text
+from sqlmodel import Session, text, select
 import asyncio
+from src.alphasignal.models.macro_event import MacroEvent
 from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
 from src.alphasignal.infra.database.connection import get_session
@@ -338,7 +339,35 @@ async def get_calendar_events(
         _build_yfinance_events(watchlist_codes, from_dt, to_dt),
         _build_akshare_events(watchlist_codes, from_dt, to_dt),
     )
-    events: List[CalendarEventSchema] = list(yf_events) + list(ak_events)
+    
+    # Fetch Macro Events from local DB (Instant synchronous query)
+    macro_events = []
+    try:
+        stmt = select(MacroEvent).where(
+            MacroEvent.release_date >= from_dt,
+            MacroEvent.release_date <= to_dt
+        )
+        for m in db.exec(stmt).all():
+            desc_parts = [f"[{m.country}]"]
+            if m.previous_value: desc_parts.append(f"前:{m.previous_value}")
+            if m.forecast_value: desc_parts.append(f"预:{m.forecast_value}")
+            if m.actual_value:   desc_parts.append(f"今:{m.actual_value}")
+            
+            macro_events.append(CalendarEventSchema(
+                id=str(m.id),
+                date=m.release_date.strftime("%Y-%m-%d"),
+                time=m.release_time,
+                type="economic",
+                title=m.title,
+                description=" ".join(desc_parts),
+                impact=m.impact_level,
+                related_symbols=[],
+                is_watchlist_related=False,
+            ))
+    except Exception as e:
+        pass # Optional logging could go here if needed
+
+    events: List[CalendarEventSchema] = list(yf_events) + list(ak_events) + macro_events
 
     # Deduplicate by (symbols, type, date)
     seen: set = set()
