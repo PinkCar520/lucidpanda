@@ -20,6 +20,7 @@ from src.alphasignal.config import settings
 from src.alphasignal.auth.router import router as auth_router
 from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
+import logging
 
 # --- Broadcast System ---
 
@@ -274,10 +275,12 @@ async def get_batch_valuations(codes: str, mode: str = "full"):
                 val = engine.calculate_realtime_valuation(code)
                 results.append(val)
             except Exception as e:
-                results.append({"fund_code": code, "error": str(e)})
+                logging.exception("Error calculating realtime valuation for fund %s", code)
+                results.append({"fund_code": code, "error": "valuation_failed"})
         return {"data": results}
     except Exception as e:
-        return {"data": [], "error": str(e)}
+        logging.exception("Error in batch valuation for codes: %s", code_list)
+        return {"data": [], "error": "internal_error"}
 
 @app.get("/api/funds/{code}/history")
 async def get_fund_history(code: str, limit: int = 30):
