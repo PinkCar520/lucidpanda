@@ -9,12 +9,13 @@ from src.alphasignal.config import settings
 
 def list_gemini_models():
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    print("Listing models...")
+    print(f"Using API Key: {settings.GEMINI_API_KEY[:5]}...{settings.GEMINI_API_KEY[-5:] if settings.GEMINI_API_KEY else 'NONE'}")
+    print("Listing all available models...")
     try:
-        # Use v1 for listing if possible, or default
+        # 尝试列出所有模型
         for m in client.models.list():
-            if 'embedContent' in m.supported_generation_methods or 'embed_content' in m.supported_generation_methods:
-                print(f"Model Name: {m.name}, Display: {m.display_name}")
+            methods = ", ".join(m.supported_generation_methods)
+            print(f"- {m.name} (Methods: {methods})")
     except Exception as e:
         print(f"Error listing models: {e}")
 
