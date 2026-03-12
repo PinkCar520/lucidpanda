@@ -1,39 +1,72 @@
 # src/alphasignal/services/embedding_service.py
 import logging
-from sentence_transformers import SentenceTransformer
 import numpy as np
+from src.alphasignal.config import settings
 
 logger = logging.getLogger(__name__)
 
 class EmbeddingService:
     """
     负责生成文本嵌入向量。
-    复用 NewsDeduplicator 使用的 paraphrase-multilingual-MiniLM-L12-v2 模型。
-    384 维度。
+    支持两种模式：
+    1. local: 使用本地 SentenceTransformer 模型 (1.7GB RAM)
+    2. gemini: 使用 Google Gemini Embedding API (低内存)
     """
-    _model = None
+    _local_model = None
 
     @classmethod
-    def get_model(cls):
-        if cls._model is None:
+    def _get_local_model(cls):
+        if cls._local_model is None:
             try:
-                model_name = "paraphrase-multilingual-MiniLM-L12-v2"
-                logger.info(f"Loading SentenceTransformer model: {model_name}...")
-                cls._model = SentenceTransformer(model_name)
-                logger.info("Model loaded successfully.")
+                from sentence_transformers import SentenceTransformer
+                model_name = settings.DEDUPE_MODEL_NAME
+                logger.info(f"Loading local SentenceTransformer model: {model_name}...")
+                cls._local_model = SentenceTransformer(model_name)
+                logger.info("Local model loaded successfully.")
             except Exception as e:
-                logger.error(f"Failed to load SentenceTransformer: {e}")
-                # 降级处理或重试逻辑
+                logger.error(f"Failed to load local SentenceTransformer: {e}")
                 raise e
-        return cls._model
+        return cls._local_model
+
+    @classmethod
+    def _encode_local(cls, text: str) -> list[float]:
+        model = cls._get_local_model()
+        vector = model.encode(text)
+        return vector.tolist()
+
+    @classmethod
+    def _encode_gemini(cls, text: str) -> list[float]:
+        """使用 Gemini Cloud API 生成向量 (Dimension: 768 for text-embedding-004)"""
+        try:
+            from google import genai
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            
+            # 备注：Gemini Embedding API 调用
+            # 参考: client.models.embed_content(model=..., contents=...)
+            res = client.models.embed_content(
+                model=settings.GEMINI_EMBEDDING_MODEL,
+                contents=text
+            )
+            return res.embeddings[0].values
+        except Exception as e:
+            logger.error(f"Gemini Embedding API failed: {e}")
+            raise e
 
     @classmethod
     def encode(cls, text: str) -> list[float]:
-        """生成向量并转换为 list 以便 pgvector 使用。"""
+        """根据配置生成向量并在必要时返回 list。"""
         if not text:
             return []
-        model = cls.get_model()
-        vector = model.encode(text)
-        return vector.tolist()
+            
+        provider = settings.EMBEDDING_PROVIDER.lower()
+        
+        if provider == "gemini":
+            return cls._encode_gemini(text)
+        elif provider == "openai":
+            # TODO: 实现 OpenAI Embedding
+            logger.warning("OpenAI embedding not implemented, falling back to local.")
+            return cls._encode_local(text)
+        else:
+            return cls._encode_local(text)
 
 embedding_service = EmbeddingService()

@@ -276,8 +276,8 @@ class IntelligenceRepo(DBBase):
                             source_id, author, content, url, timestamp,
                             market_session, clustering_score, exhaustion_score,
                             dxy_snapshot, us10y_snapshot, gvz_snapshot, gold_price_snapshot, oil_price_snapshot,
-                            fed_regime, embedding, source_name
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            fed_regime, embedding, source_name, category
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (source_id) DO NOTHING
                         RETURNING id
                     """, (
@@ -297,6 +297,7 @@ class IntelligenceRepo(DBBase):
                         float(raw_data.get('fed_val', 0.0)),
                         embedding_binary,
                         raw_data.get('source'),
+                        raw_data.get('category', 'macro_gold'),
                     ))
                     row = cursor.fetchone()
                     if not row:
@@ -417,8 +418,8 @@ class IntelligenceRepo(DBBase):
                             urgency_score, market_implication, actionable_advice, url,
                             gold_price_snapshot, price_1h, price_24h, timestamp, market_session,
                             clustering_score, exhaustion_score, dxy_snapshot, us10y_snapshot, gvz_snapshot,
-                            sentiment_score, fed_regime, macro_adjustment
-                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                            sentiment_score, fed_regime, macro_adjustment, category
+                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                         ON CONFLICT (source_id) DO NOTHING
                     """, (
                         raw_data.get('id'), raw_data.get('author'), raw_data.get('content'),
@@ -435,6 +436,7 @@ class IntelligenceRepo(DBBase):
                         float(sentiment_score),
                         float(fed_val) if fed_val is not None else 0.0,
                         float(macro_adj),
+                        raw_data.get('category', 'macro_gold'),
                     ))
                     conn.commit()
                     if cursor.rowcount > 0:

@@ -1,9 +1,10 @@
 import re
 import logging
 from simhash import Simhash
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
+# from sklearn.metrics.pairwise import cosine_similarity  # 延迟导入
 import numpy as np
+from src.alphasignal.services.embedding_service import embedding_service
+from src.alphasignal.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +13,9 @@ logger = logging.getLogger(__name__)
 MAX_HISTORY = 500
 
 class NewsDeduplicator:
-    def __init__(self, model_name="paraphrase-multilingual-MiniLM-L12-v2", simhash_threshold=6, semantic_threshold=0.85, db=None):
-        self.simhash_threshold = simhash_threshold
-        self.semantic_threshold = semantic_threshold
-        self.model_name = model_name
-        self._model = None
+    def __init__(self, db=None):
+        self.simhash_threshold = 12 # Hamming distance <= 12
+        self.semantic_threshold = settings.NEWS_SIMILARITY_THRESHOLD
         self.db = db  # IntelligenceDB 实例，用于 pgvector 语义查询
         
         # SimHash 历史（仍在内存维护，轻量级粗筛）
@@ -28,15 +27,10 @@ class NewsDeduplicator:
 
     @property
     def model(self):
-        if self._model is None:
-            try:
-                logger.info(f"Loading SentenceTransformer model: {self.model_name}...")
-                self._model = SentenceTransformer(self.model_name)
-                logger.info("Model loaded.")
-            except Exception as e:
-                logger.error(f"Failed to load SentenceTransformer model: {e}. Semantic deduplication will be disabled.")
-                self._model = False # Mark as failed
-        return self._model
+        """兼容旧接口，不再直接加载，通过 EmbeddingService 代理"""
+        # 如果是 local 模式，这里实际上会触发 EmbeddingService 的加载
+        # 但我们建议直接使用 is_duplicate 或 embedding_service
+        return True # 返回 True 仅为了通过 if self.model 的判断
 
     def normalize(self, text):
         """
@@ -75,26 +69,18 @@ class NewsDeduplicator:
         return False
 
     def semantic_duplicate(self, text_vector):
-        """
-        BERT semantic vector reranking.
-        Returns True if duplicate found in history.
-        """
-        # cosine_similarity expects 2D arrays (n_samples, n_features)
-        # text_vector is (n_features, ) or (1, n_features)
-        
+        """BERT semantic vector reranking. Returns True if duplicate found in history."""
         if not self.vec_history:
             return False
             
-        # Stack history for efficient batch calculation (optional, but loop is fine for now)
-        # To avoid large matrix ops in a growing loop, iterating is acceptable for small batch sizes
-        # or checking against the last N vectors. 
-        # User spec: "for v in vectors".
+        from sklearn.metrics.pairwise import cosine_similarity
         
         # Ensure text_vector is 2D
-        vec = text_vector.reshape(1, -1)
+        vec = np.array(text_vector).reshape(1, -1)
         
         for v in self.vec_history:
-            v_2d = v.reshape(1, -1)
+            if v is None: continue
+            v_2d = np.array(v).reshape(1, -1)
             score = cosine_similarity(vec, v_2d)[0][0]
             if score > self.semantic_threshold:
                 return True
@@ -103,42 +89,38 @@ class NewsDeduplicator:
     def is_duplicate(self, news_content, record_id=None):
         """
         综合判断函数。
-        不是重复时更新历史。
         """
         clean_text = self.normalize(news_content)
-        
         if not clean_text:
             return False
 
-        # 1. SimHash 粗筛（内存，毫秒级）
+        # 1. SimHash 粗筛
         current_simhash = Simhash(clean_text)
         if self.rough_duplicate(current_simhash):
             return True
 
-        # 2. 语义向量精筛
+        # 2. 语义精筛 (遵守全局开关)
+        if not settings.ENABLE_SEMANTIC_DEDUPE:
+            self.add_to_history(current_simhash, None, record_id)
+            return False
+
         current_vector = None
-        if self.model:
-            try:
-                current_vector = self.model.encode(clean_text)
-                self.last_vector = current_vector
+        try:
+            current_vector = embedding_service.encode(clean_text)
+            self.last_vector = current_vector
 
-                if self.db is not None:
-                    # ★ pgvector 路径：查询 DB，O(log n)，持久化历史
-                    if self.db.is_semantic_duplicate(current_vector, self.semantic_threshold):
-                        return True
-                else:
-                    # 降级路径：内存遍历，仅用于单元测试
-                    if self.semantic_duplicate(current_vector):
-                        return True
-
-            except Exception as e:
-                logger.warning(f"Semantic encoding failed: {e}")
-        else:
+            if self.db is not None:
+                if self.db.is_semantic_duplicate(current_vector, self.semantic_threshold):
+                    return True
+            else:
+                if self.semantic_duplicate(current_vector):
+                    return True
+        except Exception as e:
+            logger.warning(f"Semantic deduplication failed: {e}")
             self.last_vector = None
 
-        # 3. 不是重复 → 加入 SimHash 历史
+        # 3. 不是重复
         self.add_to_history(current_simhash, current_vector if self.db is None else None, record_id)
-            
         return False
 
     def add_to_history(self, sh_obj, vector, record_id=None):

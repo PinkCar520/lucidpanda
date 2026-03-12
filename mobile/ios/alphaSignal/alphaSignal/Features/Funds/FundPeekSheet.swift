@@ -194,9 +194,16 @@ struct IntelligenceBriefRow: View {
                         .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.primary)
                         .clipShape(Capsule())
                     
+                    if let author = item.author {
+                        Text(author)
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 4)
+                    }
+                    
                     Spacer()
                     
-                    Text(item.timestamp.formatted(date: .numeric, time: .omitted))
+                    Text(item.timestamp.formatted(date: .numeric, time: .shortened))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }

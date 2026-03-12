@@ -834,15 +834,21 @@ async def get_fund_ai_analysis(
     # 规范化基金名，提取核心标的 (如: "华夏沪深300ETF" -> "沪深300")
     core_name = normalize_fund_name(fund_name)
 
+    # 判定基金所属市场与情报分类偏好
+    # A股基金通常为6位纯数字，美股/港股通常包含字母或不同长度
+    is_a_share = fund_code.isdigit() and len(fund_code) == 6
+    preferred_categories = ["equity_cn", "macro_gold"] if is_a_share else ["equity_us", "macro_gold"]
+
     # 2. 混合检索关联情报 (Hybrid Search: Keyword + Semantic)
     since_7d = datetime.now(timezone.utc) - timedelta(days=7)
     
     # 2.1 关键词检索 (Keyword Search)
     kw_raw = db.execute(
         text("""
-            SELECT id, timestamp, urgency_score, summary, actionable_advice, sentiment_score
+            SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
             FROM intelligence
             WHERE timestamp > :since
+              AND category = ANY(:cats)
               AND (
                 content ILIKE :kw_full OR content ILIKE :kw_core
                 OR summary::text ILIKE :kw_full OR summary::text ILIKE :kw_core
@@ -854,6 +860,7 @@ async def get_fund_ai_analysis(
         """),
         {
             "since": since_7d, 
+            "cats": preferred_categories,
             "kw_full": f"%{fund_name}%", 
             "kw_core": f"%{core_name}%",
             "json_full": json.dumps([{"name": fund_name}]),
@@ -871,15 +878,16 @@ async def get_fund_ai_analysis(
             # 阈值设为 0.70 以保证关联性
             vec_raw = db.execute(
                 text("""
-                    SELECT id, timestamp, urgency_score, summary, actionable_advice, sentiment_score
+                    SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
                     FROM intelligence
                     WHERE timestamp > :since
+                      AND category = ANY(:cats)
                       AND embedding_vec IS NOT NULL
                       AND 1 - (embedding_vec <=> :vec::vector) > 0.70
                     ORDER BY (embedding_vec <=> :vec::vector) ASC
                     LIMIT 5
                 """),
-                {"since": since_7d, "vec": vec},
+                {"since": since_7d, "cats": preferred_categories, "vec": vec},
             ).mappings().all()
         except Exception as e:
             # 语义搜索失败时不影响主业务流程，降级至关键词检索
@@ -927,15 +935,16 @@ async def get_fund_ai_analysis(
                 fallback_kw = sectors[0]
                 fallback_raw = db.execute(
                     text("""
-                        SELECT id, timestamp, urgency_score, summary, actionable_advice, sentiment_score
+                        SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
                         FROM intelligence
                         WHERE timestamp > :since
+                          AND category = ANY(:cats)
                           AND (content ILIKE :kw OR summary::text ILIKE :kw OR entities::text ILIKE :kw)
                           AND summary IS NOT NULL
                         ORDER BY urgency_score DESC, timestamp DESC
                         LIMIT 3
                     """),
-                    {"since": since_7d, "kw": f"%{fallback_kw}%"},
+                    {"since": since_7d, "kw": f"%{fallback_kw}%", "cats": preferred_categories},
                 ).mappings().all()
                 
                 if fallback_raw:
@@ -947,15 +956,16 @@ async def get_fund_ai_analysis(
             if not related_raw:
                 macro_raw = db.execute(
                     text("""
-                        SELECT id, timestamp, urgency_score, summary, actionable_advice, sentiment_score
+                        SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
                         FROM intelligence
                         WHERE timestamp > :since
+                          AND category = ANY(:cats)
                           AND (content ILIKE '%A股%' OR content ILIKE '%市场%')
                           AND summary IS NOT NULL
                         ORDER BY urgency_score DESC, timestamp DESC
                         LIMIT 3
                     """),
-                    {"since": since_7d},
+                    {"since": since_7d, "cats": preferred_categories},
                 ).mappings().all()
                 if macro_raw:
                     related_raw = macro_raw
@@ -985,6 +995,7 @@ async def get_fund_ai_analysis(
         related_intelligence.append({
             "id": row["id"],
             "timestamp": row["timestamp"].isoformat() if row["timestamp"] else None,
+            "author": row.get("author") or "AlphaSignal",
             "urgency_score": row["urgency_score"],
             "summary": summary_text,
             "advice": advice_text,

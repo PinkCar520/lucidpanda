@@ -9,6 +9,7 @@ class IntelligenceBase(SQLModel):
     content: Optional[str] = None
     urgency_score: Optional[int] = 0
     url: Optional[str] = None
+    category: str = Field(default="macro_gold", index=True) # macro_gold | equity_cn | equity_us
     
     # Complex fields using JSONB for performance and Web requirements
     summary: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))

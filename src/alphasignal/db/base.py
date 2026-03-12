@@ -164,7 +164,7 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS gvz_snapshot DOUBLE PRECISION;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS oil_price_snapshot DOUBLE PRECISION;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding BYTEA;",
-                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding_vec vector(384);",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS embedding_vec vector(768);",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS clustering_score INTEGER DEFAULT 0;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS exhaustion_score DOUBLE PRECISION DEFAULT 0.0;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS market_session TEXT;",
@@ -188,7 +188,7 @@ class DBBase:
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intel_embedding_hnsw
                 ON intelligence USING hnsw (embedding_vec vector_cosine_ops)
-                WITH (m = 16, ef_construction = 64);
+                WITH (m = 16, ef_construction = 128);
             """)
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intel_pending_outcomes

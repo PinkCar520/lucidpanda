@@ -19,6 +19,8 @@ class Settings:
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     # 批量/回填任务专用（无每日上限，成本更低）
     GEMINI_BATCH_MODEL = os.getenv("GEMINI_BATCH_MODEL", "gemini-2.0-flash-lite")
+    # Embedding 专用模型
+    GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "text-embedding-004")
 
     # DeepSeek
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
@@ -57,6 +59,11 @@ class Settings:
     # News Deduplication Settings
     NEWS_SIMILARITY_THRESHOLD = float(os.getenv("NEWS_SIMILARITY_THRESHOLD", 0.7)) # Cosine similarity for news content
     NEWS_DEDUPE_WINDOW_HOURS = int(os.getenv("NEWS_DEDUPE_WINDOW_HOURS", 24)) # How many hours back to check for duplicates
+    
+    # Embedding Provider: 'local', 'gemini', 'openai'
+    EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "gemini")
+    DEDUPE_MODEL_NAME = os.getenv("DEDUPE_MODEL_NAME", "paraphrase-multilingual-MiniLM-L12-v2")
+    ENABLE_SEMANTIC_DEDUPE = os.getenv("ENABLE_SEMANTIC_DEDUPE", "true").lower() == "true"
     
     # 路径配置
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

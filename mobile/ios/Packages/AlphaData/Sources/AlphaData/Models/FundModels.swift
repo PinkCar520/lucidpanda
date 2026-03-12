@@ -186,13 +186,14 @@ public struct FundAIAnalysisResponse: Codable {
 public struct FundRelatedIntelligence: Codable, Identifiable {
     public let id: Int
     public let timestamp: Date
+    public let author: String?
     public let urgencyScore: Int
     public let summary: String
     public let advice: String?
     public let sentiment: String
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, summary, advice, sentiment
+        case id, timestamp, author, summary, advice, sentiment
         case urgencyScore = "urgency_score"
     }
 }
