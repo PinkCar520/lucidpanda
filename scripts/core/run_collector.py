@@ -10,6 +10,7 @@ if root_dir not in sys.path:
 from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.core.rss_collector import RSSCollector
+from src.alphasignal.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
 
 # 采集间隔：比分析引擎更频繁（2分钟），确保 PENDING 队列始终有新鲜数据
 _COLLECT_INTERVAL_SECONDS = 120
@@ -19,7 +20,7 @@ async def collector_loop():
     logger.info("==========================================")
     logger.info("   AlphaSignal - RSS 情报采集器 启动")
     logger.info("==========================================")
-    logger.info(f"采集间隔: {_COLLECT_INTERVAL_SECONDS}s | 信源数: {len(__import__('src.alphasignal.providers.data_sources.rsshub', fromlist=['TIER1_FEEDS']).TIER1_FEEDS)}")
+    logger.info(f"采集间隔: {_COLLECT_INTERVAL_SECONDS}s | 信源数: {len(TIER1_FEEDS_CONFIG)}")
 
     collector = RSSCollector()
 
