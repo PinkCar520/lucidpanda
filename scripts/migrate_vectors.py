@@ -35,7 +35,11 @@ def migrate_vector_dimension():
             return
 
         # 2. 迁移步骤
-        # a. 删除索引
+        # a. 清理重复数据 (生产环境可能存在重复 source_id 导致 Unique 索引冲突)
+        logger.info("🧹 发现潜在重复条目，正在清理重复的 source_id...")
+        cursor.execute("DELETE FROM intelligence a USING intelligence b WHERE a.id < b.id AND a.source_id = b.source_id;")
+        
+        # b. 删除索引
         logger.info("🗑️ 正在删除旧索引 idx_intel_embedding_hnsw...")
         cursor.execute("DROP INDEX IF EXISTS idx_intel_embedding_hnsw;")
         
