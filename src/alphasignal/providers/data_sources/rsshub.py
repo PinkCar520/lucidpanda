@@ -175,8 +175,8 @@ class RSSHubSource(BaseDataSource):
         if self._semaphore is None:
             self._semaphore = asyncio.Semaphore(8)
 
-        async with httpx.AsyncClient(verify=True) as client, \
-                   httpx.AsyncClient(verify=False) as ssl_client:
+        async with httpx.AsyncClient(headers=_DEFAULT_HEADERS, verify=True) as client, \
+                   httpx.AsyncClient(headers=_DEFAULT_HEADERS, verify=False) as ssl_client:
             tasks = [self._fetch_feed_async(client, ssl_client, cfg) for cfg in self.feed_configs]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
