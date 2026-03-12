@@ -10,6 +10,7 @@ struct MainDashboardView: View {
     @State private var viewModel = DashboardViewModel()
     @Environment(AppRootViewModel.self) private var rootViewModel
     @State private var isSettingsPresented = false
+    @State private var isPulseSheetPresented = false
     @State private var marketQuotes: [String: MarketQuote] = [:]
     @State private var isFetchingMarketData = false
 
@@ -160,36 +161,50 @@ struct MainDashboardView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
 
-                // 2. 实时状态 & UTC (Real-time Status & UTC Time)
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Circle()
-                            .fill(statusColor)
-                            .frame(width: 8, height: 8)
+                // 2. 市场脉搏 (Market Pulse) & UTC Time
+                Button(action: {
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                    isPulseSheetPresented = true
+                }) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(statusColor)
+                                .frame(width: 8, height: 8)
 
-                        Text(LocalizedStringKey(statusText))
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .foregroundStyle(statusColor)
-                        Spacer()
+                            Text("MARKET PULSE")
+                                .font(.system(size: 10, weight: .black, design: .monospaced))
+                                .foregroundStyle(.primary)
+                            
+                            if let data = rootViewModel.marketPulseViewModel.pulseData {
+                                Text(data.overallSentimentZh)
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(sentimentColor(data.overallSentiment))
+                            }
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(statusColor.opacity(0.1))
+
+                        Divider().opacity(0.5)
+
+                        HStack {
+                            Image(systemName: "globe")
+                                .font(.system(size: 10))
+                            Text("UTC \(utcDateFormatter.string(from: currentTime))")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(uiColor: .systemBackground))
                     }
-                    .padding(.horizontal, 12)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(statusColor.opacity(0.1))
-
-                    Divider().opacity(0.5)
-
-                    HStack {
-                        Image(systemName: "globe")
-                            .font(.system(size: 10))
-                        Text("UTC \(utcDateFormatter.string(from: currentTime))")
-                            .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        Spacer()
-                    }
-                    .padding(.horizontal, 12)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(uiColor: .systemBackground))
                 }
+                .buttonStyle(PlainButtonStyle())
                 .frame(height: 64)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
@@ -197,6 +212,11 @@ struct MainDashboardView: View {
         }
         .padding(.horizontal)
         .padding(.top, 24)
+        .sheet(isPresented: $isPulseSheetPresented) {
+            MarketPulseSheet(viewModel: rootViewModel.marketPulseViewModel)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
         .onReceive(timer) { input in
             currentTime = input
             
@@ -217,11 +237,6 @@ struct MainDashboardView: View {
                 Text("dashboard.market.title")
                     .font(.system(size: 16, weight: .bold))
                 Spacer()
-                NavigationLink(destination: MarketTerminalView()) {
-                    Text("terminal.view_all")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.blue)
-                }
             }
             .padding(.horizontal)
 
@@ -422,6 +437,14 @@ struct MainDashboardView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: date)
+    }
+
+    private func sentimentColor(_ sentiment: String) -> Color {
+        switch sentiment {
+        case "bullish": return Color.Alpha.down // 红色 (中国习惯)
+        case "bearish": return Color.Alpha.up   // 绿色 (中国习惯)
+        default: return Color.Alpha.neutral
+        }
     }
 }
 

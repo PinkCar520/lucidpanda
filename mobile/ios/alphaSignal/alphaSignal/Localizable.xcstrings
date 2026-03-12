@@ -94,9 +94,6 @@
     "%lld / 10" : {
 
     },
-    "%lld 条" : {
-
-    },
     "%lld.0" : {
 
     },
@@ -121,13 +118,7 @@
     "10" : {
 
     },
-    "24h 低" : {
-
-    },
     "24h 情绪走势" : {
-
-    },
-    "24h 高" : {
 
     },
     "Add Item" : {
@@ -4032,9 +4023,6 @@
         }
       }
     },
-    "High" : {
-
-    },
     "intelligence.analysis.analyzing" : {
       "localizations" : {
         "en" : {
@@ -4254,9 +4242,6 @@
     "Item at %@" : {
 
     },
-    "Low" : {
-
-    },
     "MARKET PULSE" : {
 
     },
@@ -4437,9 +4422,6 @@
 
     },
     "Powered by AI & Institutional Data Nodes" : {
-
-    },
-    "Price" : {
 
     },
     "reconciliation.chart.mae" : {
@@ -5643,9 +5625,6 @@
     "Verify and Enable" : {
 
     },
-    "Volume" : {
-
-    },
     "Weight" : {
 
     },
@@ -5676,9 +5655,6 @@
     "宏观背景" : {
 
     },
-    "市场情报" : {
-
-    },
     "市场脉搏" : {
 
     },
@@ -5695,9 +5671,6 @@
 
     },
     "暂无高紧急度情报" : {
-
-    },
-    "更新于 %@" : {
 
     },
     "核心市场行情" : {

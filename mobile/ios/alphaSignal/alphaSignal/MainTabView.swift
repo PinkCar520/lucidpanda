@@ -5,7 +5,6 @@ import AlphaDesign
 struct MainTabView: View {
     @State private var selectedTab: TabValue = .intelligence
     @State private var searchText = "" // 提升搜索状态至根视图以支持 Tab 角色联动
-    @State private var marketPulseViewModel = MarketPulseViewModel()
 
     enum TabValue: Hashable {
         case intelligence, funds, backtest, search
@@ -45,11 +44,6 @@ struct MainTabView: View {
                 generator.prepare()
                 generator.impactOccurred()
             }
-            
-            // Market Pulse 悬浮胶囊
-            MarketPulseCapsule(viewModel: marketPulseViewModel)
-                .padding(.top, 8)
-                .zIndex(100)
         }
     }
 }

@@ -40,6 +40,7 @@ public class AppRootViewModel {
     
     public var currentState: AppState = .loading
     public var userProfile: UserProfileDTO?
+    public var marketPulseViewModel = MarketPulseViewModel()
     
     public init() {}
     
@@ -50,7 +51,10 @@ public class AppRootViewModel {
             withAnimation(.easeOut(duration: 0.2)) {
                 currentState = .authenticated
             }
-            Task { await fetchUserProfile() }
+            Task { 
+                await fetchUserProfile()
+                await marketPulseViewModel.start()
+            }
         } else {
             withAnimation(.easeOut(duration: 0.2)) {
                 currentState = .unauthenticated
@@ -69,6 +73,7 @@ public class AppRootViewModel {
 
         if newState == .unauthenticated {
             WatchlistSyncEngine.shared.stop()
+            marketPulseViewModel.stop()
             Task { await SSEResolver.shared.stop() }
             AuthTokenStore.clear()
         }
@@ -77,7 +82,10 @@ public class AppRootViewModel {
         }
         
         if newState == .authenticated {
-            Task { await fetchUserProfile() }
+            Task { 
+                await fetchUserProfile() 
+                await marketPulseViewModel.start()
+            }
         } else {
             self.userProfile = nil
         }
