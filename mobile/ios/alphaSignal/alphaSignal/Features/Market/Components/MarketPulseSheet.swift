@@ -25,6 +25,11 @@ struct MarketPulseSheet: View {
                         
                         // 3. Top Alerts
                         topAlertsSection(data.topAlerts)
+                        
+                        Divider().padding(.horizontal)
+                        
+                        // 4. Upcoming Events
+                        upcomingEventsSection(data.upcomingEvents ?? [])
                     } else {
                         ProgressView()
                             .frame(maxWidth: .infinity, minHeight: 300)
@@ -227,6 +232,59 @@ struct MarketPulseSheet: View {
                             Text(alert.summary)
                                 .font(.system(size: 14, weight: .bold))
                                 .lineLimit(3)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        }
+    }
+
+    private func upcomingEventsSection(_ events: [MarketPulseEvent]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("即将发生的重要事件", systemImage: "calendar.badge.clock")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(.blue)
+                .padding(.horizontal)
+            
+            if events.isEmpty {
+                Text("未来 48h 暂无重大宏观日程")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            } else {
+                ForEach(events) { event in
+                    LiquidGlassCard(backgroundColor: Color.blue.opacity(0.03)) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text(event.country)
+                                    .font(.system(size: 10, weight: .black))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.blue.opacity(0.1))
+                                    .foregroundStyle(.blue)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                                
+                                Spacer()
+                                
+                                Text("\(event.date) \(event.time ?? "")")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Text(event.title)
+                                .font(.system(size: 14, weight: .bold))
+                            
+                            HStack(spacing: 12) {
+                                if let prev = event.previous {
+                                    Text("前值: \(prev)")
+                                }
+                                if let fore = event.forecast {
+                                    Text("预测: \(fore)")
+                                }
+                            }
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
                         }
                     }
                     .padding(.horizontal)

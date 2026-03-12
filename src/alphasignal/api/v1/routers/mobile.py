@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from src.alphasignal.infra.database.connection import get_session
 from src.alphasignal.models.fund import FundMetadata, FundMobileSummary
 from src.alphasignal.models.intelligence import Intelligence, IntelligenceMobileRead
+from src.alphasignal.models.macro_event import MacroEvent
 from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
 from src.alphasignal.utils import v1_prepare_json
@@ -242,9 +243,37 @@ async def get_market_pulse(
             "score": score
         })
 
+    # 5. 未来 48h 重要宏观事件 (Upcoming Macro Events)
+    # 过滤条件：未来 48 小时，影响等级为 high 或 medium
+    now_dt = datetime.now(timezone.utc)
+    until_dt = now_dt + timedelta(hours=48)
+    
+    upcoming_events_raw = db.exec(
+        select(MacroEvent)
+        .where(MacroEvent.release_date >= now_dt.date())
+        .where(MacroEvent.release_date <= until_dt.date())
+        .where(MacroEvent.impact_level.in_(["high", "medium"]))
+        .order_by(MacroEvent.release_date.asc(), MacroEvent.release_time.asc())
+        .limit(5)
+    ).all()
+
+    upcoming_events = []
+    for event in upcoming_events_raw:
+        upcoming_events.append({
+            "id": str(event.id),
+            "title": event.title,
+            "country": event.country,
+            "date": event.release_date.isoformat(),
+            "time": event.release_time,
+            "impact": event.impact_level,
+            "forecast": event.forecast_value,
+            "previous": event.previous_value
+        })
+
     result = v1_prepare_json({
         "market_snapshot": snapshot,
         "top_alerts": top_alerts,
+        "upcoming_events": upcoming_events,
         "overall_sentiment": overall_sentiment,
         "overall_sentiment_zh": overall_sentiment_zh,
         "sentiment_score": avg_sentiment,

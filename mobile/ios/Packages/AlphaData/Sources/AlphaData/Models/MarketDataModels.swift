@@ -211,9 +211,22 @@ public struct MobileDashboardSummary: Codable {
 // MARK: - Market Pulse (悬浮胶囊数据)
 
 /// 宏观市场脉搏响应
+/// 宏观日历事件 (用于 Market Pulse)
+public struct MarketPulseEvent: Codable, Identifiable {
+    public let id: String
+    public let title: String
+    public let country: String
+    public let date: String
+    public let time: String?
+    public let impact: String
+    public let forecast: String?
+    public let previous: String?
+}
+
 public struct MarketPulseResponse: Codable {
     public let marketSnapshot: MarketSnapshot
     public let topAlerts: [MarketPulseAlert]
+    public let upcomingEvents: [MarketPulseEvent]?
     public let overallSentiment: String
     public let overallSentimentZh: String
     public let sentimentScore: Double
@@ -224,6 +237,7 @@ public struct MarketPulseResponse: Codable {
     enum CodingKeys: String, CodingKey {
         case marketSnapshot = "market_snapshot"
         case topAlerts = "top_alerts"
+        case upcomingEvents = "upcoming_events"
         case overallSentiment = "overall_sentiment"
         case overallSentimentZh = "overall_sentiment_zh"
         case sentimentScore = "sentiment_score"

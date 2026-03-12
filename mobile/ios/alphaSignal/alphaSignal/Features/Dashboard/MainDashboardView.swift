@@ -11,8 +11,6 @@ struct MainDashboardView: View {
     @Environment(AppRootViewModel.self) private var rootViewModel
     @State private var isSettingsPresented = false
     @State private var isPulseSheetPresented = false
-    @State private var marketQuotes: [String: MarketQuote] = [:]
-    @State private var isFetchingMarketData = false
 
     @State private var currentTime = Date()
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -28,15 +26,11 @@ struct MainDashboardView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
-                        // 1. 顶部状态栏
+                        // 1. 顶部状态栏 (Active Alerts | MARKET PULSE)
                         headerSection
                             .padding(.bottom, 16)
 
-                        // 2. 四品种市场数据 (黄金、美元指数、原油、美债十年期)
-                        marketDataSection
-                            .padding(.bottom, 16)
-
-                        // 3. 搜索与过滤器 (对齐 Web 端)
+                        // 2. 搜索与过滤器
                         searchAndFilterBar
 
                         VStack(spacing: 16) {
@@ -81,7 +75,6 @@ struct MainDashboardView: View {
                         .padding(.top, 16)
                     }
                 }
-                
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -124,7 +117,6 @@ struct MainDashboardView: View {
         }
         .task {
             await viewModel.startIntelligenceStream()
-            await fetchMarketData()
         }
         .onDisappear {
             viewModel.stopIntelligenceStream()
@@ -161,7 +153,7 @@ struct MainDashboardView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
 
-                // 2. 市场脉搏 (Market Pulse) & UTC Time
+                // 2. 市场脉搏 (Market Pulse) & UTC Time - Integrated Button
                 Button(action: {
                     let generator = UIImpactFeedbackGenerator(style: .medium)
                     generator.impactOccurred()
@@ -219,72 +211,14 @@ struct MainDashboardView: View {
         }
         .onReceive(timer) { input in
             currentTime = input
-            
-            // 每 30 秒自动刷新一次市场数据卡片
-            let seconds = Calendar.current.component(.second, from: input)
-            if seconds % 30 == 0 {
-                Task {
-                    await fetchMarketData()
-                }
-            }
         }
     }
 
-    /// 四品种市场数据区域
-    private var marketDataSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("dashboard.market.title")
-                    .font(.system(size: 16, weight: .bold))
-                Spacer()
-            }
-            .padding(.horizontal)
-
-            LazyVGrid(
-                columns: [GridItem(.flexible()), GridItem(.flexible())],
-                spacing: 10
-            ) {
-                MarketQuoteRow(
-                    symbol: "黄金",
-                    quote: marketQuotes["gold"]
-                )
-                MarketQuoteRow(
-                    symbol: "美元指数",
-                    quote: marketQuotes["dxy"]
-                )
-                MarketQuoteRow(
-                    symbol: "原油",
-                    quote: marketQuotes["oil"]
-                )
-                MarketQuoteRow(
-                    symbol: "美债 10Y",
-                    quote: marketQuotes["us10y"]
-                )
-            }
-            .padding(.horizontal)
-        }
-        .task {
-            await fetchMarketData()
-        }
-    }
-    
     private var utcDateFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         formatter.timeZone = TimeZone(abbreviation: "UTC")
         return formatter
-    }
-
-    // 系统状态文本（3 种状态）
-    private var statusText: String {
-        switch viewModel.connectionStatus {
-        case "dashboard.connection.live":
-            return "dashboard.system.operational"
-        case "dashboard.connection.connecting":
-            return "dashboard.connection.connecting"
-        default:
-            return "dashboard.system.degraded"
-        }
     }
 
     // 系统状态颜色
@@ -301,7 +235,6 @@ struct MainDashboardView: View {
 
     private var searchAndFilterBar: some View {
         VStack(spacing: 12) {
-            // 过滤器切换 - 支持横向滚动
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
                     filterButton(titleKey: "dashboard.filter.all", mode: .all)
@@ -311,7 +244,7 @@ struct MainDashboardView: View {
                 }
                 .padding(.horizontal)
             }
-            .frame(height: 50) // 确保有足够的高度显示按钮
+            .frame(height: 50)
         }
     }
     
@@ -331,7 +264,6 @@ struct MainDashboardView: View {
         }
     }
 
-    
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Spacer(minLength: 100)
@@ -349,10 +281,6 @@ struct MainDashboardView: View {
         .foregroundStyle(.gray.opacity(0.5))
     }
 
-    private func t(_ key: String) -> String {
-        NSLocalizedString(key, comment: "")
-    }
-    
     // MARK: - Timeline Views
     
     @ViewBuilder
@@ -377,8 +305,6 @@ struct MainDashboardView: View {
     @ViewBuilder
     private func timelineItem(item: IntelligenceItem, isLast: Bool) -> some View {
         HStack(alignment: .top, spacing: 12) {
-
-            // Timeline line & dot
             VStack(spacing: 0) {
                 Circle()
                     .fill(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.primary)
@@ -397,7 +323,6 @@ struct MainDashboardView: View {
             }
             .padding(.top, 15)
 
-            // Card Content
             VStack {
                 NavigationLink(destination: IntelligenceDetailView(item: item)) {
                     IntelligenceItemCard(item: item)
@@ -408,123 +333,12 @@ struct MainDashboardView: View {
         }
     }
 
-    // MARK: - Market Data Methods
-
-    private func fetchMarketData() async {
-        guard !isFetchingMarketData else { return }
-        await MainActor.run {
-            isFetchingMarketData = true
-        }
-
-        do {
-            let snapshot: MarketSnapshot = try await APIClient.shared.fetch(path: "/api/v1/mobile/market/snapshot")
-            await MainActor.run {
-                marketQuotes["gold"] = snapshot.gold
-                marketQuotes["dxy"] = snapshot.dxy
-                marketQuotes["oil"] = snapshot.oil
-                marketQuotes["us10y"] = snapshot.us10y
-                isFetchingMarketData = false
-            }
-        } catch {
-            print("Failed to fetch market data: \(error)")
-            await MainActor.run {
-                isFetchingMarketData = false
-            }
-        }
-    }
-
-    private func formatTime(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: date)
-    }
-
     private func sentimentColor(_ sentiment: String) -> Color {
         switch sentiment {
-        case "bullish": return Color.Alpha.down // 红色 (中国习惯)
-        case "bearish": return Color.Alpha.up   // 绿色 (中国习惯)
+        case "bullish": return Color.Alpha.down
+        case "bearish": return Color.Alpha.up
         default: return Color.Alpha.neutral
         }
-    }
-}
-
-// MARK: - Market Quote Row
-
-/// 市场报价行组件
-struct MarketQuoteRow: View {
-    let symbol: String
-    let quote: MarketQuote?
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(symbol)
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(.secondary)
-
-                if let quote = quote, quote.price > 0 {
-                    Text(formatPrice(quote.price, symbol: symbol))
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.primary)
-                } else {
-                    Text("--")
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer()
-
-            if let quote = quote, quote.price > 0 {
-                VStack(alignment: .trailing, spacing: 2) {
-                    let isPositive = quote.change >= 0
-                    let trendColor = isPositive ? Color.Alpha.down : Color.Alpha.up
-                    let icon = isPositive ? "arrow.up.right" : "arrow.down.right"
-
-                    HStack(spacing: 2) {
-                        Image(systemName: icon)
-                            .font(.system(size: 9, weight: .bold))
-                        Text(formatChange(quote.change))
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    }
-                    .foregroundStyle(trendColor)
-
-                    Text(formatChangePercent(quote.changePercent))
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(trendColor)
-                }
-            } else {
-                Text("--")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(.systemBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(Color.gray.opacity(0.1), lineWidth: 1)
-        )
-    }
-
-    private func formatPrice(_ price: Double, symbol: String) -> String {
-        // 美债 10Y 和美元指数保留 2 位小数，黄金和原油保留 1 位小数
-        if symbol == "美债 10Y" || symbol == "美元指数" {
-            return String(format: "%.2f", price)
-        } else {
-            return String(format: "%.1f", price)
-        }
-    }
-
-    private func formatChange(_ change: Double) -> String {
-        return String(format: "%+.2f", change)
-    }
-
-    private func formatChangePercent(_ percent: Double) -> String {
-        return String(format: "%+.2f%%", percent)
     }
 }
 
