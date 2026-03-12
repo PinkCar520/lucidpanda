@@ -13,10 +13,12 @@ def get_engine():
     if settings.DB_TYPE == "sqlite":
         os.makedirs(os.path.dirname(settings.DB_PATH), exist_ok=True)
         db_url = f"sqlite:///{settings.DB_PATH}"
+        log_db_url = db_url
     else:
         db_url = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+        log_db_url = f"postgresql://{settings.POSTGRES_USER}:***@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
     
-    print(f"DEBUG: Connecting to {db_url}")
+    print(f"DEBUG: Connecting to {log_db_url}")
     return create_engine(db_url)
 
 def migrate():
