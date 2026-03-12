@@ -4,6 +4,15 @@ SSE (Server-Sent Events) endpoint for real-time intelligence updates.
 This module provides a streaming endpoint that pushes new intelligence data
 to connected clients as soon as it's written to the database.
 """
+import sys
+import os
+
+# 确保项目根目录在 path 中
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
+# ... imports remaining the same ...
 
 # ... imports remaining the same ...
 import asyncio

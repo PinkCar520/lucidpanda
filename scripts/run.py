@@ -2,8 +2,10 @@ import asyncio
 import sys
 import os
 
-# 确保 src 目录在 path 中
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# 确保项目根目录在 path 中
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
 from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
