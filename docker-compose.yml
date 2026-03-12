@@ -74,7 +74,7 @@ services:
   worker:
     image: pincar/alphasignal-backend:${IMAGE_TAG:-latest}
     container_name: alphasignal_worker
-    command: python scripts/run.py
+    command: python scripts/core/run.py
     volumes:
       - ./logs:/app/logs
     env_file:
@@ -103,7 +103,7 @@ services:
   collector:
     image: pincar/alphasignal-backend:${IMAGE_TAG:-latest}
     container_name: alphasignal_collector
-    command: python scripts/run_collector.py
+    command: python scripts/core/run_collector.py
     volumes:
       - ./logs:/app/logs
     env_file:
@@ -134,7 +134,7 @@ services:
   funds_worker:
     image: pincar/alphasignal-backend:${IMAGE_TAG:-latest}
     container_name: alphasignal_funds_worker
-    command: python scripts/run_funds.py
+    command: python scripts/core/run_funds.py
     volumes:
       - ./logs:/app/logs
     env_file:
@@ -160,7 +160,7 @@ services:
   api:
     image: pincar/alphasignal-backend:${IMAGE_TAG:-latest}
     container_name: alphasignal_api
-    command: python scripts/sse_server.py
+    command: python scripts/core/sse_server.py
     ports:
       - "8001:8001"
     volumes:

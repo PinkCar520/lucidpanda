@@ -39,4 +39,4 @@ RUN mkdir -p logs
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-CMD ["python", "scripts/run.py"]
+CMD ["python", "scripts/core/run.py"]

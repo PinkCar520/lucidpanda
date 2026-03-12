@@ -5,15 +5,15 @@ import os
 from datetime import datetime
 
 # 确保项目根目录在 path 中
-root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
 from src.alphasignal.core.logger import logger
 from src.alphasignal.core.fund_engine import FundEngine
-from scripts.sync_stock_industries import IndustrySyncer
+from scripts.backfills.sync_stock_industries import IndustrySyncer
 from scripts.daily_tasks.calc_fund_stats import StatsEngine
-from scripts.sync_fund_metadata import sync_all_funds
+from scripts.backfills.sync_fund_metadata import sync_all_funds
 
 def run_snapshot():
     logger.info("⏰ [SCHEDULE] Triggering 15:00 Valuation Snapshot...")
