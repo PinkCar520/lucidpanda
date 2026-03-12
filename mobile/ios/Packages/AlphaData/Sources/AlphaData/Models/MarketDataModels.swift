@@ -217,6 +217,7 @@ public struct MarketPulseResponse: Codable {
     public let overallSentiment: String
     public let overallSentimentZh: String
     public let sentimentScore: Double
+    public let sentimentTrend: [SentimentTrendPoint]?
     public let alertCount24h: Int
     public let generatedAt: Date
 
@@ -226,6 +227,7 @@ public struct MarketPulseResponse: Codable {
         case overallSentiment = "overall_sentiment"
         case overallSentimentZh = "overall_sentiment_zh"
         case sentimentScore = "sentiment_score"
+        case sentimentTrend = "sentiment_trend"
         case alertCount24h = "alert_count_24h"
         case generatedAt = "generated_at"
     }
@@ -242,6 +244,18 @@ public struct MarketPulseAlert: Codable, Identifiable {
     enum CodingKeys: String, CodingKey {
         case id, timestamp, summary, sentiment
         case urgencyScore = "urgency_score"
+    }
+}
+
+/// 情绪趋势数据点
+public struct SentimentTrendPoint: Codable, Identifiable {
+    public var id: Date { hour }
+    public let hour: Date
+    public let score: Double
+
+    public init(hour: Date, score: Double) {
+        self.hour = hour
+        self.score = score
     }
 }
 

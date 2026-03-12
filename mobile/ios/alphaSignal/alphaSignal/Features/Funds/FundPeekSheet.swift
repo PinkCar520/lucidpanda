@@ -57,6 +57,21 @@ struct FundPeekSheet: View {
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundStyle(.purple)
                                 .padding(.horizontal)
+                            
+                            if let isFallback = data.isFallback, isFallback {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "info.circle.fill")
+                                    Text(data.fallbackSource ?? "行业视角")
+                                        .font(.system(size: 10, weight: .black))
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundStyle(.blue)
+                                .clipShape(Capsule())
+                                .padding(.horizontal)
+                                .transition(.opacity)
+                            }
 
                             LiquidGlassCard(backgroundColor: Color.purple.opacity(0.05)) {
                                 VStack(alignment: .leading, spacing: 10) {

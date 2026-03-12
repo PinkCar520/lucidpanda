@@ -162,6 +162,8 @@ public struct FundAIAnalysisResponse: Codable {
     public let fundCode: String
     public let fundName: String
     public let hasIntelligence: Bool
+    public let isFallback: Bool?
+    public let fallbackSource: String?
     public let topAdvice: String?
     public let relatedIntelligence: [FundRelatedIntelligence]
     public let marketSnapshot: MarketSnapshot?
@@ -171,6 +173,8 @@ public struct FundAIAnalysisResponse: Codable {
         case fundCode = "fund_code"
         case fundName = "fund_name"
         case hasIntelligence = "has_intelligence"
+        case isFallback = "is_fallback"
+        case fallbackSource = "fallback_source"
         case topAdvice = "top_advice"
         case relatedIntelligence = "related_intelligence"
         case marketSnapshot = "market_snapshot"

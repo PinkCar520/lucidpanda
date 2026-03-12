@@ -2,6 +2,7 @@
 import SwiftUI
 import AlphaDesign
 import AlphaData
+import Charts
 
 struct MarketPulseSheet: View {
     let viewModel: MarketPulseViewModel
@@ -35,15 +36,12 @@ struct MarketPulseSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("关闭") { dismiss() }
-                        .font(.system(size: 15, weight: .bold))
-                }
-                
-                ToolbarItem(placement: .topBarLeading) {
-                    if let last = viewModel.lastUpdated {
-                        Text("更新于 \(last.formatted(date: .omitted, time: .shortened))")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(.secondary.opacity(0.5))
                     }
                 }
             }
@@ -54,9 +52,20 @@ struct MarketPulseSheet: View {
     
     private func sentimentSection(_ data: MarketPulseResponse) -> some View {
         VStack(spacing: 12) {
-            Text("今日整体情绪")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.secondary)
+            HStack {
+                Text("今日整体情绪")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                if let last = viewModel.lastUpdated {
+                    Text("\(last.formatted(date: .omitted, time: .shortened)) 更新")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.secondary.opacity(0.8))
+                }
+            }
+            .padding(.horizontal, 24)
             
             HStack(spacing: 16) {
                 Text(data.overallSentimentZh)
@@ -100,6 +109,51 @@ struct MarketPulseSheet: View {
             }
             .frame(height: 20)
             .padding(.horizontal, 40)
+            
+            // 4. 情绪走势图 (Sparkline)
+            if let trend = data.sentimentTrend, !trend.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("24h 情绪走势")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                    
+                    Chart {
+                        ForEach(trend) { point in
+                            LineMark(
+                                x: .value("时间", point.hour),
+                                y: .value("情绪", point.score)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [sentimentColor(data.overallSentiment), sentimentColor(data.overallSentiment).opacity(0.3)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            
+                            AreaMark(
+                                x: .value("时间", point.hour),
+                                y: .value("情绪", point.score)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [sentimentColor(data.overallSentiment).opacity(0.15), .clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                        }
+                    }
+                    .chartYScale(domain: -1.0...1.0)
+                    .chartXAxis(Visibility.hidden)
+                    .chartYAxis(Visibility.hidden)
+                    .frame(height: 40)
+                }
+                .padding(.horizontal, 30)
+                .padding(.top, 8)
+            }
         }
     }
     
