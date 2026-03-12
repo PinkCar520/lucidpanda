@@ -20,7 +20,7 @@ class Settings:
     # 批量/回填任务专用（无每日上限，成本更低）
     GEMINI_BATCH_MODEL = os.getenv("GEMINI_BATCH_MODEL", "gemini-2.0-flash-lite")
     # Embedding 专用模型
-    GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "models/text-embedding-004")
+    GEMINI_EMBEDDING_MODEL = os.getenv("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-001")
 
     # DeepSeek
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
