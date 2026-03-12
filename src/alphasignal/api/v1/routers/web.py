@@ -6,6 +6,7 @@ import json
 import time
 import os
 import redis
+import logging
 from src.alphasignal.infra.database.connection import get_session
 from src.alphasignal.models.fund import FundMetadata, FundValuationArchive
 from src.alphasignal.models.intelligence import Intelligence
@@ -810,8 +811,10 @@ async def get_web_market_data(
             "quotes": quotes,
             "indicators": indicators
         })
-    except Exception as e:
-        return {"error": str(e)}
+    except Exception:
+        # Log full exception details server-side, but return a generic error to the client
+        logging.exception("Error fetching market data for symbol %s", symbol)
+        return {"error": "Failed to fetch market data. Please try again later."}
 
 @router.get("/stats", response_model=Dict[str, Any])
 async def get_web_backtest_stats(
