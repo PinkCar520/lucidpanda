@@ -16,6 +16,7 @@ on:
       - '*.py'
       - '.github/workflows/docker-publish.yml'
       - 'web/**'
+  workflow_dispatch:
 jobs:
   prep:
     runs-on: ubuntu-latest
@@ -144,7 +145,7 @@ jobs:
   deploy:
     name: Auto Deploy to Server
     needs: [build-and-push-backend, build-and-push-frontend]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && secrets.DEPLOY_ENABLED == 'true'
     runs-on: self-hosted
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

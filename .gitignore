@@ -50,6 +50,13 @@ mobile/ios/Packages/**/.build/
 # Backups
 backups/
 *.backup
+backup_*.sql
+
+# Runtime data/artifacts
+uploads/
+data/
+ssl-data/
+nginx-logs/
 
 # Temporary files
 tmp/
