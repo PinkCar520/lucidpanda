@@ -15,6 +15,7 @@ import pytz
 
 from src.alphasignal.core.logger import logger
 from src.alphasignal.core.database import IntelligenceDB
+from src.alphasignal.config import settings
 from src.alphasignal.providers.data_sources.rsshub import RSSHubSource
 
 

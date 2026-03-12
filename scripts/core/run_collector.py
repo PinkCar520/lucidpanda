@@ -7,7 +7,6 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.alphasignal.config import settings
 from src.alphasignal.core.logger import logger
 from src.alphasignal.core.rss_collector import RSSCollector
 from src.alphasignal.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
