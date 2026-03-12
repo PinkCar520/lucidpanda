@@ -831,7 +831,8 @@ class FundEngine:
             
         except Exception as e:
             logger.error(f"Valuation Calc Failed: {e}")
-            return {"error": str(e)}
+            # Return a generic error message to avoid exposing internal details
+            return {"error": "Valuation calculation failed"}
             # Restore proxies
             for k, v in old_proxies.items():
                 os.environ[k] = v
