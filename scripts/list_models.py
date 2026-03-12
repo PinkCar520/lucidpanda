@@ -10,12 +10,14 @@ from src.alphasignal.config import settings
 def list_gemini_models():
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
     print(f"Using API Key: {settings.GEMINI_API_KEY[:5]}...{settings.GEMINI_API_KEY[-5:] if settings.GEMINI_API_KEY else 'NONE'}")
-    print("Listing all available models...")
+    print("Listing available models...")
     try:
         # 尝试列出所有模型
-        for m in client.models.list():
-            methods = ", ".join(m.supported_generation_methods)
-            print(f"- {m.name} (Methods: {methods})")
+        for i, m in enumerate(client.models.list()):
+            print(f"- {m.name}")
+            # 仅在第一个模型时打印出所有属性，以便我们调试
+            if i == 0:
+                print(f"  Available attributes: {[attr for attr in dir(m) if not attr.startswith('_')]}")
     except Exception as e:
         print(f"Error listing models: {e}")
 
