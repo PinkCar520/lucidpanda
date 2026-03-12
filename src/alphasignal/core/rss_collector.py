@@ -92,10 +92,9 @@ class RSSCollector:
         # 触发 Redis 事件驱动唤醒 Worker
         if saved > 0:
             try:
-                import redis
-                from src.alphasignal.config import settings
-                r = redis.from_url(settings.REDIS_URL, decode_responses=True)
-                r.publish('alphasignal:new_intelligence', str(saved))
+                import redis.asyncio as aioredis
+                async with aioredis.from_url(settings.REDIS_URL, decode_responses=True) as r:
+                    await r.publish('alphasignal:new_intelligence', str(saved))
                 logger.info(f"📣 [Collector] 成功发布 Redis 唤醒事件, 通知 Worker 分析 {saved} 条新数据")
             except Exception as e:
                 logger.warning(f"⚠️ [Collector] Redis 事件发布失败 (分析引擎将按 5m 兜底唤醒): {e}")

@@ -208,6 +208,43 @@ public struct MobileDashboardSummary: Codable {
     }
 }
 
+// MARK: - Market Pulse (悬浮胶囊数据)
+
+/// 宏观市场脉搏响应
+public struct MarketPulseResponse: Codable {
+    public let marketSnapshot: MarketSnapshot
+    public let topAlerts: [MarketPulseAlert]
+    public let overallSentiment: String
+    public let overallSentimentZh: String
+    public let sentimentScore: Double
+    public let alertCount24h: Int
+    public let generatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case marketSnapshot = "market_snapshot"
+        case topAlerts = "top_alerts"
+        case overallSentiment = "overall_sentiment"
+        case overallSentimentZh = "overall_sentiment_zh"
+        case sentimentScore = "sentiment_score"
+        case alertCount24h = "alert_count_24h"
+        case generatedAt = "generated_at"
+    }
+}
+
+/// 脉搏中的高紧急度情报摘要
+public struct MarketPulseAlert: Codable, Identifiable {
+    public let id: Int
+    public let timestamp: Date
+    public let urgencyScore: Int
+    public let summary: String
+    public let sentiment: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, timestamp, summary, sentiment
+        case urgencyScore = "urgency_score"
+    }
+}
+
 // MARK: - Helper Extensions
 
 extension MarketQuote {

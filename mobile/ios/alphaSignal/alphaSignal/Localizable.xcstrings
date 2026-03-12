@@ -65,6 +65,16 @@
         }
       }
     },
+    "%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$@"
+          }
+        }
+      }
+    },
     "%@%@%%" : {
       "localizations" : {
         "en" : {
@@ -115,6 +125,12 @@
 
     },
     "Add Item" : {
+
+    },
+    "AI 专项分析" : {
+
+    },
+    "AI 市场解读" : {
 
     },
     "AlphaSignal" : {
@@ -1459,8 +1475,10 @@
         }
       }
     },
+    "calendar.anchor.count %lld" : {
+
+    },
     "calendar.anchor.empty" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1768,6 +1786,7 @@
       }
     },
     "calendar.strip.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3645,6 +3664,7 @@
       }
     },
     "funds.peek.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4026,6 +4046,7 @@
       }
     },
     "intelligence.analysis.core_signal" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4042,6 +4063,7 @@
       }
     },
     "intelligence.analysis.extracting" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4058,6 +4080,7 @@
       }
     },
     "intelligence.analysis.no_related" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4122,6 +4145,7 @@
       }
     },
     "intelligence.analysis.view_full_report" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4225,6 +4249,9 @@
 
     },
     "Low" : {
+
+    },
+    "MARKET PULSE" : {
 
     },
     "market.error.load" : {
@@ -5619,7 +5646,13 @@
     "WinRate" : {
 
     },
+    "今日整体情绪" : {
+
+    },
     "关联情报" : {
+
+    },
+    "关闭" : {
 
     },
     "创建您的新账号" : {
@@ -5631,19 +5664,46 @@
     "向您的邮箱发送验证码" : {
 
     },
+    "基于近 24h %lld 条情报聚合" : {
+
+    },
     "完成" : {
+
+    },
+    "宏观背景" : {
 
     },
     "市场情报" : {
 
     },
+    "市场脉搏" : {
+
+    },
+    "当前暂无针对该基金的专项 AI 解读。建议关注整体市场情绪。" : {
+
+    },
     "忘记密码？" : {
+
+    },
+    "暂无高紧急度情报" : {
 
     },
     "更新于 %@" : {
 
     },
+    "核心市场行情" : {
+
+    },
+    "正在通过 AI 引擎分析情报关联性..." : {
+
+    },
     "注册账号" : {
+
+    },
+    "紧急度 %lld" : {
+
+    },
+    "近 7 天暂无直接关联的重大情报。" : {
 
     },
     "返回登录" : {
@@ -5653,6 +5713,9 @@
 
     },
     "重要" : {
+
+    },
+    "高紧急情报摘要" : {
 
     }
   },

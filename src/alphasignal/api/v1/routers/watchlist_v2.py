@@ -2,13 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 from sqlmodel import Session, select, text
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 from src.alphasignal.infra.database.connection import get_session
 from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
 from src.alphasignal.core.database import IntelligenceDB
 from src.alphasignal.utils import v1_prepare_json
+from src.alphasignal.services.market_terminal_service import market_terminal_service
+from src.alphasignal.infra.cache import get_cached, set_cached
+from src.alphasignal.utils.entity_normalizer import normalize_fund_name
+from src.alphasignal.services.embedding_service import embedding_service
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/watchlist", tags=["watchlist-v2"])
@@ -790,3 +794,146 @@ async def submit_sync_operations(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== 基金 AI 分析 ====================
+
+@router.get("/{fund_code}/ai_analysis", response_model=Dict[str, Any])
+async def get_fund_ai_analysis(
+    fund_code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+):
+    """
+    单支基金 AI 市场分析 — 为 iOS 长按弹窗提供数据。
+    返回：基金基本信息 + 近7天关联情报（基于 fund_name 关键词匹配）+ 整体市场快照
+    缓存：60s 个人 + 基金级 Redis 缓存
+    """
+    _cache_key = f"api:fund:ai:{current_user.id}:{fund_code}"
+    _cache_ttl = 60  # 秒
+
+    cached = get_cached(_cache_key)
+    if cached is not None:
+        return cached
+
+    # 1. 验证基金在用户自选列表中并获取基金名
+    row = db.execute(
+        text("""
+            SELECT fund_name FROM fund_watchlist
+            WHERE user_id = :uid AND fund_code = :code AND is_deleted = FALSE
+        """),
+        {"uid": str(current_user.id), "code": fund_code},
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="基金不在自选列表中")
+    fund_name: str = row[0]
+    
+    # 规范化基金名，提取核心标的 (如: "华夏沪深300ETF" -> "沪深300")
+    core_name = normalize_fund_name(fund_name)
+
+    # 2. 混合检索关联情报 (Hybrid Search: Keyword + Semantic)
+    since_7d = datetime.now(timezone.utc) - timedelta(days=7)
+    
+    # 2.1 关键词检索 (Keyword Search)
+    kw_raw = db.execute(
+        text("""
+            SELECT id, timestamp, urgency_score, summary, actionable_advice, sentiment_score
+            FROM intelligence
+            WHERE timestamp > :since
+              AND (
+                content ILIKE :kw_full OR content ILIKE :kw_core
+                OR summary::text ILIKE :kw_full OR summary::text ILIKE :kw_core
+                OR entities::text ILIKE :kw_full OR entities::text ILIKE :kw_core
+              )
+              AND summary IS NOT NULL
+            ORDER BY urgency_score DESC, timestamp DESC
+            LIMIT 5
+        """),
+        {"since": since_7d, "kw_full": f"%{fund_name}%", "kw_core": f"%{core_name}%"},
+    ).mappings().all()
+
+    # 2.2 语义检索 (Semantic Search)
+    vec_raw = []
+    if core_name:
+        try:
+            # 这里的 encode 是同步阻塞调用，通过 60s 缓存缓解性能压力
+            vec = embedding_service.encode(core_name)
+            # 使用 pgvector <=> 余弦距离查询 (1 - 距离 = 相似度)
+            # 阈值设为 0.70 以保证关联性
+            vec_raw = db.execute(
+                text("""
+                    SELECT id, timestamp, urgency_score, summary, actionable_advice, sentiment_score
+                    FROM intelligence
+                    WHERE timestamp > :since
+                      AND embedding_vec IS NOT NULL
+                      AND 1 - (embedding_vec <=> :vec::vector) > 0.70
+                    ORDER BY (embedding_vec <=> :vec::vector) ASC
+                    LIMIT 5
+                """),
+                {"since": since_7d, "vec": vec},
+            ).mappings().all()
+        except Exception as e:
+            # 语义搜索失败时不影响主业务流程，降级至关键词检索
+            logger.warning(f"⚠️ Semantic search failed for {fund_code}: {e}")
+
+    # 2.3 结果合并与去重 (按 ID 排重，保留关键词优先权)
+    seen_ids = set()
+    merged_raw = []
+    for row in list(kw_raw) + list(vec_raw):
+        if row["id"] not in seen_ids:
+            merged_raw.append(row)
+            seen_ids.add(row["id"])
+    
+    # 重新按紧急度和时间排序，取 Top 5
+    merged_raw.sort(key=lambda x: (x["urgency_score"], x["timestamp"] or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+    related_raw = merged_raw[:5]
+
+    related_intelligence = []
+    for row in related_raw:
+        summary_text = "无摘要"
+        if isinstance(row["summary"], dict):
+            summary_text = row["summary"].get("zh") or row["summary"].get("en") or summary_text
+        elif isinstance(row["summary"], str):
+            summary_text = row["summary"]
+
+        advice_text = None
+        if isinstance(row["actionable_advice"], dict):
+            advice_text = row["actionable_advice"].get("zh") or row["actionable_advice"].get("en")
+        elif isinstance(row["actionable_advice"], str) and row["actionable_advice"].strip():
+            advice_text = row["actionable_advice"]
+
+        # 使用 sentiment_score 浮点列直接得到情绪标签
+        score = float(row["sentiment_score"]) if row["sentiment_score"] is not None else 0.0
+        sentiment_label = "bullish" if score > 0.15 else ("bearish" if score < -0.15 else "neutral")
+
+        related_intelligence.append({
+            "id": row["id"],
+            "timestamp": row["timestamp"].isoformat() if row["timestamp"] else None,
+            "urgency_score": row["urgency_score"],
+            "summary": summary_text,
+            "advice": advice_text,
+            "sentiment": sentiment_label,
+        })
+
+    # 3. 合并最高紧急度情报的可操作建议作为综合 AI 建议
+    top_advice = None
+    if related_intelligence:
+        for item in related_intelligence:
+            if item["advice"]:
+                top_advice = item["advice"]
+                break
+
+    # 4. 实时市场快照（降级处理）
+    snapshot = market_terminal_service.get_market_snapshot()
+
+    result = v1_prepare_json({
+        "fund_code": fund_code,
+        "fund_name": fund_name,
+        "has_intelligence": len(related_intelligence) > 0,
+        "top_advice": top_advice,
+        "related_intelligence": related_intelligence,
+        "market_snapshot": snapshot,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    })
+    set_cached(_cache_key, result, ttl=_cache_ttl)
+    return result

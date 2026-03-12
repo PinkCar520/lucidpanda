@@ -20,20 +20,6 @@ struct FinancialCalendarStrip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Section header
-            HStack(spacing: 6) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                Text("calendar.strip.title")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 6)
-
             if isAllDaysEmpty {
                 Text("calendar.strip.empty")
                     .font(.system(size: 12, weight: .medium))
@@ -54,11 +40,10 @@ struct FinancialCalendarStrip: View {
                         }
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                    .padding(.top, 4)
+                    .padding(.bottom, 8)
                 }
             }
-
-            Divider().opacity(0.4)
         }
         .sheet(isPresented: $showSheet) {
             if let summary = selectedSummary {

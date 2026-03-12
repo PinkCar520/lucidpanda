@@ -154,3 +154,41 @@ public struct FundValuation: Codable, Identifiable, Hashable, Equatable {
         hasher.combine(fundCode)
     }
 }
+
+// MARK: - Fund AI Analysis (长按弹窗 AI 分析)
+
+/// 基金 AI 市场分析响应
+public struct FundAIAnalysisResponse: Codable {
+    public let fundCode: String
+    public let fundName: String
+    public let hasIntelligence: Bool
+    public let topAdvice: String?
+    public let relatedIntelligence: [FundRelatedIntelligence]
+    public let marketSnapshot: MarketSnapshot?
+    public let generatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case fundCode = "fund_code"
+        case fundName = "fund_name"
+        case hasIntelligence = "has_intelligence"
+        case topAdvice = "top_advice"
+        case relatedIntelligence = "related_intelligence"
+        case marketSnapshot = "market_snapshot"
+        case generatedAt = "generated_at"
+    }
+}
+
+/// 基金关联情报摘要
+public struct FundRelatedIntelligence: Codable, Identifiable {
+    public let id: Int
+    public let timestamp: Date
+    public let urgencyScore: Int
+    public let summary: String
+    public let advice: String?
+    public let sentiment: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, timestamp, summary, advice, sentiment
+        case urgencyScore = "urgency_score"
+    }
+}

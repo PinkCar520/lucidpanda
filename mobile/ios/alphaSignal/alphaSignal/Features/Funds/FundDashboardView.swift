@@ -271,12 +271,33 @@ struct FundDashboardView: View {
     @ViewBuilder
     private var filterAndCalendarHeader: some View {
         VStack(spacing: 0) {
-            // 分组 chips 仅有分组时显示
-            if !displayGroups.isEmpty {
-                filterChips
-            }
+            HStack(spacing: 0) {
+                // 1. 分组 Chips (横向滚动，占据剩余空间)
+                if !displayGroups.isEmpty {
+                    filterChips
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Spacer()
+                }
 
-            // 日历展开面板（始终可触发，无论是否有分组）
+                // 2. 细腻的分隔线 (仅在有分组时显示)
+                if !displayGroups.isEmpty {
+                    Rectangle()
+                        .fill(.secondary.opacity(0.2))
+                        .frame(width: 1, height: 20)
+                        .padding(.horizontal, 4)
+                }
+
+                // 3. 紧凑型日历锚点 (固定宽度)
+                CalendarAnchorButton(
+                    viewModel: calendarViewModel,
+                    isExpanded: $isCalendarExpanded
+                )
+                .padding(.trailing, 12)
+            }
+            .frame(height: 56)
+
+            // 4. 可折叠日历面板 (去除标题，增加间距优化)
             if isCalendarExpanded {
                 FinancialCalendarStrip(viewModel: calendarViewModel) { symbol in
                     if let valuation = displayList.first(where: { $0.fundCode == symbol }) {
@@ -285,12 +306,14 @@ struct FundDashboardView: View {
                     }
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))
+                .padding(.bottom, 8)
             }
 
-            Divider().opacity(0.4)
+            Divider().opacity(0.3)
         }
+        .background(.ultraThinMaterial)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isCalendarExpanded)
-        // Fix: 当分组消失时重置展开状态，避免幽灵状态
+        // Fix: 当分组消失时重置展开状态，避免悬浮态
         .onChange(of: displayGroups.isEmpty) { _, isEmpty in
             if isEmpty && isCalendarExpanded {
                 isCalendarExpanded = false
@@ -301,13 +324,6 @@ struct FundDashboardView: View {
     @ToolbarContentBuilder
     private var dashboardToolbar: some ToolbarContent {
         ToolbarSpacer(.flexible)
-        ToolbarItem() {
-            CalendarAnchorButton(
-                viewModel: calendarViewModel,
-                isExpanded: $isCalendarExpanded
-            )
-        }
-        ToolbarSpacer(.fixed)
         ToolbarItem() {
             Button {
                 withAnimation(.spring()) {

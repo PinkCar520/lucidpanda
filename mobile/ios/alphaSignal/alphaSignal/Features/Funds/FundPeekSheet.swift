@@ -7,11 +7,10 @@ import OSLog
 
 struct FundPeekSheet: View {
     let valuation: FundValuation
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     private let logger = AppLog.watchlist
     
-    @State private var linkedIntelligence: [IntelligenceItem] = []
+    @State private var analysis: FundAIAnalysisResponse? = nil
     @State private var isLoading: Bool = true
     
     var body: some View {
@@ -41,88 +40,87 @@ struct FundPeekSheet: View {
                     
                     Divider()
                         .padding(.horizontal)
-                    
-                    // 2. Associated Intelligence Section
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack {
-                            Label("关联情报", systemImage: "link")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundStyle(.blue)
-                            
-                            Spacer()
-                            
-                            if isLoading {
-                                ProgressView().scaleEffect(0.8)
-                            }
+
+                    if isLoading {
+                        VStack(spacing: 20) {
+                            ProgressView()
+                            Text("正在通过 AI 引擎分析情报关联性...")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        .padding(.horizontal)
-                        
-                        if linkedIntelligence.isEmpty && !isLoading {
-                            LiquidGlassCard {
-                                Text("intelligence.analysis.no_related", bundle: .main)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .padding()
-                            }
-                            .padding(.horizontal)
-                        } else {
-                            ForEach(linkedIntelligence) { item in
-                                IntelligenceBriefRow(item: item)
-                                    .padding(.horizontal)
-                            }
-                        }
-                    }
-                    
-                    // 3. AI Deep Analysis Shortcut
-                    if let firstItem = linkedIntelligence.first {
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                    } else if let data = analysis {
+                        // 2. AI Market Analysis Insight
                         VStack(alignment: .leading, spacing: 12) {
-                            Label(LocalizedStringKey("intelligence.analysis.title"), systemImage: "sparkles")
+                            Label("AI 市场解读", systemImage: "sparkles")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundStyle(.purple)
                                 .padding(.horizontal)
 
                             LiquidGlassCard(backgroundColor: Color.purple.opacity(0.05)) {
                                 VStack(alignment: .leading, spacing: 10) {
-                                    HStack {
-                                        Text(LocalizedStringKey("intelligence.analysis.core_signal"))
-                                            .font(.caption.bold())
-                                            .foregroundStyle(.purple)
-                                        Spacer()
-                                        if isAnalyzing {
-                                            ProgressView().scaleEffect(0.6)
-                                        }
-                                    }
-
-                                    if let advice = aiAdvice {
+                                    if let advice = data.topAdvice {
                                         Text(advice)
                                             .font(.subheadline)
                                             .foregroundStyle(.primary.opacity(0.8))
                                             .lineSpacing(4)
-                                            .transition(.opacity)
                                     } else {
-                                        Text(String(format: NSLocalizedString("intelligence.analysis.extracting", bundle: .main, comment: ""), firstItem.summary))
+                                        Text("当前暂无针对该基金的专项 AI 解读。建议关注整体市场情绪。")
                                             .font(.subheadline)
                                             .italic()
                                             .foregroundStyle(.secondary)
                                     }
-
-                                    HStack {
-                                        Spacer()
-                                        Text("intelligence.analysis.view_full_report", bundle: .main)
-                                            .font(.caption.bold())
-                                            .foregroundStyle(.blue)
-                                    }
-                                    .padding(.top, 4)
                                 }
                             }
                             .padding(.horizontal)
+                        }
+
+                        // 3. Associated Intelligence Section
+                        VStack(alignment: .leading, spacing: 16) {
+                            Label("关联情报", systemImage: "link")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(.blue)
+                                .padding(.horizontal)
+                            
+                            if data.relatedIntelligence.isEmpty {
+                                LiquidGlassCard {
+                                    Text("近 7 天暂无直接关联的重大情报。")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity, alignment: .center)
+                                        .padding()
+                                }
+                                .padding(.horizontal)
+                            } else {
+                                ForEach(data.relatedIntelligence) { item in
+                                    IntelligenceBriefRow(item: item)
+                                        .padding(.horizontal)
+                                }
+                            }
+                        }
+
+                        // 4. Market Snapshot Context
+                        if let snapshot = data.marketSnapshot {
+                            VStack(alignment: .leading, spacing: 16) {
+                                Label("宏观背景", systemImage: "globe.asia.australia.fill")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal)
+                                
+                                HStack(spacing: 12) {
+                                    marketSmallQuote(snapshot.gold, name: "黄金")
+                                    marketSmallQuote(snapshot.dxy, name: "美元")
+                                    marketSmallQuote(snapshot.us10y, name: "美债")
+                                }
+                                .padding(.horizontal)
+                            }
                         }
                     }
                 }
                 .padding(.bottom, 40)
             }
-            .navigationTitle(LocalizedStringKey("funds.peek.title"))
+            .navigationTitle("AI 专项分析")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -134,44 +132,40 @@ struct FundPeekSheet: View {
                 }
             }
             .task {
-                await fetchAllData()
+                await fetchAnalysis()
             }
         }
     }
     
-    @State private var aiAdvice: String? = nil
-    @State private var isAnalyzing: Bool = false
-
-    private func fetchAllData() async {
-        let engine = IntelligenceLinkageEngine(modelContext: modelContext)
-        linkedIntelligence = engine.fetchLinkedIntelligence(for: valuation)
-        isLoading = false
-        
-        if let firstItem = linkedIntelligence.first {
-            await fetchAIAnalysis(for: firstItem)
-        }
-    }
-    
-    private func fetchAIAnalysis(for item: IntelligenceItem) async {
-        guard !isAnalyzing else { return }
-        isAnalyzing = true
-        defer { isAnalyzing = false }
-        
+    private func fetchAnalysis() async {
+        isLoading = true
         do {
-            let response: AISummaryResponse = try await APIClient.shared.fetch(
-                path: "/api/v1/mobile/intelligence/\(item.id)/ai_summary"
-            )
-            withAnimation {
-                self.aiAdvice = response.ai_summary
-            }
+            let path = "/api/v1/web/watchlist/\(valuation.fundCode)/ai_analysis"
+            self.analysis = try await APIClient.shared.fetch(path: path)
         } catch {
-            logger.error("Failed to fetch AI analysis for fund peek: \(error.localizedDescription, privacy: .public)")
+            logger.error("Failed to fetch AI analysis for fund \(valuation.fundCode): \(error.localizedDescription, privacy: .public)")
         }
+        isLoading = false
+    }
+
+    private func marketSmallQuote(_ quote: MarketQuote, name: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(name)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.secondary)
+            Text("\(quote.changePercent >= 0 ? "+" : "")\(String(format: "%.2f%%", quote.changePercent))")
+                .font(.system(size: 12, weight: .black, design: .monospaced))
+                .foregroundStyle(quote.changePercent >= 0 ? Color.Alpha.down : Color.Alpha.up)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(8)
+        .background(Color.primary.opacity(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
 struct IntelligenceBriefRow: View {
-    let item: IntelligenceItem
+    let item: FundRelatedIntelligence
     
     var body: some View {
         LiquidGlassCard {
@@ -196,6 +190,14 @@ struct IntelligenceBriefRow: View {
                     .font(.subheadline.bold())
                     .foregroundStyle(.primary)
                     .lineLimit(2)
+
+                if let advice = item.advice {
+                    Text(advice)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .padding(.top, 4)
+                }
             }
         }
     }

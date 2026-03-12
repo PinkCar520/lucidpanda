@@ -269,7 +269,7 @@ class RSSHubSource(BaseDataSource):
             ]
             all_ids = [i for i in all_ids if i]
             existing_ids = (
-                self.db.source_ids_batch_exists(all_ids)
+                await asyncio.to_thread(self.db.source_ids_batch_exists, all_ids)
                 if self.db else set()
             )
 
