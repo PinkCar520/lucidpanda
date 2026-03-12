@@ -4,10 +4,13 @@ from uuid import UUID
 from sqlmodel import Session, select, text
 from datetime import datetime, timedelta, timezone
 import json
+import asyncio
 from src.alphasignal.infra.database.connection import get_session
 from src.alphasignal.auth.dependencies import get_current_user
 from src.alphasignal.auth.models import User
 from src.alphasignal.core.database import IntelligenceDB
+from src.alphasignal.core.fund_engine import FundEngine
+from src.alphasignal.core.logger import logger
 from src.alphasignal.utils import v1_prepare_json
 from src.alphasignal.services.market_terminal_service import market_terminal_service
 from src.alphasignal.infra.cache import get_cached, set_cached
@@ -843,21 +846,27 @@ async def get_fund_ai_analysis(
               AND (
                 content ILIKE :kw_full OR content ILIKE :kw_core
                 OR summary::text ILIKE :kw_full OR summary::text ILIKE :kw_core
-                OR entities::text ILIKE :kw_full OR entities::text ILIKE :kw_core
+                OR entities @> :json_full::jsonb OR entities @> :json_core::jsonb
               )
               AND summary IS NOT NULL
             ORDER BY urgency_score DESC, timestamp DESC
             LIMIT 5
         """),
-        {"since": since_7d, "kw_full": f"%{fund_name}%", "kw_core": f"%{core_name}%"},
+        {
+            "since": since_7d, 
+            "kw_full": f"%{fund_name}%", 
+            "kw_core": f"%{core_name}%",
+            "json_full": json.dumps([{"name": fund_name}]),
+            "json_core": json.dumps([{"name": core_name}])
+        },
     ).mappings().all()
 
     # 2.2 语义检索 (Semantic Search)
     vec_raw = []
     if core_name:
         try:
-            # 这里的 encode 是同步阻塞调用，通过 60s 缓存缓解性能压力
-            vec = embedding_service.encode(core_name)
+            # 使用 asyncio.to_thread 防止阻塞事件循环 (CPU 密集型编码)
+            vec = await asyncio.to_thread(embedding_service.encode, core_name)
             # 使用 pgvector <=> 余弦距离查询 (1 - 距离 = 相似度)
             # 阈值设为 0.70 以保证关联性
             vec_raw = db.execute(
@@ -887,6 +896,73 @@ async def get_fund_ai_analysis(
     # 重新按紧急度和时间排序，取 Top 5
     merged_raw.sort(key=lambda x: (x["urgency_score"], x["timestamp"] or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
     related_raw = merged_raw[:5]
+
+    # --- 2.4 智能降级逻辑 (Smart Fallback) ---
+    is_fallback = False
+    fallback_source = None
+    
+    if not related_raw:
+        try:
+            # 1. 获取基金所属板块 (从 FundEngine 获取实时估值快照/缓存)
+            engine = FundEngine()
+            valuation = await asyncio.to_thread(engine.calculate_realtime_valuation, fund_code)
+            
+            # 2. 提取权重最高的 L2 或 L1 板块
+            sectors = []
+            if valuation and "sector_attribution" in valuation:
+                # 展平板块字典并排序
+                flat_sectors = []
+                for l1, info in valuation["sector_attribution"].items():
+                    if l1 != "其他":
+                        flat_sectors.append({"name": l1, "weight": info["weight"], "level": "L1"})
+                    for l2, sub_info in info.get("sub", {}).items():
+                        if l2 != "其他":
+                            flat_sectors.append({"name": l2, "weight": sub_info["weight"], "level": "L2"})
+                
+                flat_sectors.sort(key=lambda x: x["weight"], reverse=True)
+                sectors = [s["name"] for s in flat_sectors[:2]] # 取前两个权重最高的板块
+            
+            # 3. 如果有板块信息，尝试搜索板块相关情报
+            if sectors:
+                fallback_kw = sectors[0]
+                fallback_raw = db.execute(
+                    text("""
+                        SELECT id, timestamp, urgency_score, summary, actionable_advice, sentiment_score
+                        FROM intelligence
+                        WHERE timestamp > :since
+                          AND (content ILIKE :kw OR summary::text ILIKE :kw OR entities::text ILIKE :kw)
+                          AND summary IS NOT NULL
+                        ORDER BY urgency_score DESC, timestamp DESC
+                        LIMIT 3
+                    """),
+                    {"since": since_7d, "kw": f"%{fallback_kw}%"},
+                ).mappings().all()
+                
+                if fallback_raw:
+                    related_raw = fallback_raw
+                    is_fallback = True
+                    fallback_source = f"行业视角: {fallback_kw}"
+            
+            # 4. 极致降级：如果依然没有，搜索 "A股" 或 "市场" 整体宏观情报
+            if not related_raw:
+                macro_raw = db.execute(
+                    text("""
+                        SELECT id, timestamp, urgency_score, summary, actionable_advice, sentiment_score
+                        FROM intelligence
+                        WHERE timestamp > :since
+                          AND (content ILIKE '%A股%' OR content ILIKE '%市场%')
+                          AND summary IS NOT NULL
+                        ORDER BY urgency_score DESC, timestamp DESC
+                        LIMIT 3
+                    """),
+                    {"since": since_7d},
+                ).mappings().all()
+                if macro_raw:
+                    related_raw = macro_raw
+                    is_fallback = True
+                    fallback_source = "宏观视角: 市场整体"
+        except Exception as e:
+            logger.error(f"Fallback search failed for {fund_code}: {e}")
 
     related_intelligence = []
     for row in related_raw:
@@ -930,6 +1006,8 @@ async def get_fund_ai_analysis(
         "fund_code": fund_code,
         "fund_name": fund_name,
         "has_intelligence": len(related_intelligence) > 0,
+        "is_fallback": is_fallback,
+        "fallback_source": fallback_source,
         "top_advice": top_advice,
         "related_intelligence": related_intelligence,
         "market_snapshot": snapshot,
