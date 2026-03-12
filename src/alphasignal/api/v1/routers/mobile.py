@@ -213,12 +213,42 @@ async def get_market_pulse(
         overall_sentiment = "neutral"
         overall_sentiment_zh = "中性"
 
+    # 4. 近24h情绪趋势 — 按小时聚合 (Sparkline 支持)
+    trend_raw = db.execute(
+        text("""
+            SELECT date_trunc('hour', timestamp) AS hour,
+                   AVG(sentiment_score) AS avg_score
+            FROM intelligence
+            WHERE timestamp > :since
+              AND sentiment_score IS NOT NULL
+            GROUP BY 1
+            ORDER BY 1 ASC
+        """),
+        {"since": since_24h},
+    ).mappings().all()
+
+    # 构建完整的 24 小时时间序列，处理空缺小时
+    trend_map = {row["hour"]: round(float(row["avg_score"]), 3) for row in trend_raw}
+    sentiment_trend = []
+    
+    # 从 24 小时前开始，到当前小时结束
+    start_hour = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(minute=0, second=0, microsecond=0)
+    for i in range(25):
+        current_h = start_hour + timedelta(hours=i)
+        # 如果该小时没数据，则使用 0.0 或上一个点的值（这里采用 0.0 保持图表真实性）
+        score = trend_map.get(current_h, 0.0)
+        sentiment_trend.append({
+            "hour": current_h.isoformat(),
+            "score": score
+        })
+
     result = v1_prepare_json({
         "market_snapshot": snapshot,
         "top_alerts": top_alerts,
         "overall_sentiment": overall_sentiment,
         "overall_sentiment_zh": overall_sentiment_zh,
         "sentiment_score": avg_sentiment,
+        "sentiment_trend": sentiment_trend,
         "alert_count_24h": sentiment_row["count"] if sentiment_row else 0,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     })
