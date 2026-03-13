@@ -21,8 +21,6 @@ import com.alphasignal.android.data.model.MarketItem
 import com.alphasignal.android.data.model.MarketSnapshot
 import com.alphasignal.android.ui.common.ShimmerLoadingGrid
 import com.alphasignal.android.ui.common.ShimmerLoadingList
-import dev.jeziellago.compose.markdown.MarkdownText
-import kotlinx.coroutines.launch
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -152,10 +150,10 @@ fun IntelligenceDetailContent(item: IntelligenceMobileRead, viewModel: Intellige
                 if (aiSummary == null) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 } else {
-                    MarkdownText(
-                        markdown = aiSummary!!,
+                    Text(
+                        text = aiSummary!!,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        lineHeight = 22.sp
                     )
                 }
             }
