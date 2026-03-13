@@ -28,8 +28,13 @@ jobs:
             echo "Warning: KEYSTORE_BASE64 secret not found. Build might fail if signing is required."
           fi
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.6
+
       - name: Build with Gradle
-        run: cd mobile/android && ./gradlew assembleRelease
+        run: cd mobile/android && gradle assembleRelease
         env:
           RELEASE_STORE_FILE: alphasignal.jks
           RELEASE_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
