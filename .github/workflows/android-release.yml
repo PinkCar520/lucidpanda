@@ -1,13 +1,16 @@
-name: Android Release Build
+name: Android CI/CD
 
 on:
   push:
+    branches: [ main ]
     tags:
       - 'v*'
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
-    name: Build Release APK
+    name: Build Android App
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,7 +28,7 @@ jobs:
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
             echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > mobile/android/app/alphasignal.jks
           else
-            echo "Warning: KEYSTORE_BASE64 secret not found. Build might fail if signing is required."
+            echo "Warning: KEYSTORE_BASE64 secret not found. Build will proceed without release signing."
           fi
 
       - name: Setup Gradle
@@ -33,16 +36,17 @@ jobs:
         with:
           gradle-version: 8.6
 
-      - name: Build with Gradle
-        run: cd mobile/android && gradle assemble
-        env:
-          RELEASE_STORE_FILE: alphasignal.jks
-          RELEASE_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      - name: Build APKs
+        run: |
+          cd mobile/android
+          if [ -n "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            gradle assemble
+          else
+            gradle assembleDebug
+          fi
 
-      - name: Upload APK
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: alphasignal-android-apks
+          name: alphasignal-android-build
           path: mobile/android/app/build/outputs/apk/**/*.apk
