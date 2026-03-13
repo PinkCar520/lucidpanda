@@ -16,7 +16,7 @@ import javax.inject.Singleton
 @Singleton
 class SseRepository @Inject constructor(
     private val client: OkHttpClient,
-    private val baseUrl: String
+    @javax.inject.Named("baseUrl") private val baseUrl: String
 ) {
     fun listenToIntelligenceUpdates(): Flow<String> = callbackFlow {
         val request = Request.Builder()
