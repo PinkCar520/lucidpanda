@@ -206,7 +206,7 @@ struct MainDashboardView: View {
         .padding(.top, 24)
         .sheet(isPresented: $isPulseSheetPresented) {
             MarketPulseSheet(viewModel: rootViewModel.marketPulseViewModel)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.fraction(0.7)])
                 .presentationDragIndicator(.visible)
         }
         .onReceive(timer) { input in

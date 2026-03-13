@@ -54,7 +54,8 @@ backup_*.sql
 
 # Runtime data/artifacts
 uploads/
-data/
+/data/
+!mobile/android/**/data/
 ssl-data/
 nginx-logs/
 

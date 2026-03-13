@@ -140,8 +140,6 @@ struct BacktestView: View {
     private var settingsSheet: some View {
         NavigationStack {
             ZStack {
-                LiquidBackground()
-                
                 ScrollView {
                     VStack(spacing: 24) {
                         // 设置卡片 - 所有配置项在一个卡片中
