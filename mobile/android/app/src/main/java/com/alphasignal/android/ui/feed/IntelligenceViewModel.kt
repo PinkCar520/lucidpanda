@@ -3,17 +3,18 @@ package com.alphasignal.android.ui.feed
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alphasignal.android.data.model.IntelligenceMobileRead
+import com.alphasignal.android.data.model.MarketSnapshot
 import com.alphasignal.android.data.repository.IntelligenceRepository
+import com.alphasignal.android.data.repository.MarketRepository
+import com.alphasignal.android.data.repository.SseRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-import com.alphasignal.android.data.model.MarketSnapshot
-import com.alphasignal.android.data.repository.MarketRepository
-import kotlinx.coroutines.async
 
 sealed class FeedUiState {
     object Loading : FeedUiState()
@@ -23,9 +24,6 @@ sealed class FeedUiState {
     ) : FeedUiState()
     data class Error(val message: String) : FeedUiState()
 }
-
-import com.alphasignal.android.data.repository.SseRepository
-import kotlinx.coroutines.flow.collectLatest
 
 @HiltViewModel
 class IntelligenceViewModel @Inject constructor(
@@ -45,8 +43,6 @@ class IntelligenceViewModel @Inject constructor(
     private fun observeSseUpdates() {
         viewModelScope.launch {
             sseRepository.listenToIntelligenceUpdates().collectLatest {
-                // When a new intelligence update event is received, refresh the list
-                // In a more advanced implementation, we could parse the data and surgically insert the item
                 refreshAll(isBackground = true)
             }
         }

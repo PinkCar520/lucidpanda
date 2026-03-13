@@ -1,21 +1,18 @@
 package com.alphasignal.android.data.repository
 
-import com.alphasignal.android.data.api.ApiService
-import com.alphasignal.android.data.local.AuthManager
-import com.alphasignal.android.data.model.LoginRequest
-import com.alphasignal.android.data.model.UserProfile
-import kotlinx.coroutines.flow.first
-import javax.inject.Inject
-import javax.inject.Singleton
-
 import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.GetPublicKeyCredentialOption
 import androidx.credentials.PublicKeyCredential
+import com.alphasignal.android.data.api.ApiService
+import com.alphasignal.android.data.local.AuthManager
+import com.alphasignal.android.data.model.LoginRequest
+import com.alphasignal.android.data.model.UserProfile
 import com.google.gson.Gson
-import com.google.gson.reflect.TypeType
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Singleton
 class AuthRepository @Inject constructor(
@@ -31,7 +28,6 @@ class AuthRepository @Inject constructor(
             val response = apiService.login(request)
             authManager.saveTokens(response.accessToken, response.refreshToken)
             
-            // Fetch profile after login
             val profile = apiService.getCurrentUser()
             Result.success(profile)
         } catch (e: Exception) {
@@ -41,11 +37,9 @@ class AuthRepository @Inject constructor(
 
     suspend fun loginWithPasskey(activityContext: Context): Result<UserProfile> {
         return try {
-            // 1. Get options from server
             val optionsMap = apiService.getPasskeyLoginOptions()
             val optionsJson = gson.toJson(optionsMap)
 
-            // 2. Request credential from Android system
             val getPublicKeyCredentialOption = GetPublicKeyCredentialOption(optionsJson)
             val getCredRequest = GetCredentialRequest(listOf(getPublicKeyCredentialOption))
             
@@ -56,7 +50,6 @@ class AuthRepository @Inject constructor(
                 return Result.failure(Exception("Unexpected credential type"))
             }
 
-            // 3. Verify with server
             val authResponse = gson.fromJson<Map<String, Any>>(
                 credential.authenticationResponseJson,
                 object : com.google.gson.reflect.TypeToken<Map<String, Any>>() {}.type
@@ -73,7 +66,7 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun logout() {
-...        authManager.clearTokens()
+        authManager.clearTokens()
     }
 
     fun getAccessToken() = authManager.accessToken

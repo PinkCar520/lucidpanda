@@ -6,9 +6,7 @@ import com.alphasignal.android.data.model.WatchlistGroup
 import com.alphasignal.android.data.model.WatchlistItem
 import com.alphasignal.android.data.repository.WatchlistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,8 +19,6 @@ sealed class WatchlistUiState {
     ) : WatchlistUiState()
     data class Error(val message: String) : WatchlistUiState()
 }
-
-import kotlinx.coroutines.flow.combine
 
 @HiltViewModel
 class WatchlistViewModel @Inject constructor(
@@ -49,12 +45,12 @@ class WatchlistViewModel @Inject constructor(
             WatchlistUiState.Success(
                 items = items,
                 groups = groups,
-                syncTime = "" // We can store this in DataStore later
+                syncTime = ""
             )
         }
     }.stateIn(
         scope = viewModelScope,
-        started = kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.WhileSubscribed(5000),
         initialValue = WatchlistUiState.Loading
     )
 

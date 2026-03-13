@@ -1,15 +1,14 @@
 package com.alphasignal.android.data.repository
 
 import com.alphasignal.android.data.api.ApiService
-import com.alphasignal.android.data.model.*
-import javax.inject.Inject
-import javax.inject.Singleton
-
 import com.alphasignal.android.data.local.dao.WatchlistDao
 import com.alphasignal.android.data.local.entity.WatchlistEntity
 import com.alphasignal.android.data.local.entity.WatchlistGroupEntity
+import com.alphasignal.android.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Singleton
 class WatchlistRepository @Inject constructor(
@@ -28,13 +27,39 @@ class WatchlistRepository @Inject constructor(
         return try {
             val response = apiService.getWatchlist(groupId)
             
-            // Sync to local DB
             val itemEntities = response.data.map { it.toEntity() }
             val groupEntities = response.groups.map { it.toEntity() }
             
             watchlistDao.syncWatchlist(itemEntities, groupEntities)
             
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getWatchlistGroups(): Result<List<WatchlistGroup>> {
+        return try {
+            val response = apiService.getWatchlistGroups()
+            Result.success(response.data)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun syncWatchlist(operations: List<SyncOperation>, lastSyncTime: String?): Result<Map<String, Any>> {
+        return try {
+            val response = apiService.syncWatchlist(WatchlistSyncRequest(operations, lastSyncTime))
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getFundAiAnalysis(fundCode: String): Result<Map<String, Any>> {
+        return try {
+            val response = apiService.getFundAiAnalysis(fundCode)
+            Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -62,31 +87,4 @@ class WatchlistRepository @Inject constructor(
         id = id, name = name, icon = icon, color = color,
         sortIndex = sortIndex, createdAt = createdAt, updatedAt = updatedAt
     )
-
-    suspend fun getWatchlistGroups(): Result<List<WatchlistGroup>> {
-...        return try {
-            val response = apiService.getWatchlistGroups()
-            Result.success(response.data)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun syncWatchlist(operations: List<SyncOperation>, lastSyncTime: String?): Result<Map<String, Any>> {
-        return try {
-            val response = apiService.syncWatchlist(WatchlistSyncRequest(operations, lastSyncTime))
-            Result.success(response)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun getFundAiAnalysis(fundCode: String): Result<Map<String, Any>> {
-        return try {
-            val response = apiService.getFundAiAnalysis(fundCode)
-            Result.success(response)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
 }

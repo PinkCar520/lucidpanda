@@ -1,5 +1,6 @@
 package com.alphasignal.android.ui.auth
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.alphasignal.android.data.model.LoginRequest
@@ -18,8 +19,6 @@ sealed class AuthUiState {
     data class Authenticated(val user: UserProfile) : AuthUiState()
     data class Error(val message: String) : AuthUiState()
 }
-
-import android.content.Context
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -58,7 +57,7 @@ class AuthViewModel @Inject constructor(
     }
 
     fun logout() {
-...        viewModelScope.launch {
+        viewModelScope.launch {
             repository.logout()
             _uiState.value = AuthUiState.Idle
         }
