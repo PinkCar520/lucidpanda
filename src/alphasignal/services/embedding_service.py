@@ -45,7 +45,10 @@ class EmbeddingService:
             # 参考: client.models.embed_content(model=..., contents=...)
             res = client.models.embed_content(
                 model=settings.GEMINI_EMBEDDING_MODEL,
-                contents=text
+                contents=text,
+                config={
+                    "output_dimensionality": 768
+                }
             )
             return res.embeddings[0].values
         except Exception as e:
