@@ -25,36 +25,31 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideBaseUrl(): String = "https://alphasignal.ai/api/v1/" // TODO: Configurable
-
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(authManager: AuthManager): OkHttpClient {
+    fun provideOkHttpClient(
+        authManager: AuthManager,
+        @javax.inject.Named("baseUrl") baseUrl: String
+    ): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
 
-        val authInterceptor = okhttp3.Interceptor { chain ->
-            val token = runBlocking { authManager.accessToken.first() }
-            val request = chain.request().newBuilder()
-            if (token != null) {
-                request.addHeader("Authorization", "Bearer $token")
-            }
-            chain.proceed(request.build())
-        }
-
         return OkHttpClient.Builder()
-            .addInterceptor(authInterceptor)
+            .addInterceptor { chain ->
+                val token = runBlocking { authManager.accessToken.first() }
+                val request = chain.request().newBuilder()
+                if (token != null) {
+                    request.addHeader("Authorization", "Bearer $token")
+                }
+                chain.proceed(request.build())
+            }
             .addInterceptor(loggingInterceptor)
             .authenticator { _, response ->
-                // Handle 401 Unauthorized
                 val refreshToken = runBlocking { authManager.refreshToken.first() }
                 if (refreshToken == null) return@authenticator null
 
-                // Synchronously call refresh endpoint using a clean client to avoid recursion
                 val refreshClient = OkHttpClient.Builder().addInterceptor(loggingInterceptor).build()
                 val retrofit = Retrofit.Builder()
-                    .baseUrl("https://alphasignal.ai/api/v1/")
+                    .baseUrl(baseUrl)
                     .addConverterFactory(GsonConverterFactory.create())
                     .client(refreshClient)
                     .build()
@@ -82,12 +77,23 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideRetrofit(baseUrl: String, okHttpClient: OkHttpClient): Retrofit {
+    @javax.inject.Named("baseUrl")
+    fun provideBaseUrl(): String = "https://alphasignal.ai/api/v1/"
+
+    @Provides
+    @Singleton
+    fun provideRetrofit(@javax.inject.Named("baseUrl") baseUrl: String, okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
             .baseUrl(baseUrl)
             .addConverterFactory(GsonConverterFactory.create())
             .client(okHttpClient)
             .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideApiService(retrofit: Retrofit): com.alphasignal.android.data.api.ApiService {
+        return retrofit.create(com.alphasignal.android.data.api.ApiService::class.java)
     }
 
     @Provides
