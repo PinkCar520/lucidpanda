@@ -852,7 +852,7 @@ async def get_fund_ai_analysis(
               AND (
                 content ILIKE :kw_full OR content ILIKE :kw_core
                 OR summary::text ILIKE :kw_full OR summary::text ILIKE :kw_core
-                OR entities @> :json_full::jsonb OR entities @> :json_core::jsonb
+                OR entities @> CAST(:json_full AS jsonb) OR entities @> CAST(:json_core AS jsonb)
               )
               AND summary IS NOT NULL
             ORDER BY urgency_score DESC, timestamp DESC
@@ -883,8 +883,8 @@ async def get_fund_ai_analysis(
                     WHERE timestamp > :since
                       AND category = ANY(:cats)
                       AND embedding_vec IS NOT NULL
-                      AND 1 - (embedding_vec <=> :vec::vector) > 0.70
-                    ORDER BY (embedding_vec <=> :vec::vector) ASC
+                      AND 1 - (embedding_vec <=> CAST(:vec AS vector)) > 0.70
+                    ORDER BY (embedding_vec <=> CAST(:vec AS vector)) ASC
                     LIMIT 5
                 """),
                 {"since": since_7d, "cats": preferred_categories, "vec": vec},
