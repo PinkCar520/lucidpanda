@@ -5,6 +5,7 @@ AlphaSignal RSS Intelligence Source
 """
 
 import asyncio
+import os
 import feedparser
 import httpx
 from src.alphasignal.core.logger import logger
@@ -103,6 +104,10 @@ class RSSHubSource(BaseDataSource):
         super().__init__(db)
         self.feed_configs = TIER1_FEEDS_CONFIG
         self._semaphore: asyncio.Semaphore | None = None
+        # 开启后打印每个信源的抓取结果，便于灰度排查失效信源
+        self.log_each_source = os.getenv("ALPHASIGNAL_LOG_EACH_SOURCE", "1").lower() not in {
+            "0", "false", "off"
+        }
 
     def _is_noise(self, text: str) -> bool:
         return any(kw in text for kw in _NOISE_KEYWORDS)
@@ -123,10 +128,21 @@ class RSSHubSource(BaseDataSource):
         client: httpx.AsyncClient,
         ssl_client: httpx.AsyncClient,
         config: dict,
-    ) -> list[dict]:
+    ) -> tuple[list[dict], dict]:
         name = config["name"]
         url = config["url"]
         category = config["category"]
+        status = {
+            "name": name,
+            "url": url,
+            "category": category,
+            "status": "unknown",
+            "new_items": 0,
+            "total_entries": 0,
+            "dedup_skipped": 0,
+            "filter_skipped": 0,
+            "reason": "",
+        }
         
         from urllib.parse import urlparse
         host = urlparse(url).hostname or ""
@@ -135,10 +151,17 @@ class RSSHubSource(BaseDataSource):
         async with self._semaphore:
             try:
                 resp = await active_client.get(url, timeout=15.0)
-                if resp.status_code != 200: return []
+                if resp.status_code != 200:
+                    status["status"] = "failed"
+                    status["reason"] = f"HTTP {resp.status_code}"
+                    return [], status
                 
                 feed = feedparser.parse(resp.content)
-                if not feed.entries: return []
+                if not feed.entries:
+                    status["status"] = "ok_empty"
+                    status["reason"] = "feed 无条目"
+                    return [], status
+                status["total_entries"] = len(feed.entries)
 
                 # DB 批量去重
                 all_ids = [getattr(e, "id", None) or getattr(e, "link", None) for e in feed.entries]
@@ -148,14 +171,20 @@ class RSSHubSource(BaseDataSource):
                 items = []
                 for entry in feed.entries:
                     item_id = getattr(entry, "id", None) or getattr(entry, "link", None)
-                    if not item_id or item_id in existing_ids: continue
+                    if not item_id or item_id in existing_ids:
+                        status["dedup_skipped"] += 1
+                        continue
 
                     title = getattr(entry, "title", "").strip()
                     summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
                     full_text = f"{title} {summary}".lower()
 
-                    if self._is_noise(full_text): continue
-                    if not self._passes_category_filter(category, full_text): continue
+                    if self._is_noise(full_text):
+                        status["filter_skipped"] += 1
+                        continue
+                    if not self._passes_category_filter(category, full_text):
+                        status["filter_skipped"] += 1
+                        continue
 
                     items.append({
                         "source": name,
@@ -166,10 +195,16 @@ class RSSHubSource(BaseDataSource):
                         "url": getattr(entry, "link", url),
                         "id": item_id,
                     })
-                return items
+                status["new_items"] = len(items)
+                status["status"] = "ok_new" if items else "ok_empty"
+                if not items:
+                    status["reason"] = "过滤/去重后无新增"
+                return items, status
             except Exception as e:
+                status["status"] = "failed"
+                status["reason"] = str(e)
                 logger.warning(f"⚠️ [{name}] 抓取失败: {e}")
-                return []
+                return [], status
 
     async def fetch_async(self) -> list | None:
         if self._semaphore is None:
@@ -181,8 +216,46 @@ class RSSHubSource(BaseDataSource):
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         new_items = []
+        source_statuses = []
         for res in results:
-            if isinstance(res, list): new_items.extend(res)
+            if isinstance(res, Exception):
+                source_statuses.append({
+                    "name": "unknown",
+                    "url": "",
+                    "category": "",
+                    "status": "failed",
+                    "new_items": 0,
+                    "total_entries": 0,
+                    "dedup_skipped": 0,
+                    "filter_skipped": 0,
+                    "reason": str(res),
+                })
+                continue
+
+            items, status = res
+            new_items.extend(items)
+            source_statuses.append(status)
+
+        if self.log_each_source:
+            for s in source_statuses:
+                if s["status"] == "failed":
+                    logger.warning(
+                        f"❌ [RSS:{s['category']}] {s['name']} | 失败 | {s['reason']} | {s['url']}"
+                    )
+                else:
+                    logger.info(
+                        f"🧪 [RSS:{s['category']}] {s['name']} | {s['status']} | "
+                        f"entries={s['total_entries']} | new={s['new_items']} | "
+                        f"dedup={s['dedup_skipped']} | filtered={s['filter_skipped']}"
+                    )
+
+        failed = sum(1 for s in source_statuses if s["status"] == "failed")
+        ok_new = sum(1 for s in source_statuses if s["status"] == "ok_new")
+        ok_empty = sum(1 for s in source_statuses if s["status"] == "ok_empty")
+        logger.info(
+            f"📈 RSS信源汇总: total={len(source_statuses)} | ok_new={ok_new} | "
+            f"ok_empty={ok_empty} | failed={failed}"
+        )
         
         if new_items:
             logger.info(f"✅ 分类采集完毕: 总计 {len(new_items)} 条新情报")
