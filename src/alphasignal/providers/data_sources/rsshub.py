@@ -135,10 +135,14 @@ class RSSHubSource(BaseDataSource):
         async with self._semaphore:
             try:
                 resp = await active_client.get(url, timeout=15.0)
-                if resp.status_code != 200: return []
+                if resp.status_code != 200:
+                    logger.warning(f"⚠️ [{name}] 抓取失败: HTTP {resp.status_code}")
+                    return []
                 
                 feed = feedparser.parse(resp.content)
-                if not feed.entries: return []
+                if not feed.entries:
+                    logger.info(f"🧪 [{name}] ok_empty | entries=0 | new=0 | dedup=0 | filtered=0")
+                    return []
 
                 # DB 批量去重
                 all_ids = [getattr(e, "id", None) or getattr(e, "link", None) for e in feed.entries]
@@ -146,16 +150,24 @@ class RSSHubSource(BaseDataSource):
                 existing_ids = await asyncio.to_thread(self.db.source_ids_batch_exists, all_ids) if self.db else set()
 
                 items = []
+                dedup_skipped = 0
+                filter_skipped = 0
                 for entry in feed.entries:
                     item_id = getattr(entry, "id", None) or getattr(entry, "link", None)
-                    if not item_id or item_id in existing_ids: continue
+                    if not item_id or item_id in existing_ids:
+                        dedup_skipped += 1
+                        continue
 
                     title = getattr(entry, "title", "").strip()
                     summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
                     full_text = f"{title} {summary}".lower()
 
-                    if self._is_noise(full_text): continue
-                    if not self._passes_category_filter(category, full_text): continue
+                    if self._is_noise(full_text):
+                        filter_skipped += 1
+                        continue
+                    if not self._passes_category_filter(category, full_text):
+                        filter_skipped += 1
+                        continue
 
                     items.append({
                         "source": name,
@@ -166,6 +178,12 @@ class RSSHubSource(BaseDataSource):
                         "url": getattr(entry, "link", url),
                         "id": item_id,
                     })
+
+                status = "ok_new" if items else "ok_empty"
+                logger.info(
+                    f"🧪 [{name}] {status} | entries={len(feed.entries)} | new={len(items)} | "
+                    f"dedup={dedup_skipped} | filtered={filter_skipped}"
+                )
                 return items
             except Exception as e:
                 logger.warning(f"⚠️ [{name}] 抓取失败: {e}")
