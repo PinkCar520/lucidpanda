@@ -1,0 +1,49 @@
+name: LucidPanda
+options:
+  bundleIdPrefix: com.pineapple
+  deploymentTarget:
+    iOS: "26.0"
+
+packages:
+  AlphaCore:
+    path: ../Packages/AlphaCore
+  AlphaData:
+    path: ../Packages/AlphaData
+  AlphaDesign:
+    path: ../Packages/AlphaDesign
+
+targets:
+  LucidPanda:
+    type: application
+    platform: iOS
+    sources:
+      - path: LucidPanda
+    info:
+      path: LucidPanda/Info.plist
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.pineapple.LucidPanda
+      DEVELOPMENT_TEAM: pinkcar1901@icloud.com
+      CODE_SIGN_STYLE: Automatic
+    dependencies:
+      - package: AlphaCore
+      - package: AlphaData
+      - package: AlphaDesign
+      - sdk: SwiftUI.framework
+      - sdk: Combine.framework
+      - sdk: SwiftData.framework
+
+  LucidPandaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - LucidPandaTests/
+    dependencies:
+      - target: LucidPanda
+
+  LucidPandaUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - LucidPandaUITests/
+    dependencies:
+      - target: LucidPanda

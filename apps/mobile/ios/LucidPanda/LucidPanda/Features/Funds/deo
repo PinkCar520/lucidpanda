@@ -1,0 +1,30 @@
+                .safeAreaInset(edge: .top) {
+                    if !searchText.isEmpty {
+                        VStack(spacing: 0) {
+                            HStack(spacing: 12) {
+                                ForEach(SearchFilterType.allCases, id: \.self) { filter in
+                                    Button {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            searchFilter = filter
+                                        }
+                                    } label: {
+                                        Text(LocalizedStringKey(filter.rawValue))
+//                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundStyle(searchFilter == filter ? TaupeTheme.primary : TaupeTheme.taupe400)
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 8)
+//                                            .background(searchFilter == filter ? TaupeTheme.primary : TaupeTheme.taupe800.opacity(0.3))
+                                            .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                                    }
+                                    .buttonStyle(LiquidScaleButtonStyle())
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            
+                            Divider().background(TaupeTheme.taupe800.opacity(0.5))
+                        }
+                        .background(TaupeTheme.background)
+                    }
+                }

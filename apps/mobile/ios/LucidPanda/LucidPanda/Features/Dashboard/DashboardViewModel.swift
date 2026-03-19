@@ -1,0 +1,213 @@
+import Foundation
+import Observation
+import AlphaCore
+import AlphaData
+import SwiftUI
+import SwiftData
+import OSLog
+
+@Observable
+class DashboardViewModel {
+    private let logger = AppLog.dashboard
+    var items: [IntelligenceItem] = []
+    var isStreaming = false
+    var connectionStatus: String = "dashboard.connection.disconnected"
+    
+    // 搜索与过滤状态
+
+    var filterMode: FilterMode = .all
+
+    enum FilterMode {
+        case all, essential, bearish, bullish
+    }
+
+    // 计算属性：应用过滤逻辑 (对齐 Web 端)
+    var filteredItems: [IntelligenceItem] {
+        items.filter { item in
+            // 2. 模式过滤
+            switch filterMode {
+            case .all: return true
+            case .essential: return item.urgencyScore >= 8
+            case .bearish:
+                let keywords = ["鹰", "利空", "下跌", "Bearish", "Hawkish", "Pressure"]
+                return keywords.contains { item.sentiment.contains($0) }
+            case .bullish:
+                let keywords = ["鸽", "利好", "上涨", "Bullish", "Dovish", "Boost"]
+                return keywords.contains { item.sentiment.contains($0) }
+            }
+        }
+    }
+    
+
+    
+
+    
+    // SwiftData 上下文
+    @ObservationIgnored
+    private var persistenceContext: ModelContext?
+    
+    public func setModelContext(_ context: ModelContext) {
+        self.persistenceContext = context
+    }
+    
+    private let jsonDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+    
+    public init(modelContext: ModelContext? = nil) {
+        self.persistenceContext = modelContext
+    }
+
+    private func isCancelledError(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+        let nsError = error as NSError
+        return nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
+    }
+    
+    @MainActor
+    func startIntelligenceStream() async {
+        guard !isStreaming else { return }
+        isStreaming = true
+        // Optimistic UI: 仿照 Web 端，直接显示“实时”，避免给用户带来“连接中”的焦虑感
+        connectionStatus = "dashboard.connection.live"
+
+        // 1. 先通过 REST 获取历史数据，确保页面不为空
+        await fetchInitialHistory()
+
+        // 重连计数器
+        var reconnectAttempts = 0
+        let maxReconnectDelay: UInt64 = 30_000_000_000 // 30 秒上限
+
+        while !Task.isCancelled {
+            do {
+                // 从会话存储获取最新 access token
+                let token = AuthTokenStore.accessToken()
+
+                // 订阅 V1 高性能实时流 (基于 Redis Pub/Sub)
+                let streamURL = URL(string: "http://43.139.108.187:8001/api/v1/intelligence/stream")!
+                let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)
+
+                connectionStatus = "dashboard.connection.live"
+                reconnectAttempts = 0 // 连接成功，重置计数器
+
+                for try await jsonString in stream {
+                    if Task.isCancelled {
+                        break
+                    }
+                    guard let data = jsonString.data(using: .utf8) else { continue }
+
+                    if let event = try? self.jsonDecoder.decode(IntelligenceEvent.self, from: data),
+                       let newItems = event.data {
+                        processNewItems(newItems)
+                    }
+                }
+
+                // 正常退出（非错误）
+                if Task.isCancelled {
+                    break
+                }
+
+            } catch {
+                if Task.isCancelled || isCancelledError(error) {
+                    break
+                }
+                if case APIError.unauthorized = error {
+                    connectionStatus = "dashboard.connection.disconnected"
+                    isStreaming = false
+                    return
+                }
+
+                // 连接失败，准备重连
+                reconnectAttempts += 1
+                let delay = min(UInt64(pow(2, Double(reconnectAttempts))) * 1_000_000_000, maxReconnectDelay)
+
+                logger.error("V1 stream failed (attempt \(reconnectAttempts)): \(error.localizedDescription, privacy: .public). Reconnecting in \(delay / 1_000_000_000)s...")
+
+                // 重连等待期间，如果重试次数过多显示离线，否则保持 optimstic live
+                if reconnectAttempts > 2 {
+                    connectionStatus = "dashboard.connection.disconnected"
+                }
+                try? await Task.sleep(nanoseconds: delay)
+            }
+        }
+
+        // 最终退出
+        connectionStatus = "dashboard.connection.disconnected"
+        isStreaming = false
+    }
+
+    @MainActor
+    func stopIntelligenceStream() {
+        isStreaming = false
+        connectionStatus = "dashboard.connection.disconnected"
+        Task { await SSEResolver.shared.stop() }
+    }
+    
+    @MainActor
+    private func fetchInitialHistory() async {
+        do {
+            // 切换至 V1 Mobile BFF 接口：字段更精简，流量更省
+            let response: [IntelligenceMobileReadDTO] = try await APIClient.shared.fetch(path: "/api/v1/mobile/intelligence?limit=50")
+            
+            // 转换为 UI 模型
+            let items = response.map { dto in
+                IntelligenceItem(
+                    id: dto.id,
+                    timestamp: dto.timestamp,
+                    author: dto.author ?? "Unknown",
+                    summary: dto.summary,
+                    content: "", // V1 列表页不返回正文以节省流量
+                    sentiment: dto.sentiment_label,
+                    urgencyScore: dto.urgency_score,
+                    goldPriceSnapshot: dto.gold_price_snapshot
+                )
+            }
+            processNewItems(items)
+        } catch {
+            logger.error("Failed to fetch V1 history: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+    
+    @MainActor
+    private func processNewItems(_ newItems: [IntelligenceItem]) {
+        withAnimation(.interpolatingSpring(stiffness: 120, damping: 14)) {
+            for item in newItems {
+                if !self.items.contains(where: { $0.id == item.id }) {
+                    self.items.append(item)
+                    
+                    // 同步到数据库
+                    let model = IntelligenceModel(from: item)
+                    persistenceContext?.insert(model)
+                }
+            }
+            
+            // 提交数据库更改
+            try? persistenceContext?.save()
+            
+            self.items.sort { $0.timestamp > $1.timestamp }
+            
+            if self.items.count > 100 {
+                self.items = Array(self.items.prefix(100))
+            }
+        }
+    }
+}
+
+// 补充 DTO 定义以匹配 V1 Mobile BFF
+struct IntelligenceMobileReadDTO: Codable {
+    let id: Int
+    let timestamp: Date
+    let author: String?
+    let summary: String
+    let urgency_score: Int
+    let sentiment_label: String
+    let gold_price_snapshot: Double?
+}
+
+struct IntelligenceHistoryResponse: Codable {
+    let data: [IntelligenceItem]?
+    let count: Int?
+}

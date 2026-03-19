@@ -77,6 +77,3 @@ htmlcov/
 
 # State files
 monitor_state.json
-
-#mobile
-mobile/

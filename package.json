@@ -8,6 +8,7 @@
     "test": "pnpm -r test",
     "api:dev": "pnpm --filter api run dev",
     "web:dev": "pnpm --filter web run dev",
+    "ios:generate": "pnpm --filter @lucidpanda/mobile-ios run generate",
     "generate-api": "pnpm --filter schema run generate"
   },
   "devDependencies": {
