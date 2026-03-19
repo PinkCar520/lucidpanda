@@ -1,0 +1,52 @@
+name: Android CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build Android App
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Decode Keystore
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > mobile/android/app/lucidpanda.jks
+          else
+            echo "Warning: KEYSTORE_BASE64 secret not found. Build will proceed without release signing."
+          fi
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.6
+
+      - name: Build APKs
+        run: |
+          cd mobile/android
+          if [ -n "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            gradle assemble
+          else
+            gradle assembleDebug
+          fi
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: lucidpanda-android-build
+          path: mobile/android/app/build/outputs/apk/**/*.apk

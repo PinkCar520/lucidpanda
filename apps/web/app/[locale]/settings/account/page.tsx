@@ -1,0 +1,195 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
+import { useSession } from 'next-auth/react';
+import { Link } from '@/i18n/navigation';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { 
+    Wallet, TrendingUp, ShieldCheck, Zap, 
+    ArrowUpRight, ArrowDownRight, Activity, 
+    Star, Shield, Loader2 
+} from 'lucide-react';
+import { authenticatedFetch } from '@/lib/api-client';
+
+interface AssetOverview {
+    total_assets: number;
+    available_funds: number;
+    frozen_funds: number;
+    pnl_today: number;
+    pnl_percentage: number;
+    active_strategies: number;
+    watchlist_count: number;
+}
+
+export default function AccountOverviewPage() {
+  const t = useTranslations('Settings');
+  const { data: sessionData } = useSession();
+  
+  const [overview, setOverview] = useState<AssetOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (sessionData) {
+        fetchOverview();
+    }
+  }, [sessionData]);
+
+  const fetchOverview = async () => {
+    try {
+        const res = await authenticatedFetch('/api/v1/auth/assets/me/overview', sessionData);
+        if (res.ok) {
+            const data = await res.json();
+            setOverview(data);
+        }
+    } catch (error) {
+        console.error("Failed to fetch asset overview", error);
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  if (loading) {
+      return (
+          <div className="flex items-center justify-center min-h-[400px]">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          </div>
+      );
+  }
+
+  return (
+    <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl font-bold">{t('accountOverview')}</h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {t('accountOverviewSubtitle')}
+        </p>
+      </div>
+
+      {/* Asset Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="p-6 bg-gradient-to-br from-blue-600 to-indigo-700 text-white border-none shadow-xl shadow-blue-500/20">
+              <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                      <Wallet className="w-6 h-6 opacity-80" />
+                                                <Badge variant="neutral" className="bg-white/20 border-none text-white backdrop-blur-md">
+                                                {t('currencyUSD')}
+                                                </Badge>
+                      
+                  </div>
+                  <div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-1">{t('totalAssets')}</div>
+                      <div className="text-2xl font-black">${overview?.total_assets.toLocaleString()}</div>
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 pt-4 border-t border-white/10 text-xs">
+                      <div className="flex flex-col">
+                          <span className="opacity-60">{t('availableFunds')}</span>
+                          <span className="font-bold">${overview?.available_funds.toLocaleString()}</span>
+                      </div>
+                      <div className="flex flex-col">
+                          <span className="opacity-60">{t('frozenFunds')}</span>
+                          <span className="font-bold">${overview?.frozen_funds.toLocaleString()}</span>
+                      </div>
+                  </div>
+              </div>
+          </Card>
+
+          <Card className="p-6">
+              <div className="flex flex-col gap-4 h-full">
+                  <div className="flex items-center justify-between">
+                      <TrendingUp className="w-6 h-6 text-emerald-500" />
+                      <div className={`flex items-center gap-1 text-xs font-bold ${overview && overview.pnl_today >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                          {overview && overview.pnl_today >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                          {overview?.pnl_percentage}%
+                      </div>
+                  </div>
+                  <div>
+                      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">{t('todayPnL')}</div>
+                      <div className={`text-2xl font-black ${overview && overview.pnl_today >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600'}`}>
+                          {overview && overview.pnl_today >= 0 ? '+' : ''}${overview?.pnl_today.toLocaleString()}
+                      </div>
+                  </div>
+                  <div className="mt-auto">
+                      <p className="text-[10px] text-slate-400 italic">{t('pnlDescription')}</p>
+                  </div>
+              </div>
+          </Card>
+
+          <Card className="p-6">
+              <div className="flex flex-col gap-4 h-full">
+                  <div className="flex items-center justify-between">
+                      <Zap className="w-6 h-6 text-amber-500" />
+                      <div className="flex items-center gap-1 text-xs font-bold text-slate-500">
+                          <Activity className="w-3 h-3" />
+                          {t('liveStatus')}
+                      </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">{t('activeStrategies')}</div>
+                          <div className="text-xl font-black">{overview?.active_strategies}</div>
+                      </div>
+                      <div>
+                          <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">{t('watchlistCount')}</div>
+                          <div className="text-xl font-black">{overview?.watchlist_count}</div>
+                      </div>
+                  </div>
+                  <div className="mt-auto pt-4 flex gap-2">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] text-slate-500 font-bold uppercase">{t('systemEngineStatus')}</span>
+                  </div>
+              </div>
+          </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-8">
+          {/* Security Status */}
+          <div className="w-full">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-4">
+                  <Shield className="w-4 h-4 text-purple-500" />
+                  {t('securityStatus')}
+              </div>
+              <Card className="p-6">
+                  <div className="flex flex-col md:flex-row gap-8">
+                      <div className="flex-1 flex flex-col gap-4">
+                          <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${sessionData?.user?.is_two_fa_enabled ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                                  <ShieldCheck className="w-6 h-6" />
+                              </div>
+                              <div>
+                                  <div className="text-sm font-bold">{t('twoFA')}</div>
+                                  <div className={`text-xs font-medium ${sessionData?.user?.is_two_fa_enabled ? 'text-emerald-500' : 'text-amber-500'}`}>
+                                      {sessionData?.user?.is_two_fa_enabled ? t('twoFAEnabledMsg') : t('twoFAActionRequiredMsg')}
+                                  </div>
+                              </div>
+                          </div>
+                          {!sessionData?.user?.is_two_fa_enabled && (
+                              <Link href="/settings/security">
+                                  <button className="text-xs font-bold text-blue-600 hover:text-blue-700 underline underline-offset-4">
+                                      {t('protectAccountNow')} →
+                                  </button>
+                              </Link>
+                          )}
+                      </div>
+                      <div className="flex-1 flex flex-col gap-4 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-4 md:pt-0 md:pl-8">
+                          <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                                  <Star className="w-6 h-6" />
+                              </div>
+                              <div>
+                                  <div className="text-sm font-bold">{t('identityStatus')}</div>
+                                  <div className="text-xs text-slate-500 font-medium">
+                                      {t('memberTier')}
+                                  </div>
+                              </div>
+                          </div>
+                          <div className="text-[10px] text-slate-400 italic">{t('verifyIdentityHint')}</div>
+                      </div>
+                  </div>
+              </Card>
+          </div>
+      </div>
+    </div>
+  );
+}

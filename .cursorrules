@@ -1,0 +1,24 @@
+# LucidPanda PNPM Monorepo 治理规范 (No-Turbo)
+
+## 1. 核心架构
+- **Package Manager**: 必须使用 pnpm。
+- **Workspace**: 物理隔离在 apps/ (应用) 和 packages/ (包)。
+- **Task Runner**: 使用原生的 pnpm --filter 模式，禁止使用 Turborepo。
+
+## 2. AI 行为红线
+- **契约优先 (Contract-First)**: 接口变更必须先修改 packages/schema/ 中的 TypeSpec/OpenAPI 定义。
+- **依赖引用**: 严禁跨应用直接引用源代码。共享代码必须提取到 packages/shared，并通过 pnpm add @lucidpanda/shared 引入。
+- **代码生成**: 优先使用脚本同步 API 模型，严禁手动在多端重复编写 DTO。
+
+## 3. 常用指令集 (AI 必须使用这些命令验证代码)
+- **全局构建**: `pnpm build`
+- **启动后端**: `pnpm api:dev`
+- **启动前端**: `pnpm web:dev`
+- **运行测试**: `pnpm test`
+- **同步模型**: `pnpm generate-api`
+
+## 4. 目录守则
+- apps/api: Python/FastAPI (逻辑分层：Controller-Service-Repo)
+- apps/web: Next.js (TypeScript)
+- apps/mobile: iOS (Swift 6)
+- packages/schema: 全栈契约中心

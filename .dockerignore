@@ -1,0 +1,16 @@
+web/
+.git
+.github/
+.idea/
+.pytest_cache/
+venv/
+__pycache__/
+logs/
+data/
+*.db
+*.sql
+.env
+.DS_Store
+docs/
+tests/
+monitor_state.json

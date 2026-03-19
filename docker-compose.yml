@@ -1,0 +1,237 @@
+services:
+  # 0. PostgreSQL Database (New Data Center)
+  db:
+    image: pgvector/pgvector:pg15
+    container_name: lucidpanda_db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-lucidpanda}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+      - POSTGRES_DB=${POSTGRES_DB:-lucidpanda_core}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # Disabled in production for security
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lucidpanda} -d ${POSTGRES_DB:-lucidpanda_core}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 0.5 Redis
+  redis:
+    image: redis:7-alpine
+    container_name: lucidpanda_redis
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # 0.5.5 sing-box（轻量代理，仅供 RSSHub 使用，~30MB）
+  singbox:
+    image: ghcr.io/sagernet/sing-box:latest
+    container_name: lucidpanda_singbox
+    restart: unless-stopped
+    volumes:
+      - ./singbox:/etc/sing-box:ro
+    command: [ "run", "-c", "/etc/sing-box/config.json" ]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
+
+  # 0.6 RSSHub（自建境外 RSS 中转层，通过 sing-box 代理）
+  rsshub:
+    image: diygod/rsshub:latest # 轻量版无 Chromium，~200MB，Bloomberg/Reuters 无需 JS 渲染
+    container_name: lucidpanda_rsshub
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - CACHE_TYPE=redis
+      - REDIS_URL=redis://redis:6379/1
+      - CACHE_EXPIRE=300
+      # 通过 sing-box 容器代理访问境外 Bloomberg/Reuters/WSJ
+      - PROXY_URI=http://singbox:7890
+      - NODE_TLS_REJECT_UNAUTHORIZED=0 # Disable strict TLS if cert mapping isn't enough for some feeds
+    depends_on:
+      - redis
+      - singbox
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "2"
+
+  # 1. AI 分析引擎（纯消费者，只处理 PENDING 记录）
+  worker:
+    image: pincar/lucidpanda-backend:${IMAGE_TAG:-latest}
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.backend
+    container_name: lucidpanda_worker
+    command: python scripts/core/run.py
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      - DB_TYPE=postgres
+      - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/0
+      - HF_ENDPOINT=https://hf-mirror.com
+      # 代理访问大模型 API
+      - HTTP_PROXY=http://singbox:7890
+      - HTTPS_PROXY=http://singbox:7890
+      # 国内可直连域名跳过代理
+      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,lucidpanda_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # 1.5 RSS 采集器（独立生产者，每2分钟拉取 RSS 写入 PENDING）
+  collector:
+    image: pincar/lucidpanda-backend:${IMAGE_TAG:-latest}
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.backend
+    container_name: lucidpanda_collector
+    command: python scripts/core/run_collector.py
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      - DB_TYPE=postgres
+      - POSTGRES_HOST=db
+      - RSSHUB_BASE_URL=http://rsshub:1200
+      - HF_ENDPOINT=https://hf-mirror.com
+      # 境外屏蔽域名（Bloomberg/NYT/FT/BBC/Guardian/Reuters/AP）走 singbox 代理
+      - HTTP_PROXY=http://singbox:7890
+      - HTTPS_PROXY=http://singbox:7890
+      # 国内可直连域名跳过代理
+      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,lucidpanda_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      rsshub:
+        condition: service_started
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # 1.5 Funds Automation Worker
+  funds_worker:
+    image: pincar/lucidpanda-backend:${IMAGE_TAG:-latest}
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.backend
+    container_name: lucidpanda_funds_worker
+    command: python scripts/core/run_funds.py
+    volumes:
+      - ./logs:/app/logs
+    env_file:
+      - .env
+    environment:
+      - DB_TYPE=postgres
+      - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/0
+      - TZ=Asia/Shanghai
+      # 仅调用国内 akshare/eastmoney 数据，无需代理，直连更快更稳
+      - HF_ENDPOINT=https://hf-mirror.com
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # 2. API Server (SSE)
+  api:
+    image: pincar/lucidpanda-backend:${IMAGE_TAG:-latest}
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.backend
+    container_name: lucidpanda_api
+    command: python scripts/core/sse_server.py
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    env_file:
+      - .env
+    environment:
+      - DB_TYPE=postgres
+      - POSTGRES_HOST=db
+      - HOST=0.0.0.0
+      - PORT=8001
+      - REDIS_URL=redis://redis:6379/0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8001/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # 3. Frontend (Next.js)
+  web:
+    image: pincar/lucidpanda-web:${IMAGE_TAG:-latest}
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: lucidpanda_web
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8001/api}
+      - API_INTERNAL_URL=http://api:8001
+      - DB_TYPE=postgres
+      - POSTGRES_HOST=db
+      - AUTH_URL=${AUTH_URL:-http://localhost:3000}
+      - AUTH_SECRET=${AUTH_SECRET}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+    driver: local

@@ -1,0 +1,140 @@
+name: LucidPanda CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  # ── 后端质量门禁 ──────────────────────────────
+  backend:
+    name: Backend (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt ruff mypy pytest pytest-cov
+
+      # 1. Linting（风格 + 复杂度）
+      - name: Ruff Lint
+        run: ruff check src/ tests/
+
+      # 2. 类型检查
+      - name: Type Check (mypy)
+        run: mypy src/lucidpanda/ --ignore-missing-imports
+        continue-on-error: true  # 初期宽松，逐步收紧
+
+      # 3. 单元测试 + 覆盖率
+      - name: Run Tests
+        run: pytest tests/ -v --cov=src/lucidpanda --cov-report=xml --cov-report=term
+
+      - name: Coverage Gate
+        run: |
+          COVERAGE=$(python -c "import xml.etree.ElementTree as ET; t = ET.parse('coverage.xml').getroot(); print(float(t.attrib['line-rate']) * 100)")
+          echo "Coverage: ${COVERAGE}%"
+          python -c "
+          cov = $COVERAGE
+          if cov < 60:
+              print(f'❌ Coverage {cov:.1f}% < 60% minimum')
+              exit(1)
+          print(f'✅ Coverage {cov:.1f}% passed')
+          "
+
+      # 4. 架构规则检查（禁用模式）
+      - name: Architecture Guard
+        run: |
+          echo "Checking for forbidden patterns..."
+          
+          # 禁止在 router 中直接执行 SQL
+          if grep -rn "db\.execute\|session\.execute" src/lucidpanda/api/ 2>/dev/null | grep -v "__pycache__"; then
+            echo "❌ Found SQL in router layer! Move to db/ layer."
+            exit 1
+          fi
+          
+          # 禁止裸 print（应使用 logger）
+          if grep -rn "^\s*print(" src/lucidpanda/ --include="*.py" | grep -v "__pycache__" | grep -v "#"; then
+            echo "⚠️  Warning: Found bare print() calls. Use logger instead."
+          fi
+          
+          echo "✅ Architecture guard passed"
+
+      # 5. 大文件警告
+      - name: Large File Check
+        run: |
+          echo "Checking for oversized files..."
+          find src/ web/components web/app -name "*.py" -o -name "*.ts" -o -name "*.tsx" 2>/dev/null | while read f; do
+            lines=$(wc -l < "$f")
+            if [ "$lines" -gt 500 ]; then
+              echo "⚠️  Large file: $f ($lines lines)"
+            fi
+          done
+          echo "✅ Large file check done"
+
+  # ── 前端质量门禁 ──────────────────────────────
+  frontend:
+    name: Frontend (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 1. TypeScript 类型检查
+      - name: TypeScript Check
+        run: npx tsc --noEmit
+
+      # 2. ESLint
+      - name: ESLint
+        run: npm run lint
+
+      # 3. 单元测试
+      - name: Jest Tests
+        run: npx jest --ci --coverage
+        continue-on-error: true  # 前期宽松
+
+  # ── 文档完整性检查 ─────────────────────────────
+  docs:
+    name: Docs Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check CLAUDE.md exists
+        run: |
+          if [ ! -f "CLAUDE.md" ]; then
+            echo "❌ CLAUDE.md missing! AI tools need this file."
+            exit 1
+          fi
+          echo "✅ CLAUDE.md present"
+
+      - name: Check TECH_DEBT tracker
+        run: |
+          COUNT=$(grep -rn "DEBT\[P1\]" src/ web/ 2>/dev/null | wc -l || echo 0)
+          echo "📊 P1 Tech Debt items: $COUNT"
+          if [ "$COUNT" -gt 20 ]; then
+            echo "⚠️  More than 20 P1 tech debt items! Consider a cleanup sprint."
+          fi

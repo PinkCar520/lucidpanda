@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Environment variables (CRITICAL - Contains API Keys)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Database files (Contains user data)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.derivedData
+
+# Xcode (iOS Mobile)
+mobile/ios/**/*.xcuserdatad/
+mobile/ios/**/*.xcscheme
+mobile/ios/**/project.xcworkspace/xcuserdata/
+mobile/ios/Packages/**/.swiftpm/
+mobile/ios/Packages/**/.build/
+*.xcodeproj/xcuserdata/
+
+# Backups
+backups/
+*.backup
+backup_*.sql
+
+# Runtime data/artifacts
+uploads/
+/data/
+!mobile/android/**/data/
+ssl-data/
+nginx-logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Node.js (for web/)
+node_modules/
+.next/
+out/
+.vercel/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# State files
+monitor_state.json
+
+#mobile
+mobile/

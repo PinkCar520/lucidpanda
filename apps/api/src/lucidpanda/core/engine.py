@@ -1,0 +1,510 @@
+import time
+import json
+import asyncio
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+import pytz
+from src.lucidpanda.config import settings
+from src.lucidpanda.core.logger import logger
+
+# 引入组件
+from src.lucidpanda.providers.llm.gemini import GeminiLLM
+from src.lucidpanda.providers.llm.deepseek import DeepSeekLLM
+from src.lucidpanda.providers.channels.email import EmailChannel
+from src.lucidpanda.providers.channels.bark import BarkChannel
+from src.lucidpanda.core.database import IntelligenceDB
+from src.lucidpanda.core.backtest import BacktestEngine
+from src.lucidpanda.core.deduplication import NewsDeduplicator
+from src.lucidpanda.core.event_clusterer import EventClusterer
+from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
+
+class AlphaEngine:
+    """
+    AI 分析消费者。
+    不再负责采集，只消费 intelligence 表中 status=PENDING 的记录。
+    RSS 采集由独立的 RSSCollector（run_collector.py）负责。
+    """
+    def __init__(self):
+        self.db = IntelligenceDB()
+        
+        # 显式初始化 LLM 引擎，根据配置文件动态选择主力模型
+        provider = settings.AI_PROVIDER.lower()
+        if provider == "deepseek":
+            self.primary_llm = DeepSeekLLM()
+            self.fallback_llm = GeminiLLM()
+            logger.info("🧠 选用 API: DeepSeek 作为主力 AI 引擎")
+        elif provider == "openai":
+            from src.lucidpanda.providers.llm.openai_llm import OpenAILLM # 假设存在
+            self.primary_llm = OpenAILLM()
+            self.fallback_llm = DeepSeekLLM()
+            logger.info("🧠 选用 API: OpenAI 作为主力 AI 引擎")
+        else: # 默认 gemini 
+            self.primary_llm = GeminiLLM()
+            self.fallback_llm = DeepSeekLLM()
+            logger.info("🧠 选用 API: Gemini 作为主力 AI 引擎")
+            
+        self.channels     = [EmailChannel(), BarkChannel()]
+        self.backtester   = BacktestEngine(self.db)
+        self.clusterer    = EventClusterer(db=self.db)
+        self.deduplicator = NewsDeduplicator(db=self.db)
+        self._round_snapshot = {}
+        # Concurrency Control
+        self.ai_semaphore = asyncio.Semaphore(5)
+        self.enable_agent_tools = settings.ENABLE_AGENT_TOOLS
+        self.tool_summaries = list_tool_summaries()
+        # Bootstrap deduplicator history from DB
+        self._bootstrap_deduplicator()
+        
+    def _bootstrap_deduplicator(self):
+        """Load recent intelligence from DB to initialize deduplicator history"""
+        logger.info("🧵正在初始化去重引擎历史数据 (SimHash)...")
+        try:
+            recent_items = self.db.get_recent_intelligence(limit=200)
+            if recent_items:
+                from simhash import Simhash
+                for item in reversed(recent_items):
+                    summary = item.get('summary')
+                    summary_text = ""
+                    if isinstance(summary, dict):
+                        summary_text = summary.get('en', '') or str(summary)
+                    elif isinstance(summary, str):
+                        summary_text = summary
+                    
+                    text = summary_text if len(summary_text) > 20 else (item.get('content') or "")
+                    if text:
+                        clean_text = self.deduplicator.normalize(text)
+                        if clean_text:
+                            sh = Simhash(clean_text)
+                            # 仅预热 SimHash 粗筛历史。语义精筛改由 pgvector 接管，无需预热到内存。
+                            self.deduplicator.add_to_history(sh, vector=None, record_id=item.get('id'))
+                
+                logger.info(f"✅ 已加载 {len(self.deduplicator.simhash_history)} 条记录到 SimHash 历史。")
+        except Exception as e:
+            logger.error(f"❌ 初始化去重引擎失败: {e}")
+
+    async def run_once_async(self):
+        """
+        核心异步流水线（纯分析消费者）。
+        RSS 采集已由独立的 RSSCollector 负责，本方法直接处理 PENDING 记录。
+        """
+        logger.info(">>> 启动情报分析...")
+
+        # 0. 异步同步收益率 + 更新信源可信度
+        await asyncio.to_thread(self.backtester.sync_outcomes)
+        await asyncio.to_thread(self.db.compute_source_credibility)
+        await asyncio.to_thread(self.db.refresh_relation_rule_stats)
+
+        # 1. 获取所有待分析记录 (PENDING/FAILED)
+        pending_records = await asyncio.to_thread(self.db.get_pending_intelligence, limit=50)
+
+        if not pending_records:
+            logger.info("无待分析情报，本轮结束。")
+            return
+
+        # 2. 市场快照已经由 Collector 注入在 PENDING 记录中，Worker 无需重复抓取
+        # 移除了原有的 fetch_round_snapshot 冗余逻辑
+
+        # 2.5 事件聚类：同一事件多信源 → 只保留 lead 进 AI 分析
+        lead_records, n_clustered = await asyncio.to_thread(
+            self.clusterer.cluster, pending_records
+        )
+        if n_clustered > 0:
+            logger.info(f"🔗 聚类压制 {n_clustered} 条重复信源报道，本轮仅分析 {len(lead_records)} 条")
+
+        # 3. AI 并发分析
+        enriched_items = lead_records
+        for item in enriched_items:
+            item.setdefault('extraction_method', 'RSS_SUMMARY')
+
+        logger.info(f"🚀 并行分析中 (并发数: 5, 任务数: {len(enriched_items)})...")
+        tasks = [self._process_single_item_async(item) for item in enriched_items]
+        await asyncio.gather(*tasks)
+        logger.info("<<< 本轮分析完成。")
+
+    async def _process_single_item_async(self, raw_data):
+        """单条情报的异步处理状态机"""
+        source_id = raw_data.get('source_id') or raw_data.get('id')
+        
+        async with self.ai_semaphore:
+            try:
+                await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'PROCESSING')
+                
+                # 1. 注入上下文
+                await asyncio.to_thread(self._enrich_market_context, raw_data)
+                
+                # 2. 语义去重
+                is_dup = await asyncio.to_thread(self.deduplicator.is_duplicate, raw_data.get('content'))
+                if is_dup:
+                    logger.info(f"🚫 语义重复，标记为已过滤: {source_id}")
+                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', 'Deduplicated')
+                    return
+
+                # 去重通过后，将计算好的向量持久化到 pgvector（供后续新闻比对用）
+                if self.deduplicator.last_vector is not None:
+                    await asyncio.to_thread(
+                        self.db.save_embedding_vec, source_id, self.deduplicator.last_vector
+                    )
+
+                # 3. AI 分析
+                logger.info(f"🤖 正在分析({raw_data.get('extraction_method', 'UNKNOWN')}): {source_id}")
+                try:
+                    # 显式使用 self.primary_llm，确保它是 AlphaEngine 的属性
+                    if self.enable_agent_tools:
+                        analysis_result = await self._analyze_with_tools(self.primary_llm, raw_data)
+                    else:
+                        analysis_result = await self.primary_llm.analyze_async(raw_data)
+                except Exception as e:
+                    logger.warning(f"Primary LLM failed for {source_id}, trying fallback: {e}")
+                    if self.enable_agent_tools:
+                        analysis_result = await self._analyze_with_tools(self.fallback_llm, raw_data)
+                    else:
+                        analysis_result = await self.fallback_llm.analyze_async(raw_data)
+
+                # 4. 存储分析结果 (必须包含 summary)
+                if analysis_result and analysis_result.get("summary"):
+                    analysis_result['embedding'] = self.deduplicator.last_vector
+                    await asyncio.to_thread(self.db.update_intelligence_analysis, source_id, analysis_result, raw_data)
+                    await asyncio.to_thread(self.db.upsert_knowledge_graph, source_id, analysis_result)
+                    await self._trigger_trade_and_dispatch(analysis_result, raw_data)
+                else:
+                    raise ValueError("AI analysis returned empty result or missing summary")
+                
+            except Exception as e:
+                logger.error(f"处理条目失败 {source_id}: {e}")
+                await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'FAILED', str(e))
+
+    async def _analyze_with_tools(self, llm, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+        if not hasattr(llm, "generate_json_async") or not self.tool_summaries:
+            return await llm.analyze_async(raw_data)
+
+        plan_prompt = self._build_agent_plan_prompt(raw_data)
+        try:
+            plan_response = await llm.generate_json_async(plan_prompt, temperature=0.2)
+        except Exception as exc:
+            logger.warning(f"Agent planning failed, fallback to direct analysis: {exc}")
+            return await llm.analyze_async(raw_data)
+
+        tool_calls = self._extract_tool_calls(plan_response)
+        tool_results: List[Dict[str, Any]] = []
+        if tool_calls:
+            tool_results = await self._run_tool_calls(tool_calls)
+
+        final_prompt = self._build_agent_final_prompt(raw_data, tool_results, plan_response)
+        try:
+            analysis_result = await llm.generate_json_async(final_prompt, temperature=0.2)
+        except Exception as exc:
+            logger.warning(f"Agent final analysis failed, fallback to direct analysis: {exc}")
+            return await llm.analyze_async(raw_data)
+
+        agent_trace = {
+            "version": 1,
+            "plan_summary": (plan_response or {}).get("plan_summary"),
+            "tool_calls": tool_calls,
+            "tool_results": tool_results,
+            "generated_at": datetime.utcnow().isoformat(),
+        }
+        if isinstance(analysis_result, dict):
+            analysis_result.setdefault("agent_trace", agent_trace)
+        return analysis_result
+
+    def _extract_tool_calls(self, plan_response: Any) -> List[Dict[str, Any]]:
+        if not isinstance(plan_response, dict):
+            return []
+        tool_calls = plan_response.get("tool_calls") or []
+        if not isinstance(tool_calls, list):
+            return []
+        max_calls = max(1, int(getattr(settings, "AGENT_TOOL_MAX_CALLS", 3)))
+        sanitized = []
+        for call in tool_calls[:max_calls]:
+            if not isinstance(call, dict):
+                continue
+            name = call.get("name")
+            args = call.get("args") or {}
+            if not name:
+                continue
+            if not isinstance(args, dict):
+                args = {}
+            sanitized.append({"name": name, "args": args, "purpose": call.get("purpose")})
+        return sanitized
+
+    async def _run_tool_calls(self, tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        timeout = max(1, int(getattr(settings, "AGENT_TOOL_TIMEOUT_SECONDS", 8)))
+
+        async def _call_one(call: Dict[str, Any]) -> Dict[str, Any]:
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(call_tool, call.get("name"), call.get("args")),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                result = {"error": f"Tool {call.get('name')} timed out after {timeout}s"}
+            return {
+                "name": call.get("name"),
+                "args": call.get("args"),
+                "purpose": call.get("purpose"),
+                "result": result,
+            }
+
+        tasks = [_call_one(call) for call in tool_calls]
+        return await asyncio.gather(*tasks) if tasks else []
+
+    def _build_agent_plan_prompt(self, raw_data: Dict[str, Any]) -> str:
+        tool_list = json.dumps(self.tool_summaries, ensure_ascii=False)
+        content = raw_data.get("content", "")
+        context = raw_data.get("context", "无")
+        return f"""
+你是 LucidPanda 的研究型 Agent。你可以使用工具来核验宏观数据。
+请先制定是否需要调用工具，并给出调用计划（不需要思维链）。
+
+工具清单（JSON）:
+{tool_list}
+
+输入信息：
+- 来源: {raw_data.get('source')}
+- 作者: {raw_data.get('author')}
+- 内容: {content[:1200]}
+- 市场背景: {context}
+
+输出要求：仅输出 JSON，不要包含 Markdown。
+JSON 结构：
+{{
+  "use_tools": true/false,
+  "plan_summary": "一句话说明是否需要工具与原因",
+  "tool_calls": [
+    {{
+      "name": "tool_name",
+      "args": {{"param": "value"}},
+      "purpose": "一句话说明用途"
+    }}
+  ]
+}}
+约束：
+1) 不需要工具时，tool_calls 必须为 []。
+2) tool_calls 最多 {getattr(settings, "AGENT_TOOL_MAX_CALLS", 3)} 个。
+"""
+
+    def _build_agent_final_prompt(
+        self,
+        raw_data: Dict[str, Any],
+        tool_results: List[Dict[str, Any]],
+        plan_response: Optional[Dict[str, Any]],
+    ) -> str:
+        content = raw_data.get("content", "")
+        context = raw_data.get("context", "无")
+        tools_json = json.dumps(tool_results, ensure_ascii=False)
+        plan_summary = ""
+        if isinstance(plan_response, dict):
+            plan_summary = plan_response.get("plan_summary") or ""
+        return f"""
+你是一个华尔街顶级宏观策略分析师。请结合工具结果给出最终分析。
+分析目标：识别该事件对【黄金 (Gold/XAU)】及相关市场的影响。
+
+输入信息：
+- 来源: {raw_data.get('source')}
+- 作者: {raw_data.get('author')}
+- 内容: {content[:1200]}
+- 市场背景: {context}
+- 工具调用摘要: {plan_summary}
+- 工具结果(JSON): {tools_json}
+
+输出格式要求：请必须输出标准的 JSON 格式，不要包含 Markdown 代码块标记。
+JSON 结构定义：
+{{
+    "summary": {{
+        "zh": "50字以内的中文简练摘要，突出核心事实。",
+        "en": "Concise summary in English within 40 words."
+    }},
+    "sentiment": {{
+        "zh": "情绪标签（鹰派/鸽派/避险/中性/利好/利空）",
+        "en": "Sentiment Label (Hawkish/Dovish/Risk-off/Neutral/Bullish/Bearish)"
+    }},
+    "sentiment_score": -1.0 to 1.0,
+    "urgency_score": 1-10,
+    "market_implication": {{
+        "zh": "结合当前背景（美元、波动、持仓、宏观）的中文深评，重点放在黄金、美元、美债。",
+        "en": "Deep analysis of market impact in English."
+    }},
+    "actionable_advice": {{
+        "zh": "针对黄金交易员的具体中文操作建议。注意：对反向波动需有风险规避方案。",
+        "en": "Specific actionable advice for Gold traders in English."
+    }},
+    "entities": [
+        {{
+            "name": "实体名称",
+            "type": "person/organization/policy/country/commodity/other",
+            "impact": "bullish/bearish/neutral"
+        }}
+    ],
+    "relations": [
+        {{
+            "from": "主体实体名",
+            "to": "客体实体名",
+            "relation": "关系类型（必须从枚举中选择）",
+            "direction": "forward/bidirectional",
+            "strength": 0.0 to 1.0
+        }}
+    ]
+}}
+"""
+
+    async def _trigger_trade_and_dispatch(self, analysis_result, raw_data):
+        sentiment_score = analysis_result.get('sentiment_score', 0)
+        signal_direction = 'Neutral'
+        if sentiment_score >= 0.3:
+            signal_direction = 'Long'
+        elif sentiment_score <= -0.3:
+            signal_direction = 'Short'
+        else:
+            signal_direction = self._parse_sentiment(analysis_result.get('sentiment'))
+
+        if signal_direction in ['Long', 'Short']:
+            trade_initiated = await asyncio.to_thread(self.backtester.process_signal, signal_direction)
+            if trade_initiated:
+                logger.info(f"✅ 🟢 触发交易信号: {signal_direction} (ID: {raw_data.get('id')})")
+
+        urgency = int(analysis_result.get('urgency_score', 5))
+        if urgency >= 7:
+            await asyncio.to_thread(self._dispatch, analysis_result, raw_data)
+        else:
+            logger.debug(f"ℹ️ 情报 (Urgency: {urgency}) 已入库但不推送。")
+
+    def run_once(self):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(self.run_once_async())
+        finally:
+            loop.close()
+
+    def _enrich_market_context(self, raw_data):
+        from src.lucidpanda.utils.market_calendar import is_gold_market_open
+        now = datetime.now(pytz.utc)
+
+        market_open = is_gold_market_open(now)
+        status_label = "🟢 正在交易 (OPEN)" if market_open else "🔴 已休市 (CLOSED - Weekend/Holiday)"
+
+        dxy = (
+            raw_data.get('dxy_snapshot')
+            or self._round_snapshot.get('dxy_snapshot')
+            or self.db.get_market_snapshot("DX-Y.NYB", now)
+        )
+        gvz = (
+            raw_data.get('gvz_snapshot')
+            or self._round_snapshot.get('gvz_snapshot')
+            or self.db.get_market_snapshot("^GVZ", now)
+        )
+        tnx = (
+            raw_data.get('us10y_snapshot')
+            or self.db.get_market_snapshot("^TNX", now)
+        )
+        oil = (
+            raw_data.get('oil_price_snapshot')
+            or self.db.get_market_snapshot("CL=F", now)
+        )
+
+        cot = self.db.get_latest_indicator("COT_GOLD_NET", now)
+        cot_info = "N/A"
+        if cot:
+            sentiment = "拥挤/超买" if cot['percentile'] > 85 else "冷淡/超卖" if cot['percentile'] < 15 else "中性"
+            cot_info = f"{cot['percentile']}% (状态: {sentiment})"
+
+        fed = self.db.get_latest_indicator("FED_REGIME", now)
+        fed_context = "中性 (Neutral)"
+        if fed:
+            fed_context = "降息周期/鸽派 (Dovish)" if fed['value'] > 0 else "加息周期/鹰派 (Hawkish)" if fed['value'] < 0 else "中性 (Neutral)"
+
+        context = f"""
+[当前市场环境快照]:
+- 市场交易状态: {status_label}
+- 美元指数 (DXY): {dxy if dxy is not None else '获取中'}
+- 美债10年期收益率 (TNX): {tnx if tnx is not None else '获取中'}%
+- WTI原油 (Oil): {oil if oil is not None else '获取中'}
+- 黄金波动率 (GVZ): {gvz if gvz is not None else '暂无'}
+- 基金持仓拥挤度 (COT): {cot_info}
+- 美联储宏观基调 (Regime): {fed_context}
+"""
+        raw_data['context'] = context
+        raw_data['market_open'] = market_open
+        raw_data['dxy_snapshot'] = dxy
+        raw_data['gvz_snapshot'] = gvz
+        raw_data['us10y_snapshot'] = tnx
+        raw_data['oil_price_snapshot'] = oil
+        raw_data['fed_val'] = fed['value'] if fed else 0
+        
+        return context
+
+    def _dispatch(self, analysis_data, raw_data):
+        sentiment_text = ""
+        sentiment = analysis_data.get('sentiment', {})
+        if isinstance(sentiment, dict):
+            sentiment_text = sentiment.get('zh') or sentiment.get('en') or "情报分析"
+        else:
+            sentiment_text = str(sentiment)
+
+        title = f"【LucidPanda】{sentiment_text}"
+        body = self._format_message(analysis_data)
+        
+        url = raw_data.get('url')
+        db_id = raw_data.get('id')
+        
+        for channel in self.channels:
+            try:
+                channel.send(title, body, source_url=url, db_id=db_id)
+            except Exception as e:
+                logger.warning(f"❌ Failed to dispatch to {channel.__class__.__name__} [ID: {db_id}]: {e}")
+
+    def _parse_sentiment(self, sentiment_json) -> str:
+        try:
+            if isinstance(sentiment_json, str):
+                try:
+                    data = json.loads(sentiment_json.replace("'", '"'))
+                except:
+                    data = {'en': sentiment_json}
+            else:
+                data = sentiment_json
+                
+            text = str(data.get('en', '')).lower()
+            if 'bullish' in text or 'safe-haven' in text or 'positive' in text or 'upward' in text:
+                return 'Long'
+            if 'bearish' in text or 'negative' in text or 'downward' in text or 'pressure' in text:
+                return 'Short'
+            return 'Neutral'
+        except:
+            return 'Neutral'
+
+    def _format_message(self, data):
+        market_impact_str = ""
+        market_implication = data.get('market_implication', {})
+        if isinstance(market_implication, dict):
+            zh_impact = market_implication.get('zh')
+            if zh_impact:
+                market_impact_str = zh_impact
+            else:
+                for asset, impact in market_implication.items():
+                    market_impact_str += f"🔹 {asset}: {impact}\n"
+        else:
+            market_impact_str = str(market_implication)
+
+        summary = data.get('summary', '')
+        if isinstance(summary, dict): summary = summary.get('zh') or summary.get('en')
+
+        advice = data.get('actionable_advice', '')
+        if isinstance(advice, dict): advice = advice.get('zh') or advice.get('en')
+
+        return f"""
+🚨 【LucidPanda 投资快报】
+--------------------------------------------
+📌 [核心摘要]
+{summary}
+
+📊 [市场深度影响]
+{market_impact_str.strip()}
+
+💡 [实战策略建议]
+{advice}
+
+🔗 [原文来源及链接]
+{data.get('url')}
+--------------------------------------------
+(此消息由 LucidPanda AI 实时生成，仅供参考)
+"""

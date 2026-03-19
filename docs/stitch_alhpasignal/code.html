@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Gold News Discovery</title>
+<!-- Inter Font Loading -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#b35919', // custom_color from THEME_1
+            taupe: {
+              50: '#f5f5f4',
+              100: '#e7e5e4',
+              200: '#d6d3d1',
+              300: '#a8a29e',
+              400: '#78716c',
+              500: '#57534e',
+              600: '#44403c',
+              700: '#292524',
+              800: '#1c1917',
+              900: '#0c0a09',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          borderRadius: {
+            'custom': '4px', // ROUND_FOUR from THEME_1
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-overrides">
+    body {
+      background-color: #0c0a09; /* Deep dark background */
+      color: #e7e5e4;
+      font-family: 'Inter', sans-serif;
+    }
+    .pill-button {
+      transition: all 0.2s ease;
+    }
+    .pill-button:active {
+      transform: scale(0.95);
+    }
+    /* Hide scrollbar for clean discovery experience */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  
+    .tag-active {
+      background-color: #b35919 !important; /* primary color */
+      color: white !important;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen">
+<!-- BEGIN: Header & Search -->
+<header class="sticky top-0 z-50 bg-[#0c0a09]/90 backdrop-blur-md px-4 pt-6 pb-4">
+<div class="max-w-md mx-auto">
+<div class="relative group" data-purpose="search-container">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<svg class="h-5 w-5 text-taupe-400 group-focus-within:text-primary transition-colors" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<input class="block w-full pl-11 pr-4 py-4 bg-taupe-800 border-none text-taupe-100 placeholder-taupe-400 focus:ring-1 focus:ring-primary rounded-custom text-base appearance-none shadow-sm" id="global-search" placeholder="Search gold prices, news, trends..." type="search"/>
+</div>
+</div>
+</header>
+<!-- END: Header & Search -->
+<main class="flex-grow px-4 pb-24 max-w-md mx-auto w-full">
+<!-- BEGIN: Trending Tags -->
+<section class="mt-6" data-purpose="trending-tags-section">
+<h2 class="text-xs font-bold uppercase tracking-widest text-taupe-400 mb-4">Trending Tags</h2>
+<div class="flex flex-wrap gap-2">
+<!-- Tag pills using taupe theme colors -->
+<button class="pill-button px-4 py-2 bg-taupe-700 hover:bg-taupe-600 text-taupe-100 rounded-full text-sm font-medium trending-tag">#GoldSpot</button>
+<button class="pill-button px-4 py-2 bg-taupe-700 hover:bg-taupe-600 text-taupe-100 rounded-full text-sm font-medium trending-tag">#Inflation</button>
+<button class="pill-button px-4 py-2 bg-taupe-700 hover:bg-taupe-600 text-taupe-100 rounded-full text-sm font-medium trending-tag">#CentralBanks</button>
+<button class="pill-button px-4 py-2 bg-taupe-700 hover:bg-taupe-600 text-taupe-100 rounded-full text-sm font-medium trending-tag">#Bullion</button>
+<button class="pill-button px-4 py-2 bg-taupe-700 hover:bg-taupe-600 text-taupe-100 rounded-full text-sm font-medium trending-tag">#FedPivot</button>
+<button class="pill-button px-4 py-2 bg-taupe-700 hover:bg-taupe-600 text-taupe-100 rounded-full text-sm font-medium trending-tag">#MiningStocks</button>
+</div>
+</section>
+<!-- END: Trending Tags -->
+<!-- BEGIN: Suggested Reading -->
+<section class="mt-10" data-purpose="suggested-reading">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xs font-bold uppercase tracking-widest text-taupe-400">Suggested Reading</h2>
+<button class="text-xs text-primary font-medium">View All</button>
+</div>
+<div class="space-y-6">
+<!-- Reading Item 1 -->
+<article class="flex gap-4 group cursor-pointer">
+<div class="flex-shrink-0 w-20 h-20 bg-taupe-800 rounded-custom overflow-hidden">
+<img alt="Gold bars" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7f1ahwmbrfvbNU0wVtYYroTd2qSegbWhQvw2_UtnMfEHO_QwYTxYd-0MDByZ8rZxXntsxRUKYj5mqRKJOJKIWks6zP6eHJDo_TzV5ryk7vh_UihD2aHCzx7dHABtyc1ouTBJxtrcoamDW2Tdtew-9RjMKXZU28OgitohU9WMy-b4VNbpfNYbruUuCb8NwoQV6D5j8JdcgyoraWJnW45NFK4DO4xQuncEUKVjU8zqN7KfRLZC26ri3-VlML1tFcJQj3EVQBdqBb2U"/>
+</div>
+<div class="flex flex-col justify-center">
+<span class="text-[10px] text-primary font-bold uppercase mb-1">Market Analysis</span>
+<h3 class="text-sm font-semibold text-taupe-50 line-clamp-2 leading-snug">Why Central Banks are buying record amounts of gold in 2024</h3>
+<p class="text-xs text-taupe-400 mt-1">4 min read • 2h ago</p>
+</div>
+</article>
+<!-- Reading Item 2 -->
+<article class="flex gap-4 group cursor-pointer">
+<div class="flex-shrink-0 w-20 h-20 bg-taupe-800 rounded-custom overflow-hidden">
+<img alt="Fed building" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuApDBYf5R8L4lzTgroIXOIlZIs_jWPaU_fCkvYN04_Ai0h5SwWcvmjWg1ZdznAZtPqRI0YsLFvVHDXquqJTMocU30ZfjFBybaJJgeHDh93_SGZ3ZwkBsoch8VX_vpouG9hrHnWwdNzNllarBYeKlZGUu45QHS_Rrsi3wd3aPq-Tpz_ZBR9G4P-NWemvLTU-GRGQ-YKIbhG1zdZCAtPNSHjX-ZRbIBPO9m3nRlXtdb9NaUbaeIhuIcTklVO_gnMiygZUTa2xVzq6LE4"/>
+</div>
+<div class="flex flex-col justify-center">
+<span class="text-[10px] text-primary font-bold uppercase mb-1">Economy</span>
+<h3 class="text-sm font-semibold text-taupe-50 line-clamp-2 leading-snug">Interest rate cuts and their immediate impact on physical gold prices</h3>
+<p class="text-xs text-taupe-400 mt-1">6 min read • 5h ago</p>
+</div>
+</article>
+<!-- Reading Item 3 -->
+<article class="flex gap-4 group cursor-pointer">
+<div class="flex-shrink-0 w-20 h-20 bg-taupe-800 rounded-custom overflow-hidden">
+<img alt="Stock chart" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAxmYcg8IkAtVHSexT_hDbs_PvovGWlT9VocU8JWWsERzHvAaK7pN2JjVzSA4HcSIqEfgITwodDKovzTRXuirdHzDoKTE_X0Adz1O1SsHBJwrFiO8T3YXACNJYJqJGXp72x2Vq-mpDsyjkEZeQR2S8HBrXLnlgA1op1HNpqkqkpQWeUjGP1fe_v2Tci58yM5VaH1Z7GiskJqBZFialeMUuZzE00w0Hlls0w4YeQyN0FTuUaTImgkT2XQ1jC8PnLaRHmsLiSCWEg-7A"/>
+</div>
+<div class="flex flex-col justify-center">
+<span class="text-[10px] text-primary font-bold uppercase mb-1">Technical Insight</span>
+<h3 class="text-sm font-semibold text-taupe-50 line-clamp-2 leading-snug">Technical breakdown: Support levels to watch as gold nears all-time high</h3>
+<p class="text-xs text-taupe-400 mt-1">3 min read • 8h ago</p>
+</div>
+</article>
+</div>
+</section>
+<!-- END: Suggested Reading -->
+<!-- BEGIN: Recent Searches -->
+<section class="mt-10" data-purpose="recent-searches">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-xs font-bold uppercase tracking-widest text-taupe-400">Recent Searches</h2>
+<button class="text-[10px] text-taupe-500 uppercase font-bold tracking-tighter">Clear</button>
+</div>
+<div class="space-y-1">
+<div class="flex items-center justify-between py-3 border-b border-taupe-800/50">
+<div class="flex items-center gap-3">
+<svg class="w-4 h-4 text-taupe-500" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-sm text-taupe-300">Gold ETF flows Q3</span>
+</div>
+<button class="text-taupe-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+<div class="flex items-center justify-between py-3 border-b border-taupe-800/50">
+<div class="flex items-center gap-3">
+<svg class="w-4 h-4 text-taupe-500" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-sm text-taupe-300">Barrick Gold dividends</span>
+</div>
+<button class="text-taupe-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></button>
+</div>
+</div>
+</section>
+<!-- END: Recent Searches -->
+</main>
+<!-- BEGIN: Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 bg-[#0c0a09]/95 backdrop-blur-lg border-t border-taupe-800/50 px-6 py-3" data-purpose="bottom-navigation">
+<div class="max-w-md mx-auto flex justify-between items-center">
+<button class="flex flex-col items-center gap-1 text-taupe-500 hover:text-primary transition-colors">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-[10px] font-medium">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-[10px] font-medium">Discover</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-taupe-500 hover:text-primary transition-colors">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-[10px] font-medium">Markets</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-taupe-500 hover:text-primary transition-colors">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+<span class="text-[10px] font-medium">Profile</span>
+</button>
+</div>
+</nav>
+<!-- END: Bottom Navigation -->
+<script data-purpose="interaction-logic">
+    const searchInput = document.getElementById('global-search');
+    const tags = document.querySelectorAll('.trending-tag');
+    const readingSection = document.querySelector('[data-purpose="suggested-reading"] .space-y-6');
+
+    // Existing search focus logic
+    searchInput.addEventListener('focus', () => {
+      searchInput.parentElement.classList.add('scale-[1.01]');
+    });
+    searchInput.addEventListener('blur', () => {
+      searchInput.parentElement.classList.remove('scale-[1.01]');
+    });
+
+    // Tag interaction logic
+    tags.forEach(tag => {
+      tag.addEventListener('click', () => {
+        const isActive = tag.classList.contains('tag-active');
+        
+        // Reset all tags
+        tags.forEach(t => t.classList.remove('tag-active'));
+        
+        if (!isActive) {
+          tag.classList.add('tag-active');
+          const tagText = tag.textContent.trim();
+          searchInput.value = tagText;
+          simulateContentUpdate(tagText);
+        } else {
+          searchInput.value = '';
+          // Optional: Reset to default view
+        }
+      });
+    });
+
+    function simulateContentUpdate(filter) {
+      // Show loading state
+      const originalContent = readingSection.innerHTML;
+      readingSection.style.opacity = '0.5';
+      readingSection.style.pointerEvents = 'none';
+
+      setTimeout(() => {
+        readingSection.style.opacity = '1';
+        readingSection.style.pointerEvents = 'auto';
+        
+        // Filter simulation: Just re-insert items with an animation for visual feedback
+        // In a real app, this would fetch new data based on the tag
+        readingSection.innerHTML = originalContent;
+        Array.from(readingSection.children).forEach((child, index) => {
+          child.classList.remove('animate-fade-in');
+          void child.offsetWidth; // Trigger reflow
+          child.classList.add('animate-fade-in');
+          child.style.animationDelay = `${index * 0.1}s`;
+        });
+      }, 400);
+    }
+  </script>
+</body></html>

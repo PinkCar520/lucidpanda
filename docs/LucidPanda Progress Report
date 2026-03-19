@@ -1,0 +1,129 @@
+# LucidPanda → 金融情报大模型 开发进度全景报告
+
+> 最后更新：2026-03-09 | 参照路线图：`LucidPanda_architecture_roadmap.md`
+>
+> **说明**：本文档是项目唯一进度文档，Codex 和 Review 均以此为准。
+
+---
+
+## 总体进度
+
+```
+Phase 1 ████████████████████ 100% ✅ 完成
+Phase 2 ████████████████████ 100% ✅ 完成（生产化）
+Phase 3 ░░░░░░░░░░░░░░░░░░░░   0% ⬜ 待启动（需数据积累）
+```
+
+---
+
+## Phase 1 — 情报采集与分析流水线 ✅
+
+| 模块 | 文件 | 状态 | 说明 |
+|------|------|------|------|
+| RSS 采集器 | `core/rss_collector.py` | ✅ | 29 个信源，三层网络策略（直连/Singbox/RSSHub）|
+| 事件聚类去重 | `core/event_clusterer.py` | ✅ | pg_trgm + Union-Find，同事件多信源只入 1 条 |
+| 语义去重 | `core/deduplication.py` | ✅ | SimHash 200 条历史 + pgvector HNSW 向量检索 |
+| AI 分析引擎 | `core/engine.py` | ✅ | DeepSeek 主力 + Gemini Fallback，并发分析 5 条 |
+| Redis Pub/Sub 唤醒 | `run.py` | ✅ | 取代轮询，Collector 入库后即时推送 Worker |
+| 市场快照注入 | `db/market.py` | ✅ | Gold / Oil / DXY / TNX，新浪+AkShare 双源回退 |
+| AI Prompt 宏观上下文 | `core/engine.py` | ✅ | 含 DXY / TNX / Oil / GVZ / COT / Fed 6 项指标 |
+| 价格回测引擎 | `core/backtest.py` | ✅ | 15m / 1h / 4h / 12h / 24h 多周期价格回填 |
+| 信源可信度评分 | `db/intelligence.py` | ✅ | `source_credibility_score` 自动回填 |
+| 推送通道 | `providers/channels/` | ✅ | Bark（iOS）/ Email |
+| 基金引擎 | `core/fund_engine.py` | ✅ | 基金数据+持仓+估值（独立模块）|
+
+---
+
+## Phase 2 — 情报融合层 ✅（生产化完成）
+
+### 功能状态
+
+| # | 功能 | 状态 | 核心实现 |
+|---|------|------|---------|
+| 2.1 | 实体 NER 抽取 | ✅ | LLM 输出 `entities[{name,type,impact}]`，落库至 `intelligence.entities (JSONB)` |
+| 2.2 | 事件知识图谱 | ✅ | `entity_nodes`/`entity_edges` 表 + `upsert_knowledge_graph` 自动入图 + 1/2-hop 推理链 |
+| 2.3 | 结构化情报 API | ✅ | `/intelligence/fused` 游标分页 + 30s TTL 缓存 + 聚合 entities/confidence |
+| 2.4 | 信源监控 Dashboard | ✅ | `/sources/dashboard` Wilson 置信区间排序 + 最低 20 样本门槛 |
+| 2.5 | iOS 分组拖拽排序 | ✅ | `GroupManagerView` + `.onMove` + `PATCH /api/v2/watchlist/groups/reorder` 持久化 |
+| 2.6 | 跨信源置信度 | ✅ | `confidence_score` 公式（0~100）融合跨信源验证 + 时序衰减（≤6h×1.0 … >7d×0.66）|
+
+### 生产化补强（2026-03-09）
+
+| 补强项 | 文件 | 说明 |
+|--------|------|------|
+| LLM 强制输出 `relations` | `providers/llm/deepseek.py` / `gemini.py` | 枚举约束 + 强约束（有因果链必须 ≥1 条）|
+| 实体归一化 | `utils/entity_normalizer.py` | NFKC Unicode + 别名字典，解决 Trump/特朗普/Donald Trump 碎片化 |
+| 图谱关系字段兼容 | `db/intelligence.py` | `_normalize_relations` 同时支持 `from/to/relation` 与 `subject/predicate/object` 格式 |
+| `/fused` 游标分页 | `api/v1/routers/web.py` | `before_timestamp` 替代 OFFSET，返回 `next_cursor` |
+| `/fused` TTL 缓存 | `api/v1/routers/web.py` | 30s 进程内缓存，按分页参数键控 |
+| 信源统计显著性 | `api/v1/routers/web.py` | 最低 20 样本 + Wilson 下界排序 |
+| iOS sortIndex 持久化 | `FundViewModel.swift` | 拖拽后即时发 `PATCH`，本地缓存同步 |
+| 图谱质量监控 | `api/v1/routers/web.py` | `GET /graph/quality`：覆盖率/词表命中率/方向合法率 |
+| Web 图谱页面 | `web/app/[locale]/graph/page.tsx` | event/entity/path/quality 四类查询 + 证据抽屉 + 路径高亮 |
+| 证据强绑定可追踪 | `db/intelligence.py` + `web/app/[locale]/graph/page.tsx` | path 返回 `intelligence_id/source_id`，证据抽屉优先 ID 精确匹配并支持跳转情报详情 |
+| 证据边级解释标签 | `web/app/[locale]/graph/page.tsx` | 证据卡显示“命中边(from→relation→to)”标签，强化路径可解释性 |
+
+### 历史数据回填
+
+- 脚本：`scripts/backfill_knowledge_graph.py`
+- Step A：对已有 `entities` 的记录，直接从 JSONB 提取关系写入 `entity_edges`（免费）
+- Step B：对 `entities=NULL` 且 `urgency≥7` 的老记录，重新调 LLM 补齐（有成本，需手动确认）
+
+---
+
+## Phase 3 — 专有模型训练 ⬜（启动条件未达）
+
+| 步骤 | 内容 | 就绪度 |
+|------|------|--------|
+| SFT 微调 Qwen/Llama | 用 `intelligence` 表标注数据训练金融 NLP 模型 | 🟡 数据积累中，未达门槛 |
+| RLHF | `price_1h / price_24h` 实际收益作为奖励信号 | 🟡 字段已设计，回填运行中 |
+| RAG 历史情报检索 | pgvector HNSW 384 维语义检索 | ✅ 基础设施就绪 |
+| MoE 专家混合路由 | 按事件类型路由不同 Expert | ⬜ 未开始 |
+
+**启动门槛**：标注语料 ≥ 10,000 条 + 价格回填完整率 ≥ 80%（当前约 3,000 条，预计 90 天后达标）
+
+---
+
+## 数据流架构
+
+```
+29个信源 → RSSCollector → PostgreSQL(intelligence表) → Redis PUBLISH
+                                                              ↓
+                                                       AlphaEngine(Worker)
+                                                              ↓
+                          ┌───────────────────────────────────┤
+                          ↓                                   ↓
+                    EventClusterer                      AI分析(DeepSeek/Gemini)
+                    (pg_trgm聚类)                      含宏观上下文快照
+                          ↓                                   ↓
+                    NewsDeduplicator              intelligence.entities(JSONB)
+                    (SimHash+pgvector)                   + relations
+                                                              ↓
+                                                    upsert_knowledge_graph
+                                                    entity_nodes/entity_edges
+                                                              ↓
+                                              urgency≥7 → 推送(Bark/Email)
+                    BacktestEngine ← 1h/4h后 ← COMPLETED
+                    (价格回填+胜率统计)
+```
+
+---
+
+## 核心数据资产
+
+| 资产 | 状态 | 说明 |
+|------|------|------|
+| 标注语料（新闻+走向） | 🟡 积累中 | 每轮 60~150 条，目标 10,000 条 |
+| 信源可信度数据库 | 🟡 运行中 | `source_credibility_score` 实时回填 |
+| 实体知识图谱 | 🟡 成长中 | `entity_nodes`/`entity_edges` LLM 自动入图 |
+| 向量语义库 | ✅ 就绪 | pgvector HNSW，384 维，实时写入 |
+| 价格回溯数据 | 🟡 积累中 | `price_1h/4h/24h` 持续回填 |
+
+---
+
+## 下一步（Phase 3 准备）
+
+1. **运行历史回填**：`python scripts/backfill_knowledge_graph.py --step a --dry-run`（先预览，再执行）
+2. **监控图谱质量**：定期查看 `GET /api/v1/web/graph/quality`，验证 relations 覆盖率 > 60%
+3. **监控训练门槛**：`SELECT COUNT(*),COUNT(price_1h) FROM intelligence WHERE status='COMPLETED'`
+4. **Phase 3 启动**：达到数据门槛后，启动 Qwen2.5-7B LoRA 微调 Pipeline
