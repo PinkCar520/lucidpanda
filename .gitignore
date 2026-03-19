@@ -39,12 +39,14 @@ logs/
 .DS_Store
 .derivedData
 
-# Xcode (iOS Mobile)
-mobile/ios/**/*.xcuserdatad/
-mobile/ios/**/*.xcscheme
-mobile/ios/**/project.xcworkspace/xcuserdata/
-mobile/ios/Packages/**/.swiftpm/
-mobile/ios/Packages/**/.build/
+**/mobile/ios/**/*.xcodeproj/
+**/mobile/ios/**/DerivedData/
+**/mobile/ios/**/Build/
+**/mobile/ios/**/*.xcarchive/
+**/mobile/ios/**/xcuserdata/
+**/mobile/ios/**/UserInterfaceState.xcuserstate
+**/mobile/ios/**/xcschememanagement.plist
+**/mobile/ios/**/.DS_Store
 *.xcodeproj/xcuserdata/
 
 # Backups
