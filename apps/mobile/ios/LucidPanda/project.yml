@@ -20,6 +20,16 @@ targets:
       - path: LucidPanda
     info:
       path: LucidPanda/Info.plist
+      properties:
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            43.139.108.187:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSTemporaryExceptionAllowsInsecureHTTPLoads: true
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.pineapple.LucidPanda
       DEVELOPMENT_TEAM: pinkcar1901@icloud.com

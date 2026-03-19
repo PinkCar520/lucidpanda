@@ -110,7 +110,7 @@
 		9A5C1483D232C34802EE8B08 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		9E62AE2CF60AB1B76469678B /* SectorDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectorDetailView.swift; sourceTree = "<group>"; };
 		A2BFC505A4CF7D6ABF3AA8E0 /* LucidPandaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LucidPandaApp.swift; sourceTree = "<group>"; };
-		A319F63DB5247367F4C312BF /* LucidPanda.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = LucidPanda.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A319F63DB5247367F4C312BF /* LucidPanda.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LucidPanda.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A49AD4EC2C49C30CF25B3FD8 /* BacktestViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BacktestViewModel.swift; sourceTree = "<group>"; };
 		AA838629B89E8D038BAF558C /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		AE1A6DC493ACA040D9E8F44F /* MarketPulseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketPulseSheet.swift; sourceTree = "<group>"; };
@@ -138,8 +138,8 @@
 		EBFCF085226BDA3A419BFAA7 /* FundDiscoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FundDiscoverView.swift; sourceTree = "<group>"; };
 		F2A119FC1D9F4FD81FE4BC23 /* LiquidScaleButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidScaleButtonStyle.swift; sourceTree = "<group>"; };
 		F88C821C2815CB4568FF47E0 /* LucidPandaUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LucidPandaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		FADDC18E73BC4EC96BBDC32B /* Localizable.xcstrings.bak */ = {isa = PBXFileReference; path = Localizable.xcstrings.bak; sourceTree = "<group>"; };
-		FF551FE6DB6E274B6D8D902B /* deo */ = {isa = PBXFileReference; path = deo; sourceTree = "<group>"; };
+		FADDC18E73BC4EC96BBDC32B /* Localizable.xcstrings.bak */ = {isa = PBXFileReference; lastKnownFileType = text; path = Localizable.xcstrings.bak; sourceTree = "<group>"; };
+		FF551FE6DB6E274B6D8D902B /* deo */ = {isa = PBXFileReference; lastKnownFileType = text; path = deo; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -474,7 +474,6 @@
 						TestTargetID = D83A988893185262875B967D;
 					};
 					D83A988893185262875B967D = {
-						DevelopmentTeam = "pinkcar1901@icloud.com";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -624,7 +623,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "pinkcar1901@icloud.com";
+				DEVELOPMENT_TEAM = 336T6QZLR5;
 				INFOPLIST_FILE = LucidPanda/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -632,7 +631,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.pineapple.LucidPanda;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -642,7 +641,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "pinkcar1901@icloud.com";
+				DEVELOPMENT_TEAM = 336T6QZLR5;
 				INFOPLIST_FILE = LucidPanda/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -650,7 +649,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.pineapple.LucidPanda;
 				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
