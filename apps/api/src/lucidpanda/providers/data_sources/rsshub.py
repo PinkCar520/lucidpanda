@@ -30,12 +30,10 @@ MACRO_GOLD_FEEDS = [
 # 2. A股政策与快讯 (Category: equity_cn)
 # ──────────────────────────────────────────────────────────────────────
 EQUITY_CN_FEEDS = [
-    ("国务院政策公告",         "http://rsshub:1200/gov/zhengce/zuixin"),
-    ("证监会发布",             "http://rsshub:1200/csrc/news"),
-    ("央行公告",               "http://rsshub:1200/pbc/gonggao"),
-    ("财联社政策快讯",         "http://rsshub:1200/cls/telegraph/depth"),
+    ("财联社-深度",           "http://rsshub:1200/cls/telegraph/depth"),
+    ("财联社-电报",           "http://rsshub:1200/cls/telegraph"),
+    ("证券时报-网快讯",          "http://rsshub:1200/stcn/news/kd"),
     ("华尔街见闻-A股",         "http://rsshub:1200/wallstreetcn/news/a-stock"),
-    ("证券时报-发行监管",       "http://rsshub:1200/stcn/news/fxjg"),
 ]
 
 # ──────────────────────────────────────────────────────────────────────
@@ -45,8 +43,8 @@ EQUITY_US_FEEDS = [
     ("CNBC Technology",        "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910"),
     ("Bloomberg Markets",      "https://feeds.bloomberg.com/markets/news.rss"),
     ("WSJ Markets",            "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain"),
-    ("Reuters Business",       "http://rsshub:1200/reuters/category/businessNews"),
-    ("Reuters Tech",           "http://rsshub:1200/reuters/category/technologyNews"),
+    ("MarketWatch-Top",        "https://feeds.content.dowjones.io/public/rss/mw_topstories"),
+    ("Yahoo Finance-News",      "https://finance.yahoo.com/news/rssindex"),
 ]
 
 # 汇总所有信源并标记分类

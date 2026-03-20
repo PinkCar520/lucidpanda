@@ -151,7 +151,8 @@ class DBBase:
                     alpha_return DOUBLE PRECISION,
                     expectation_gap DOUBLE PRECISION,
                     status TEXT DEFAULT 'PENDING',
-                    last_error TEXT
+                    last_error TEXT,
+                    category TEXT
                 );
             """)
 
@@ -185,6 +186,7 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS entities JSONB;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS relation_triples JSONB;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS is_cluster_lead BOOLEAN DEFAULT TRUE;",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS category TEXT;",
             ]:
                 cursor.execute(col_sql)
             cursor.execute("UPDATE intelligence SET corroboration_count = 1 WHERE corroboration_count IS NULL;")

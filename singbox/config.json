@@ -263,6 +263,27 @@
     }
   ],
   "route": {
+    "rules": [
+      {
+        "domain_suffix": [
+          "cls.cn",
+          "stcn.com",
+          "wallstreetcn.com",
+          "sina.com.cn",
+          "eastmoney.com",
+          "dfcfw.com"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "geoip": [ "cn" ],
+        "outbound": "direct"
+      },
+      {
+        "geosite": [ "cn" ],
+        "outbound": "direct"
+      }
+    ],
     "final": "auto"
   }
 }

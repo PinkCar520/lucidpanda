@@ -3737,13 +3737,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ascending"
+            "value" : "Top Losers"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "升序"
+            "value" : "跌幅榜"
           }
         }
       }
@@ -3754,13 +3754,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Descending"
+            "value" : "Top Gainers"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "降序"
+            "value" : "涨幅榜"
           }
         }
       }

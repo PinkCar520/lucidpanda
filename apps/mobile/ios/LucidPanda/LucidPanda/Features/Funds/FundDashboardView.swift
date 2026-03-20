@@ -281,6 +281,7 @@ struct FundDashboardView: View {
             } label: {
                 Image(systemName: viewModel.sortOrder.icon)
                     .accessibilityLabel(Text(viewModel.sortOrder.label))
+                    .foregroundStyle(.primary)
             }
         }
         ToolbarSpacer(.fixed)

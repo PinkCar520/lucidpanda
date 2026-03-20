@@ -14,14 +14,14 @@ enum FundSortOrder: CaseIterable, Hashable {
     case descending      // 净值涨跌降序
 
     static var menuOrders: [FundSortOrder] {
-        [.default, .ascending, .descending]
+        [.default, .descending, .ascending]
     }
     
     var icon: String {
         switch self {
         case .default: return "line.3.horizontal.decrease.circle"
-        case .ascending: return "arrow.up.circle.fill"
-        case .descending: return "arrow.down.circle.fill"
+        case .ascending: return "arrow.down.circle.fill"
+        case .descending: return "arrow.up.circle.fill"
         }
     }
     
