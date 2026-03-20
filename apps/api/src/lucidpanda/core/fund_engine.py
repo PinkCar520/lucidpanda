@@ -1466,12 +1466,69 @@ class FundEngine:
             
         logger.info(f"✅ Successfully archived {count} snapshots for {trade_date}")
 
+    def _ensure_archive_placeholders_exist(self, days_lookback=7):
+        """
+        Check for missed trading days in the recent window and create placeholder 
+        records for all funds in the watchlist.
+        Returns the list of missing trade dates that were backfilled.
+        """
+        from datetime import date, timedelta
+        from src.lucidpanda.utils.market_calendar import is_market_open
+
+        today = date.today()
+        codes = self.db.get_watchlist_all_codes()
+        if not codes:
+            return []
+
+        backfilled_dates = []
+        for i in range(1, days_lookback + 1):
+            check_date = today - timedelta(days=i)
+            
+            # Skip if market was closed (weekends, holidays)
+            if not is_market_open('CN', check_date):
+                continue
+            
+            # Check if we have ANY records for this date in the archive
+            # Using a simple check via the repo
+            try:
+                # We reuse the logic from reconcile to see if we have records
+                conn = self.db.get_connection()
+                has_records = False
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT 1 FROM fund_valuation_archive WHERE trade_date = %s LIMIT 1",
+                        (check_date,)
+                    )
+                    if cursor.fetchone():
+                        has_records = True
+                conn.close()
+                
+                if not has_records:
+                    logger.info(f"🕯️ Missed snapshot detected for {check_date}. Creating {len(codes)} placeholders...")
+                    for code in codes:
+                        self.db.save_valuation_snapshot(
+                            trade_date=check_date,
+                            fund_code=code,
+                            est_growth=None,  # Placeholder
+                            components_json=None,
+                            sector_json=None
+                        )
+                    backfilled_dates.append(check_date)
+            except Exception as e:
+                logger.error(f"Failed to check/create placeholders for {check_date}: {e}")
+        
+        return backfilled_dates
+
     def reconcile_official_valuations(self, target_date=None):
         """
         Fetch real growth for specific funds in the archive by looking up 
         their historical NAV series. Targeted and precise.
         Now supports a sliding window to automatically catch QDII and missed dates.
         """
+        # 0. Robustness: If no target_date, auto-detect missed trading days in the last 7 days
+        if not target_date:
+            self._ensure_archive_placeholders_exist(days_lookback=7)
+
         # 1. Get the list of pending reconciliation tasks
         conn = self.db.get_connection()
         pending_tasks = [] # List of (date, code)

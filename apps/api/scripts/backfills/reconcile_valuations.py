@@ -32,7 +32,11 @@ def main():
                 logger.error("❌ Invalid date format. Use YYYY-MM-DD")
                 return
         
-        logger.info(f"⚖️ Triggering Official Reconciliation Task for {target_date or 'yesterday'}...")
+        if not target_date:
+            logger.info("⚖️ Triggering Sliding Window Reconciliation (with Auto-Backfill for missed dates)...")
+        else:
+            logger.info(f"⚖️ Triggering Official Reconciliation Task for {target_date}...")
+            
         engine.reconcile_official_valuations(target_date)
 
 if __name__ == "__main__":
