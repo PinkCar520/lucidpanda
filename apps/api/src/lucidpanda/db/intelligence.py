@@ -476,6 +476,98 @@ class IntelligenceRepo(DBBase):
 
     # ── 情报写入 ──────────────────────────────────────────────────────────
 
+    def save_intelligence_with_analysis(self, item_data: dict):
+        """
+        保存情报及其分析结果（一次性写入）
+        
+        替代旧的三步流程：
+        旧：save_raw_intelligence() → get_pending() → update_intelligence_analysis()
+        新：save_intelligence_with_analysis()
+        
+        Args:
+            item_data: IntelligenceItem.to_dict() 的返回值
+        """
+        import json
+        import dateutil.parser
+        
+        try:
+            # 解析时间戳
+            news_time = None
+            if item_data.get('timestamp'):
+                try:
+                    if isinstance(item_data['timestamp'], str):
+                        news_time = dateutil.parser.parse(item_data['timestamp'])
+                except Exception as e:
+                    logger.warning(f"Timestamp parsing failed: {e}")
+
+            if news_time is None:
+                news_time = datetime.now(pytz.utc)
+            else:
+                if news_time.tzinfo is None:
+                    news_time = pytz.utc.localize(news_time)
+                else:
+                    news_time = news_time.astimezone(pytz.utc)
+
+            # 保存分析结果
+            analysis_result = item_data.get('analysis_result', {})
+            analysis_completed_at = item_data.get('analysis_completed_at')
+            
+            # 提取分析字段
+            summary = analysis_result.get('summary', '')
+            sentiment = analysis_result.get('sentiment', 'neutral')
+            impact = analysis_result.get('impact', 'low')
+            tags = analysis_result.get('tags', [])
+            
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO intelligence (
+                            source_id, source, url, title, content,
+                            category, timestamp,
+                            gold_price_snapshot, dxy_snapshot, us10y_snapshot,
+                            gvz_snapshot, oil_price_snapshot,
+                            status, 
+                            summary, sentiment, impact, tags,
+                            analysis_completed_at,
+                            created_at, updated_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        ON CONFLICT (source_id) DO UPDATE SET
+                            status = EXCLUDED.status,
+                            summary = EXCLUDED.summary,
+                            sentiment = EXCLUDED.sentiment,
+                            impact = EXCLUDED.impact,
+                            tags = EXCLUDED.tags,
+                            analysis_completed_at = EXCLUDED.analysis_completed_at,
+                            updated_at = NOW()
+                        RETURNING id
+                    """, (
+                        item_data.get('id'),
+                        item_data.get('source'),
+                        item_data.get('url'),
+                        item_data.get('title'),
+                        item_data.get('content'),
+                        item_data.get('category'),
+                        news_time,
+                        item_data.get('gold_price_snapshot'),
+                        item_data.get('dxy_snapshot'),
+                        item_data.get('us10y_snapshot'),
+                        item_data.get('gvz_snapshot'),
+                        item_data.get('oil_price_snapshot'),
+                        'COMPLETED',  # 直接标记为完成
+                        summary,
+                        sentiment,
+                        impact,
+                        json.dumps(tags),
+                        analysis_completed_at,
+                    ))
+                    
+                    conn.commit()
+                    logger.debug(f"💾 已保存情报：{item_data.get('id')}")
+                    
+        except Exception as e:
+            logger.error(f"❌ save_intelligence_with_analysis failed: {e}")
+            raise
+
     def save_raw_intelligence(self, raw_data):
         """Save raw intelligence data immediately (before analysis)."""
         try:

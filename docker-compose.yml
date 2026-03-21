@@ -108,7 +108,7 @@ services:
         max-size: "100m"
         max-file: "3"
     profiles:
-      - legacy  # 使用 --profile legacy 启动旧版
+      - legacy # 使用 --profile legacy 启动旧版
 
   # 1.5 LucidPanda
   # 整合：collector + worker + scheduler
@@ -180,23 +180,7 @@ services:
         max-size: "50m"
         max-file: "3"
     profiles:
-      - legacy  # 使用 --profile legacy 启动旧版
-      # 境外屏蔽域名走 singbox 代理
-      - HTTP_PROXY=http://singbox:7890
-      - HTTPS_PROXY=http://singbox:7890
-      # 国内可直连域名跳过代理
-      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,lucidpanda_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov,stcn.com,wallstreetcn.com,cls.cn
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      rsshub:
-        condition: service_started
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "3"
+      - legacy # 使用 --profile legacy 启动旧版
 
   # 1.6 Funds Automation Worker
   funds_worker:
