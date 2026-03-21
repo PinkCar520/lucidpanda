@@ -189,7 +189,7 @@ class AlphaEngine:
         for item in enriched_items:
             item.setdefault('extraction_method', 'RSS_SUMMARY')
 
-        logger.info(f"🚀 并行分析中 (并发数: 5, 任务数: {len(enriched_items)})...")
+        logger.info(f"🚀 并行分析中 (并发数: {settings.LLM_CONCURRENCY_LIMIT}, 任务数: {len(enriched_items)})...")
         tasks = [self._process_single_item_async(item) for item in enriched_items]
         await asyncio.gather(*tasks)
         logger.info("<<< 本轮分析完成。")

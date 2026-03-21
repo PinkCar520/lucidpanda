@@ -18,7 +18,7 @@ async def main_loop():
     fallback_timeout = 300  # 5分钟兜底轮询
 
     logger.info(f"流式模式: Redis Pub/Sub 事件驱动 (兜底间隔: {fallback_timeout//60} 分钟)")
-    logger.info(f"AI 引擎并发数: 5")
+    logger.info(f"AI 引擎并发数: {settings.LLM_CONCURRENCY_LIMIT}")
 
     # 初始化 Redis 异步连接
     import redis.asyncio as redis

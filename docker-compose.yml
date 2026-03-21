@@ -23,11 +23,16 @@ services:
       timeout: 5s
       retries: 5
 
-  # 0.5 Redis (带持久化)
+  # 0.5 Redis (带持久化 + 内存限制)
   redis:
     image: redis:7-alpine
     container_name: lucidpanda_redis
-    command: redis-server --appendonly yes --appendfsync everysec
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 64mb
+      --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -60,7 +65,8 @@ services:
       - NODE_ENV=production
       - CACHE_TYPE=redis
       - REDIS_URL=redis://redis:6379/1
-      - CACHE_EXPIRE=300
+      - CACHE_EXPIRE=3600
+      - CACHE_CONTENT_EXPIRE=3600
       # 通过 sing-box 容器代理访问境外 Bloomberg/Reuters/WSJ
       - PROXY_URL=http://singbox:7890
       - NODE_TLS_REJECT_UNAUTHORIZED=0 # Disable strict TLS if cert mapping isn't enough for some feeds
