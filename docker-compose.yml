@@ -4,18 +4,18 @@ services:
     image: pgvector/pgvector:pg15
     container_name: lucidpanda_db
     environment:
-      - POSTGRES_USER=lucidpanda
-      - POSTGRES_PASSWORD=secure_password
-      - POSTGRES_DB=lucidpanda_core
+      - POSTGRES_USER=${POSTGRES_USER:-lucidpanda}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
+      - POSTGRES_DB=${POSTGRES_DB:-lucidpanda_core}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432" # Disabled in production for security
+    #ports:
+    # - "5432:5432" # Disabled in production for security
     restart: unless-stopped
     logging:
       driver: "json-file"
       options:
-        max-size: "100m"
+        max-size: "50m"
         max-file: "3"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lucidpanda} -d ${POSTGRES_DB:-lucidpanda_core}" ]
@@ -42,10 +42,25 @@ services:
   singbox:
     image: ghcr.io/sagernet/sing-box:latest
     container_name: lucidpanda_singbox
+    mem_limit: 512m
     restart: unless-stopped
     volumes:
-      - ./singbox:/etc/sing-box:ro
+      - ./singbox:/etc/sing-box
+      - ./cache:/var/lib/sing-box
+    ports:
+      - "7890:7890"
+    environment:
+      - TZ=Asia/Shanghai
+    dns:
+      - 223.5.5.5
+      - 114.114.114.114
+      - 8.8.8.8
     command: [ "run", "-c", "/etc/sing-box/config.json" ]
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:7890" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     logging:
       driver: "json-file"
       options:
@@ -65,7 +80,13 @@ services:
       - CACHE_CONTENT_EXPIRE=3600
       # 通过 sing-box 容器代理访问境外 Bloomberg/Reuters/WSJ
       - PROXY_URL=http://singbox:7890
+      - NO_PROXY=localhost,127.0.0.1,redis
       - NODE_TLS_REJECT_UNAUTHORIZED=0 # Disable strict TLS if cert mapping isn't enough for some feeds
+    command:
+      - sh
+      - -c
+      - |
+        exec dumb-init -- npm run start      
     depends_on:
       - redis
       - singbox
@@ -78,9 +99,6 @@ services:
   # 1. AI 分析引擎（旧版，保留用于向后兼容）
   worker:
     image: pincar/lucidpanda-backend:${IMAGE_TAG:-latest}
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile.backend
     container_name: lucidpanda_worker
     command: python scripts/core/run.py
     volumes:
@@ -93,11 +111,6 @@ services:
       - POSTGRES_HOST=db
       - REDIS_URL=redis://redis:6379/0
       - HF_ENDPOINT=https://hf-mirror.com
-      # 代理访问大模型 API
-      - HTTP_PROXY=http://singbox:7890
-      - HTTPS_PROXY=http://singbox:7890
-      # 国内可直连域名跳过代理
-      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,lucidpanda_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov,stcn.com,wallstreetcn.com,cls.cn
     restart: unless-stopped
     depends_on:
       db:
@@ -148,9 +161,6 @@ services:
   # 1.5.1 RSS 采集器（旧版，保留用于向后兼容）
   collector:
     image: pincar/lucidpanda-backend:${IMAGE_TAG:-latest}
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile.backend
     container_name: lucidpanda_collector
     command: python scripts/core/run_collector.py
     volumes:
@@ -185,9 +195,6 @@ services:
   # 1.6 Funds Automation Worker
   funds_worker:
     image: pincar/lucidpanda-backend:${IMAGE_TAG:-latest}
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile.backend
     container_name: lucidpanda_funds_worker
     command: python scripts/core/run_funds.py
     volumes:
@@ -199,7 +206,6 @@ services:
       - DB_TYPE=postgres
       - POSTGRES_HOST=db
       - REDIS_URL=redis://redis:6379/0
-      - TZ=Asia/Shanghai
       # 仅调用国内 akshare/eastmoney 数据，无需代理，直连更快更稳
       - HF_ENDPOINT=https://hf-mirror.com
     restart: unless-stopped
@@ -215,9 +221,6 @@ services:
   # 2. API Server (SSE)
   api:
     image: pincar/lucidpanda-backend:${IMAGE_TAG:-latest}
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile.backend
     container_name: lucidpanda_api
     command: python scripts/core/sse_server.py
     ports:
@@ -252,12 +255,9 @@ services:
   # 3. Frontend (Next.js)
   web:
     image: pincar/lucidpanda-web:${IMAGE_TAG:-latest}
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
     container_name: lucidpanda_web
     ports:
-      - "3000:3000"
+      - "80:3000"
     env_file:
       - .env
     environment:
