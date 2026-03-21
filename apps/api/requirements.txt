@@ -4,6 +4,7 @@ python-dotenv
 openai
 beautifulsoup4
 google-genai
+dashscope>=1.14.0  # Embedding: text-embedding-v3
 feedparser
 yfinance
 streamlit
@@ -20,9 +21,9 @@ dateparser
 pytz
 pandas
 GoogleNews
-sentence-transformers
-scikit-learn
-# torch
+# sentence-transformers  # 已移除，避免内存占用（4 核 4G 服务器会卡顿）
+# scikit-learn  # 已移除，不再需要本地 Embedding
+# torch  # 已移除
 socksio
 akshare
 pypinyin

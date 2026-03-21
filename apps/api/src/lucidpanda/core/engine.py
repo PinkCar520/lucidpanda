@@ -1,3 +1,7 @@
+"""
+Alpha Engine - AI 分析消费者
+负责消费 intelligence 表中 status=PENDING 的记录进行 AI 分析
+"""
 import time
 import json
 import asyncio
@@ -5,11 +9,13 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 import pytz
 from src.lucidpanda.config import settings
+from src.lucidpanda.config.llm_config import LLMConfigManager
 from src.lucidpanda.core.logger import logger
 
 # 引入组件
 from src.lucidpanda.providers.llm.gemini import GeminiLLM
 from src.lucidpanda.providers.llm.deepseek import DeepSeekLLM
+from src.lucidpanda.providers.llm.qwen_llm import QwenLLM
 from src.lucidpanda.providers.channels.email import EmailChannel
 from src.lucidpanda.providers.channels.bark import BarkChannel
 from src.lucidpanda.core.database import IntelligenceDB
@@ -17,6 +23,54 @@ from src.lucidpanda.core.backtest import BacktestEngine
 from src.lucidpanda.core.deduplication import NewsDeduplicator
 from src.lucidpanda.core.event_clusterer import EventClusterer
 from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
+
+
+class LLMFactory:
+    """LLM 工厂类，根据提供商名称创建对应的 LLM 实例"""
+    
+    @staticmethod
+    def create(provider_name: str):
+        """根据提供商名称创建 LLM 实例"""
+        provider_name = provider_name.lower()
+        
+        if provider_name == LLMConfigManager.GEMINI:
+            return GeminiLLM()
+        elif provider_name == LLMConfigManager.DEEPSEEK:
+            return DeepSeekLLM()
+        elif provider_name == LLMConfigManager.QWEN:
+            return QwenLLM()
+        else:
+            raise ValueError(f"未知的 LLM 提供商：{provider_name}")
+    
+    @staticmethod
+    def get_fallback_provider(primary: str) -> str:
+        """
+        获取备用提供商
+        
+        从配置读取降级顺序，返回第一个可用的备用提供商。
+        
+        Args:
+            primary: 主力提供商名称
+            
+        Returns:
+            备用提供商名称
+            
+        Note:
+            降级顺序可在 .env.ai 中通过 LLM_FALLBACK_ORDER 配置
+        """
+        # 从配置读取降级顺序
+        fallback_order = settings.LLM_FALLBACK_ORDER
+        
+        # 返回第一个可用的备用提供商
+        for provider in fallback_order:
+            if provider != primary:
+                config = LLMConfigManager.get_active_llm(provider)
+                if config.enabled:
+                    return provider
+        
+        # 如果没有可用的备用，返回第一个
+        return fallback_order[0] if fallback_order else "qwen"
+
 
 class AlphaEngine:
     """
@@ -26,22 +80,19 @@ class AlphaEngine:
     """
     def __init__(self):
         self.db = IntelligenceDB()
-        
+
         # 显式初始化 LLM 引擎，根据配置文件动态选择主力模型
-        provider = settings.AI_PROVIDER.lower()
-        if provider == "deepseek":
-            self.primary_llm = DeepSeekLLM()
-            self.fallback_llm = GeminiLLM()
-            logger.info("🧠 选用 API: DeepSeek 作为主力 AI 引擎")
-        elif provider == "openai":
-            from src.lucidpanda.providers.llm.openai_llm import OpenAILLM # 假设存在
-            self.primary_llm = OpenAILLM()
-            self.fallback_llm = DeepSeekLLM()
-            logger.info("🧠 选用 API: OpenAI 作为主力 AI 引擎")
-        else: # 默认 gemini 
-            self.primary_llm = GeminiLLM()
-            self.fallback_llm = DeepSeekLLM()
-            logger.info("🧠 选用 API: Gemini 作为主力 AI 引擎")
+        primary_provider = settings.AI_PROVIDER.lower()
+        fallback_provider = LLMFactory.get_fallback_provider(primary_provider)
+        
+        self.primary_llm = LLMFactory.create(primary_provider)
+        self.fallback_llm = LLMFactory.create(fallback_provider)
+        
+        # 并发控制：从配置读取并发限制
+        self.ai_semaphore = asyncio.Semaphore(settings.LLM_CONCURRENCY_LIMIT)
+        
+        logger.info(f"🧠 选用 API: {primary_provider.upper()} 作为主力 AI 引擎")
+        logger.info(f"🔄 备用 API: {fallback_provider.upper()} 作为降级方案")
             
         self.channels     = [EmailChannel(), BarkChannel()]
         self.backtester   = BacktestEngine(self.db)
