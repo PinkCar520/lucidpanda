@@ -72,37 +72,59 @@ class LLMFactory:
         return fallback_order[0] if fallback_order else "qwen"
 
 
+from src.lucidpanda.core.di_container import EngineDependencies
+
+
 class AlphaEngine:
     """
     AI 分析消费者。
     不再负责采集，只消费 intelligence 表中 status=PENDING 的记录。
     RSS 采集由独立的 RSSCollector（run_collector.py）负责。
+    
+    使用依赖注入容器管理所有依赖，实现：
+    - 依赖解耦
+    - 单元测试友好
+    - 按需初始化（节省内存）
     """
-    def __init__(self):
-        self.db = IntelligenceDB()
-
-        # 显式初始化 LLM 引擎，根据配置文件动态选择主力模型
+    def __init__(self, deps: Optional[EngineDependencies] = None):
+        """
+        初始化 AlphaEngine
+        
+        Args:
+            deps: 依赖容器（可选，默认自动创建）
+            
+        Example:
+            # 使用默认依赖
+            engine = AlphaEngine()
+            
+            # 使用自定义依赖（测试场景）
+            deps = EngineDependencies(db=mock_db)
+            engine = AlphaEngine(deps=deps)
+        """
+        # 使用依赖注入容器
+        self.deps = deps or EngineDependencies()
+        
+        # 从依赖容器获取组件
+        self.db = self.deps.db
+        self.primary_llm = self.deps.primary_llm
+        self.fallback_llm = self.deps.fallback_llm
+        self.ai_semaphore = self.deps.ai_semaphore
+        self.backtester = self.deps.backtester
+        self.clusterer = self.deps.clusterer
+        self.deduplicator = self.deps.deduplicator
+        self.channels = self.deps.channels
+        self.enable_agent_tools = self.deps.enable_agent_tools
+        self.tool_summaries = self.deps.tool_summaries
+        
+        # 日志记录
         primary_provider = settings.AI_PROVIDER.lower()
         fallback_provider = LLMFactory.get_fallback_provider(primary_provider)
-        
-        self.primary_llm = LLMFactory.create(primary_provider)
-        self.fallback_llm = LLMFactory.create(fallback_provider)
-        
-        # 并发控制：从配置读取并发限制
-        self.ai_semaphore = asyncio.Semaphore(settings.LLM_CONCURRENCY_LIMIT)
-        
         logger.info(f"🧠 选用 API: {primary_provider.upper()} 作为主力 AI 引擎")
         logger.info(f"🔄 备用 API: {fallback_provider.upper()} 作为降级方案")
-            
-        self.channels     = [EmailChannel(), BarkChannel()]
-        self.backtester   = BacktestEngine(self.db)
-        self.clusterer    = EventClusterer(db=self.db)
-        self.deduplicator = NewsDeduplicator(db=self.db)
+        logger.info(f"🔒 并发限制：{settings.LLM_CONCURRENCY_LIMIT}")
+        
         self._round_snapshot = {}
-        # Concurrency Control
-        self.ai_semaphore = asyncio.Semaphore(5)
-        self.enable_agent_tools = settings.ENABLE_AGENT_TOOLS
-        self.tool_summaries = list_tool_summaries()
+        
         # Bootstrap deduplicator history from DB
         self._bootstrap_deduplicator()
         
