@@ -1,6 +1,6 @@
 {
   "log": {
-    "level": "warn",
+    "level": "info",
     "timestamp": true
   },
   "inbounds": [
@@ -273,14 +273,6 @@
           "eastmoney.com",
           "dfcfw.com"
         ],
-        "outbound": "direct"
-      },
-      {
-        "geoip": [ "cn" ],
-        "outbound": "direct"
-      },
-      {
-        "geosite": [ "cn" ],
         "outbound": "direct"
       }
     ],

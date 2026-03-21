@@ -32,8 +32,10 @@ MACRO_GOLD_FEEDS = [
 EQUITY_CN_FEEDS = [
     ("财联社-深度",           "http://rsshub:1200/cls/telegraph/depth"),
     ("财联社-电报",           "http://rsshub:1200/cls/telegraph"),
-    ("证券时报-网快讯",          "http://rsshub:1200/stcn/news/kd"),
+    ("证券时报-网快讯",          "http://rsshub:1200/stcn/article/list/kx"),
     ("华尔街见闻-A股",         "http://rsshub:1200/wallstreetcn/news/a-stock"),
+    ("上交所-信息披露",        "http://rsshub:1200/sse/disclosure"),
+    ("深交所-上市公告",        "http://rsshub:1200/szse/disclosure/listed/notice"),
 ]
 
 # ──────────────────────────────────────────────────────────────────────
@@ -45,6 +47,7 @@ EQUITY_US_FEEDS = [
     ("WSJ Markets",            "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain"),
     ("MarketWatch-Top",        "https://feeds.content.dowjones.io/public/rss/mw_topstories"),
     ("Yahoo Finance-News",      "https://finance.yahoo.com/news/rssindex"),
+    ("Reuters-Business",       "http://rsshub:1200/reuters/business"),
 ]
 
 # 汇总所有信源并标记分类
