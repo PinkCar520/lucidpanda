@@ -23,7 +23,6 @@ MACRO_GOLD_FEEDS = [
     ("Fed Speeches",           "https://www.federalreserve.gov/feeds/speeches.xml"),
     ("Fed Press Releases",     "https://www.federalreserve.gov/feeds/press_all.xml"),
     ("WSJ Economy",            "https://feeds.content.dowjones.io/public/rss/socialeconomyfeed"),
-    # CFTC 需要 RSSHub（无原生 RSS）
     ("CFTC Press Releases",    "http://rsshub:1200/cftc/pressreleases"),
 ]
 
