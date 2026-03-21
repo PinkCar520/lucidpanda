@@ -142,43 +142,6 @@ services:
       options:
         max-size: "50m"
         max-file: "3"
-    profiles:
-      - legacy  # 使用 --profile legacy 启动旧版
-
-  # 1.5.1 RSS 采集器 V2（改进版：并发 + 重试 + 动态间隔）
-  collector_v2:
-    image: pincar/lucidpanda-backend:${IMAGE_TAG:-latest}
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile.backend
-    container_name: lucidpanda_collector_v2
-    command: python scripts/core/run_collector_v2.py
-    volumes:
-      - ./logs:/app/logs
-    env_file:
-      - .env
-      - .env.ai
-    environment:
-      - DB_TYPE=postgres
-      - POSTGRES_HOST=db
-      - RSSHUB_BASE_URL=http://rsshub:1200
-      - HF_ENDPOINT=https://hf-mirror.com
-      # 境外屏蔽域名走 singbox 代理
-      - HTTP_PROXY=http://singbox:7890
-      - HTTPS_PROXY=http://singbox:7890
-      # 国内可直连域名跳过代理
-      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,lucidpanda_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov,stcn.com,wallstreetcn.com,cls.cn
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      rsshub:
-        condition: service_started
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "50m"
-        max-file: "3"
 
   # 1.6 Funds Automation Worker
   funds_worker:
