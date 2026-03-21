@@ -526,11 +526,11 @@ class IntelligenceRepo(DBBase):
                             category, timestamp,
                             gold_price_snapshot, dxy_snapshot, us10y_snapshot,
                             gvz_snapshot, oil_price_snapshot,
-                            status, 
+                            status,
                             summary, sentiment, impact, tags,
                             analysis_completed_at,
                             created_at, updated_at
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (source_id) DO UPDATE SET
                             status = EXCLUDED.status,
                             summary = EXCLUDED.summary,
