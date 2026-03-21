@@ -1,10 +1,12 @@
 """
-RSS 采集器
-===========
-职责：每 2 分钟拉取 RSS 信源 → 过滤 → 写入 intelligence 表 (status=PENDING)
+RSS 采集器 - Celery 版本
+========================
+注意：此脚本现在仅用于向后兼容。
+Celery 集成后，采集任务由 celery_beat + celery_worker 执行。
 
 使用方法:
-    python scripts/core/run_collector.py
+- 传统模式 (不推荐): python scripts/core/run_collector.py
+- Celery 模式 (推荐): docker compose up celery_beat celery_worker
 """
 import asyncio
 import sys
@@ -19,13 +21,17 @@ from src.lucidpanda.core.logger import logger
 from src.lucidpanda.core.rss_collector import RSSCollector
 from src.lucidpanda.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
 
-# 采集间隔：2 分钟
+# 采集间隔：比分析引擎更频繁（2 分钟），确保 PENDING 队列始终有新鲜数据
+# 注意：Celery 集成后，此间隔由动态自适应算法自动调整
 _COLLECT_INTERVAL_SECONDS = 120
 
 
 async def collector_loop():
     logger.info("==========================================")
     logger.info("   LucidPanda - RSS 情报采集器 启动")
+    logger.info("==========================================")
+    logger.warning("⚠️  注意：此脚本已过时，建议使用 Celery 模式")
+    logger.warning("⚠️  启动命令：docker compose up celery_beat celery_worker")
     logger.info("==========================================")
     logger.info(f"采集间隔：{_COLLECT_INTERVAL_SECONDS}s | 信源数：{len(TIER1_FEEDS_CONFIG)}")
 
@@ -41,6 +47,7 @@ async def collector_loop():
 
 
 if __name__ == "__main__":
+    logger.warning("⚠️  使用传统采集模式，建议使用 Celery 模式以获得更好的性能")
     try:
         asyncio.run(collector_loop())
     except KeyboardInterrupt:
