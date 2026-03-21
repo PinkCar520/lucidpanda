@@ -4,9 +4,9 @@ services:
     image: pgvector/pgvector:pg15
     container_name: lucidpanda_db
     environment:
-      - POSTGRES_USER=${POSTGRES_USER:-lucidpanda}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password}
-      - POSTGRES_DB=${POSTGRES_DB:-lucidpanda_core}
+      - POSTGRES_USER=lucidpanda
+      - POSTGRES_PASSWORD=secure_password
+      - POSTGRES_DB=lucidpanda_core
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -23,10 +23,13 @@ services:
       timeout: 5s
       retries: 5
 
-  # 0.5 Redis
+  # 0.5 Redis (带持久化)
   redis:
     image: redis:7-alpine
     container_name: lucidpanda_redis
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis_data:/data
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -334,4 +337,6 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  redis_data:
     driver: local

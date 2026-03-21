@@ -175,12 +175,12 @@ def _should_fetch(feed_name: str) -> tuple[bool, int]:
 def fetch_single_feed_task(self, feed_name: str, feed_url: str, category: str) -> Dict[str, Any]:
     """
     单个信源的采集任务
-    
+
     Args:
         feed_name: 信源名称
         feed_url: RSS URL
         category: 分类 (macro_gold/equity_cn/equity_us)
-    
+
     Returns:
         {
             'feed_name': str,
@@ -190,12 +190,15 @@ def fetch_single_feed_task(self, feed_name: str, feed_url: str, category: str) -
             'interval': int,
         }
     """
-    db = IntelligenceDB()
+    import httpx
+    import asyncio
     
+    db = IntelligenceDB()
+
     try:
         # 1. 检查是否需要采集
         should_fetch, current_interval = _should_fetch(feed_name)
-        
+
         if not should_fetch:
             return {
                 'feed_name': feed_name,
@@ -203,15 +206,35 @@ def fetch_single_feed_task(self, feed_name: str, feed_url: str, category: str) -
                 'reason': 'not_yet_time',
                 'interval': current_interval,
             }
-        
-        # 2. 执行采集
+
+        # 2. 执行采集（直接调用 RSSHubSource 的异步方法）
         source = RSSHubSource(db=db)
-        items = source.fetch_single_feed(feed_name, feed_url, category)
-        new_count = len(items) if items else 0
         
+        # 初始化 semaphore（如果未初始化）
+        if source._semaphore is None:
+            source._semaphore = asyncio.Semaphore(8)
+
+        _DEFAULT_HEADERS = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            )
+        }
+
+        async def _fetch():
+            async with httpx.AsyncClient(headers=_DEFAULT_HEADERS, verify=True) as client, \
+                       httpx.AsyncClient(headers=_DEFAULT_HEADERS, verify=False) as ssl_client:
+                config = {"name": feed_name, "url": feed_url, "category": category}
+                items, _ = await source._fetch_feed_async(client, ssl_client, config)
+                return items
+
+        items = asyncio.run(_fetch())
+        new_count = len(items) if items else 0
+
         # 3. 获取/更新状态
         state = _get_feed_state(feed_name)
-        
+
         # 4. 入库
         saved = 0
         if items:
@@ -259,115 +282,89 @@ def fetch_single_feed_task(self, feed_name: str, feed_url: str, category: str) -
 def fetch_all_feeds(self) -> Dict[str, Any]:
     """
     采集所有信源（由 Celery Beat 每分钟调用）
-    
+
     内部会判断每个信源是否真的需要采集（基于动态间隔）
     
+    注意：不能在任务内部调用 .get()，改用 chord 回调模式
+
     Returns:
         汇总统计
     """
+    from celery import chord
+    
     logger.info("🔄 [Celery] 开始执行全量信源采集检查...")
     
-    results = {
+    # 并行采集所有信源
+    tasks = []
+    for feed in TIER1_FEEDS_CONFIG:
+        # 检查是否需要采集
+        should_fetch, _ = _should_fetch(feed['name'])
+        if should_fetch:
+            tasks.append(
+                fetch_single_feed_task.s(
+                    feed['name'],
+                    feed['url'],
+                    feed['category']
+                )
+            )
+    
+    if not tasks:
+        logger.info("📊 [Celery] 所有信源都未到采集时间，跳过本轮")
+        return {
+            'total_feeds': len(TIER1_FEEDS_CONFIG),
+            'fetched': 0,
+            'skipped': len(TIER1_FEEDS_CONFIG),
+            'total_new_items': 0,
+            'errors': 0,
+        }
+    
+    # 使用 chord 并行执行，结果由回调函数 aggregate_results 处理
+    # 注意：这里不能调用 .get()，直接返回任务信息
+    chord(tasks)(aggregate_results.s())
+    
+    return {
         'total_feeds': len(TIER1_FEEDS_CONFIG),
+        'fetched': len(tasks),
+        'skipped': len(TIER1_FEEDS_CONFIG) - len(tasks),
+        'total_new_items': 0,  # 实际结果由回调函数处理
+        'errors': 0,
+        'status': 'processing',
+    }
+
+
+@app.task
+def aggregate_results(results):
+    """
+    聚合所有采集任务的结果
+    
+    Args:
+        results: 所有 fetch_single_feed_task 的返回值列表
+    """
+    summary = {
+        'total_feeds': len(results),
         'fetched': 0,
         'skipped': 0,
         'total_new_items': 0,
         'errors': 0,
     }
     
-    # 并行采集所有信源
-    tasks = []
-    for feed in TIER1_FEEDS_CONFIG:
-        tasks.append(
-            fetch_single_feed_task.s(
-                feed['name'],
-                feed['url'],
-                feed['category']
-            )
-        )
-    
-    # 执行任务
-    if tasks:
-        # 使用 group 并行执行
-        from celery import group
-        job = group(tasks)
-        job_results = job.apply_async().get(timeout=120)
-        
-        for result in job_results:
+    for result in results:
+        if isinstance(result, dict):
             if result.get('error'):
-                results['errors'] += 1
+                summary['errors'] += 1
             elif result.get('skipped'):
-                results['skipped'] += 1
+                summary['skipped'] += 1
             else:
-                results['fetched'] += 1
-                results['total_new_items'] += result.get('saved', 0)
+                summary['fetched'] += 1
+                summary['total_new_items'] += result.get('saved', 0)
     
     logger.info(
         f"📊 [Celery] 全量采集完成："
-        f"total={results['total_feeds']} | "
-        f"fetched={results['fetched']} | "
-        f"skipped={results['skipped']} | "
-        f"new_items={results['total_new_items']} | "
-        f"errors={results['errors']}"
+        f"total={summary['total_feeds']} | "
+        f"fetched={summary['fetched']} | "
+        f"skipped={summary['skipped']} | "
+        f"new_items={summary['total_new_items']} | "
+        f"errors={summary['errors']}"
     )
     
-    return results
-
-
-# ──────────────────────────────────────────────────────────────────────
-# 辅助函数：供 RSSHubSource 使用
-# ──────────────────────────────────────────────────────────────────────
-
-def fetch_single_feed_sync(feed_name: str, feed_url: str, category: str) -> Optional[List[Dict]]:
-    """
-    同步采集单个信源（用于向后兼容）
-    
-    注意：此函数不执行入库，只返回原始数据
-    """
-    db = IntelligenceDB()
-    source = RSSHubSource(db=db)
-    
-    # 使用 asyncio 运行异步方法
-    import asyncio
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    
-    items = loop.run_until_complete(
-        source.fetch_single_feed_async(feed_name, feed_url, category)
-    )
-    
-    return items
-
-
-# 为 RSSHubSource 添加单个信源采集方法（monkey patch）
-def _fetch_single_feed_async(self, feed_name: str, feed_url: str, category: str):
-    """异步采集单个信源"""
-    import asyncio
-    import httpx
-    
-    _DEFAULT_HEADERS = {
-        "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        )
-    }
-    
-    async def _fetch():
-        async with httpx.AsyncClient(headers=_DEFAULT_HEADERS, verify=True) as client:
-            config = {"name": feed_name, "url": feed_url, "category": category}
-            items, _ = await self._fetch_feed_async(client, client, config)
-            return items
-    
-    return asyncio.run(_fetch())
-
-
-# 扩展 RSSHubSource
-if not hasattr(RSSHubSource, 'fetch_single_feed_async'):
-    RSSHubSource.fetch_single_feed_async = _fetch_single_feed_async
-
-if not hasattr(RSSHubSource, 'fetch_single_feed'):
-    RSSHubSource.fetch_single_feed = fetch_single_feed_sync
+    return summary
