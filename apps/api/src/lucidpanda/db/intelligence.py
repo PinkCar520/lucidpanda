@@ -548,14 +548,27 @@ class IntelligenceRepo(DBBase):
 
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
+                    # 提取额外字段
+                    entities = analysis_result.get('entities')
+                    relation_triples = analysis_result.get('relation_triples')
+                    agent_trace = analysis_result.get('agent_trace')
+                    expectation_gap = analysis_result.get('expectation_gap')
+                    embedding = analysis_result.get('embedding')
+                    
+                    embedding_binary = None
+                    if embedding is not None:
+                        import pickle
+                        embedding_binary = psycopg2.Binary(pickle.dumps(embedding))
+
                     cursor.execute("""
                         INSERT INTO intelligence (
                             source_id, author, content, summary, sentiment,
                             urgency_score, market_implication, actionable_advice, url,
                             gold_price_snapshot, price_1h, price_24h, timestamp, market_session,
                             clustering_score, exhaustion_score, dxy_snapshot, us10y_snapshot, gvz_snapshot,
-                            sentiment_score, fed_regime, macro_adjustment, category
-                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                            sentiment_score, fed_regime, macro_adjustment, category,
+                            entities, relation_triples, agent_trace, expectation_gap, embedding
+                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                         ON CONFLICT (source_id) DO UPDATE SET
                             status = 'COMPLETED',
                             summary = EXCLUDED.summary,
@@ -563,6 +576,11 @@ class IntelligenceRepo(DBBase):
                             urgency_score = EXCLUDED.urgency_score,
                             market_implication = EXCLUDED.market_implication,
                             actionable_advice = EXCLUDED.actionable_advice,
+                            entities = EXCLUDED.entities,
+                            relation_triples = EXCLUDED.relation_triples,
+                            agent_trace = EXCLUDED.agent_trace,
+                            expectation_gap = EXCLUDED.expectation_gap,
+                            embedding = COALESCE(EXCLUDED.embedding, intelligence.embedding),
                             updated_at = NOW()
                         RETURNING id
                     """, (
@@ -589,6 +607,11 @@ class IntelligenceRepo(DBBase):
                         float(fed_val),  # fed_regime
                         float(macro_adj),  # macro_adjustment
                         item_data.get('category', 'macro_gold'),
+                        Json(entities) if entities else None,
+                        Json(relation_triples) if relation_triples else None,
+                        Json(agent_trace) if agent_trace else None,
+                        float(expectation_gap) if expectation_gap is not None else None,
+                        embedding_binary,
                     ))
 
                     conn.commit()

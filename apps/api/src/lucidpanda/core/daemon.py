@@ -173,12 +173,17 @@ class LucidPandaDaemon:
         # 获取市场快照
         now = datetime.now(pytz.utc)
         try:
+            # 获取 Fed 调节值（与 AlphaEngine 一致）
+            fed_data = await asyncio.to_thread(self.collector.db.get_latest_indicator, "FED_REGIME", now)
+            fed_val = fed_data['value'] if fed_data else 0
+            
             snapshot = {
                 "gold": await asyncio.to_thread(self.collector.db.get_market_snapshot, "GC=F", now),
                 "dxy": await asyncio.to_thread(self.collector.db.get_market_snapshot, "DX-Y.NYB", now),
                 "us10y": await asyncio.to_thread(self.collector.db.get_market_snapshot, "^TNX", now),
                 "gvz": await asyncio.to_thread(self.collector.db.get_market_snapshot, "^GVZ", now),
                 "oil": await asyncio.to_thread(self.collector.db.get_market_snapshot, "CL=F", now),
+                "fed_val": fed_val,
             }
         except Exception as e:
             logger.warning(f"⚠️ 获取市场快照失败：{e}")
@@ -202,6 +207,7 @@ class LucidPandaDaemon:
                         us10y_snapshot=snapshot.get('us10y'),
                         gvz_snapshot=snapshot.get('gvz'),
                         oil_price_snapshot=snapshot.get('oil'),
+                        fed_val=snapshot.get('fed_val', 0.0),
                     )
                     all_items.append(item)
 
@@ -237,6 +243,11 @@ class LucidPandaDaemon:
                         # AI 分析
                         analysis_result = await self._analyze_item(item)
 
+                        # 如果是重复内容，跳过保存
+                        if analysis_result.get('status') == 'duplicate':
+                            logger.debug(f"⚠️ 跳过重复情报：{item.id}")
+                            continue
+
                         # 保存结果（仅 1 次 DB 写入）
                         await self._save_result(item, analysis_result)
 
@@ -257,47 +268,87 @@ class LucidPandaDaemon:
 
     async def _analyze_item(self, item: IntelligenceItem) -> Dict[str, Any]:
         """
-        分析单条情报
-        
+        分析单条情报（使用 AlphaEngine 的真正 AI 分析）
+
         Args:
             item: 情报项
-        
+
         Returns:
             分析结果字典
         """
-        # 1. 语义去重（可选）
-        # is_dup = await asyncio.to_thread(
-        #     self.worker.deduplicator.is_duplicate,
-        #     item.content
-        # )
-        # if is_dup:
-        #     logger.debug(f"⚠️ 情报重复，跳过：{item.id}")
-        #     return {'status': 'duplicate'}
-
-        # 2. AI 分析（调用 LLM）
-        # analysis = await asyncio.to_thread(
-        #     self.worker.analyze_intelligence,
-        #     item.to_dict()
-        # )
-
-        # 简化版：直接返回模拟结果
-        analysis = {
-            'status': 'completed',
-            'sentiment': 'neutral',
-            'impact': 'low',
-            'tags': [],
-            'summary': item.content[:100] + '...',
+        # 构建 raw_data（与 AlphaEngine 兼容的格式）
+        raw_data = {
+            'id': item.id,
+            'source_id': item.id,
+            'source': item.source,
+            'url': item.url,
+            'content': item.content,
+            'category': item.category,
+            'timestamp': item.timestamp,
+            'gold_price_snapshot': item.gold_price_snapshot,
+            'dxy_snapshot': item.dxy_snapshot,
+            'us10y_snapshot': item.us10y_snapshot,
+            'gvz_snapshot': item.gvz_snapshot,
+            'oil_price_snapshot': item.oil_price_snapshot,
+            'fed_val': item.fed_val,
+            'extraction_method': 'RSS_SUMMARY',
         }
-
-        # 模拟分析延迟
-        await asyncio.sleep(2)
-
-        return analysis
+        
+        # 1. 注入市场上下文（包含 fed_val）
+        await asyncio.to_thread(self.worker._enrich_market_context, raw_data)
+        
+        # 2. 语义去重
+        is_dup = await asyncio.to_thread(
+            self.worker.deduplicator.is_duplicate,
+            item.content
+        )
+        if is_dup:
+            logger.info(f"🚫 语义重复，标记为已过滤：{item.id}")
+            return {'status': 'duplicate', 'summary': 'Deduplicated'}
+        
+        # 3. AI 分析（使用主力 LLM）
+        logger.info(f"🤖 正在分析：{item.id}")
+        try:
+            if self.worker.enable_agent_tools:
+                analysis_result = await self.worker._analyze_with_tools(
+                    self.worker.primary_llm, raw_data
+                )
+            else:
+                analysis_result = await self.worker.primary_llm.analyze_async(raw_data)
+        except Exception as e:
+            logger.warning(f"Primary LLM failed for {item.id}, trying fallback: {e}")
+            if self.worker.enable_agent_tools:
+                analysis_result = await self.worker._analyze_with_tools(
+                    self.worker.fallback_llm, raw_data
+                )
+            else:
+                analysis_result = await self.worker.fallback_llm.analyze_async(raw_data)
+        
+        # 4. 保存 embedding 向量
+        if self.worker.deduplicator.last_vector is not None:
+            analysis_result['embedding'] = self.worker.deduplicator.last_vector
+            await asyncio.to_thread(
+                self.worker.db.save_embedding_vec,
+                item.id,
+                self.worker.deduplicator.last_vector
+            )
+        
+        # 5. 更新知识图谱
+        await asyncio.to_thread(
+            self.worker.db.upsert_knowledge_graph,
+            item.id,
+            analysis_result
+        )
+        
+        # 6. 触发交易信号
+        await self.worker._trigger_trade_and_dispatch(analysis_result, raw_data)
+        
+        return analysis_result
 
     async def _save_result(self, item: IntelligenceItem, analysis: dict):
         """
         保存分析结果到 DB（仅 1 次写入）
-        
+
         Args:
             item: 情报项
             analysis: 分析结果
@@ -309,6 +360,7 @@ class LucidPandaDaemon:
         # 保存到 DB
         try:
             # 使用 worker 的 DB 连接
+            # 注意：item.to_dict() 已包含 fed_val 等所有字段
             await asyncio.to_thread(
                 self.worker.db.save_intelligence_with_analysis,
                 item.to_dict()

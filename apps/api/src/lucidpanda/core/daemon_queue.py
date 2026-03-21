@@ -40,6 +40,9 @@ class IntelligenceItem:
     gvz_snapshot: Optional[float] = None
     oil_price_snapshot: Optional[float] = None
     
+    # Fed 调节（采集时注入）
+    fed_val: float = 0.0
+
     # 分析结果（Worker 填充）
     analysis_result: Optional[Dict[str, Any]] = None
     analysis_completed_at: Optional[str] = None
@@ -55,11 +58,11 @@ class IntelligenceItem:
     def from_raw(cls, raw: Dict[str, Any], **kwargs) -> 'IntelligenceItem':
         """
         从原始数据创建情报项
-        
+
         Args:
             raw: 原始采集数据
             **kwargs: 额外字段（如市场快照）
-        
+
         Returns:
             IntelligenceItem 实例
         """
@@ -76,6 +79,7 @@ class IntelligenceItem:
             us10y_snapshot=kwargs.get('us10y_snapshot'),
             gvz_snapshot=kwargs.get('gvz_snapshot'),
             oil_price_snapshot=kwargs.get('oil_price_snapshot'),
+            fed_val=kwargs.get('fed_val', 0.0),
         )
 
 
