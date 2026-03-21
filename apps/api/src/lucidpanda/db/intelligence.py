@@ -479,18 +479,17 @@ class IntelligenceRepo(DBBase):
     def save_intelligence_with_analysis(self, item_data: dict):
         """
         保存情报及其分析结果（一次性写入）
-
+        
         替代旧的三步流程：
         旧：save_raw_intelligence() → get_pending() → update_intelligence_analysis()
         新：save_intelligence_with_analysis()
-
+        
         Args:
             item_data: IntelligenceItem.to_dict() 的返回值
         """
         import json
         import dateutil.parser
-        from psycopg2.extras import Json
-
+        
         try:
             # 解析时间戳
             news_time = None
@@ -512,88 +511,59 @@ class IntelligenceRepo(DBBase):
             # 保存分析结果
             analysis_result = item_data.get('analysis_result', {})
             analysis_completed_at = item_data.get('analysis_completed_at')
-
+            
             # 提取分析字段
             summary = analysis_result.get('summary', '')
-            sentiment_score = analysis_result.get('sentiment_score', 0.0)
-            sentiment_label = analysis_result.get('sentiment', 'neutral')
+            sentiment = analysis_result.get('sentiment', 'neutral')
             impact = analysis_result.get('impact', 'low')
             tags = analysis_result.get('tags', [])
-            urgency_score = analysis_result.get('urgency_score', 0)
-            market_implication = analysis_result.get('market_implication', {})
-            actionable_advice = analysis_result.get('actionable_advice', {})
-
-            # 获取市场快照
-            gold_price = item_data.get('gold_price_snapshot')
-            dxy = item_data.get('dxy_snapshot')
-            us10y = item_data.get('us10y_snapshot')
-            gvz = item_data.get('gvz_snapshot')
-            oil = item_data.get('oil_price_snapshot')
-
-            # Fed 调节逻辑（与原来一致）
-            orig_score = sentiment_score
-            fed_val = item_data.get('fed_val', 0)
-            macro_adj = 0.0
-            if fed_val > 0:
-                macro_adj = 0.15
-                sentiment_score = max(-1.0, min(1.0, sentiment_score + 0.15))
-                logger.info(f"⚖️  Dimension D 权调节 (Dovish/+0.15): {orig_score:.2f} -> {sentiment_score:.2f}")
-            elif fed_val < 0:
-                macro_adj = -0.15
-                sentiment_score = max(-1.0, min(1.0, sentiment_score - 0.15))
-                logger.info(f"⚖️  Dimension D 权调节 (Hawkish/-0.15): {orig_score:.2f} -> {sentiment_score:.2f}")
-
-            market_session = self.get_market_session(news_time)
-            clustering_score, exhaustion_score = self.get_advanced_metrics(news_time, item_data.get('content'))
-
+            
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
                         INSERT INTO intelligence (
-                            source_id, author, content, summary, sentiment,
-                            urgency_score, market_implication, actionable_advice, url,
-                            gold_price_snapshot, price_1h, price_24h, timestamp, market_session,
-                            clustering_score, exhaustion_score, dxy_snapshot, us10y_snapshot, gvz_snapshot,
-                            sentiment_score, fed_regime, macro_adjustment, category
-                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                            source_id, source, url, title, content,
+                            category, timestamp,
+                            gold_price_snapshot, dxy_snapshot, us10y_snapshot,
+                            gvz_snapshot, oil_price_snapshot,
+                            status,
+                            summary, sentiment, impact, tags,
+                            analysis_completed_at,
+                            created_at, updated_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
                         ON CONFLICT (source_id) DO UPDATE SET
-                            status = 'COMPLETED',
+                            status = EXCLUDED.status,
                             summary = EXCLUDED.summary,
                             sentiment = EXCLUDED.sentiment,
-                            urgency_score = EXCLUDED.urgency_score,
-                            market_implication = EXCLUDED.market_implication,
-                            actionable_advice = EXCLUDED.actionable_advice,
+                            impact = EXCLUDED.impact,
+                            tags = EXCLUDED.tags,
+                            analysis_completed_at = EXCLUDED.analysis_completed_at,
                             updated_at = NOW()
                         RETURNING id
                     """, (
                         item_data.get('id'),
                         item_data.get('source'),
-                        item_data.get('content'),
-                        Json({'text': summary, 'completed_at': analysis_completed_at}),
-                        Json({'score': sentiment_score, 'label': sentiment_label, 'impact': impact, 'tags': tags}),
-                        urgency_score,
-                        Json(market_implication),
-                        Json(actionable_advice),
                         item_data.get('url'),
-                        float(gold_price) if gold_price is not None else None,
-                        0.0,  # price_1h (placeholder，实际值需要后续更新)
-                        0.0,  # price_24h (placeholder，实际值需要后续更新)
+                        item_data.get('title'),
+                        item_data.get('content'),
+                        item_data.get('category'),
                         news_time,
-                        market_session,
-                        clustering_score,
-                        float(exhaustion_score),
-                        float(dxy) if dxy is not None else None,
-                        float(us10y) if us10y is not None else None,
-                        float(gvz) if gvz is not None else None,
-                        float(sentiment_score),
-                        float(fed_val),  # fed_regime
-                        float(macro_adj),  # macro_adjustment
-                        item_data.get('category', 'macro_gold'),
+                        item_data.get('gold_price_snapshot'),
+                        item_data.get('dxy_snapshot'),
+                        item_data.get('us10y_snapshot'),
+                        item_data.get('gvz_snapshot'),
+                        item_data.get('oil_price_snapshot'),
+                        'COMPLETED',  # 直接标记为完成
+                        summary,
+                        sentiment,
+                        impact,
+                        json.dumps(tags),
+                        analysis_completed_at,
                     ))
-
+                    
                     conn.commit()
                     logger.debug(f"💾 已保存情报：{item_data.get('id')}")
-
+                    
         except Exception as e:
             logger.error(f"❌ save_intelligence_with_analysis failed: {e}")
             raise
