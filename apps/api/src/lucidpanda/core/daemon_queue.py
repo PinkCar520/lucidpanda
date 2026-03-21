@@ -189,6 +189,7 @@ class IntelligenceQueue:
         return {
             **self.stats,
             'is_closed': self.closed,
+            'maxsize': self.maxsize,
             'utilization': self.stats['current_size'] / self.maxsize if self.maxsize > 0 else 0,
         }
     
