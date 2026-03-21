@@ -89,8 +89,7 @@ class LucidPandaDaemon:
         await self.collector.connect()
         logger.info("✅ Collector 已初始化")
 
-        # 初始化 worker
-        await self.worker.initialize()
+        # Worker (AlphaEngine) 无需额外初始化
         logger.info("✅ Worker 已初始化")
 
         self.running = True
@@ -114,10 +113,11 @@ class LucidPandaDaemon:
             except asyncio.TimeoutError:
                 logger.warning(f"⚠️ 队列清空超时，剩余 {self.queue.qsize()} 条")
 
-        # 关闭组件
+        # 关闭 collector
         await self.collector.disconnect()
-        await self.worker.shutdown()
 
+        # Worker (AlphaEngine) 无需关闭
+        
         logger.info("✅ Daemon 已停止")
     
     async def collector_loop(self):
