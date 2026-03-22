@@ -13,7 +13,7 @@ def migrate_to_timescaledb():
     """
     将旧的历史行情表（快照集市和财务估值）强行融入时序时空的“超表”
     """
-    db_url = settings.DATABASE_URL.replace("postgresql+psycopg://", "postgresql://")
+    db_url = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
     
     # 注入的建表魔咒
     sql_commands = [
