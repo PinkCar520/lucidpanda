@@ -831,7 +831,7 @@ class IntelligenceRepo(DBBase):
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT source_id FROM intelligence WHERE source_id = ANY(%s)", (source_ids,))
                     rows = cursor.fetchall()
-            return {row[0] for row in rows}
+            return {row["source_id"] for row in rows}
         except Exception as e:
             logger.warning(f"source_ids_batch_exists 查询失败，返回空集合: {e}")
             return set()
@@ -917,7 +917,7 @@ class IntelligenceRepo(DBBase):
                           new_text_for_sim, settings.NEWS_SIMILARITY_THRESHOLD))
                     result = cursor.fetchone()
                     if result:
-                        logger.info(f"🚫 发现语义重复情报 (ID: {result[0]}, 相似度: {result[1]:.2f})，跳过。")
+                        logger.info(f"🚫 发现语义重复情报 (ID: {result['id']}, 相似度: {result['sim_score']:.2f})，跳过。")
                         return True
             return False
         except Exception as e:
@@ -941,7 +941,7 @@ class IntelligenceRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
-                        SELECT a.source_id, b.source_id
+                        SELECT a.source_id AS source_id_a, b.source_id AS source_id_b
                         FROM intelligence a
                         JOIN intelligence b ON a.source_id < b.source_id
                         WHERE a.source_id = ANY(%s)
@@ -950,7 +950,7 @@ class IntelligenceRepo(DBBase):
                           AND similarity(COALESCE(a.content,''), COALESCE(b.content,'')) > %s
                     """, (source_ids, source_ids, time_window_hours * 3600, threshold))
                     pairs = cursor.fetchall()
-            return [(r[0], r[1]) for r in pairs]
+            return [(r["source_id_a"], r["source_id_b"]) for r in pairs]
         except Exception as e:
             logger.error(f"find_similar_pairs 查询失败: {e}")
             return []
@@ -1013,7 +1013,8 @@ class IntelligenceRepo(DBBase):
             DO UPDATE SET entity_name = EXCLUDED.entity_name
             RETURNING node_id
         """, (canonical_name.strip(), normalized_name, canonical_type))
-        return cursor.fetchone()[0]
+        res = cursor.fetchone()
+        return res["count"] if res else 0
 
     def _upsert_graph_edge(
         self,
@@ -1065,12 +1066,12 @@ class IntelligenceRepo(DBBase):
         if not row:
             return None
         return {
-            "id": row[0],
-            "source_id": row[1],
-            "event_cluster_id": row[2],
-            "urgency_score": row[3],
-            "source_credibility_score": row[4],
-            "timestamp": row[5],
+            "id": row["id"],
+            "source_id": row["source_id"],
+            "event_cluster_id": row["event_cluster_id"],
+            "urgency_score": row["urgency_score"],
+            "source_credibility_score": row["source_credibility_score"],
+            "timestamp": row["timestamp"],
         }
 
     def _upsert_cross_asset_edges(
@@ -1569,7 +1570,7 @@ class IntelligenceRepo(DBBase):
             RETURNING node_id
         """, (canonical_name, normalized_name, clean_type))
         row = cursor.fetchone()
-        return row[0] if row else None
+        return row["id"] if row else None
 
     def ingest_knowledge_graph(self, source_id: str, analysis_result: dict) -> bool:
         """

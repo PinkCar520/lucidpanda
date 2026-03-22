@@ -4,7 +4,7 @@ services:
     image: pincar/lucidpanda-db:latest
     container_name: lucidpanda_db
     # 强制注入时序库加载（即便旧卷中没写这一行，启动时也会强制拉起）
-    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
+    command: [ "postgres", "-c", "shared_preload_libraries=timescaledb" ]
     environment:
       - POSTGRES_USER=lucidpanda
       - POSTGRES_PASSWORD=secure_password
@@ -99,7 +99,7 @@ services:
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
       # 国内可直连域名跳过代理
-      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,lucidpanda_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov,stcn.com,wallstreetcn.com,cls.cn
+      - NO_PROXY=localhost,127.0.0.1,*.cn,*.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
     restart: unless-stopped
     depends_on:
       db:
@@ -133,7 +133,7 @@ services:
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
       # 国内可直连域名跳过代理
-      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,lucidpanda_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov,stcn.com,wallstreetcn.com,cls.cn
+      - NO_PROXY=localhost,127.0.0.1,*.cn,*.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
     restart: unless-stopped
     depends_on:
       db:
@@ -199,7 +199,7 @@ services:
       # 境外屏蔽域名走 singbox 代理
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
-      - NO_PROXY=localhost,127.0.0.1,db,redis,rsshub,lucidpanda_db,api,web,*.cn,sina.com,sina.com.cn,eastmoney.com,chinamoney.com.cn,deepseek.com,api.deepseek.com,hf-mirror.com,whitehouse.gov,trumpstruth.org,rss.politico.com,feeds.content.dowjones.io,search.cnbc.com,federalreserve.gov,stcn.com,wallstreetcn.com,cls.cn
+      - NO_PROXY=localhost,127.0.0.1,*.cn,*.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
     restart: unless-stopped
     depends_on:
       db:
