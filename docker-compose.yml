@@ -1,7 +1,7 @@
 services:
   # 0. PostgreSQL Database (New Data Center)
   db:
-    image: pgvector/pgvector:pg15
+    image: timescale/timescaledb-ha:pg15-latest
     container_name: lucidpanda_db
     environment:
       - POSTGRES_USER=lucidpanda
