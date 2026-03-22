@@ -8,8 +8,14 @@ FROM pgvector/pgvector:pg15
 USER root
 
 # 安装 TimescaleDB 官方 apt 源并安装扩展包
-RUN apt-get update && apt-get install -y --no-install-recommends gnupg lsb-release curl && \
-    curl -s https://packagecloud.io/install/repositories/timescale/timescaledb/script.deb.sh | bash && \
+# 针对 Debian Bookworm (pg15) 采用更稳健的手动源配置
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gnupg \
+    lsb-release \
+    curl \
+    ca-certificates && \
+    curl -fsSL https://packagecloud.io/timescale/timescaledb/gpgkey | gpg --dearmor -o /usr/share/keyrings/timescaledb.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/timescaledb.gpg] https://packagecloud.io/timescale/timescaledb/debian/ $(lsb_release -c -s) main" > /etc/apt/sources.list.d/timescaledb.list && \
     apt-get update && \
     apt-get install -y timescaledb-2-postgresql-15 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
