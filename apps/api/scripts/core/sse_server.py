@@ -85,8 +85,8 @@ async def database_poller():
             dbname=settings.POSTGRES_DB
         )
         cursor = conn.cursor()
-        cursor.execute("SELECT COALESCE(MAX(id), 0) FROM intelligence")
-        global_last_id = cursor.fetchone()[0]
+        cursor.execute("SELECT COALESCE(MAX(id), 0) AS max_id FROM intelligence")
+        global_last_id = cursor.fetchone()['max_id']
         conn.close()
         print(f"[SSE-Broadcaster] Initialized. Monitoring from ID: {global_last_id}")
     except Exception as e:

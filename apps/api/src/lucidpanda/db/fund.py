@@ -70,7 +70,7 @@ class FundRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT DISTINCT fund_code FROM fund_watchlist")
-                    codes = [row[0] for row in cursor.fetchall()]
+                    codes = [row['fund_code'] for row in cursor.fetchall()]
             return codes
         except Exception as e:
             logger.error(f"Get Watchlist All Codes Failed: {e}")
@@ -165,8 +165,8 @@ class FundRepo(DBBase):
                         RETURNING frozen_est_growth
                     """, (official_growth, trade_date, fund_code))
                     row = cursor.fetchone()
-                    if row and row[0] is not None:
-                        est = float(row[0])
+                    if row and row['frozen_est_growth'] is not None:
+                        est = float(row['frozen_est_growth'])
                         off = float(official_growth)
                         dev = est - off
                         abs_dev = abs(dev)
@@ -207,12 +207,12 @@ class FundRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
-                        SELECT AVG(deviation) FROM fund_valuation_archive
+                        SELECT AVG(deviation) AS avg_bias FROM fund_valuation_archive
                         WHERE fund_code = %s AND official_growth IS NOT NULL
                         AND trade_date > CURRENT_DATE - INTERVAL '%s days'
                     """, (fund_code, days))
                     res = cursor.fetchone()
-            return float(res[0]) if res and res[0] is not None else 0.0
+            return float(res['avg_bias']) if res and res['avg_bias'] is not None else 0.0
         except Exception as e:
             logger.error(f"Get Recent Bias Failed for {fund_code}: {e}")
             return 0.0
@@ -352,12 +352,13 @@ class FundRepo(DBBase):
                     SELECT m.fund_code, m.fund_name, m.investment_type,
                            s.mgmt_fee_rate, s.custodian_fee_rate, s.sales_fee_rate
                     FROM fund_metadata m
+                    LEFT JOIN fund_companies c ON m.company_id = c.company_id
                     LEFT JOIN fund_stats_snapshot s ON s.fund_code = m.fund_code
                     WHERE m.fund_code = ANY(%s)
                 """, (fund_codes,))
                 rows = cursor.fetchall()
-                return {r[0]: {'name': r[1], 'type': r[2], 'mgmt_fee_rate': r[3],
-                                'custodian_fee_rate': r[4], 'sales_fee_rate': r[5]} for r in rows}
+                return {r['fund_code']: {'name': r['fund_name'], 'type': r['investment_type'], 'mgmt_fee_rate': r['mgmt_fee_rate'],
+                                'custodian_fee_rate': r['custodian_fee_rate'], 'sales_fee_rate': r['sales_fee_rate']} for r in rows}
         finally:
             conn.close()
 
@@ -371,7 +372,7 @@ class FundRepo(DBBase):
                     "SELECT fund_code, fund_name FROM fund_metadata WHERE fund_code = ANY(%s)",
                     (fund_codes,)
                 )
-                return {r[0]: r[1] for r in cursor.fetchall()}
+                return {r['fund_code']: r['fund_name'] for r in cursor.fetchall()}
         finally:
             conn.close()
 
@@ -491,7 +492,7 @@ class FundRepo(DBBase):
                     ORDER BY trade_date DESC LIMIT %s
                 """, (fund_code, limit))
                 rows = cursor.fetchall()
-                return [{'status': r[0], 'deviation': float(r[1])} for r in rows if r[0]]
+                return [{'status': r['tracking_status'], 'deviation': float(r['deviation'])} for r in rows if r['tracking_status']]
         except Exception as e:
             logger.error(f"Failed to fetch recent statuses for {fund_code}: {e}")
             return []
@@ -504,14 +505,14 @@ class FundRepo(DBBase):
             conn = self.get_connection()
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    SELECT AVG(abs_deviation), COUNT(*) FROM fund_valuation_archive
+                    SELECT AVG(abs_deviation) AS avg_mae, COUNT(*) AS sample_count FROM fund_valuation_archive
                     WHERE fund_code = %s AND official_growth IS NOT NULL
                     AND trade_date > CURRENT_DATE - INTERVAL '%s days'
                 """, (fund_code, days))
                 res = cursor.fetchone()
                 return {
-                    'avg_mae': float(res[0]) if res and res[0] is not None else None,
-                    'sample_count': int(res[1]) if res else 0,
+                    'avg_mae': float(res['avg_mae']) if res and res['avg_mae'] is not None else None,
+                    'sample_count': int(res['sample_count']) if res else 0,
                 }
         except Exception as e:
             logger.error(f"Failed to fetch performance metrics: {e}")

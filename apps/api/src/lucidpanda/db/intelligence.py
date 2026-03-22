@@ -568,7 +568,7 @@ class IntelligenceRepo(DBBase):
                         cursor.execute("SELECT id FROM intelligence WHERE source_id = %s", (raw_data.get('id'),))
                         row = cursor.fetchone()
                     active_conn.commit()
-                    return row[0] if row else None
+                    return row['id'] if row else None
 
             if conn:
                 return _execute_save(conn)

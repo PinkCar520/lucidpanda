@@ -42,17 +42,17 @@ class MarketRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
-                        SELECT COUNT(*) FROM intelligence
+                        SELECT COUNT(*) AS clustering_score FROM intelligence
                         WHERE timestamp BETWEEN %s - INTERVAL '1 hour' AND %s + INTERVAL '1 hour'
                     """, (dt, dt))
-                    clustering_score = cursor.fetchone()[0]
+                    clustering_score = cursor.fetchone()['clustering_score']
 
                     cursor.execute("""
-                        SELECT COUNT(*) FROM intelligence
+                        SELECT COUNT(*) AS exhaustion_count FROM intelligence
                         WHERE timestamp BETWEEN %s - INTERVAL '24 hours' AND %s
                         AND urgency_score >= 5
                     """, (dt, dt))
-                    exhaustion_score = float(cursor.fetchone()[0])
+                    exhaustion_score = float(cursor.fetchone()['exhaustion_count'])
             return clustering_score, exhaustion_score
         except:
             return 0, 0.0
