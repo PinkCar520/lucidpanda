@@ -10,6 +10,7 @@ on:
       - 'apps/api/**'
       - 'apps/web/**'
       - 'packages/**'
+      - 'infra/**'
       - 'docker-compose.yml'
       - '.github/workflows/docker-publish.yml'
   workflow_dispatch:
