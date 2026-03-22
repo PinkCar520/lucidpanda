@@ -150,7 +150,6 @@ class Settings:
     # -------------------------------------------------------------------------
     BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
     LOG_DIR = BASE_DIR / "logs"
-    STATE_FILE = BASE_DIR.parent.parent / "monitor_state.json"
     DB_PATH = BASE_DIR.parent.parent / "lucidpanda.db"
     
     # -------------------------------------------------------------------------

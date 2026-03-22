@@ -76,6 +76,3 @@ out/
 .coverage
 htmlcov/
 .pytest_cache/
-
-# State files
-monitor_state.json

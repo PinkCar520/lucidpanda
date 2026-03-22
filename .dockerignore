@@ -13,4 +13,3 @@ data/
 .DS_Store
 docs/
 tests/
-monitor_state.json
