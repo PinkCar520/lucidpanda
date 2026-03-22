@@ -6,6 +6,7 @@ db/intelligence.py — 情报域
 from datetime import datetime, timedelta
 import pytz
 import psycopg
+from psycopg.types.json import Jsonb
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
@@ -628,7 +629,9 @@ class IntelligenceRepo(DBBase):
                 sentiment_score = max(-1.0, min(1.0, sentiment_score - 0.15))
                 logger.info(f"⚖️  Dimension D 权调节 (Hawkish/-0.15): {orig_score:.2f} -> {sentiment_score:.2f}")
 
-            def to_jsonb(val):
+            def _to_jsonb(val):
+                if val is None:
+                    return None
                 return Jsonb(val)
 
             with self._get_conn() as conn:
@@ -660,15 +663,15 @@ class IntelligenceRepo(DBBase):
                                     status = 'COMPLETED', last_error = NULL
                                 WHERE source_id = %s
                             """, (
-                                to_jsonb(analysis_result.get('summary')),
-                                to_jsonb(analysis_result.get('sentiment')),
+                                _to_jsonb(analysis_result.get('summary')),
+                                _to_jsonb(analysis_result.get('sentiment')),
                                 analysis_result.get('urgency_score'),
-                                to_jsonb(analysis_result.get('market_implication')),
-                                to_jsonb(analysis_result.get('actionable_advice')),
+                                _to_jsonb(analysis_result.get('market_implication')),
+                                _to_jsonb(analysis_result.get('actionable_advice')),
                                 float(sentiment_score), float(macro_adj),
-                                to_jsonb(entities),
-                                to_jsonb(relation_triples),
-                                to_jsonb(agent_trace),
+                                _to_jsonb(entities),
+                                _to_jsonb(relation_triples),
+                                _to_jsonb(agent_trace),
                                 float(expectation_gap) if expectation_gap is not None else None,
                                 embedding_binary, source_id,
                             ))
@@ -686,14 +689,14 @@ class IntelligenceRepo(DBBase):
                                         status = 'COMPLETED', last_error = NULL
                                     WHERE source_id = %s
                                 """, (
-                                    to_jsonb(analysis_result.get('summary')),
-                                    to_jsonb(analysis_result.get('sentiment')),
+                                    _to_jsonb(analysis_result.get('summary')),
+                                    _to_jsonb(analysis_result.get('sentiment')),
                                     analysis_result.get('urgency_score'),
-                                    to_jsonb(analysis_result.get('market_implication')),
-                                    to_jsonb(analysis_result.get('actionable_advice')),
+                                    _to_jsonb(analysis_result.get('market_implication')),
+                                    _to_jsonb(analysis_result.get('actionable_advice')),
                                     float(sentiment_score), float(macro_adj),
-                                    to_jsonb(entities),
-                                    to_jsonb(relation_triples),
+                                    _to_jsonb(entities),
+                                    _to_jsonb(relation_triples),
                                     float(expectation_gap) if expectation_gap is not None else None,
                                     embedding_binary, source_id,
                                 ))
@@ -712,14 +715,14 @@ class IntelligenceRepo(DBBase):
                                 status = 'COMPLETED', last_error = NULL
                             WHERE source_id = %s
                         """, (
-                            to_jsonb(analysis_result.get('summary')),
-                            to_jsonb(analysis_result.get('sentiment')),
+                            _to_jsonb(analysis_result.get('summary')),
+                            _to_jsonb(analysis_result.get('sentiment')),
                             analysis_result.get('urgency_score'),
-                            to_jsonb(analysis_result.get('market_implication')),
-                            to_jsonb(analysis_result.get('actionable_advice')),
+                            _to_jsonb(analysis_result.get('market_implication')),
+                            _to_jsonb(analysis_result.get('actionable_advice')),
                             float(sentiment_score), float(macro_adj),
-                            to_jsonb(entities),
-                            to_jsonb(relation_triples),
+                            _to_jsonb(entities),
+                            _to_jsonb(relation_triples),
                             float(expectation_gap) if expectation_gap is not None else None,
                             embedding_binary, source_id,
                         ))
@@ -771,7 +774,9 @@ class IntelligenceRepo(DBBase):
                 macro_adj = -0.15
                 sentiment_score = max(-1.0, min(1.0, sentiment_score - 0.15))
 
-            def to_jsonb(val):
+            def _to_jsonb(val):
+                if val is None:
+                    return None
                 return Jsonb(val)
 
             with self._get_conn() as conn:
@@ -787,10 +792,10 @@ class IntelligenceRepo(DBBase):
                         ON CONFLICT (source_id) DO NOTHING
                     """, (
                         raw_data.get('id'), raw_data.get('author'), raw_data.get('content'),
-                        to_jsonb(analysis_result.get('summary')), to_jsonb(analysis_result.get('sentiment')),
+                        _to_jsonb(analysis_result.get('summary')), _to_jsonb(analysis_result.get('sentiment')),
                         analysis_result.get('urgency_score'),
-                        to_jsonb(analysis_result.get('market_implication')),
-                        to_jsonb(analysis_result.get('actionable_advice')),
+                        _to_jsonb(analysis_result.get('market_implication')),
+                        _to_jsonb(analysis_result.get('actionable_advice')),
                         raw_data.get('url'),
                         float(gold_price_snapshot) if gold_price_snapshot is not None else None,
                         float(exhaustion_score) if exhaustion_score is not None else 0.0,
@@ -1066,12 +1071,12 @@ class IntelligenceRepo(DBBase):
         if not row:
             return None
         return {
-            "id": row["id"],
-            "source_id": row["source_id"],
-            "event_cluster_id": row["event_cluster_id"],
-            "urgency_score": row["urgency_score"],
-            "source_credibility_score": row["source_credibility_score"],
-            "timestamp": row["timestamp"],
+            "id": row.get("id") if hasattr(row, 'get') else row[0],
+            "source_id": row.get("source_id") if hasattr(row, 'get') else row[1],
+            "event_cluster_id": row.get("event_cluster_id") if hasattr(row, 'get') else row[2],
+            "urgency_score": row.get("urgency_score") if hasattr(row, 'get') else row[3],
+            "source_credibility_score": row.get("source_credibility_score") if hasattr(row, 'get') else row[4],
+            "timestamp": row.get("timestamp") if hasattr(row, 'get') else row[5],
         }
 
     def _upsert_cross_asset_edges(
