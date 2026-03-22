@@ -235,23 +235,20 @@ def fetch_single_feed_task(self, feed_name: str, feed_url: str, category: str) -
         # 3. 获取/更新状态
         state = _get_feed_state(feed_name)
 
-        # 4. 入库
+        # 4. 批量入库（优化点：共享连接与市场快照缓存）
         saved = 0
         if items:
-            for item in items:
-                try:
-                    row_id = db.save_raw_intelligence(item)
-                    if row_id:
-                        saved += 1
-                except Exception as e:
-                    logger.error(f"❌ [{feed_name}] 入库失败 [{item.get('id')}]: {e}")
+            try:
+                saved = db.batch_save_raw_intelligence(items)
+            except Exception as e:
+                logger.error(f"❌ [{feed_name}] 批量入库失败: {e}")
             
-            # 5. 触发 Redis 事件
+            # 5. 触发 Redis 事件（通知 SSE 服务器推送更新）
             if saved > 0:
                 try:
                     r = redis.from_url(settings.REDIS_URL, decode_responses=True)
-                    r.publish('lucidpanda:new_intelligence', str(saved))
-                    logger.info(f"📣 [{feed_name}] 发布 Redis 唤醒事件，通知 Worker 分析 {saved} 条")
+                    r.publish('intelligence_updates', json.dumps({"type": "new_data", "count": saved}))
+                    logger.info(f"📣 [{feed_name}] 发布 Redis 唤醒事件 (intelligence_updates)，通知推送服务")
                 except Exception as e:
                     logger.warning(f"⚠️ [{feed_name}] Redis 事件发布失败：{e}")
         

@@ -476,8 +476,15 @@ class IntelligenceRepo(DBBase):
 
     # ── 情报写入 ──────────────────────────────────────────────────────────
 
-    def save_raw_intelligence(self, raw_data):
-        """Save raw intelligence data immediately (before analysis)."""
+    def save_raw_intelligence(self, raw_data, market_snapshots=None, conn=None):
+        """
+        Save raw intelligence data immediately (before analysis).
+        
+        Args:
+            raw_data: The raw item data.
+            market_snapshots: Optional dict of pre-fetched market snapshots.
+            conn: Optional existing DB connection to reuse.
+        """
         try:
             news_time = None
             if raw_data.get('timestamp'):
@@ -502,19 +509,27 @@ class IntelligenceRepo(DBBase):
             market_session = self.get_market_session(news_time)
             clustering_score, exhaustion_score = self.get_advanced_metrics(news_time, raw_data.get('content'))
 
-            dxy = raw_data.get('dxy_snapshot')
+            # Use pre-fetched snapshots if available, otherwise fetch (cached)
+            snaps = market_snapshots or {}
+            
+            dxy = raw_data.get('dxy_snapshot') or snaps.get("DX-Y.NYB")
             if dxy is None: dxy = self.get_market_snapshot("DX-Y.NYB", news_time)
-            us10y = raw_data.get('us10y_snapshot')
+            
+            us10y = raw_data.get('us10y_snapshot') or snaps.get("^TNX")
             if us10y is None: us10y = self.get_market_snapshot("^TNX", news_time)
-            gvz = raw_data.get('gvz_snapshot')
+            
+            gvz = raw_data.get('gvz_snapshot') or snaps.get("^GVZ")
             if gvz is None: gvz = self.get_market_snapshot("^GVZ", news_time)
-            gold = raw_data.get('gold_price_snapshot')
+            
+            gold = raw_data.get('gold_price_snapshot') or snaps.get("GC=F")
             if gold is None: gold = self.get_market_snapshot("GC=F", news_time)
-            oil = raw_data.get('oil_price_snapshot')
+            
+            oil = raw_data.get('oil_price_snapshot') or snaps.get("CL=F")
             if oil is None: oil = self.get_market_snapshot("CL=F", news_time)
 
-            with self._get_conn() as conn:
-                with conn.cursor() as cursor:
+            # Define the actual save logic
+            def _execute_save(active_conn):
+                with active_conn.cursor() as cursor:
 
                     embedding_binary = None
                     if 'embedding' in raw_data and raw_data['embedding'] is not None:
@@ -551,14 +566,52 @@ class IntelligenceRepo(DBBase):
                     ))
                     row = cursor.fetchone()
                     if not row:
-                        # If DO NOTHING triggered, fetch the existing ID
                         cursor.execute("SELECT id FROM intelligence WHERE source_id = %s", (raw_data.get('id'),))
                         row = cursor.fetchone()
-                    conn.commit()
-            return row[0] if row else None
+                    active_conn.commit()
+                    return row[0] if row else None
+
+            if conn:
+                return _execute_save(conn)
+            else:
+                with self._get_conn() as new_conn:
+                    return _execute_save(new_conn)
+
         except Exception as e:
             logger.error(f"Save Raw Failed: {e}")
             return None
+
+    def batch_save_raw_intelligence(self, items: list) -> int:
+        """批量保存原始情报，共享数据库连接和市场快照。"""
+        if not items:
+            return 0
+        
+        saved_count = 0
+        try:
+            # 1. 预解析当前的全局市场快照（利用刚才加的 Redis 缓存）
+            now = datetime.now(pytz.utc)
+            snaps = {
+                "DX-Y.NYB": self.get_market_snapshot("DX-Y.NYB", now),
+                "^TNX": self.get_market_snapshot("^TNX", now),
+                "^GVZ": self.get_market_snapshot("^GVZ", now),
+                "GC=F": self.get_market_snapshot("GC=F", now),
+                "CL=F": self.get_market_snapshot("CL=F", now),
+            }
+            
+            # 2. 使用单一连接批量处理
+            with self._get_conn() as conn:
+                for item in items:
+                    try:
+                        res = self.save_raw_intelligence(item, market_snapshots=snaps, conn=conn)
+                        if res:
+                            saved_count += 1
+                    except Exception as e:
+                        logger.error(f"Batch item save failed: {e}")
+            
+            return saved_count
+        except Exception as e:
+            logger.error(f"Batch Save Failed: {e}")
+            return 0
 
     def update_intelligence_analysis(self, source_id, analysis_result, raw_data):
         """Update a record with analysis results."""

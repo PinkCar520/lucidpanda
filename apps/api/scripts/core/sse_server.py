@@ -69,13 +69,13 @@ def sse_json_serializer(obj):
 async def database_poller():
     """
     Background task:
-    Solely responsible for polling the DB and broadcasting updates.
-    Runs once, regardless of client count.
+    Subscribes to Redis Pub/Sub for new intelligence events.
+    Broadcasting is triggered only when updates are received.
     """
     global global_last_id
+    from src.lucidpanda.infra.stream.broadcaster import hub
     
-    # 1. Init: Find the current max ID to start polling from
-    # We don't want to broadcast old history to everyone on startup
+    # 1. Startup: Sync the latest ID
     try:
         conn = psycopg2.connect(
             host=settings.POSTGRES_HOST,
@@ -88,59 +88,56 @@ async def database_poller():
         cursor.execute("SELECT COALESCE(MAX(id), 0) FROM intelligence")
         global_last_id = cursor.fetchone()[0]
         conn.close()
-        print(f"[Broadcaster] Started monitoring from ID: {global_last_id}")
+        print(f"[SSE-Broadcaster] Initialized. Monitoring from ID: {global_last_id}")
     except Exception as e:
-        print(f"[Broadcaster] Startup DB error: {e}")
-        return
+        print(f"[SSE-Broadcaster] Startup DB sync failed: {e}")
+        # Not fatal, will try to recover during subscription, but ID will be 0
+        global_last_id = 0
 
-    # 2. Polling Loop
+    # 2. Redis Subscription Loop (Replaces Polling)
+    # Channel name aligns with collector_tasks.py logic
     while True:
         try:
-            # Only poll if there are active clients (Optional optimization)
-            # if not manager.active_connections:
-            #     await asyncio.sleep(2)
-            #     continue
+            print(f"[SSE-Broadcaster] Subscribing to Redis channel: intelligence_updates")
+            async for _msg in hub.subscribe("intelligence_updates"):
+                # We don't strictly need the message content if we poll only new IDs from DB
+                # This ensures consistent data structure with history
+                try:
+                    conn = psycopg2.connect(
+                         host=settings.POSTGRES_HOST,
+                         port=settings.POSTGRES_PORT,
+                         user=settings.POSTGRES_USER,
+                         password=settings.POSTGRES_PASSWORD,
+                         dbname=settings.POSTGRES_DB
+                    )
+                    cursor = conn.cursor(cursor_factory=RealDictCursor)
+                    
+                    cursor.execute(
+                        "SELECT * FROM intelligence WHERE id > %s ORDER BY id ASC LIMIT 100",
+                        (global_last_id,)
+                    )
+                    new_items = cursor.fetchall()
+                    conn.close()
 
-            conn = psycopg2.connect(
-                 host=settings.POSTGRES_HOST,
-                 port=settings.POSTGRES_PORT,
-                 user=settings.POSTGRES_USER,
-                 password=settings.POSTGRES_PASSWORD,
-                 dbname=settings.POSTGRES_DB
-            )
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            
-            cursor.execute(
-                "SELECT * FROM intelligence WHERE id > %s ORDER BY id ASC LIMIT 50",
-                (global_last_id,)
-            )
-            new_items = cursor.fetchall()
-            conn.close()
-
-            if new_items:
-                items_data = [dict(row) for row in new_items]
-                global_last_id = new_items[-1]['id']
+                    if new_items:
+                        items_data = [dict(row) for row in new_items]
+                        global_last_id = new_items[-1]['id']
+                        
+                        event_data = {
+                            'type': 'intelligence_update',
+                            'data': items_data,
+                            'count': len(items_data),
+                            'latest_id': global_last_id
+                        }
+                        msg = f"data: {json.dumps(event_data, default=sse_json_serializer)}\n\n"
+                        await manager.broadcast(msg)
+                        print(f"[SSE-Broadcaster] Pushed {len(items_data)} items via Redis trigger")
+                except Exception as db_err:
+                    print(f"[SSE-Broadcaster] DB Sync failed: {db_err}")
                 
-                event_data = {
-                    'type': 'intelligence_update',
-                    'data': items_data,
-                    'count': len(items_data),
-                    'latest_id': global_last_id
-                }
-                msg = f"data: {json.dumps(event_data, default=sse_json_serializer)}\n\n"
-                
-                await manager.broadcast(msg)
-                
-                # --- V1 Production Broadcast ---
-                from src.lucidpanda.infra.stream.broadcaster import hub
-                await hub.publish("intelligence_updates", event_data)
-                
-                print(f"[Broadcaster] Broadcasted {len(items_data)} new items")
-
         except Exception as e:
-            print(f"[Broadcaster] Error: {e}")
-
-        await asyncio.sleep(2)
+            print(f"[SSE-Broadcaster] Subscription error: {e}")
+            await asyncio.sleep(5) # Backoff before reconnect
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

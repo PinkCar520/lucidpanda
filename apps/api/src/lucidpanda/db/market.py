@@ -6,7 +6,9 @@ db/market.py — 市场数据域
 from datetime import datetime
 import pytz
 import akshare as ak
+import redis
 from psycopg2.extras import DictCursor
+from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
 
@@ -58,8 +60,23 @@ class MarketRepo(DBBase):
         """
         Unified snapshot fetcher for international gold (USD/oz) and macro indices.
         统一使用美元/盎司计价，确保触发价与结果价量级一致。
+
+        Optimization: Using Redis to cache results for 60s to avoid DB/Network storm.
         """
+        # 1. Check Redis Cache First
+        cache_key = f"lucidpanda:market_snapshot:{ticker_symbol}"
         try:
+            r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            cached_val = r.get(cache_key)
+            if cached_val is not None:
+                # logger.debug(f"🎯 Market Cache Hit: {ticker_symbol} = {cached_val}")
+                return float(cached_val)
+        except Exception as e:
+            logger.warning(f"⚠️ Redis Cache Access Failed: {e}")
+
+        # 2. If no cache, fetch from external APIs
+        try:
+            val = None
             if target_time.tzinfo is None:
                 target_time = pytz.utc.localize(target_time)
             else:
@@ -161,6 +178,15 @@ class MarketRepo(DBBase):
                     if not df.empty:
                         return round(float(df.iloc[0]['最新价']), 3)
                 except: pass
+
+            # 3. Cache and Return
+            if val is not None:
+                try:
+                    r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+                    r.setex(cache_key, 60, str(val)) # 60s TTL
+                    # logger.debug(f"💾 Market Cache Set: {ticker_symbol} = {val}")
+                except: pass
+                return val
 
             return None
         except Exception as e:
