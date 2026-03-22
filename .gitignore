@@ -19,6 +19,7 @@ build/
 
 # Database files (Contains user data)
 *.db
+!Dockerfile.db
 *.db-shm
 *.db-wal
 *.sqlite

@@ -15,12 +15,25 @@ def migrate_to_timescaledb():
     """
     db_url = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
     
+    from src.lucidpanda.db.base import DBBase
+    
+    # 1. 确保旧表和基础数据结构已经由 ORM 预热建立
+    try:
+        DBBase()._init_db()
+        logger.info("✅ 确保数据库基础表结构已存在")
+    except Exception as e:
+        logger.warning(f"⚠️ 预热表结构时发生非致命错误: {e}")
+    
     # 注入的建表魔咒
     sql_commands = [
-        # 1. 挂载时序插件
-        "CREATE EXTENSION IF NOT EXISTS timescaledb;",
+        # 强制挂载时序插件
+        "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE;",
         
-        # 2. 如果存在 market_indicators（市场微观指标），则转为时序表
+        # 消除普通表带有非时间字段 (id) 的主键排斥约束，否则 TimescaleDB 拒绝时序化
+        "ALTER TABLE market_indicators DROP CONSTRAINT IF EXISTS market_indicators_pkey CASCADE;",
+        "ALTER TABLE fund_valuation_archive DROP CONSTRAINT IF EXISTS fund_valuation_archive_pkey CASCADE;",
+        
+        # 将 market_indicators 转为时序表
         """
         SELECT create_hypertable('market_indicators', 'timestamp', 
                                  chunk_time_interval => INTERVAL '1 day',

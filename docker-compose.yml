@@ -1,7 +1,10 @@
 services:
   # 0. PostgreSQL Database (New Data Center)
   db:
-    image: timescale/timescaledb-ha:pg15-latest
+    # 进化形态：在原有 pgvector 基础上原生编译 TimescaleDB，确保旧数据卷丝滑对接！
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile.db
     container_name: lucidpanda_db
     environment:
       - POSTGRES_USER=lucidpanda
