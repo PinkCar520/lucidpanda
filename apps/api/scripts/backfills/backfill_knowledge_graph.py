@@ -61,14 +61,14 @@ def step_a_backfill(db, batch_size: int, dry_run: bool) -> int:
     Step A：对已有 entities 的记录，提取关系写入图谱。
     不需要调用任何外部 API，完全从本地数据库读取。
     """
-    import psycopg2.extras
+    
 
     logger.info("=" * 60)
     logger.info("Step A：从现有 entities JSONB 回填图谱边")
     logger.info("=" * 60)
 
     conn = db._get_conn()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor = conn.cursor()
 
     # 统计总数
     cursor.execute("""
@@ -133,14 +133,14 @@ def step_b_backfill(db, llm, batch_size: int, min_urgency: int,
     Step B：对 entities IS NULL 的高价值记录，重新调 LLM 补齐 entities，再写图谱。
     有 API 调用成本，建议先通过 --dry-run 确认数量。
     """
-    import psycopg2.extras
+    
 
     logger.info("=" * 60)
     logger.info(f"Step B：重新 LLM 提取 entities（urgency >= {min_urgency}）")
     logger.info("=" * 60)
 
     conn = db._get_conn()
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor = conn.cursor()
 
     cursor.execute("""
         SELECT COUNT(*) FROM intelligence
@@ -208,10 +208,10 @@ def step_b_backfill(db, llm, batch_size: int, min_urgency: int,
                 if entities:
                     # 写入 intelligence.entities 字段
                     update_cursor = conn.cursor()
-                    from psycopg2.extras import Json
+                    from psycopg.types.json import Jsonb
                     update_cursor.execute(
                         "UPDATE intelligence SET entities = %s WHERE source_id = %s",
-                        (Json(entities), source_id)
+                        (Jsonb(entities), source_id)
                     )
                     conn.commit()
                     # 写入图谱

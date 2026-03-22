@@ -1,8 +1,8 @@
 
 import os
 import sys
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+
 from datetime import datetime
 
 # Set DB Credentials from environment or defaults

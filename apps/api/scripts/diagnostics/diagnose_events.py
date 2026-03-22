@@ -1,7 +1,7 @@
 import sys
 import os
-import psycopg2
-from psycopg2.extras import DictCursor
+import psycopg
+
 from datetime import datetime
 import json
 
@@ -12,14 +12,14 @@ from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 
 def diagnose():
-    conn = psycopg2.connect(
+    conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
         host=settings.POSTGRES_HOST,
         port=settings.POSTGRES_PORT,
         user=settings.POSTGRES_USER,
         password=settings.POSTGRES_PASSWORD,
         dbname=settings.POSTGRES_DB
     )
-    cursor = conn.cursor(cursor_factory=DictCursor)
+    cursor = conn.cursor()
 
     # Specific Target Dates
     targets = [

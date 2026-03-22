@@ -1,7 +1,7 @@
 import sys
 import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+
 
 # Add project root to path
 sys.path.append(os.getcwd())
@@ -21,14 +21,14 @@ def check_duplicates():
 
     print(f"Connecting to Postgres at {settings.POSTGRES_HOST}:{settings.POSTGRES_PORT} DB: {settings.POSTGRES_DB}...")
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
             password=settings.POSTGRES_PASSWORD,
             dbname=settings.POSTGRES_DB
         )
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor()
     except Exception as e:
         print(f"Connection failed: {e}")
         return

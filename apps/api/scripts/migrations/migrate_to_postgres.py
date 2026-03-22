@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 # Requirements check
 try:
-    import psycopg2
-    from psycopg2.extras import Json
+    import psycopg
+    from psycopg.types.json import Jsonb
 except ImportError:
     logger.error("❌ 'psycopg2-binary' is required. Run: pip install psycopg2-binary")
     sys.exit(1)
@@ -35,7 +35,7 @@ def get_sqlite_conn():
 
 def get_pg_conn():
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=PG_HOST,
             port=PG_PORT,
             user=PG_USER,
@@ -159,10 +159,10 @@ def migrate_data():
                     row['source_id'],
                     row['author'],
                     row['content'],
-                    Json(parse_json_safely(row['summary'])),
-                    Json(parse_json_safely(row['sentiment'])),
-                    Json(parse_json_safely(row['market_implication'])),
-                    Json(parse_json_safely(row['actionable_advice'])),
+                    Jsonb(parse_json_safely(row['summary'])),
+                    Jsonb(parse_json_safely(row['sentiment'])),
+                    Jsonb(parse_json_safely(row['market_implication'])),
+                    Jsonb(parse_json_safely(row['actionable_advice'])),
                     row['urgency_score'],
                     row['url'],
                     row['gold_price_snapshot'],

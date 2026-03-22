@@ -22,8 +22,8 @@ from typing import List, AsyncGenerator
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import psycopg
+
 from contextlib import asynccontextmanager
 from src.lucidpanda.config import settings
 from src.lucidpanda.auth.router import router as auth_router
@@ -77,7 +77,7 @@ async def database_poller():
     
     # 1. Startup: Sync the latest ID
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
@@ -103,14 +103,14 @@ async def database_poller():
                 # We don't strictly need the message content if we poll only new IDs from DB
                 # This ensures consistent data structure with history
                 try:
-                    conn = psycopg2.connect(
+                    conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
                          host=settings.POSTGRES_HOST,
                          port=settings.POSTGRES_PORT,
                          user=settings.POSTGRES_USER,
                          password=settings.POSTGRES_PASSWORD,
                          dbname=settings.POSTGRES_DB
                     )
-                    cursor = conn.cursor(cursor_factory=RealDictCursor)
+                    cursor = conn.cursor()
                     
                     cursor.execute(
                         "SELECT * FROM intelligence WHERE id > %s ORDER BY id ASC LIMIT 100",
@@ -508,14 +508,14 @@ async def get_backtest_stats(request: Request):
     sentiment_type = request.query_params.get('sentiment', 'bearish') # 'bearish' or 'bullish'
     
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
             password=settings.POSTGRES_PASSWORD,
             dbname=settings.POSTGRES_DB
         )
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor = conn.cursor()
         
         # Determine columns based on window
         window_map = {
@@ -893,7 +893,7 @@ async def get_24h_alerts_count():
     Get the count of high-urgency (score 8+) alerts in the last 24 hours.
     """
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
@@ -1136,14 +1136,14 @@ async def intelligence_stream(request: Request):
         # This is the ONLY time this client queries the DB directly
         since_id_param = request.query_params.get('since_id')
         try:
-            conn = psycopg2.connect(
+            conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
                 host=settings.POSTGRES_HOST,
                 port=settings.POSTGRES_PORT,
                 user=settings.POSTGRES_USER,
                 password=settings.POSTGRES_PASSWORD,
                 dbname=settings.POSTGRES_DB
             )
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor = conn.cursor()
             
             if since_id_param:
                 # Resume: fetch everything since provided ID
@@ -1208,14 +1208,14 @@ async def intelligence_stream(request: Request):
 async def get_intelligence_history(limit: int = 50, since_id: int = None):
     """Fetch intelligence history."""
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
             password=settings.POSTGRES_PASSWORD,
             dbname=settings.POSTGRES_DB
         )
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor = conn.cursor()
         
         if since_id:
             cursor.execute(
@@ -1283,14 +1283,14 @@ async def get_market_data(symbol: str = "GC=F", range: str = "1d", interval: str
 async def get_intelligence_item(item_id: int):
     """Fetch a single intelligence item by ID."""
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
             password=settings.POSTGRES_PASSWORD,
             dbname=settings.POSTGRES_DB
         )
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor = conn.cursor()
         cursor.execute("SELECT * FROM intelligence WHERE id = %s", (item_id,))
         item = cursor.fetchone()
         conn.close()

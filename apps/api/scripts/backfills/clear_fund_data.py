@@ -1,12 +1,12 @@
 import os
 import redis
-import psycopg2
+import psycopg
 from src.lucidpanda.config import settings
 
 def clear_postgres():
     print("--- Clearing PostgreSQL Valuation History ---")
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host="localhost",
             port="5432",
             user="lucidpanda",

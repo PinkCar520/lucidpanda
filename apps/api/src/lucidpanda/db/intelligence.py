@@ -5,8 +5,7 @@ db/intelligence.py — 情报域
 """
 from datetime import datetime, timedelta
 import pytz
-import psycopg2
-from psycopg2.extras import Json, DictCursor
+import psycopg
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
@@ -40,7 +39,7 @@ class IntelligenceRepo(DBBase):
     def _compute_macro_surprise_std(self, event_code: str, lookback_years: int = 3):
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT actual_value, forecast_value
                         FROM macro_event
@@ -119,7 +118,7 @@ class IntelligenceRepo(DBBase):
         updated = 0
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT source_id, agent_trace
                         FROM intelligence
@@ -145,7 +144,7 @@ class IntelligenceRepo(DBBase):
         """
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     # 1. Fetch the target record's data
                     cursor.execute("""
                         SELECT id, gold_price_snapshot, price_1h, dxy_snapshot, us10y_snapshot, timestamp
@@ -244,7 +243,7 @@ class IntelligenceRepo(DBBase):
         updated = 0
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT id
                         FROM intelligence
@@ -365,7 +364,7 @@ class IntelligenceRepo(DBBase):
         """
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT
                             source_name,
@@ -415,7 +414,7 @@ class IntelligenceRepo(DBBase):
         """查询各信源可信度排名，供监控/API 使用。"""
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT
                             source_name,
@@ -461,7 +460,7 @@ class IntelligenceRepo(DBBase):
         """Get records older than 1 hour that lack any of the outcome prices."""
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT * FROM intelligence
                         WHERE (price_1h IS NULL OR price_15m IS NULL OR price_4h IS NULL OR price_12h IS NULL)
@@ -534,7 +533,7 @@ class IntelligenceRepo(DBBase):
                     embedding_binary = None
                     if 'embedding' in raw_data and raw_data['embedding'] is not None:
                         import pickle
-                        embedding_binary = psycopg2.Binary(pickle.dumps(raw_data['embedding']))
+                        embedding_binary = pickle.dumps(raw_data['embedding'])
 
                     cursor.execute("""
                         INSERT INTO intelligence (
@@ -630,14 +629,14 @@ class IntelligenceRepo(DBBase):
                 logger.info(f"⚖️  Dimension D 权调节 (Hawkish/-0.15): {orig_score:.2f} -> {sentiment_score:.2f}")
 
             def to_jsonb(val):
-                return Json(val)
+                return Jsonb(val)
 
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     embedding_binary = None
                     if 'embedding' in analysis_result and analysis_result['embedding'] is not None:
                         import pickle
-                        embedding_binary = psycopg2.Binary(pickle.dumps(analysis_result['embedding']))
+                        embedding_binary = pickle.dumps(analysis_result['embedding'])
                     entities = self._normalize_entities(analysis_result.get('entities'))
                     relation_triples = self._normalize_relations(analysis_result.get('relations'))
                     expectation_gap = None
@@ -773,7 +772,7 @@ class IntelligenceRepo(DBBase):
                 sentiment_score = max(-1.0, min(1.0, sentiment_score - 0.15))
 
             def to_jsonb(val):
-                return Json(val)
+                return Jsonb(val)
 
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -840,7 +839,7 @@ class IntelligenceRepo(DBBase):
     def get_recent_intelligence(self, limit=10):
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("SELECT * FROM intelligence ORDER BY timestamp DESC LIMIT %s", (limit,))
                     rows = cursor.fetchall()
             return [dict(row) for row in rows]
@@ -852,7 +851,7 @@ class IntelligenceRepo(DBBase):
         """Fetch records that need AI analysis or retries."""
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT * FROM intelligence
                         WHERE status IN ('PENDING', 'FAILED')
@@ -1052,7 +1051,7 @@ class IntelligenceRepo(DBBase):
             cluster_id,
             source_id,
             intelligence_id,
-            Json(metadata or {}),
+            Jsonb(metadata or {}),
         ))
 
     def _get_intelligence_context(self, cursor, source_id: str) -> dict | None:
@@ -1239,7 +1238,7 @@ class IntelligenceRepo(DBBase):
         """
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT relation_triples, gold_price_snapshot, price_1h
                         FROM intelligence
@@ -1327,7 +1326,7 @@ class IntelligenceRepo(DBBase):
             return {}
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT relation, weight
                         FROM relation_rule_stats
@@ -1345,7 +1344,7 @@ class IntelligenceRepo(DBBase):
             return {"nodes": [], "edges": [], "inferences": [], "evidence": []}
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
 
                     cursor.execute("""
                         SELECT DISTINCT
@@ -1411,7 +1410,7 @@ class IntelligenceRepo(DBBase):
             return {"center": None, "nodes": [], "edges": []}
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     # 1. 查找所有匹配该名称的节点 ID（支持类型聚合）
                     cursor.execute("""
                         SELECT node_id, entity_name, entity_type
@@ -1489,7 +1488,7 @@ class IntelligenceRepo(DBBase):
         to_norm = to_entity.strip().lower()
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     sql = """
                         SELECT
                             e.edge_id,
@@ -1584,7 +1583,7 @@ class IntelligenceRepo(DBBase):
 
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT id, event_cluster_id, urgency_score, source_credibility_score, timestamp
                         FROM intelligence
@@ -1650,7 +1649,7 @@ class IntelligenceRepo(DBBase):
                             cluster_id,
                             source_id,
                             intelligence_id,
-                            Json({"source": "llm_relation_extract"}),
+                            Jsonb({"source": "llm_relation_extract"}),
                         ))
                         if rel["direction"] == "bidirectional":
                             cursor.execute("""
@@ -1673,7 +1672,7 @@ class IntelligenceRepo(DBBase):
                                 cluster_id,
                                 source_id,
                                 intelligence_id,
-                                Json({"source": "llm_relation_extract", "reverse": True}),
+                                Jsonb({"source": "llm_relation_extract", "reverse": True}),
                             ))
 
                     conn.commit()

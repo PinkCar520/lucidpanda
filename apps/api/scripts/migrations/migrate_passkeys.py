@@ -1,12 +1,12 @@
 import os
 import sys
-import psycopg2
+import psycopg
 from src.lucidpanda.config import settings
 
 def migrate():
     print("🚀 Starting WebAuthn Database Migration...")
     
-    conn = psycopg2.connect(
+    conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
         host=settings.POSTGRES_HOST,
         port=settings.POSTGRES_PORT,
         user=settings.POSTGRES_USER,

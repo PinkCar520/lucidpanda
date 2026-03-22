@@ -4,7 +4,7 @@ db/fund.py — 基金域
 基金自选单、持仓、估值、统计、元数据、对账、归因、关系映射。
 """
 from datetime import datetime
-from psycopg2.extras import Json, DictCursor
+from psycopg.types.json import Jsonb
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.utils import format_iso8601
 from src.lucidpanda.db.base import DBBase
@@ -51,7 +51,7 @@ class FundRepo(DBBase):
         """Get all funds in the user's watchlist."""
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT fund_code, fund_name, created_at
                         FROM fund_watchlist
@@ -97,7 +97,7 @@ class FundRepo(DBBase):
     def get_fund_holdings(self, fund_code):
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("SELECT * FROM fund_holdings WHERE fund_code = %s", (fund_code,))
                     rows = cursor.fetchall()
             return [dict(row) for row in rows]
@@ -114,7 +114,7 @@ class FundRepo(DBBase):
                     cursor.execute("""
                         INSERT INTO fund_valuation (fund_code, estimated_growth, details)
                         VALUES (%s, %s, %s)
-                    """, (fund_code, growth, Json(details)))
+                    """, (fund_code, growth, Jsonb(details)))
                     conn.commit()
         except Exception as e:
             logger.error(f"Save Fund Valuation Failed: {e}")
@@ -122,7 +122,7 @@ class FundRepo(DBBase):
     def get_latest_valuation(self, fund_code):
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT * FROM fund_valuation
                         WHERE fund_code = %s
@@ -147,8 +147,8 @@ class FundRepo(DBBase):
                             frozen_est_growth = EXCLUDED.frozen_est_growth,
                             frozen_components = EXCLUDED.frozen_components,
                             frozen_sector_attribution = EXCLUDED.frozen_sector_attribution
-                    """, (trade_date, fund_code, est_growth, Json(components_json),
-                          Json(sector_json) if sector_json else None))
+                    """, (trade_date, fund_code, est_growth, Jsonb(components_json),
+                          Jsonb(sector_json) if sector_json else None))
                     conn.commit()
         except Exception as e:
             logger.error(f"Save Valuation Snapshot Failed: {e}")
@@ -187,7 +187,7 @@ class FundRepo(DBBase):
         """Fetch historical valuation performance for UI charts."""
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT trade_date, frozen_est_growth, official_growth, deviation, tracking_status,
                                frozen_sector_attribution AS sector_attribution
@@ -248,7 +248,7 @@ class FundRepo(DBBase):
                         stats.get('return_1w'), stats.get('return_1m'), stats.get('return_3m'), stats.get('return_1y'),
                         stats.get('sharpe'), stats.get('sharpe_grade'),
                         stats.get('max_dd'), stats.get('drawdown_grade'),
-                        stats.get('volatility'), stats.get('latest_nav'), Json(stats.get('sparkline')),
+                        stats.get('volatility'), stats.get('latest_nav'), Jsonb(stats.get('sparkline')),
                     ))
                     conn.commit()
             return True
@@ -261,7 +261,7 @@ class FundRepo(DBBase):
         if not fund_codes: return {}
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("SELECT * FROM fund_stats_snapshot WHERE fund_code = ANY(%s)", (fund_codes,))
                     rows = cursor.fetchall()
             return {r['fund_code']: dict(r) for r in rows}
@@ -273,7 +273,7 @@ class FundRepo(DBBase):
         """Fetch aggregate stats for the monitoring dashboard."""
         try:
             conn = self.get_connection()
-            with conn.cursor(cursor_factory=DictCursor) as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute("""
                     SELECT trade_date, COUNT(*) as total_count,
                            COUNT(official_growth) as reconciled_count,
@@ -304,7 +304,7 @@ class FundRepo(DBBase):
         """Fetch MAE grouped by category and date for heatmap visualization."""
         try:
             conn = self.get_connection()
-            with conn.cursor(cursor_factory=DictCursor) as cursor:
+            with conn.cursor() as cursor:
                 cursor.execute("""
                     SELECT m.investment_type as category, a.trade_date,
                            AVG(ABS(a.deviation)) as mae, COUNT(*) as sample_count
@@ -386,7 +386,7 @@ class FundRepo(DBBase):
         """
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
             
                     query_upper = query.upper()
                     query_lower = query.lower()
@@ -525,7 +525,7 @@ class FundRepo(DBBase):
         """Retrieve the parent/shadow mapping for a fund."""
         try:
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("SELECT * FROM fund_relationships WHERE sub_code = %s", (sub_code,))
                     row = cursor.fetchone()
             return dict(row) if row else None

@@ -1,4 +1,4 @@
-import psycopg2
+import psycopg
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 
@@ -11,7 +11,7 @@ def migrate_vector_dimension():
     conn_str = f"host={settings.POSTGRES_HOST} port={settings.POSTGRES_PORT} user={settings.POSTGRES_USER} password={settings.POSTGRES_PASSWORD} dbname={settings.POSTGRES_DB}"
     
     try:
-        conn = psycopg2.connect(conn_str)
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, conn_str)
         cursor = conn.cursor()
         
         # 1. 检查当前维度

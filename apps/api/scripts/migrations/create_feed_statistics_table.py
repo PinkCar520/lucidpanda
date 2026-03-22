@@ -78,7 +78,7 @@ def create_feed_statistics_table():
         """
         
         # 使用 execute_values 批量插入
-        from psycopg2.extras import execute_values
+        
         
         values = [
             (feed['name'], feed['url'], feed['category'], 120)

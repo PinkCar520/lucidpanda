@@ -15,11 +15,11 @@ from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 
 try:
-    import psycopg2
-    from psycopg2.extras import Json, DictCursor
-    from psycopg2.pool import ThreadedConnectionPool
+    import psycopg
+    from psycopg.rows import dict_row
+    from psycopg_pool import ConnectionPool
 except ImportError:
-    logger.error("❌ 'psycopg2-binary' is required for PostgreSQL.")
+    logger.error("❌ 'psycopg[binary,pool]' is required for PostgreSQL.")
     raise
 
 
@@ -41,7 +41,7 @@ class DBConnectionProxy:
         if self._pool and self._conn:
             try:
                 # 归还连接前，强制 rollback 掉任何未提交的或报错的残留事务
-                if not getattr(self._conn, 'autocommit', False):
+                if getattr(self._conn, 'info', None) and self._conn.info.transaction_status != psycopg.pq.TransactionStatus.IDLE:
                     self._conn.rollback()
             except Exception as e:
                 logger.error(f"连接池归还清理异常: {e}")
@@ -76,13 +76,15 @@ class DBBase:
         global _global_pool, _db_initialized
         if _global_pool is None:
             try:
-                _global_pool = ThreadedConnectionPool(
-                    minconn=5, maxconn=50,
-                    host=self.host, port=self.port,
-                    user=self.user, password=self.password,
-                    dbname=self.dbname, connect_timeout=10,
+                conninfo = f"host={self.host} port={self.port} user={self.user} password={self.password} dbname={self.dbname}"
+                _global_pool = ConnectionPool(
+                    conninfo=conninfo,
+                    min_size=5,
+                    max_size=50,
+                    timeout=10,
+                    kwargs={"row_factory": dict_row}
                 )
-                logger.info("✅ 数据库连接池已初始化 (min=5, max=50)")
+                logger.info("✅ 数据库连接池已初始化 (min=5, max=50, row_factory=dict_row)")
             except Exception as e:
                 logger.error(f"❌ 初始化全局连接池失败: {e}")
                 raise

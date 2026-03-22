@@ -1,6 +1,6 @@
 import os
 import redis
-import psycopg2
+import psycopg
 from src.lucidpanda.config import settings
 
 def check_postgres():
@@ -13,7 +13,7 @@ def check_postgres():
     
     for cred in creds:
         try:
-            conn = psycopg2.connect(
+            conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
                 host="localhost",
                 port="5432",
                 user=cred["user"],

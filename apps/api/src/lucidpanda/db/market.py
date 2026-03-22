@@ -7,7 +7,8 @@ from datetime import datetime
 import pytz
 import akshare as ak
 import redis
-from psycopg2.extras import DictCursor
+import requests
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
@@ -83,7 +84,7 @@ class MarketRepo(DBBase):
                 target_time = target_time.astimezone(pytz.utc)
 
             if ticker_symbol == "GC=F":
-                import requests
+                # import requests (Already at top)
                 try:
                     url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
                     resp = requests.get(url, timeout=5)
@@ -241,7 +242,7 @@ class MarketRepo(DBBase):
             if not dt:
                 dt = datetime.now()
             with self._get_conn() as conn:
-                with conn.cursor(cursor_factory=DictCursor) as cursor:
+                with conn.cursor() as cursor:
                     cursor.execute("""
                         SELECT * FROM market_indicators
                         WHERE indicator_name = %s AND timestamp <= %s

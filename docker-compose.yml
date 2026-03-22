@@ -28,11 +28,7 @@ services:
     image: redis:7-alpine
     container_name: lucidpanda_redis
     command: >
-      redis-server
-      --appendonly yes
-      --appendfsync everysec
-      --maxmemory 64mb
-      --maxmemory-policy allkeys-lru
+      redis-server --appendonly yes --appendfsync everysec --maxmemory 64mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -148,7 +144,7 @@ services:
         max-size: "50m"
         max-file: "3"
     profiles:
-      - legacy  # 默认不启动，仅在使用 --profile legacy 时启动
+      - legacy # 默认不启动，仅在使用 --profile legacy 时启动
 
   # 1.5.1 Celery Beat (调度器)
   celery_beat:
@@ -242,7 +238,7 @@ services:
         max-size: "50m"
         max-file: "2"
     profiles:
-      - monitoring  # 可选：使用 --profile monitoring 启动
+      - monitoring # 可选：使用 --profile monitoring 启动
 
   # 1.6 Funds Automation Worker
   funds_worker:
@@ -319,7 +315,7 @@ services:
       dockerfile: Dockerfile
     container_name: lucidpanda_web
     ports:
-      - "3000:3000"
+      - "80:3000"
     env_file:
       - .env
     environment:
