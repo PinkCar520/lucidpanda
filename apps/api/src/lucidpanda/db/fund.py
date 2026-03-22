@@ -279,7 +279,7 @@ class FundRepo(DBBase):
                            COUNT(official_growth) as reconciled_count,
                            AVG(ABS(deviation)) as avg_mae
                     FROM fund_valuation_archive
-                    WHERE trade_date > CURRENT_DATE - INTERVAL '%s days'
+                    WHERE trade_date > CURRENT_DATE - (INTERVAL '1 day' * %s)
                     GROUP BY trade_date ORDER BY trade_date DESC
                 """, (days,))
                 daily_stats = [dict(row) for row in cursor.fetchall()]
@@ -310,7 +310,7 @@ class FundRepo(DBBase):
                            AVG(ABS(a.deviation)) as mae, COUNT(*) as sample_count
                     FROM fund_valuation_archive a
                     JOIN fund_metadata m ON a.fund_code = m.fund_code
-                    WHERE a.trade_date > CURRENT_DATE - INTERVAL '%s days'
+                    WHERE a.trade_date > CURRENT_DATE - (INTERVAL '1 day' * %s)
                     AND a.official_growth IS NOT NULL
                     GROUP BY 1, 2 ORDER BY a.trade_date DESC, mae DESC
                 """, (days,))
@@ -507,7 +507,7 @@ class FundRepo(DBBase):
                 cursor.execute("""
                     SELECT AVG(abs_deviation) AS avg_mae, COUNT(*) AS sample_count FROM fund_valuation_archive
                     WHERE fund_code = %s AND official_growth IS NOT NULL
-                    AND trade_date > CURRENT_DATE - INTERVAL '%s days'
+                    AND trade_date > CURRENT_DATE - (INTERVAL '1 day' * %s)
                 """, (fund_code, days))
                 res = cursor.fetchone()
                 return {
