@@ -23,9 +23,6 @@ dateparser
 pytz
 pandas
 GoogleNews
-# sentence-transformers  # 已移除，避免内存占用（4 核 4G 服务器会卡顿）
-# scikit-learn  # 已移除，不再需要本地 Embedding
-# torch  # 已移除
 socksio
 akshare
 pypinyin
@@ -49,5 +46,4 @@ statsmodels
 # Task Queue
 taskiq
 taskiq-redis
-taskiq-fastapi[redis]>=5.3.0
->=2.0.0  # Celery 监控 UI
+taskiq-fastapi
