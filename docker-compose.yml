@@ -3,6 +3,8 @@ services:
   db:
     image: pincar/lucidpanda-db:latest
     container_name: lucidpanda_db
+    # 强制注入时序库加载（即便旧卷中没写这一行，启动时也会强制拉起）
+    command: ["postgres", "-c", "shared_preload_libraries=timescaledb"]
     environment:
       - POSTGRES_USER=lucidpanda
       - POSTGRES_PASSWORD=secure_password
