@@ -211,7 +211,7 @@ async def fetch_all_feeds() -> Dict[str, Any]:
         should_fetch, _ = _should_fetch(feed['name'])
         if should_fetch:
             # TaskIQ 并发执行调用： kiq() 发送到后端
-            tasks.append(fetch_single_feed_task.kiq(feed['name'], feed['url'], feed['category']))
+            tasks.append(await fetch_single_feed_task.kiq(feed['name'], feed['url'], feed['category']))
     
     if not tasks:
         logger.info("📊 [TaskIQ] 所有信源未到时间，跳过本轮")
