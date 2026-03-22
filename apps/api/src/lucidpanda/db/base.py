@@ -25,7 +25,7 @@ except ImportError:
 
 class DBConnectionProxy:
     """
-    代理真实的 psycopg2 连接，使 conn.close() 变为归还连接池，
+    代理真实的 psycopg 连接，使 conn.close() 变为归还连接池，
     同时支持 with 语句自动释放，完美解决高并发下的连接耗尽风险。
     """
     def __init__(self, pool):

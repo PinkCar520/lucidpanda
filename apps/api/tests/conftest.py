@@ -16,7 +16,7 @@ def db_engine():
                 "Set TEST_DATABASE_URL or POSTGRES_TEST_DB with a *_test database name."
             )
         test_db_url = (
-            f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
+            f"postgresql+psycopg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
             f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{db_name}"
         )
 

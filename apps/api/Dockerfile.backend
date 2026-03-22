@@ -22,7 +22,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# 只装运行期需要的库（如果 psycopg2-binary 正常，这里甚至可以不要 libpq-dev）
+# 只装运行期需要的库（如果 psycopg[binary] 正常，这里甚至可以不要 libpq-dev）
 RUN apt-get update && apt-get install -y \
     libpq5 \
     curl \

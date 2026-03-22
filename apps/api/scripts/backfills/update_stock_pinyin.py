@@ -13,7 +13,7 @@ def update_pinyin():
     db_host = os.getenv("POSTGRES_HOST", "db")
     db_name = os.getenv("POSTGRES_DB", "lucidpanda_core")
     
-    url = f"postgresql://{db_user}:{db_pass}@{db_host}:5432/{db_name}"
+    url = f"postgresql+psycopg://{db_user}:{db_pass}@{db_host}:5432/{db_name}"
     print(f"Connecting to database: {url}")
     engine = create_engine(url)
     

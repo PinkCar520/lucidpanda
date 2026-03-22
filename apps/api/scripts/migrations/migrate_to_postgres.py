@@ -16,7 +16,7 @@ try:
     import psycopg
     from psycopg.types.json import Jsonb
 except ImportError:
-    logger.error("❌ 'psycopg2-binary' is required. Run: pip install psycopg2-binary")
+    logger.error("❌ 'psycopg[binary]' is required. Run: pip install psycopg[binary]")
     sys.exit(1)
 
 # Configuration from Env or Defaults

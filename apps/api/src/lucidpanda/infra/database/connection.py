@@ -4,7 +4,7 @@ from src.lucidpanda.config import settings
 # Production-grade database connection management
 # Using SQLModel (SQLAlchemy 2.0 compatible)
 
-DATABASE_URL = f"postgresql://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+DATABASE_URL = f"postgresql+psycopg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 
 # pool_size and max_overflow are crucial for production high-concurrency
 engine = create_engine(
