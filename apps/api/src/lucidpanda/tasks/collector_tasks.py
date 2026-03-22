@@ -183,6 +183,7 @@ async def fetch_single_feed_task(feed_name: str, feed_url: str, category: str) -
                 try:
                     r = redis.from_url(settings.REDIS_URL, decode_responses=True)
                     r.publish('intelligence_updates', json.dumps({"type": "new_data", "count": saved}))
+                    r.publish('lucidpanda:new_intelligence', json.dumps({"type": "new_data", "count": saved}))
                     logger.info(f"📣 [{feed_name}] 发布 Redis 唤醒事件")
                 except Exception as e:
                     pass
