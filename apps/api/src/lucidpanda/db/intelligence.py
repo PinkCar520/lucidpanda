@@ -1006,20 +1006,29 @@ class IntelligenceRepo(DBBase):
 
     # ── 事件知识图谱 ──────────────────────────────────────────────────────
 
-    def _upsert_entity_node(self, cursor, entity_name: str, entity_type: str = "unknown") -> int:
-        canonical_name = normalize_entity_name(entity_name)
+    def _upsert_entity_node(self, cursor, entity_name: str, entity_type: str = "unknown") -> int | None:
+        """
+        根据名称和类型 Upsert 实体节点。
+        使用标准化后的 normalized_name 作为唯一冲突检查，但保留展示用的 entity_name。
+        """
+        clean_name = (entity_name or "").strip()
+        if not clean_name:
+            return None
+
+        canonical_name = normalize_entity_name(clean_name)
         normalized_name = canonical_name.strip().lower()
-        # 规范化 entity_type：对已知实体强制使用标准类型，防止 Gold/Oil/Trump 因 type 不同产生多节点
+        # 针对 Gold/Oil 等资产强制标准化类型
         canonical_type = normalize_entity_type(canonical_name, entity_type)
+
         cursor.execute("""
             INSERT INTO entity_nodes (entity_name, normalized_name, entity_type)
             VALUES (%s, %s, %s)
             ON CONFLICT (normalized_name, entity_type)
             DO UPDATE SET entity_name = EXCLUDED.entity_name
             RETURNING node_id
-        """, (canonical_name.strip(), normalized_name, canonical_type))
+        """, (canonical_name, normalized_name, canonical_type))
         res = cursor.fetchone()
-        return res["count"] if res else 0
+        return res["node_id"] if res else None
 
     def _upsert_graph_edge(
         self,
@@ -1558,131 +1567,3 @@ class IntelligenceRepo(DBBase):
             logger.error(f"find_graph_path 失败 [{from_entity} -> {to_entity}]: {e}")
             return {"paths": [], "max_hops": max_hops, "min_confidence": min_confidence}
 
-    # ── 事件知识图谱（Phase 2.2）──────────────────────────────────────────
-
-    def _upsert_entity_node(self, cursor, name: str, entity_type: str = "unknown") -> int | None:
-        clean_name = (name or "").strip()
-        clean_type = (entity_type or "unknown").strip().lower() or "unknown"
-        if not clean_name:
-            return None
-        canonical_name = normalize_entity_name(clean_name)
-        normalized_name = canonical_name.lower()
-        cursor.execute("""
-            INSERT INTO entity_nodes (entity_name, normalized_name, entity_type)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (normalized_name, entity_type) DO UPDATE
-                SET entity_name = EXCLUDED.entity_name
-            RETURNING node_id
-        """, (canonical_name, normalized_name, clean_type))
-        row = cursor.fetchone()
-        return row["id"] if row else None
-
-    def ingest_knowledge_graph(self, source_id: str, analysis_result: dict) -> bool:
-        """
-        将单条情报的实体与关系写入图谱。
-        调用时机：update_intelligence_analysis 之后。
-        """
-        entities = self._normalize_entities((analysis_result or {}).get("entities"))
-        relations = self._normalize_relations((analysis_result or {}).get("relations"))
-        if not entities and not relations:
-            return False
-
-        try:
-            with self._get_conn() as conn:
-                with conn.cursor() as cursor:
-                    cursor.execute("""
-                        SELECT id, event_cluster_id, urgency_score, source_credibility_score, timestamp
-                        FROM intelligence
-                        WHERE source_id = %s
-                        LIMIT 1
-                    """, (source_id,))
-                    row = cursor.fetchone()
-                    if not row:
-                        return False
-
-                    intelligence_id = row["id"]
-                    cluster_id = row["event_cluster_id"] or f"single:{source_id}"
-                    urgency_score = row["urgency_score"]
-                    source_credibility_score = row["source_credibility_score"]
-                    intel_timestamp = row["timestamp"]
-                    edge_confidence = calc_confidence_score(
-                        corroboration_count=1,
-                        source_credibility_score=source_credibility_score,
-                        urgency_score=urgency_score,
-                        timestamp=intel_timestamp,
-                    )
-
-                    node_map: dict[tuple[str, str], int] = {}
-                    for entity in entities:
-                        node_id = self._upsert_entity_node(
-                            cursor,
-                            entity.get("name"),
-                            entity.get("type", "unknown"),
-                        )
-                        if node_id:
-                            node_map[(entity["name"].strip().lower(), entity["type"].strip().lower())] = node_id
-
-                    for rel in relations:
-                        subj = rel["subject"].strip()
-                        obj = rel["object"].strip()
-                        subj_key = (subj.lower(), "unknown")
-                        obj_key = (obj.lower(), "unknown")
-
-                        from_node_id = node_map.get(subj_key) or self._upsert_entity_node(cursor, subj, "unknown")
-                        to_node_id = node_map.get(obj_key) or self._upsert_entity_node(cursor, obj, "unknown")
-                        if not from_node_id or not to_node_id:
-                            continue
-                        node_map[subj_key] = from_node_id
-                        node_map[obj_key] = to_node_id
-
-                        cursor.execute("""
-                            INSERT INTO entity_edges (
-                                from_node_id, to_node_id, relation, direction, strength,
-                                confidence_score, event_cluster_id, evidence_source_id, intelligence_id, metadata
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            ON CONFLICT (from_node_id, to_node_id, relation, event_cluster_id, evidence_source_id)
-                            DO UPDATE SET
-                                strength = GREATEST(entity_edges.strength, EXCLUDED.strength),
-                                confidence_score = GREATEST(entity_edges.confidence_score, EXCLUDED.confidence_score),
-                                metadata = EXCLUDED.metadata
-                        """, (
-                            from_node_id,
-                            to_node_id,
-                            rel["predicate"],
-                            rel["direction"],
-                            rel["strength"],
-                            edge_confidence,
-                            cluster_id,
-                            source_id,
-                            intelligence_id,
-                            Jsonb({"source": "llm_relation_extract"}),
-                        ))
-                        if rel["direction"] == "bidirectional":
-                            cursor.execute("""
-                                INSERT INTO entity_edges (
-                                    from_node_id, to_node_id, relation, direction, strength,
-                                    confidence_score, event_cluster_id, evidence_source_id, intelligence_id, metadata
-                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                ON CONFLICT (from_node_id, to_node_id, relation, event_cluster_id, evidence_source_id)
-                                DO UPDATE SET
-                                    strength = GREATEST(entity_edges.strength, EXCLUDED.strength),
-                                    confidence_score = GREATEST(entity_edges.confidence_score, EXCLUDED.confidence_score),
-                                    metadata = EXCLUDED.metadata
-                            """, (
-                                to_node_id,
-                                from_node_id,
-                                rel["predicate"],
-                                rel["direction"],
-                                rel["strength"],
-                                edge_confidence,
-                                cluster_id,
-                                source_id,
-                                intelligence_id,
-                                Jsonb({"source": "llm_relation_extract", "reverse": True}),
-                            ))
-
-                    conn.commit()
-            return True
-        except Exception as e:
-            logger.error(f"ingest_knowledge_graph 失败 [{source_id}]: {e}")
-            return False
