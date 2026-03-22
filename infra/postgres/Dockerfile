@@ -19,6 +19,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends gnupg lsb-relea
 RUN echo "shared_preload_libraries = 'timescaledb'" >> /usr/share/postgresql/postgresql.conf.sample
 
 # 拷贝初始化脚本，数据库首次启动时自动建立两个扩展
-COPY scripts/db_init/init_extensions.sql /docker-entrypoint-initdb.d/
+COPY init_extensions.sql /docker-entrypoint-initdb.d/
 
 USER postgres
