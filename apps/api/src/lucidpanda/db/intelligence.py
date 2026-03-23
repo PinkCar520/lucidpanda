@@ -639,21 +639,26 @@ class IntelligenceRepo(DBBase):
             return 0
 
     def get_intelligence_analysis(self, source_id: str) -> Optional[dict]:
-        """获取单条情报的分析结果 (JSONB 格式)"""
+        """获取单条情报的分析结果 (将散列字段组装成 dict)"""
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("SELECT analysis, summary FROM intelligence WHERE source_id = %s", (source_id,))
+                    cursor.execute("""
+                        SELECT summary, sentiment, urgency_score, market_implication, 
+                               actionable_advice, entities, relation_triples, tags, 
+                               sentiment_score
+                        FROM intelligence WHERE source_id = %s
+                    """, (source_id,))
                     row = cursor.fetchone()
-                    if row and row['analysis']:
-                        return row['analysis']
+                    if row:
+                        return dict(row)
                     return None
         except Exception as e:
             logger.error(f"获取情报分析失败 ({source_id}): {e}")
             return None
 
-    def update_lead_analysis(self, source_id, analysis_result):
-        """仅更新情报的分析结果和摘要（用于 Lead Evolution 场景）"""
+    def update_lead_analysis(self, source_id: str, analysis_result: dict):
+        """仅更新标杆节点的分析结果 (用于 Lead Evolution 自动融合阶段)"""
         try:
             def _to_jsonb(val):
                 if val is None: return None
@@ -661,17 +666,26 @@ class IntelligenceRepo(DBBase):
                 
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
+                    # 仅更新需要演化的核心分析字段
                     cursor.execute("""
                         UPDATE intelligence SET
                             summary = %s, 
-                            analysis = %s,
-                            updated_at = NOW()
+                            market_implication = %s,
+                            sentiment = %s,
+                            sentiment_score = %s,
+                            urgency_score = %s,
+                            status = 'COMPLETED',
+                            last_error = NULL
                         WHERE source_id = %s
                     """, (
-                        analysis_result.get('summary', {}).get('zh', ''),
-                        _to_jsonb(analysis_result),
+                        _to_jsonb(analysis_result.get('summary')),
+                        _to_jsonb(analysis_result.get('market_implication')),
+                        _to_jsonb(analysis_result.get('sentiment')),
+                        float(analysis_result.get('sentiment_score') or 0.0),
+                        analysis_result.get('urgency_score'),
                         source_id
                     ))
+                    conn.commit()
         except Exception as e:
             logger.error(f"Lead Evolution 更新失败 ({source_id}): {e}")
             raise e

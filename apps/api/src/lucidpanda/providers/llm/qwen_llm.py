@@ -49,6 +49,10 @@ class QwenLLM(BaseLLM):
             return json.loads(raw_text)
 
         except Exception as e:
+            if 'raw_text' in locals() and raw_text == "":
+                logger.error(f"Qwen 返回了空响应。请检查模型名称 '{settings.QWEN_MODEL}' 是否正确。")
+            elif 'raw_text' in locals():
+                logger.error(f"Qwen 返回了非 JSON 格式: {raw_text[:200]}...")
             logger.error(f"Qwen 分析失败：{e}")
             raise e
 
@@ -109,6 +113,10 @@ class QwenLLM(BaseLLM):
                 return [results]
 
         except Exception as e:
+            if 'raw_text' in locals() and raw_text == "":
+                logger.error(f"Qwen 批量分析返回了空响应。请检查模型名称 '{settings.QWEN_MODEL}' 是否正确。")
+            elif 'raw_text' in locals():
+                logger.error(f"Qwen 批量分析返回了非 JSON 格式: {raw_text[:200]}...")
             logger.error(f"Qwen 批量分析失败：{e}")
             raise e
 
