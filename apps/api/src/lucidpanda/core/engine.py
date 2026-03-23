@@ -351,8 +351,8 @@ class AlphaEngine:
 你是一个专业的新闻主编。请根据“新发现的事实”更新现有的“主事件综述”。
 
 【现有综述】：
-- 摘要: {lead_analysis.get('summary', {}).get('zh', "无")}
-- 市场影响: {lead_analysis.get('market_implication', {}).get('zh', "无")}
+- 摘要: {(lead_analysis.get('summary') or {}).get('zh', "无")}
+- 市场影响: {(lead_analysis.get('market_implication') or {}).get('zh', "无")}
 
 【新发现的事实/内容】：
 {new_content[:1500]}

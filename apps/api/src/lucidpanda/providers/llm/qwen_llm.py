@@ -46,7 +46,7 @@ class QwenLLM(BaseLLM):
             raw_text = response.choices[0].message.content
             logger.info(f"📥 [Qwen] 响应成功 (耗时：{elapsed:.2f}s)。")
 
-            return json.loads(raw_text)
+            return self._parse_json(raw_text)
 
         except Exception as e:
             if 'raw_text' in locals() and raw_text == "":
@@ -72,7 +72,7 @@ class QwenLLM(BaseLLM):
             )
             
             raw_text = response.choices[0].message.content
-            return json.loads(raw_text)
+            return self._parse_json(raw_text)
             
         except Exception as e:
             logger.error(f"Qwen JSON 生成失败：{e}")
@@ -103,7 +103,7 @@ class QwenLLM(BaseLLM):
             raw_text = response.choices[0].message.content
             logger.info(f"📥 [Qwen] 批量响应成功 (耗时：{elapsed:.2f}s)")
 
-            results = json.loads(raw_text)
+            results = self._parse_json(raw_text)
             
             if isinstance(results, list):
                 return results
@@ -204,3 +204,27 @@ relations.relation 枚举：
 - 利多黄金：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down
 - 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
 """
+    def _parse_json(self, text: str) -> Any:
+        """从字符串中提取并解析 JSON，处理可能的 Markdown 代码块"""
+        if not text:
+            return {}
+        text = text.strip()
+        # 移除 Markdown 代码块标记回退
+        if text.startswith("```"):
+            import re
+            match = re.search(r"```(?:json)?\s*(\{.*\}|\[.*\])\s*```", text, re.DOTALL)
+            if match:
+                text = match.group(1)
+            else:
+                # 尝试直接去掉前后的 ```
+                text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
+        
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            # 最后的尝试：寻找第一个 { 和最后一个 }
+            import re
+            match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
+            raise
