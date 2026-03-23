@@ -8,7 +8,7 @@
 4. 配置集中管理
 """
 import asyncio
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING, Any
 
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.database import IntelligenceDB
