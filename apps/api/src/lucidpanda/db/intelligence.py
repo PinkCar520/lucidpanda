@@ -322,23 +322,47 @@ class IntelligenceRepo(DBBase):
 
     # ── pgvector 语义去重 ─────────────────────────────────────────────────
 
-    def is_semantic_duplicate(self, vector, threshold: float = 0.85) -> bool:
-        """查询 pgvector，判断向量是否与历史情报语义重复（HNSW, O(log n)）。"""
+    def is_semantic_duplicate(self, vector, threshold: float = 0.85) -> dict:
+        """
+        查询 pgvector 判断语义重复 (HNSW 优化)。
+        返回dict: {status: 'NEW'|'DUP'|'SUSPECTED', sim: float, lead_id: int, lead_summary: str}
+        """
         try:
             vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
+                    # HNSW 召回最近的一条记录
                     cursor.execute("""
-                        SELECT 1 FROM intelligence
+                        SELECT id, summary::text, 1 - (embedding_vec <=> %s::vector) AS sim
+                        FROM intelligence
                         WHERE embedding_vec IS NOT NULL
-                          AND 1 - (embedding_vec <=> %s::vector) > %s
+                          AND timestamp > NOW() - INTERVAL '48 hours'
+                        ORDER BY embedding_vec <=> %s::vector
                         LIMIT 1
-                    """, (vec_list, threshold))
+                    """, (vec_list, vec_list))
                     row = cursor.fetchone()
-            return row is not None
+                    
+                    if not row:
+                        return {"status": "NEW", "sim": 0.0}
+                    
+                    sim = row['sim']
+                    # 确定性重复阈值 (e.g. 0.95)
+                    if sim > 0.95:
+                        return {"status": "DUP", "sim": sim, "lead_id": row['id']}
+                    
+                    # 疑似重复阈值 (待 Delta 判定)
+                    if sim > 0.65:
+                        return {
+                            "status": "SUSPECTED", 
+                            "sim": sim, 
+                            "lead_id": row['id'], 
+                            "lead_summary": row['summary']
+                        }
+                    
+            return {"status": "NEW", "sim": sim if 'sim' in locals() else 0.0}
         except Exception as e:
-            logger.warning(f"⚠️ pgvector 语义查询失败，降级为非重复: {e}")
-            return False
+            logger.warning(f"⚠️ pgvector HNSW 语义查询失败: {e}")
+            return {"status": "ERROR", "error": str(e)}
 
     def save_embedding_vec(self, source_id: str, vector) -> None:
         """将 BERT 嵌入向量持久化到 intelligence 表的 embedding_vec 列。"""
@@ -904,70 +928,75 @@ class IntelligenceRepo(DBBase):
         except:
             return False
 
-    def is_duplicate(self, new_url, new_content, new_summary=None) -> bool:
-        """Checks for duplicate intelligence using URL and pg_trgm for content similarity."""
+    def is_duplicate(self, new_url, new_content, new_summary=None, vector=None) -> dict:
+        """
+        判断情报是否重复。
+        返回 dict: {is_duplicate: bool, status: 'DUP'|'SUSPECTED'|'NEW', lead_id: int, lead_summary: str}
+        """
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
+                    # 1. URL 绝对重复校验
                     cursor.execute("SELECT id FROM intelligence WHERE url = %s LIMIT 1", (new_url,))
-                    if cursor.fetchone():
+                    row = cursor.fetchone()
+                    if row:
                         logger.info(f"🚫 URL {new_url} 已存在，跳过。")
-                        return True
-
-                    time_window = datetime.now() - timedelta(hours=settings.NEWS_DEDUPE_WINDOW_HOURS)
-                    new_text_for_sim = f"{new_content} {new_summary if new_summary else ''}"
-                    cursor.execute("""
-                        SELECT id, similarity(COALESCE(content, '') || ' ' || COALESCE(summary::text, ''), %s) AS sim_score
-                        FROM intelligence
-                        WHERE timestamp > %s
-                        AND (
-                            similarity(COALESCE(content, ''), %s) > %s OR
-                            similarity(COALESCE(summary::text, ''), %s) > %s OR
-                            similarity(COALESCE(content, '') || ' ' || COALESCE(summary::text, ''), %s) > %s
-                        )
-                        ORDER BY sim_score DESC LIMIT 1
-                    """, (new_text_for_sim, time_window,
-                          new_content, settings.NEWS_SIMILARITY_THRESHOLD,
-                          new_summary if new_summary else '', settings.NEWS_SIMILARITY_THRESHOLD,
-                          new_text_for_sim, settings.NEWS_SIMILARITY_THRESHOLD))
-                    result = cursor.fetchone()
-                    if result:
-                        logger.info(f"🚫 发现语义重复情报 (ID: {result['id']}, 相似度: {result['sim_score']:.2f})，跳过。")
-                        return True
-            return False
+                        return {"is_duplicate": True, "status": "DUP", "lead_id": row['id']}
+                    
+                    # 2. 向量语义重复校验 (HNSW)
+                    if vector is not None:
+                        result = self.is_semantic_duplicate(vector)
+                        if result["status"] == "DUP":
+                            logger.info(f"🚫 发现语义重复 (HNSW ID: {result.get('lead_id')}, 分数: {result.get('sim', 0):.2f})")
+                            return {"is_duplicate": True, "status": "DUP", "lead_id": result.get('lead_id')}
+                        
+                        if result["status"] == "SUSPECTED":
+                            logger.info(f"⚖️ 发现疑似重复 (HNSW ID: {result.get('lead_id')}, 分数: {result.get('sim', 0):.2f})，进入 Delta 判定。")
+                            return {
+                                "is_duplicate": False, 
+                                "status": "SUSPECTED", 
+                                "lead_id": result.get('lead_id'),
+                                "lead_summary": result.get('lead_summary')
+                            }
+            
+            return {"is_duplicate": False, "status": "NEW"}
         except Exception as e:
-            logger.error(f"Duplicate Check Failed: {e}")
-            return False
+            logger.error(f"Duplicate Check 综合判定失败: {e}")
+            return {"is_duplicate": False, "status": "ERROR"}
 
     # ── 事件聚类支持方法 ──────────────────────────────────────────────────
 
-    def find_similar_pairs(self, source_ids: list, threshold: float = 0.45,
-                           time_window_hours: int = 2) -> list:
+    def find_similar_pairs(self, source_ids: list, threshold: float = 0.45, time_window_hours: int = 48) -> list:
         """
-        在 source_ids 对应的记录中，用 pg_trgm 找出相似对。
-        单次 DB 往返，O(n²) 仅在 DB 内执行。
-
-        Returns:
-            list of (source_id_a, source_id_b) tuples
+        在给定的 source_ids 范围内查找相似对。
+        Story Threading 优化：引入衰减式时间窗口。
+        相似度随时间差增加按指数衰减，以支持长周期的故事线追踪（最长 48h）。
         """
         if len(source_ids) < 2:
             return []
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
+                    # 使用 exp(-dt/T) 实现衰减，T = 12h (43200s)
+                    # 只有 (相似度 * 衰减因子) > threshold 的才会被聚类
                     cursor.execute("""
                         SELECT a.source_id AS source_id_a, b.source_id AS source_id_b
                         FROM intelligence a
                         JOIN intelligence b ON a.source_id < b.source_id
-                        WHERE a.source_id = ANY(%s)
-                          AND b.source_id = ANY(%s)
+                        WHERE a.source_id = ANY(%s) AND b.source_id = ANY(%s)
                           AND ABS(EXTRACT(EPOCH FROM (a.timestamp - b.timestamp))) < %s
-                          AND similarity(COALESCE(a.content,''), COALESCE(b.content,'')) > %s
-                    """, (source_ids, source_ids, time_window_hours * 3600, threshold))
-                    pairs = cursor.fetchall()
-            return [(r["source_id_a"], r["source_id_b"]) for r in pairs]
+                          AND (
+                            (a.embedding_vec IS NOT NULL AND b.embedding_vec IS NOT NULL 
+                             AND ((1 - (a.embedding_vec <=> b.embedding_vec)) * exp(-ABS(EXTRACT(EPOCH FROM (a.timestamp - b.timestamp))) / 43200.0)) > %s)
+                            OR
+                            ((a.embedding_vec IS NULL OR b.embedding_vec IS NULL) 
+                             AND (similarity(COALESCE(a.content, ''), COALESCE(b.content, '')) * exp(-ABS(EXTRACT(EPOCH FROM (a.timestamp - b.timestamp))) / 43200.0)) > %s)
+                          )
+                    """, (source_ids, source_ids, time_window_hours * 3600, threshold, threshold))
+                    rows = cursor.fetchall()
+            return [(r["source_id_a"], r["source_id_b"]) for r in rows]
         except Exception as e:
-            logger.error(f"find_similar_pairs 查询失败: {e}")
+            logger.error(f"find_similar_pairs (Story Threading) failed: {e}")
             return []
 
     def mark_clustered(self, source_ids: list, cluster_id: str, lead_source_id: str) -> None:

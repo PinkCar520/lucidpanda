@@ -170,5 +170,12 @@ class EntityResolver:
             
         return processed
 
-# 提供一个单例供简单场景使用
-default_resolver = EntityResolver()
+# 延迟加载解析器单例，避免导入时触发未初始化的警告
+_default_resolver = None
+
+def get_default_resolver():
+    """获取默认解析器单例（按需初始化）"""
+    global _default_resolver
+    if _default_resolver is None:
+        _default_resolver = EntityResolver()
+    return _default_resolver

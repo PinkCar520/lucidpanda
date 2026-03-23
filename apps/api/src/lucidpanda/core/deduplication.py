@@ -86,23 +86,24 @@ class NewsDeduplicator:
                 return True
         return False
 
-    def is_duplicate(self, news_content, record_id=None):
+    def is_duplicate(self, news_content, news_url=None) -> dict:
         """
         综合判断函数。
+        返回 dict: {is_duplicate: bool, status: str, lead_id: int, lead_summary: str}
         """
         clean_text = self.normalize(news_content)
         if not clean_text:
-            return False
+            return {"is_duplicate": False, "status": "NEW"}
 
-        # 1. SimHash 粗筛
+        # 1. SimHash 粗筛 (内存)
         current_simhash = Simhash(clean_text)
         if self.rough_duplicate(current_simhash):
-            return True
+            return {"is_duplicate": True, "status": "DUP_SIMHASH"}
 
         # 2. 语义精筛 (遵守全局开关)
         if not settings.ENABLE_SEMANTIC_DEDUPE:
-            self.add_to_history(current_simhash, None, record_id)
-            return False
+            self.add_to_history(current_simhash, None)
+            return {"is_duplicate": False, "status": "NEW"}
 
         current_vector = None
         try:
@@ -110,18 +111,21 @@ class NewsDeduplicator:
             self.last_vector = current_vector
 
             if self.db is not None:
-                if self.db.is_semantic_duplicate(current_vector, self.semantic_threshold):
-                    return True
+                # 调用 IntelligenceDB 的综合判定方法
+                result = self.db.is_duplicate(news_url, news_content, vector=current_vector)
+                if result["is_duplicate"] or result["status"] == "SUSPECTED":
+                    return result
             else:
+                # 无数据库模式下的回退逻辑
                 if self.semantic_duplicate(current_vector):
-                    return True
+                    return {"is_duplicate": True, "status": "DUP_MEMORY"}
         except Exception as e:
             logger.warning(f"Semantic deduplication failed: {e}")
             self.last_vector = None
 
         # 3. 不是重复
-        self.add_to_history(current_simhash, current_vector if self.db is None else None, record_id)
-        return False
+        self.add_to_history(current_simhash, current_vector if self.db is None else None)
+        return {"is_duplicate": False, "status": "NEW"}
 
     def add_to_history(self, sh_obj, vector, record_id=None):
         """Add an item to history, maintaining a FIFO sliding window."""

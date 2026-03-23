@@ -53,10 +53,10 @@ class EventClusterer:
         # n_suppressed: 被压制的记录数
     """
 
-    # pg_trgm 相似度阈值（0.45 对应新闻去重，比 is_duplicate 的 0.6 宽松一些）
-    SIMILARITY_THRESHOLD: float = 0.45
-    # 事件时间窗口（小时）：同一事件的报道通常在 2h 内集中出现
-    TIME_WINDOW_HOURS: int = 2
+    # pg_trgm / HNSW 相似度阈值（0.40 对应新闻聚类，开启衰减后稍微放宽以支持长线追踪）
+    SIMILARITY_THRESHOLD: float = 0.40
+    # 事件时间窗口（小时）：支持跨 48h 的长线故事追踪 (Story Threading)
+    TIME_WINDOW_HOURS: int = 48
 
     def __init__(self, db):
         """

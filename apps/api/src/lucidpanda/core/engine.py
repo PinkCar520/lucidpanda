@@ -207,12 +207,31 @@ class AlphaEngine:
                 # 1. 注入上下文
                 await asyncio.to_thread(self._enrich_market_context, raw_data)
                 
-                # 2. 语义去重
-                is_dup = await asyncio.to_thread(self.deduplicator.is_duplicate, raw_data.get('content'))
-                if is_dup:
-                    logger.info(f"🚫 语义重复，标记为已过滤: {source_id}")
-                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', 'Deduplicated')
+                # 2. 语义去重 (分层过滤：HNSW -> LLM Delta)
+                dup_result = await asyncio.to_thread(
+                    self.deduplicator.is_duplicate, 
+                    raw_data.get('content'), 
+                    raw_data.get('url')
+                )
+                
+                # 情况 A: 确定性重复 (L1 直接拦截)
+                if dup_result["is_duplicate"]:
+                    logger.info(f"🚫 确定性重复 (L1 拦截): {source_id} -> Lead ID: {dup_result.get('lead_id')}")
+                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"Duplicate of {dup_result.get('lead_id')}")
                     return
+
+                # 情况 B: 疑似重复 (L2 Delta 判定)
+                if dup_result["status"] == "SUSPECTED":
+                    lead_summary = dup_result.get("lead_summary")
+                    has_delta = await self._check_delta_gain(raw_data.get('content'), lead_summary)
+                    if not has_delta:
+                        logger.info(f"🚫 无信息增量 (L2 拦截): {source_id} -> 相似于 Lead {dup_result.get('lead_id')}")
+                        await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"No Delta from {dup_result.get('lead_id')}")
+                        return
+                    else:
+                        logger.info(f"🌟 发现重要增量 (L2 放行): {source_id}")
+                        raw_data['is_story_update'] = True
+                        raw_data['parent_lead_id'] = dup_result.get('lead_id')
 
                 # 去重通过后，将计算好的向量持久化到 pgvector（供后续新闻比对用）
                 if self.deduplicator.last_vector is not None:
@@ -276,6 +295,41 @@ class AlphaEngine:
             except Exception as e:
                 logger.error(f"处理条目失败 {source_id}: {e}")
                 await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'FAILED', str(e))
+
+    async def _check_delta_gain(self, new_content: str, lead_summary: str) -> bool:
+        """
+        使用 LLM 判定两个高度相似的文本之间是否存在“信息增量”。
+        """
+        if not lead_summary or not new_content:
+            return True
+            
+        prompt = f"""
+你是一个专业的新闻编辑。请对比以下“已有内容摘要”和“新消息内容”，判定新消息是否包含任何“实质性的信息增量”。
+
+【判定标准】：
+1. 包含新发布的数据点（如：具体的伤亡数字更新、利率数值、价格变动等）。
+2. 包含新的事态进展或反转（如：事件已从“传言”变为“证实”）。
+3. 包含新的因果解释或重要评论。
+※ 若仅为措辞微调、翻译差异或无意义的重复，请判定为无增量。
+
+【输入】：
+- 已有内容摘要: {lead_summary}
+- 新消息内容: {new_content[:1000]} 
+
+【输出格式】：
+请直接返回 JSON 格式：
+{{"has_delta": boolean, "reason": "简短原因", "new_fact": "提取的新事实（若有）"}}
+"""
+        try:
+            # 优先使用 Flash 模型进行低成本快速判定
+            res = await self.primary_llm.generate_json_async(prompt, temperature=0.0)
+            has_delta = res.get("has_delta", False)
+            if has_delta:
+                logger.info(f"✨ Delta Found: {res.get('reason')} | New Fact: {res.get('new_fact')}")
+            return has_delta
+        except Exception as e:
+            logger.warning(f"Delta Analysis failed, defaulting to True (Safety first): {e}")
+            return True
 
     async def _analyze_with_tools(self, llm, raw_data: Dict[str, Any], taxonomy: Optional[dict] = None) -> Dict[str, Any]:
         if not hasattr(llm, "generate_json_async") or not self.tool_summaries:
