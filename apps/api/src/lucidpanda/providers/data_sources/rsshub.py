@@ -31,8 +31,6 @@ MACRO_GOLD_FEEDS = [
 # ──────────────────────────────────────────────────────────────────────
 EQUITY_CN_FEEDS = [
     ("华尔街见闻-A股",         "http://rsshub:1200/wallstreetcn/news/a-stock"),
-    ("上交所-信息披露",        "http://rsshub:1200/sse/disclosure"),
-    ("深交所-上市公告",        "http://rsshub:1200/szse/disclosure/listed/notice"),
 ]
 
 # ──────────────────────────────────────────────────────────────────────
