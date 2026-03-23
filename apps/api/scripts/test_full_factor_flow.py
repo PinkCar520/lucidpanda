@@ -18,9 +18,8 @@ from src.lucidpanda.config import settings
 from src.lucidpanda.db.base import close_global_pool
 
 # 强制本地数据库与开启所有组件 (已在 docker-compose 中暴露 6379)
-settings.POSTGRES_HOST = "127.0.0.1"
-settings.REDIS_URL = "redis://127.0.0.1:6379/0" 
-settings.FUSED_CACHE_USE_REDIS = True
+# 使用默认配置 (由环境变量从 Docker Compose 注入)
+pass
 settings.ENABLE_AGENT_TOOLS = False 
 
 async def test_full_factor_flow():

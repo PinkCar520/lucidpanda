@@ -17,8 +17,8 @@ from src.lucidpanda.core.engine import AlphaEngine
 from src.lucidpanda.services.factor_service import FactorService
 from src.lucidpanda.config import settings
 
-# 强制使用本地数据库入口，绕过可能的代理 DNS 解析 (db -> 198.x.x.x)
-settings.POSTGRES_HOST = "127.0.0.1"
+# 使用默认配置 (由环境变量从 Docker Compose 注入)
+pass
 
 async def test_factor_indexing():
     print("🚀 开始因子聚合 (Factor Indexing) 功能测试...")
