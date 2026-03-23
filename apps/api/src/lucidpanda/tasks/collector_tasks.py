@@ -31,9 +31,6 @@ from src.lucidpanda.core.taskiq_broker import broker
 # ──────────────────────────────────────────────────────────────────────
 
 DEFAULT_INTERVALS = {
-    "财联社 - 电报": 60,
-    "财联社 - 深度": 120,
-    "证券时报 - 网快讯": 120,
     "Bloomberg Economics": 300,
     "Bloomberg Markets": 300,
     "WSJ Economy": 300,

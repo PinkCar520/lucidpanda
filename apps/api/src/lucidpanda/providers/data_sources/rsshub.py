@@ -30,9 +30,6 @@ MACRO_GOLD_FEEDS = [
 # 2. A股政策与快讯 (Category: equity_cn)
 # ──────────────────────────────────────────────────────────────────────
 EQUITY_CN_FEEDS = [
-    ("财联社-深度",           "http://rsshub:1200/cls/telegraph/depth"),
-    ("财联社-电报",           "http://rsshub:1200/cls/telegraph"),
-    ("证券时报-网快讯",          "http://rsshub:1200/stcn/article/list/kx"),
     ("华尔街见闻-A股",         "http://rsshub:1200/wallstreetcn/news/a-stock"),
     ("上交所-信息披露",        "http://rsshub:1200/sse/disclosure"),
     ("深交所-上市公告",        "http://rsshub:1200/szse/disclosure/listed/notice"),
