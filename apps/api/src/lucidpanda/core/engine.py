@@ -222,16 +222,20 @@ class AlphaEngine:
 
                 # 情况 B: 疑似重复 (L2 Delta 判定)
                 if dup_result["status"] == "SUSPECTED":
+                    lead_id = dup_result.get("lead_id")
                     lead_summary = dup_result.get("lead_summary")
                     has_delta = await self._check_delta_gain(raw_data.get('content'), lead_summary)
                     if not has_delta:
-                        logger.info(f"🚫 无信息增量 (L2 拦截): {source_id} -> 相似于 Lead {dup_result.get('lead_id')}")
-                        await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"No Delta from {dup_result.get('lead_id')}")
+                        logger.info(f"🚫 无信息增量 (L2 拦截): {source_id} -> 相似于 Lead {lead_id}")
+                        await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"No Delta from {lead_id}")
                         return
                     else:
                         logger.info(f"🌟 发现重要增量 (L2 放行): {source_id}")
                         raw_data['is_story_update'] = True
-                        raw_data['parent_lead_id'] = dup_result.get('lead_id')
+                        raw_data['parent_lead_id'] = lead_id
+                        # 触发摘要进化 (Refold)
+                        asyncio.create_task(self._refold_lead_summary(lead_id, raw_data.get('content')))
+
 
                 # 去重通过后，将计算好的向量持久化到 pgvector（供后续新闻比对用）
                 if self.deduplicator.last_vector is not None:
@@ -330,6 +334,61 @@ class AlphaEngine:
         except Exception as e:
             logger.warning(f"Delta Analysis failed, defaulting to True (Safety first): {e}")
             return True
+
+    async def _refold_lead_summary(self, lead_id: str, new_content: str):
+        """
+        故事线演化：将新发现的增量事实融合进主事件（Lead）的摘要中。
+        """
+        try:
+            # 1. 获取 Lead 的当前分析结果
+            lead_analysis = await asyncio.to_thread(self.db.get_intelligence_analysis, lead_id)
+            if not lead_analysis:
+                logger.warning(f"Refold aborted: Lead {lead_id} analysis not found.")
+                return
+
+            # 2. 构建 Refold Prompt
+            prompt = f"""
+你是一个专业的新闻主编。请根据“新发现的事实”更新现有的“主事件综述”。
+
+【现有综述】：
+- 摘要: {lead_analysis.get('summary', {}).get('zh', "无")}
+- 市场影响: {lead_analysis.get('market_implication', {}).get('zh', "无")}
+
+【新发现的事实/内容】：
+{new_content[:1500]}
+
+【任务要求】：
+1. 保持原有综述的核心内容不丢失。
+2. 将新事实有机地融入摘要中，使其成为最新的“事件全貌”。
+3. 如果情绪 (sentiment) 或紧迫性 (urgency_score) 发生显著变化，请相应调整。
+4. 语言必须简洁、专业（分析师语气）。
+
+【输出格式】：
+请直接返回更新后的 JSON 格式分析结果（包含 summary, sentiment, sentiment_score, urgency_score, market_implication 结构）：
+"""
+            # 3. 调用 LLM 进行融合 (使用效率模型 Flash)
+            updated_analysis = await self.primary_llm.generate_json_async(prompt, temperature=0.2)
+            
+            if not updated_analysis or "summary" not in updated_analysis:
+                logger.warning(f"Refold LLM output invalid for Lead {lead_id}")
+                return
+
+            # 4. 合并感知字段并持久化
+            # 我们主要更新摘要、情绪分值、紧迫性和市场影响
+            lead_analysis.update({
+                "summary": updated_analysis.get("summary", lead_analysis.get("summary")),
+                "sentiment": updated_analysis.get("sentiment", lead_analysis.get("sentiment")),
+                "sentiment_score": updated_analysis.get("sentiment_score", lead_analysis.get("sentiment_score")),
+                "urgency_score": updated_analysis.get("urgency_score", lead_analysis.get("urgency_score")),
+                "market_implication": updated_analysis.get("market_implication", lead_analysis.get("market_implication")),
+            })
+            
+            await asyncio.to_thread(self.db.update_lead_analysis, lead_id, lead_analysis)
+            logger.info(f"🔄 故事线 Lead {lead_id} 摘要已通过 Refold 进化完成。")
+            
+        except Exception as e:
+            logger.error(f"Refold 融合失败 for Lead {lead_id}: {e}")
+
 
     async def _analyze_with_tools(self, llm, raw_data: Dict[str, Any], taxonomy: Optional[dict] = None) -> Dict[str, Any]:
         if not hasattr(llm, "generate_json_async") or not self.tool_summaries:

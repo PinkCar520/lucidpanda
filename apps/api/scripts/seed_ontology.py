@@ -14,8 +14,8 @@ from src.lucidpanda.core.ontology import CORE_ENTITIES, TAXONOMY
 from src.lucidpanda.db.ontology_repo import OntologyRepo
 from src.lucidpanda.config import settings
 
-# 强制本地数据库
-settings.POSTGRES_HOST = "127.0.0.1"
+# 使用默认配置 (由环境变量覆盖)
+pass
 
 async def seed_data():
     print("🌱 正在初始化系统本体数据 (Ontology Seeding)...")

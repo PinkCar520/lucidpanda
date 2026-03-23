@@ -3,6 +3,7 @@ db/intelligence.py — 情报域
 ============================
 情报 CRUD、去重（URL/pg_trgm/pgvector）、向量嵌入、信源可信度。
 """
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 import pytz
 import psycopg
@@ -333,7 +334,7 @@ class IntelligenceRepo(DBBase):
                 with conn.cursor() as cursor:
                     # HNSW 召回最近的一条记录
                     cursor.execute("""
-                        SELECT id, summary::text, 1 - (embedding_vec <=> %s::vector) AS sim
+                        SELECT source_id, summary::text, 1 - (embedding_vec <=> %s::vector) AS sim
                         FROM intelligence
                         WHERE embedding_vec IS NOT NULL
                           AND timestamp > NOW() - INTERVAL '48 hours'
@@ -348,14 +349,14 @@ class IntelligenceRepo(DBBase):
                     sim = row['sim']
                     # 确定性重复阈值 (e.g. 0.95)
                     if sim > 0.95:
-                        return {"status": "DUP", "sim": sim, "lead_id": row['id']}
+                        return {"status": "DUP", "sim": sim, "lead_id": row['source_id']}
                     
                     # 疑似重复阈值 (待 Delta 判定)
                     if sim > 0.65:
                         return {
                             "status": "SUSPECTED", 
                             "sim": sim, 
-                            "lead_id": row['id'], 
+                            "lead_id": row['source_id'], 
                             "lead_summary": row['summary']
                         }
                     
@@ -636,6 +637,44 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"Batch Save Failed: {e}")
             return 0
+
+    def get_intelligence_analysis(self, source_id: str) -> Optional[dict]:
+        """获取单条情报的分析结果 (JSONB 格式)"""
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT analysis, summary FROM intelligence WHERE source_id = %s", (source_id,))
+                    row = cursor.fetchone()
+                    if row and row['analysis']:
+                        return row['analysis']
+                    return None
+        except Exception as e:
+            logger.error(f"获取情报分析失败 ({source_id}): {e}")
+            return None
+
+    def update_lead_analysis(self, source_id, analysis_result):
+        """仅更新情报的分析结果和摘要（用于 Lead Evolution 场景）"""
+        try:
+            def _to_jsonb(val):
+                if val is None: return None
+                return Jsonb(val)
+                
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE intelligence SET
+                            summary = %s, 
+                            analysis = %s,
+                            updated_at = NOW()
+                        WHERE source_id = %s
+                    """, (
+                        analysis_result.get('summary', {}).get('zh', ''),
+                        _to_jsonb(analysis_result),
+                        source_id
+                    ))
+        except Exception as e:
+            logger.error(f"Lead Evolution 更新失败 ({source_id}): {e}")
+            raise e
 
     def update_intelligence_analysis(self, source_id, analysis_result, raw_data):
         """Update a record with analysis results."""

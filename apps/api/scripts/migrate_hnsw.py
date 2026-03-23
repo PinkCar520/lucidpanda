@@ -14,8 +14,8 @@ from src.lucidpanda.db.base import DBBase
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.config import settings
 
-# 强制本地数据库 (必须在 DBBase 初始化前执行)
-settings.POSTGRES_HOST = "127.0.0.1"
+# 使用默认配置 (由环境变量覆盖)
+pass
 
 async def migrate():
     db = DBBase()
