@@ -18,6 +18,8 @@ from src.lucidpanda.core.deduplication import NewsDeduplicator
 from src.lucidpanda.providers.channels.email import EmailChannel
 from src.lucidpanda.providers.channels.bark import BarkChannel
 from src.lucidpanda.services.agent_tools import list_tool_summaries
+from src.lucidpanda.core.ontology import EntityResolver
+from src.lucidpanda.services.factor_service import FactorService
 
 # 避免循环导入
 if TYPE_CHECKING:
@@ -38,6 +40,7 @@ class EngineDependencies:
         deduplicator: 去重引擎（延迟初始化）
         channels: 通知渠道列表（延迟初始化）
         tool_summaries: 工具摘要（延迟初始化）
+        entity_resolver: 实体解析器（延迟初始化）
         ai_semaphore: 并发控制信号量（立即初始化）
     """
     
@@ -69,6 +72,10 @@ class EngineDependencies:
         self._deduplicator: Optional[NewsDeduplicator] = None
         self._channels: Optional[List] = None
         self._tool_summaries: Optional[List] = None
+        self._entity_resolver: Optional[EntityResolver] = None
+        self._factor_service: Optional[FactorService] = None
+        self._ontology_repo: Optional[Any] = None
+        self._registry_service: Optional[Any] = None
         self._primary_llm = None
         self._fallback_llm = None
     
@@ -137,6 +144,36 @@ class EngineDependencies:
         return self._tool_summaries
     
     @property
+    def ontology_repo(self) -> Any:
+        """本体元数据仓库"""
+        if self._ontology_repo is None:
+            from src.lucidpanda.db.ontology_repo import OntologyRepo
+            self._ontology_repo = OntologyRepo()
+        return self._ontology_repo
+
+    @property
+    def registry_service(self) -> Any:
+        """实体注册动态加载服务"""
+        if self._registry_service is None:
+            from src.lucidpanda.services.registry_service import RegistryService
+            self._registry_service = RegistryService(self.ontology_repo)
+        return self._registry_service
+
+    @property
+    def entity_resolver(self) -> EntityResolver:
+        """实体解析拦截管线（延迟初始化）"""
+        if self._entity_resolver is None:
+            self._entity_resolver = EntityResolver(self.registry_service)
+        return self._entity_resolver
+        
+    @property
+    def factor_service(self) -> FactorService:
+        """实体舆情因子聚合服务（延迟初始化）"""
+        if self._factor_service is None:
+            self._factor_service = FactorService()
+        return self._factor_service
+    
+    @property
     def enable_agent_tools(self) -> bool:
         """是否启用 Agent 工具"""
         return settings.ENABLE_AGENT_TOOLS
@@ -153,5 +190,9 @@ class EngineDependencies:
         self._deduplicator = None
         self._channels = None
         self._tool_summaries = None
+        self._entity_resolver = None
+        self._factor_service = None
+        self._ontology_repo = None
+        self._registry_service = None
         self._primary_llm = None
         self._fallback_llm = None

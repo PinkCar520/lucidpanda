@@ -1,8 +1,7 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Column, JSON
 from sqlalchemy.dialects.postgresql import JSONB
-
 class IntelligenceBase(SQLModel):
     source_id: Optional[str] = Field(default=None, unique=True)
     author: Optional[str] = None
@@ -17,6 +16,7 @@ class IntelligenceBase(SQLModel):
     market_implication: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     actionable_advice: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     entities: Optional[Any] = Field(default=None, sa_column=Column(JSONB))
+    tags: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSONB))
     relation_triples: Optional[Any] = Field(default=None, sa_column=Column(JSONB))
     agent_trace: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
 

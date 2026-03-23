@@ -1,30 +1,26 @@
 import json
+from typing import Optional, List, Any
 from google import genai
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.llm.base import BaseLLM
+from src.lucidpanda.core.ontology import TAXONOMY
 
 # 内容输入上限：RSS摘要的黄金信号在前 800 字内就已完整包含，截断防止 Token 浪费
 CONTENT_MAX_CHARS   = 800   # 单条分析最多输入字符数
 BATCH_CONTENT_CHARS = 400   # 批量分析每条最多输入字符数
 
-# NOTE：代理配置
-# google-genai SDK 底层使用 httpx，httpx 自动读取系统环境变量 HTTPS_PROXY / HTTP_PROXY。
-# 在 docker exec 时通过 -e HTTPS_PROXY=http://singbox:7890 注入即可，无需代码层面手动配置。
-
-
-
 class GeminiLLM(BaseLLM):
-    async def analyze_async(self, raw_data):
+    async def analyze_async(self, raw_data, taxonomy: Optional[dict] = None):
         """异步版本的分析方法"""
         import asyncio
-        return await asyncio.to_thread(self.analyze, raw_data)
+        return await asyncio.to_thread(self.analyze, raw_data, taxonomy)
 
     async def generate_json_async(self, prompt: str, temperature: float = 0.2):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data):
+    def analyze(self, raw_data, taxonomy: Optional[dict] = None):
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
@@ -33,7 +29,7 @@ class GeminiLLM(BaseLLM):
                 "response_mime_type": "application/json",
             }
 
-            prompt = self._get_prompt(raw_data)
+            prompt = self._get_prompt(raw_data, taxonomy)
 
             response = client.models.generate_content(
                 model=settings.GEMINI_MODEL,
@@ -47,7 +43,6 @@ class GeminiLLM(BaseLLM):
             return res
 
         except Exception as e:
-
             logger.error(f"Gemini 分析失败: {e}")
             raise e
 
@@ -69,7 +64,7 @@ class GeminiLLM(BaseLLM):
             logger.error(f"Gemini JSON 生成失败: {e}")
             raise e
 
-    def analyze_batch(self, news_items):
+    def analyze_batch(self, news_items, taxonomy: Optional[dict] = None):
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             
@@ -78,7 +73,7 @@ class GeminiLLM(BaseLLM):
                 "response_mime_type": "application/json",
             }
             
-            prompt = self._get_batch_prompt(news_items)
+            prompt = self._get_batch_prompt(news_items, taxonomy)
             
             response = client.models.generate_content(
                 model=settings.GEMINI_MODEL,
@@ -108,7 +103,8 @@ class GeminiLLM(BaseLLM):
             return text
         return text[:max_chars] + "...（已截断）"
 
-    def _get_batch_prompt(self, news_items):
+    def _get_batch_prompt(self, news_items, taxonomy: Optional[dict] = None):
+        taxonomy_to_use = taxonomy or TAXONOMY
         news_list_str = ""
         for i, item in enumerate(news_items, 1):
             content = self._truncate_content(item.get('content', ''), BATCH_CONTENT_CHARS)
@@ -156,6 +152,13 @@ JSON 数组，每个对象包含：
             "impact": "bullish/bearish/neutral"
         }}
     ],
+    "tags": [
+        {{
+            "dimension": "资产类别 / 宏观主题 / 行业板块 / 情绪面 等（必须从下方 Taxonomy 维度中选择）",
+            "value": "标签值（必须从对应维度的枚举中选择）",
+            "weight": 0.0 to 1.0 (关联度权重)
+        }}
+    ],
     "relations": [
         {{
             "from": "主体实体名",
@@ -167,16 +170,20 @@ JSON 数组，每个对象包含：
     ]
 }}
 
+多维分类标签 Taxonomy 参考 (仅可选以下值):
+{json.dumps(taxonomy_to_use, ensure_ascii=False, indent=2)}
+
 relations.relation 合法枚举（仅可选以下值）：
 - 利多黄金：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down
 - 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
 
 强约束：
-1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金或其驱动因子，必须至少输出 1 条 relations。
+1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金 or 其驱动因子，必须至少输出 1 条 relations。
 2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
 """
 
-    def _get_prompt(self, raw_data):
+    def _get_prompt(self, raw_data, taxonomy: Optional[dict] = None):
+        taxonomy_to_use = taxonomy or TAXONOMY
         content = self._truncate_content(raw_data.get('content', ''), CONTENT_MAX_CHARS)
         return f"""
 你是一个华尔街顶级宏观策略分析师。请分析以下内容并提取投资信号。
@@ -217,6 +224,13 @@ JSON 结构定义：
             "impact": "bullish/bearish/neutral"
         }}
     ],
+    "tags": [
+        {{
+            "dimension": "资产类别 / 宏观主题 / 行业板块 / 情绪面 等（必须从下方 Taxonomy 维度中选择）",
+            "value": "标签值（必须从对应维度的枚举中选择）",
+            "weight": 0.0 to 1.0 (关联度权重)
+        }}
+    ],
     "relations": [
         {{
             "from": "主体实体名",
@@ -228,11 +242,14 @@ JSON 结构定义：
     ]
 }}
 
+多维分类标签 Taxonomy 参考 (仅可选以下值):
+{json.dumps(taxonomy_to_use, ensure_ascii=False, indent=2)}
+
 relations.relation 合法枚举（仅可选以下值）：
 - 利多黄金：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down
 - 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
 
 强约束：
-1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金或其驱动因子，必须至少输出 1 条 relations。
+1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金 or 其驱动因子，必须至少输出 1 条 relations。
 2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
 """

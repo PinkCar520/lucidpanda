@@ -4,6 +4,11 @@
 
 services:
   # Build backend services from local source
+  db:
+    build:
+      context: ./infra/postgres
+      dockerfile: Dockerfile
+
   worker:
     build:
       context: ./apps/api

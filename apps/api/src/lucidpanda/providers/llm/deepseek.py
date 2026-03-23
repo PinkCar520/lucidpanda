@@ -1,24 +1,25 @@
 import json
+from typing import Optional, List, Any
 from openai import OpenAI
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.llm.base import BaseLLM
+from src.lucidpanda.core.ontology import TAXONOMY
 
-# 内容截断上限（同 Gemini）
+# 内容截断上限
 CONTENT_MAX_CHARS = 800
 
-
 class DeepSeekLLM(BaseLLM):
-    async def analyze_async(self, raw_data):
+    async def analyze_async(self, raw_data, taxonomy: Optional[dict] = None):
         """异步版本的分析方法"""
         import asyncio
-        return await asyncio.to_thread(self.analyze, raw_data)
+        return await asyncio.to_thread(self.analyze, raw_data, taxonomy)
 
     async def generate_json_async(self, prompt: str, temperature: float = 0.2):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data):
+    def analyze(self, raw_data, taxonomy: Optional[dict] = None):
         import time
         try:
             client = OpenAI(
@@ -26,10 +27,9 @@ class DeepSeekLLM(BaseLLM):
                 base_url=settings.DEEPSEEK_BASE_URL
             )
             
-            prompt = self._get_prompt(raw_data)
+            prompt = self._get_prompt(raw_data, taxonomy)
             
             logger.info(f"📤 [DeepSeek] 发起请求 -> Base: {settings.DEEPSEEK_BASE_URL} | Model: {settings.DEEPSEEK_MODEL}")
-            logger.debug(f"📤 [DeepSeek] Prompt 预览: {prompt[:300]}...")
             
             start_time = time.time()
             response = client.chat.completions.create(
@@ -41,7 +41,7 @@ class DeepSeekLLM(BaseLLM):
             elapsed = time.time() - start_time
             
             raw_text = response.choices[0].message.content
-            logger.info(f"📥 [DeepSeek] 响应成功 (耗时: {elapsed:.2f}s)。原始输出摘录: {raw_text[:200]}...")
+            logger.info(f"📥 [DeepSeek] 响应成功 (耗时: {elapsed:.2f}s)。")
             
             return json.loads(raw_text)
             
@@ -67,17 +67,17 @@ class DeepSeekLLM(BaseLLM):
             logger.error(f"DeepSeek JSON 生成失败: {e}")
             raise e
 
-    def analyze_batch(self, news_items):
-        """批量分析（与 Gemini 保持一致的接口）"""
+    def analyze_batch(self, news_items, taxonomy: Optional[dict] = None):
+        """批量分析"""
         try:
             client = OpenAI(
                 api_key=settings.DEEPSEEK_API_KEY, 
                 base_url=settings.DEEPSEEK_BASE_URL
             )
             
-            # 使用与 Gemini 相同的批量 prompt
+            # 使用 Gemini 的逻辑获取批量 prompt
             from src.lucidpanda.providers.llm.gemini import GeminiLLM
-            prompt = GeminiLLM()._get_batch_prompt(news_items)
+            prompt = GeminiLLM()._get_batch_prompt(news_items, taxonomy)
             
             response = client.chat.completions.create(
                 model=settings.DEEPSEEK_MODEL,
@@ -97,8 +97,8 @@ class DeepSeekLLM(BaseLLM):
             logger.error(f"DeepSeek 批量分析失败: {e}")
             raise e
 
-
-    def _get_prompt(self, raw_data):
+    def _get_prompt(self, raw_data, taxonomy: Optional[dict] = None):
+        taxonomy_to_use = taxonomy or TAXONOMY
         content = raw_data.get('content', '')
         if len(content) > CONTENT_MAX_CHARS:
             content = content[:CONTENT_MAX_CHARS] + "...（已截断）"
@@ -125,8 +125,8 @@ JSON 结构定义：
         "zh": "情绪标签（鹰派/鸽派/避险/中性/利好/利空）",
         "en": "Sentiment Label (Hawkish/Dovish/Risk-off/Neutral/Bullish/Bearish)"
     }},
-    "sentiment_score": -1.0 to 1.0 (数值，-1为极度利空黄金，1为利好),
-    "urgency_score": 1-10 (整数，10为极度重要),
+    "sentiment_score": -1.0 to 1.0 (数值),
+    "urgency_score": 1-10 (整数),
     "market_implication": {{
         "zh": "结合当前背景（美元、波动、持仓、宏观）的中文深评，重点放在黄金、美元、美债。",
         "en": "Deep analysis of market impact in English."
@@ -142,6 +142,13 @@ JSON 结构定义：
             "impact": "bullish/bearish/neutral"
         }}
     ],
+    "tags": [
+        {{
+            "dimension": "必须从下方 Taxonomy 维度中选择",
+            "value": "必须从对应维度的枚举中选择",
+            "weight": 0.0 to 1.0
+        }}
+    ],
     "relations": [
         {{
             "from": "主体实体名",
@@ -152,6 +159,9 @@ JSON 结构定义：
         }}
     ]
 }}
+
+多维分类标签 Taxonomy 参考 (仅可选以下值):
+{json.dumps(taxonomy_to_use, ensure_ascii=False, indent=2)}
 
 relations.relation 合法枚举（仅可选以下值）：
 - 利多黄金：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down

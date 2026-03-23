@@ -641,6 +641,7 @@ class IntelligenceRepo(DBBase):
                         import pickle
                         embedding_binary = pickle.dumps(analysis_result['embedding'])
                     entities = self._normalize_entities(analysis_result.get('entities'))
+                    tags = analysis_result.get('tags')
                     relation_triples = self._normalize_relations(analysis_result.get('relations'))
                     expectation_gap = None
                     agent_trace = analysis_result.get("agent_trace")
@@ -781,14 +782,19 @@ class IntelligenceRepo(DBBase):
 
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
+                    entities = self._normalize_entities(analysis_result.get('entities'))
+                    tags = analysis_result.get('tags')
+                    relation_triples = self._normalize_relations(analysis_result.get('relations'))
+
                     cursor.execute("""
                         INSERT INTO intelligence (
                             source_id, author, content, summary, sentiment,
                             urgency_score, market_implication, actionable_advice, url,
+                            entities, tags, relation_triples,
                             gold_price_snapshot, price_1h, price_24h, timestamp, market_session,
                             clustering_score, exhaustion_score, dxy_snapshot, us10y_snapshot, gvz_snapshot,
                             sentiment_score, fed_regime, macro_adjustment, category
-                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                         ON CONFLICT (source_id) DO NOTHING
                     """, (
                         raw_data.get('id'), raw_data.get('author'), raw_data.get('content'),
@@ -797,7 +803,11 @@ class IntelligenceRepo(DBBase):
                         _to_jsonb(analysis_result.get('market_implication')),
                         _to_jsonb(analysis_result.get('actionable_advice')),
                         raw_data.get('url'),
+                        _to_jsonb(entities), _to_jsonb(tags), _to_jsonb(relation_triples),
                         float(gold_price_snapshot) if gold_price_snapshot is not None else None,
+                        float(price_1h) if price_1h is not None else None,
+                        float(price_24h) if price_24h is not None else None,
+                        news_time, market_session, clustering_score,
                         float(exhaustion_score) if exhaustion_score is not None else 0.0,
                         float(dxy) if dxy is not None else None,
                         float(us10y) if us10y is not None else None,

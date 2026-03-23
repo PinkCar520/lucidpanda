@@ -115,6 +115,8 @@ class AlphaEngine:
         self.channels = self.deps.channels
         self.enable_agent_tools = self.deps.enable_agent_tools
         self.tool_summaries = self.deps.tool_summaries
+        self.entity_resolver = self.deps.entity_resolver
+        self.factor_service = self.deps.factor_service
         
         # 日志记录
         primary_provider = settings.AI_PROVIDER.lower()
@@ -220,21 +222,50 @@ class AlphaEngine:
 
                 # 3. AI 分析
                 logger.info(f"🤖 正在分析({raw_data.get('extraction_method', 'UNKNOWN')}): {source_id}")
+                
+                # 获取动态分类体系 (Taxonomy)
+                taxonomy_dict = None
+                if self.entity_resolver.registry_service:
+                    taxonomy = self.entity_resolver.registry_service.get_taxonomy_config()
+                    if taxonomy:
+                        taxonomy_dict = {}
+                        for row in taxonomy:
+                            dim = row['dimension']
+                            val = row['value']
+                            if dim not in taxonomy_dict:
+                                taxonomy_dict[dim] = []
+                            taxonomy_dict[dim].append(val)
+
                 try:
-                    # 显式使用 self.primary_llm，确保它是 AlphaEngine 的属性
                     if self.enable_agent_tools:
-                        analysis_result = await self._analyze_with_tools(self.primary_llm, raw_data)
+                        analysis_result = await self._analyze_with_tools(self.primary_llm, raw_data, taxonomy=taxonomy_dict)
                     else:
-                        analysis_result = await self.primary_llm.analyze_async(raw_data)
+                        analysis_result = await self.primary_llm.analyze_async(raw_data, taxonomy=taxonomy_dict)
                 except Exception as e:
                     logger.warning(f"Primary LLM failed for {source_id}, trying fallback: {e}")
                     if self.enable_agent_tools:
-                        analysis_result = await self._analyze_with_tools(self.fallback_llm, raw_data)
+                        analysis_result = await self._analyze_with_tools(self.fallback_llm, raw_data, taxonomy=taxonomy_dict)
                     else:
-                        analysis_result = await self.fallback_llm.analyze_async(raw_data)
+                        analysis_result = await self.fallback_llm.analyze_async(raw_data, taxonomy=taxonomy_dict)
 
                 # 4. 存储分析结果 (必须包含 summary)
                 if analysis_result and analysis_result.get("summary"):
+                    # 4.1 实体链接对齐 (Entity Resolution)
+                    if "entities" in analysis_result and isinstance(analysis_result["entities"], list):
+                        analysis_result["entities"] = self.entity_resolver.process_ai_entities(analysis_result["entities"])
+                        
+                        # 4.2 触发舆情因子聚合 (Factor Indexing)
+                        sentiment_score = analysis_result.get("sentiment_score", 0.0)
+                        urgency_score = analysis_result.get("urgency_score", 1)
+                        for ent in analysis_result["entities"]:
+                            cid = ent.get("canonical_id")
+                            if cid:
+                                await self.factor_service.update_entity_factor_async(
+                                    cid, 
+                                    sentiment_score, 
+                                    urgency_score
+                                )
+
                     analysis_result['embedding'] = self.deduplicator.last_vector
                     await asyncio.to_thread(self.db.update_intelligence_analysis, source_id, analysis_result, raw_data)
                     await asyncio.to_thread(self.db.upsert_knowledge_graph, source_id, analysis_result)
@@ -246,9 +277,9 @@ class AlphaEngine:
                 logger.error(f"处理条目失败 {source_id}: {e}")
                 await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'FAILED', str(e))
 
-    async def _analyze_with_tools(self, llm, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _analyze_with_tools(self, llm, raw_data: Dict[str, Any], taxonomy: Optional[dict] = None) -> Dict[str, Any]:
         if not hasattr(llm, "generate_json_async") or not self.tool_summaries:
-            return await llm.analyze_async(raw_data)
+            return await llm.analyze_async(raw_data, taxonomy=taxonomy)
 
         plan_prompt = self._build_agent_plan_prompt(raw_data)
         try:
@@ -262,12 +293,12 @@ class AlphaEngine:
         if tool_calls:
             tool_results = await self._run_tool_calls(tool_calls)
 
-        final_prompt = self._build_agent_final_prompt(raw_data, tool_results, plan_response)
+        final_prompt = self._build_agent_final_prompt(raw_data, tool_results, plan_response, taxonomy=taxonomy)
         try:
             analysis_result = await llm.generate_json_async(final_prompt, temperature=0.2)
         except Exception as exc:
             logger.warning(f"Agent final analysis failed, fallback to direct analysis: {exc}")
-            return await llm.analyze_async(raw_data)
+            return await llm.analyze_async(raw_data, taxonomy=taxonomy)
 
         agent_trace = {
             "version": 1,
@@ -361,6 +392,7 @@ JSON 结构：
         raw_data: Dict[str, Any],
         tool_results: List[Dict[str, Any]],
         plan_response: Optional[Dict[str, Any]],
+        taxonomy: Optional[dict] = None
     ) -> str:
         content = raw_data.get("content", "")
         context = raw_data.get("context", "无")
@@ -368,6 +400,13 @@ JSON 结构：
         plan_summary = ""
         if isinstance(plan_response, dict):
             plan_summary = plan_response.get("plan_summary") or ""
+            
+        # 注入 Taxonomy
+        if not taxonomy:
+            from src.lucidpanda.core.ontology import TAXONOMY
+            taxonomy = TAXONOMY
+            
+        taxonomy_info = f"多维分类标签 Taxonomy 参考 (仅可选以下值):\n{json.dumps(taxonomy, ensure_ascii=False, indent=2)}"
         return f"""
 你是一个华尔街顶级宏观策略分析师。请结合工具结果给出最终分析。
 分析目标：识别该事件对【黄金 (Gold/XAU)】及相关市场的影响。
@@ -418,6 +457,15 @@ JSON 结构定义：
         }}
     ]
 }}
+{taxonomy_info}
+
+relations.relation 合法枚举（仅可选以下值）：
+- 利多黄金：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down
+- 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
+
+强约束：
+1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金或其驱动因子，必须至少输出 1 条 relations。
+2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
 """
 
     async def _trigger_trade_and_dispatch(self, analysis_result, raw_data):

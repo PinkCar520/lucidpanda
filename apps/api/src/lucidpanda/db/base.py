@@ -60,6 +60,18 @@ _global_pool = None
 _db_initialized = False
 
 
+def close_global_pool():
+    """显式关闭全局连接池，防止脚本退出时报 FinalizationError"""
+    global _global_pool
+    if _global_pool:
+        try:
+            _global_pool.close()
+            logger.info("💤 数据库连接池已安全关闭。")
+        except Exception as e:
+            logger.error(f"❌ 关闭连接池失败: {e}")
+        _global_pool = None
+
+
 class DBBase:
     """
     所有 Repo 子类的基类。
@@ -189,6 +201,7 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS relation_triples JSONB;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS is_cluster_lead BOOLEAN DEFAULT TRUE;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS category TEXT;",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS tags JSONB;",
             ]:
                 cursor.execute(col_sql)
             cursor.execute("UPDATE intelligence SET corroboration_count = 1 WHERE corroboration_count IS NULL;")
@@ -446,6 +459,59 @@ class DBBase:
                     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE INDEX IF NOT EXISTS idx_fund_rel_parent ON fund_relationships(parent_code);
+            """)
+            
+            # ── 实体舆情因子时序表 (Factor Indexing) ───────────────────────
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS entity_metrics (
+                    id SERIAL PRIMARY KEY,
+                    canonical_id TEXT NOT NULL,
+                    metric_date DATE NOT NULL,
+                    avg_sentiment DOUBLE PRECISION DEFAULT 0.0,
+                    sentiment_sum DOUBLE PRECISION DEFAULT 0.0,
+                    mention_count INTEGER DEFAULT 0,
+                    urgency_sum INTEGER DEFAULT 0,
+                    last_updated TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(canonical_id, metric_date)
+                );
+                CREATE INDEX IF NOT EXISTS idx_entity_metrics_id_date ON entity_metrics(canonical_id, metric_date);
+            """)
+
+            # ── 实体与标签注册表 (Phase 3: Engineering Decoupling) ──────────
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS entity_registry (
+                    canonical_id VARCHAR(64) PRIMARY KEY,
+                    display_name VARCHAR(128) NOT NULL,
+                    entity_type VARCHAR(32) NOT NULL,
+                    description TEXT,
+                    importance_weight DOUBLE PRECISION DEFAULT 1.0,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_entity_registry_type ON entity_registry(entity_type);
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS entity_aliases (
+                    id SERIAL PRIMARY KEY,
+                    alias VARCHAR(128) NOT NULL,
+                    canonical_id VARCHAR(64) REFERENCES entity_registry(canonical_id) ON DELETE CASCADE,
+                    match_type VARCHAR(16) DEFAULT 'exact',
+                    UNIQUE(alias, canonical_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_entity_aliases_alias ON entity_aliases(alias);
+            """)
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS taxonomy_registry (
+                    id SERIAL PRIMARY KEY,
+                    dimension VARCHAR(32) NOT NULL,
+                    value VARCHAR(64) NOT NULL,
+                    parent_id INTEGER REFERENCES taxonomy_registry(id),
+                    description TEXT,
+                    UNIQUE(dimension, value)
+                );
             """)
 
             conn.commit()
