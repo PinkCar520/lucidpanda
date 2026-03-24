@@ -262,9 +262,12 @@ class AlphaEngine:
                 await asyncio.to_thread(self._enrich_market_context, raw_data)
                 
                 # 2. 早期极速查重 (仅 URL)
+                # 传入自身的 id (数据库自增 ID)，防止自己把自己判定为重复
+                record_id = raw_data.get('id')
                 dup_result = await asyncio.to_thread(
                     self.deduplicator.is_early_duplicate, 
-                    raw_data.get('url')
+                    raw_data.get('url'),
+                    exclude_id=record_id
                 )
                 
                 # 情况 A: 确定性重复 (L1 拦截)

@@ -939,7 +939,9 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("SELECT source_id FROM intelligence WHERE source_id = ANY(%s)", (source_ids,))
+                    # Convert all IDs to strings to avoid psycopg mixed-type array errors
+                    str_ids = [str(i) for i in source_ids]
+                    cursor.execute("SELECT source_id FROM intelligence WHERE source_id = ANY(%s)", (str_ids,))
                     rows = cursor.fetchall()
             return {row["source_id"] for row in rows}
         except Exception as e:
@@ -999,14 +1001,20 @@ class IntelligenceRepo(DBBase):
         except:
             return False
 
-    def is_url_duplicate(self, new_url) -> dict:
-        """只依据 URL 进行短路直接排重"""
+    def is_url_duplicate(self, new_url: str, exclude_id: int = None) -> dict:
+        """只依据 URL 进行短路直接排重。如果指定了 exclude_id，则排除该记录自身。"""
         if not new_url:
             return {"is_duplicate": False, "status": "NEW"}
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("SELECT id FROM intelligence WHERE url = %s LIMIT 1", (new_url,))
+                    if exclude_id:
+                        cursor.execute(
+                            "SELECT id FROM intelligence WHERE url = %s AND id != %s LIMIT 1", 
+                            (new_url, exclude_id)
+                        )
+                    else:
+                        cursor.execute("SELECT id FROM intelligence WHERE url = %s LIMIT 1", (new_url,))
                     row = cursor.fetchone()
                     if row:
                         logger.info(f"🚫 URL {new_url} 已存在，跳过。")
