@@ -109,3 +109,46 @@ class FactorService(DBBase):
         except Exception as e:
             logger.error(f"❌ 获取全市场热点失败: {e}")
             return []
+
+    async def check_sentiment_anomaly(self, canonical_id: str, new_sentiment: float, history_days: int = 14) -> dict:
+        """
+        计算新情绪分与历史 N 天均值的偏离度 (Z-Score)。
+        如果 abs(Z-Score) >= 3.0 并且 abs(new - mean) > 0.5，则判定为异动。
+        返回 { "is_anomaly": bool, "z_score": float, "current_mean": float, "current_std": float, "reason": str }
+        """
+        try:
+            conn = self.get_connection()
+            with conn:
+                cursor = conn.cursor()
+                query = """
+                SELECT 
+                    AVG(avg_sentiment) as mean_sent,
+                    STDDEV(avg_sentiment) as std_sent,
+                    COUNT(1) as sample_count
+                FROM entity_metrics
+                WHERE canonical_id = %s 
+                  AND metric_date >= CURRENT_DATE - INTERVAL '%s day'
+                  AND metric_date < CURRENT_DATE;
+                """
+                cursor.execute(query, (canonical_id, history_days))
+                row = cursor.fetchone()
+                
+                if not row or row['sample_count'] < 3:
+                    return {"is_anomaly": False, "reason": "insufficient_data"}
+                
+                mean_sent = float(row['mean_sent'] or 0)
+                std_sent = float(row['std_sent'] or 0)
+                std_sent = max(std_sent, 0.1) # 至少 0.1 以防除零
+                
+                z_score = (new_sentiment - mean_sent) / std_sent
+                is_anomaly = abs(z_score) >= 3.0 and abs(new_sentiment - mean_sent) > 0.5
+                
+                return {
+                    "is_anomaly": is_anomaly,
+                    "z_score": round(z_score, 2),
+                    "current_mean": round(mean_sent, 2),
+                    "current_std": round(std_sent, 2)
+                }
+        except Exception as e:
+            logger.error(f"❌ 查验情绪异动失败 ({canonical_id}): {e}")
+            return {"is_anomaly": False, "error": str(e)}

@@ -331,6 +331,21 @@ class AlphaEngine:
                         for ent in analysis_result["entities"]:
                             cid = ent.get("canonical_id")
                             if cid:
+                                # 异动检测 (3-sigma Anomaly Alert)
+                                anomaly_info = await self.factor_service.check_sentiment_anomaly(cid, sentiment_score)
+                                if anomaly_info.get("is_anomaly"):
+                                    logger.warning(f"🚨 因子异动告警! {cid} 情绪突破 3σ (Z-Score: {anomaly_info.get('z_score')}, 现值: {sentiment_score}, 均值: {anomaly_info.get('current_mean')})")
+                                    bark = self.channels.get('bark')
+                                    if bark:
+                                        try:
+                                            await bark.send_message_async(
+                                                title=f"🚨 情绪异动警报: {ent.get('name', cid)}", 
+                                                body=f"检测到突破 3σ 的显著情绪变化！\n当前情绪: {sentiment_score}\n历史均值: {anomaly_info.get('current_mean')}\n驱动事件: {analysis_result.get('summary', '')[:50]}...",
+                                                group="LucidPanda_Factor"
+                                            )
+                                        except Exception as e:
+                                            logger.error(f"发送 Bark 告警失败: {e}")
+
                                 await self.factor_service.update_entity_factor_async(
                                     cid, 
                                     sentiment_score, 
