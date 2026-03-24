@@ -54,21 +54,58 @@ class FactorService(DBBase):
 
     async def get_entity_trend_async(self, canonical_id: str, days: int = 7) -> List[Dict[str, Any]]:
         """
-        获取某个实体的历史舆情趋势。
+        获取某个实体的历史舆情趋势，并带上实体基本信息。
         """
         try:
             conn = self.get_connection()
             with conn:
                 cursor = conn.cursor()
                 query = """
-                SELECT metric_date, avg_sentiment, mention_count, urgency_sum
-                FROM entity_metrics
-                WHERE canonical_id = %s AND metric_date > CURRENT_DATE - INTERVAL '%s day'
-                ORDER BY metric_date ASC;
+                SELECT 
+                    m.metric_date, 
+                    m.avg_sentiment, 
+                    m.mention_count, 
+                    m.urgency_sum,
+                    r.display_name,
+                    r.entity_type
+                FROM entity_metrics m
+                LEFT JOIN entity_registry r ON m.canonical_id = r.canonical_id
+                WHERE m.canonical_id = %s AND m.metric_date > CURRENT_DATE - INTERVAL '%s day'
+                ORDER BY m.metric_date ASC;
                 """
                 cursor.execute(query, (canonical_id, days))
                 results = cursor.fetchall()
                 return results
         except Exception as e:
             logger.error(f"❌ 获取实体趋势失败 ({canonical_id}): {e}")
+            return []
+
+    async def get_top_hotspots_async(self, days: int = 1, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        获取指定时间内活跃度最高的 Top N 实体。
+        """
+        try:
+            conn = self.get_connection()
+            with conn:
+                cursor = conn.cursor()
+                query = """
+                SELECT 
+                    m.canonical_id,
+                    SUM(m.mention_count) as total_mentions,
+                    AVG(m.avg_sentiment) as avg_sentiment,
+                    MAX(m.last_updated) as last_seen,
+                    r.display_name,
+                    r.entity_type
+                FROM entity_metrics m
+                LEFT JOIN entity_registry r ON m.canonical_id = r.canonical_id
+                WHERE m.metric_date > CURRENT_DATE - INTERVAL '%s day'
+                GROUP BY m.canonical_id, r.display_name, r.entity_type
+                ORDER BY total_mentions DESC
+                LIMIT %s;
+                """
+                cursor.execute(query, (days, limit))
+                results = cursor.fetchall()
+                return results
+        except Exception as e:
+            logger.error(f"❌ 获取全市场热点失败: {e}")
             return []

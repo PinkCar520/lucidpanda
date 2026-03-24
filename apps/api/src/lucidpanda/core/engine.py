@@ -275,6 +275,9 @@ class AlphaEngine:
                 if analysis_result and analysis_result.get("summary"):
                     # 4.1 实体链接对齐 (Entity Resolution)
                     if "entities" in analysis_result and isinstance(analysis_result["entities"], list):
+                        raw_ai_entities = [e.get('name') for e in analysis_result["entities"] if e.get('name')]
+                        logger.debug(f"🤖 Raw AI Entities: {raw_ai_entities}")
+                        
                         analysis_result["entities"] = self.entity_resolver.process_ai_entities(analysis_result["entities"])
                         
                         # 日志：展示解析后的实体

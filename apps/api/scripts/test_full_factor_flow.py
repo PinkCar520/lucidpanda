@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+import time
 from datetime import date
 from dotenv import load_dotenv
 
@@ -31,11 +32,11 @@ async def test_full_factor_flow():
     engine.channels = []
     
     # 2. 构造测试数据
-    source_id = "test_factor_full_001"
+    source_id = f"test_factor_full_{int(time.time())}"
     raw_data = {
         "source_id": source_id,
         "id": source_id,
-        "content": "美联储主席鲍威尔今日表示，鉴于当前通胀下行趋势明显，美联储可能在下周会议上宣布降息 25 个基点，这对市场而言是一个强烈的利好信号。",
+        "content": f"美联储主席鲍威尔今日表示，由于通胀数据超预期，美联储可能在下周会议上调整基准利率，当前市场关注点在于降息 26 个基点的可能性 ({int(time.time())})。",
         "extraction_method": "TEST_MOCK"
     }
 

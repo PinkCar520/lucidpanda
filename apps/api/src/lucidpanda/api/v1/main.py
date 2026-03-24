@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.lucidpanda.api.v1.routers import mobile, web, common, watchlist_v2, calendar
+from src.lucidpanda.api.v1.routers import mobile, web, common, watchlist_v2, calendar, analytics
 
 api_v1_router = APIRouter(prefix="/api/v1")
 
@@ -15,3 +15,6 @@ api_v1_router.include_router(watchlist_v2.router, prefix="/web", tags=["Watchlis
 
 # Financial Calendar API
 api_v1_router.include_router(calendar.router, tags=["Calendar"])
+
+# Analytics & Knowledge Hub
+api_v1_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
