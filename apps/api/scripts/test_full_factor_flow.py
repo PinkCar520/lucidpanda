@@ -46,8 +46,13 @@ async def test_full_factor_flow():
             cursor = conn.cursor()
             cursor.execute("DELETE FROM intelligence WHERE source_id = %s", (source_id,))
             cursor.execute("DELETE FROM entity_metrics WHERE canonical_id = 'ent_fed_powell' AND metric_date = %s", (date.today(),))
+            # 预插入记录，模拟 Collector 行为
+            cursor.execute("""
+                INSERT INTO intelligence (source_id, content, status, timestamp)
+                VALUES (%s, %s, 'PENDING', NOW())
+            """, (source_id, raw_data["content"]))
             conn.commit()
-        print(f"🧹 已清理旧测试数据 ({source_id})。")
+        print(f"🧹 已清理并预初始化测试数据 ({source_id})。")
     except Exception as e:
         print(f"⚠️ 清理失败: {e}")
 

@@ -277,6 +277,13 @@ class AlphaEngine:
                     if "entities" in analysis_result and isinstance(analysis_result["entities"], list):
                         analysis_result["entities"] = self.entity_resolver.process_ai_entities(analysis_result["entities"])
                         
+                        # 日志：展示解析后的实体
+                        resolved_cids = [e.get('canonical_id') for e in analysis_result["entities"] if e.get('canonical_id')]
+                        if resolved_cids:
+                            logger.info(f"🧠 Resolved Entities: {resolved_cids}")
+                        else:
+                            logger.warning(f"⚠️ No entities resolved to canonical IDs for {source_id}")
+
                         # 4.2 触发舆情因子聚合 (Factor Indexing)
                         sentiment_score = analysis_result.get("sentiment_score", 0.0)
                         urgency_score = analysis_result.get("urgency_score", 1)

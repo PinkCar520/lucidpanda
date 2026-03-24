@@ -1,7 +1,52 @@
 {
   "log": {
-    "level": "info",
+    "level": "warning",
     "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "dns_proxy",
+        "type": "https",
+        "server": "8.8.8.8",
+        "path": "/dns-query",
+        "domain_resolver": "dns_resolver",
+        "detour": "🚀 自动选优"
+      },
+      {
+        "tag": "dns_direct",
+        "type": "https",
+        "server": "223.5.5.5",
+        "path": "/dns-query",
+        "domain_resolver": "dns_resolver",
+        "detour": "direct"
+      },
+      {
+        "tag": "dns_resolver",
+        "type": "udp",
+        "server": "223.5.5.5",
+        "server_port": 53,
+        "detour": "direct"
+      },
+      {
+        "tag": "dns_fakeip",
+        "type": "fakeip"
+      }
+    ],
+    "rules": [
+      {
+        "query_type": [
+          "A",
+          "AAAA"
+        ],
+        "server": "dns_fakeip"
+      }
+    ],
+    "fakeip": {
+      "inet4_range": "198.18.0.0/15",
+      "inet6_range": "fc00::/18"
+    },
+    "strategy": "ipv4_only"
   },
   "inbounds": [
     {
@@ -9,13 +54,21 @@
       "tag": "http-in",
       "listen": "0.0.0.0",
       "listen_port": 7890
+    },
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen": "0.0.0.0",
+      "listen_port": 1080
     }
   ],
   "outbounds": [
     {
       "type": "urltest",
-      "tag": "auto",
+      "tag": "🚀 自动选优",
       "outbounds": [
+        "hk-auto-01",
+        "hk-auto-02",
         "hk-01",
         "hk-02",
         "hk-03",
@@ -24,8 +77,6 @@
         "hk-06",
         "hk-07",
         "hk-08",
-        "hk-auto-01",
-        "hk-auto-02",
         "us-01",
         "us-02",
         "us-03",
@@ -45,6 +96,54 @@
       "url": "https://www.gstatic.com/generate_204",
       "interval": "5m",
       "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "🇺🇸 美国专线",
+      "outbounds": [
+        "us-01",
+        "us-02",
+        "us-03",
+        "us-04"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "type": "urltest",
+      "tag": "🇭🇰 香港专线",
+      "outbounds": [
+        "hk-auto-01",
+        "hk-auto-02",
+        "hk-01",
+        "hk-02",
+        "hk-03",
+        "hk-04",
+        "hk-05",
+        "hk-06",
+        "hk-07",
+        "hk-08"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "5m",
+      "tolerance": 50
+    },
+    {
+      "type": "selector",
+      "tag": "🔧 手动选择",
+      "outbounds": [
+        "🚀 自动选优",
+        "🇺🇸 美国专线",
+        "🇭🇰 香港专线",
+        "hk-auto-01",
+        "hk-auto-02",
+        "us-01",
+        "us-02",
+        "jp-vmess",
+        "sg-01",
+        "sg-02"
+      ]
     },
     {
       "type": "shadowsocks",
@@ -259,11 +358,52 @@
     },
     {
       "type": "direct",
-      "tag": "direct"
+      "tag": "direct",
+      "domain_resolver": "dns_resolver"
     }
   ],
   "route": {
+    "default_domain_resolver": "dns_resolver",
     "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      },
+      {
+        "domain": [
+          "generativelanguage.googleapis.com",
+          "aiplatform.googleapis.com",
+          "gemini.google.com"
+        ],
+        "domain_suffix": [
+          "googleapis.com"
+        ],
+        "outbound": "🇺🇸 美国专线"
+      },
+      {
+        "domain_suffix": [
+          "bloomberg.com",
+          "bloomberg.net",
+          "wsj.com",
+          "ft.com",
+          "reuters.com",
+          "apnews.com",
+          "nytimes.com",
+          "economist.com",
+          "barrons.com",
+          "marketwatch.com",
+          "cnbc.com",
+          "forbes.com",
+          "businessinsider.com",
+          "seekingalpha.com",
+          "investing.com",
+          "tradingeconomics.com"
+        ],
+        "outbound": "🚀 自动选优"
+      },
       {
         "domain_suffix": [
           "cls.cn",
@@ -271,11 +411,38 @@
           "wallstreetcn.com",
           "sina.com.cn",
           "eastmoney.com",
-          "dfcfw.com"
+          "dfcfw.com",
+          "10jqka.com.cn",
+          "hexun.com",
+          "caixin.com",
+          "yicai.com",
+          "21jingji.com"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "rule_set": [
+          "geosite-cn",
+          "geoip-cn"
         ],
         "outbound": "direct"
       }
     ],
-    "final": "auto"
+    "rule_set": [
+      {
+        "tag": "geosite-cn",
+        "type": "local",
+        "format": "binary",
+        "path": "/etc/sing-box/geosite-cn.srs"
+      },
+      {
+        "tag": "geoip-cn",
+        "type": "local",
+        "format": "binary",
+        "path": "/etc/sing-box/geoip-cn.srs"
+      }
+    ],
+    "final": "🚀 自动选优",
+    "auto_detect_interface": true
   }
 }
