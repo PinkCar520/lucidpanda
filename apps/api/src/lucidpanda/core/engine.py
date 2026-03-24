@@ -184,22 +184,71 @@ class AlphaEngine:
         # 2. 市场快照已经由 Collector 注入在 PENDING 记录中，Worker 无需重复抓取
         # 移除了原有的 fetch_round_snapshot 冗余逻辑
 
-        # 2.5 事件聚类：同一事件多信源 → 只保留 lead 进 AI 分析
-        lead_records, n_clustered = await asyncio.to_thread(
+        # 2.5 事件聚类：同一事件多信源 → 只保留 lead 进全量 AI 分析，follower 进入 Delta Queue
+        lead_records, follower_records = await asyncio.to_thread(
             self.clusterer.cluster, pending_records
         )
-        if n_clustered > 0:
-            logger.info(f"🔗 聚类压制 {n_clustered} 条重复信源报道，本轮仅分析 {len(lead_records)} 条")
+        if follower_records:
+            logger.info(f"🔗 聚类捕获 {len(follower_records)} 条 Follower 报道，本轮全量分析 {len(lead_records)} 条 Lead")
 
-        # 3. AI 并发分析
+        # 3. AI 并发分析 Leads
         enriched_items = lead_records
         for item in enriched_items:
             item.setdefault('extraction_method', 'RSS_SUMMARY')
 
-        logger.info(f"🚀 并行分析中 (并发数: {settings.LLM_CONCURRENCY_LIMIT}, 任务数: {len(enriched_items)})...")
+        logger.info(f"🚀 并行分析 Lead 中 (并发数: {settings.LLM_CONCURRENCY_LIMIT}, 任务数: {len(enriched_items)})...")
         tasks = [self._process_single_item_async(item) for item in enriched_items]
         await asyncio.gather(*tasks)
+        
+        # 4. AI 并发分析 Followers (仅做轻量 Delta 检查和 Refold)
+        if follower_records:
+            logger.info(f"🔄 启动 Follower 增量检查 (任务数: {len(follower_records)})...")
+            follower_tasks = [self._process_follower_item_async(item) for item in follower_records]
+            await asyncio.gather(*follower_tasks)
+
         logger.info("<<< 本轮分析完成。")
+
+    async def _process_follower_item_async(self, raw_data):
+        """处理聚类中的 Follower 数据，执行 Delta Check 和 Refold。"""
+        source_id = raw_data.get('source_id') or raw_data.get('id')
+        lead_id = raw_data.get('parent_lead_id')
+        
+        if not lead_id:
+            logger.warning(f"⚠️ Follower {source_id} missing parent_lead_id.")
+            return
+
+        async with self.ai_semaphore:
+            try:
+                # 提取 Lead 的 summary 作为 Delta Check 的基准
+                lead_analysis = await asyncio.to_thread(self.db.get_intelligence_analysis, lead_id)
+                if not lead_analysis or not lead_analysis.get('summary'):
+                    logger.warning(f"⚠️ Lead {lead_id} 的分析结果尚未就绪，跳过 Follower {source_id} 的增量检查。")
+                    return
+                
+                lead_summary_text = lead_analysis.get('summary')
+                if isinstance(lead_summary_text, dict):
+                    lead_summary_text = lead_summary_text.get('zh', str(lead_summary_text))
+                elif isinstance(lead_summary_text, str):
+                    pass
+                else:
+                    lead_summary_text = str(lead_summary_text)
+
+                logger.info(f"⚖️ 判断 Follower ({source_id}) 对 Lead ({lead_id}) 是否有信息增量 (Story Threading)...")
+                has_delta = await self._check_delta_gain(raw_data.get('content'), lead_summary_text)
+                
+                if not has_delta:
+                    logger.info(f"🚫 无信息增量 (Follower): {source_id}")
+                    # 在 DB 中更新状态
+                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'CLUSTERED', f"No Delta from Lead {lead_id}")
+                else:
+                    logger.info(f"🌟 发现重要增量 (Follower): {source_id}")
+                    # 融合反转内容到 Lead，实现故事树折叠 (Refold)
+                    await self._refold_lead_summary(lead_id, raw_data.get('content'))
+                    # 更新自己的状态
+                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"Delta Refolded to {lead_id}")
+            except Exception as e:
+                logger.error(f"处理 Follower 条目失败 {source_id}: {e}")
+                await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'FAILED', f"Delta check error: {e}")
 
     async def _process_single_item_async(self, raw_data):
         """单条情报的异步处理状态机"""
@@ -212,49 +261,20 @@ class AlphaEngine:
                 # 1. 注入上下文
                 await asyncio.to_thread(self._enrich_market_context, raw_data)
                 
-                # 2. 语义去重 (分层过滤：HNSW -> LLM Delta)
+                # 2. 早期极速查重 (仅 URL)
                 dup_result = await asyncio.to_thread(
-                    self.deduplicator.is_duplicate, 
-                    raw_data.get('content'), 
+                    self.deduplicator.is_early_duplicate, 
                     raw_data.get('url')
                 )
                 
-                # 情况 A: 确定性重复 (L1 直接拦截)
-                # 注意：如果 lead_id 为 None，说明 SimHash 命中的是已删除的幽灵记录，
-                # 不应拦截，降级为 SUSPECTED 继续走 L2 Delta 判定。
+                # 情况 A: 确定性重复 (L1 拦截)
                 if dup_result["is_duplicate"]:
                     lead_id_a = dup_result.get('lead_id')
-                    logger.info(f"🚫 确定性重复 (L1 拦截): {source_id} -> Lead ID: {lead_id_a}")
-                    if lead_id_a is not None:
-                        await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"Duplicate of {lead_id_a}")
-                        return
-                    else:
-                        logger.info(f"⚠️ L1 命中幽灵记录 (lead_id=None)，降级到 L2 Delta 判定: {source_id}")
-                        dup_result["is_duplicate"] = False
-                        dup_result["status"] = "SUSPECTED"
+                    logger.info(f"🚫 确定性重复 (URL拦截): {source_id} -> Lead ID: {lead_id_a}")
+                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"Duplicate of {lead_id_a}")
+                    return
 
-                # 情况 B: 疑似重复 (L2 Delta 判定)
-                if dup_result["status"] == "SUSPECTED":
-                    lead_id = dup_result.get("lead_id")
-                    lead_summary = dup_result.get("lead_summary")
-                    has_delta = await self._check_delta_gain(raw_data.get('content'), lead_summary)
-                    if not has_delta:
-                        logger.info(f"🚫 无信息增量 (L2 拦截): {source_id} -> 相似于 Lead {lead_id}")
-                        await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"No Delta from {lead_id}")
-                        return
-                    else:
-                        logger.info(f"🌟 发现重要增量 (L2 放行): {source_id}")
-                        raw_data['is_story_update'] = True
-                        raw_data['parent_lead_id'] = lead_id
-                        # 触发摘要进化 (Refold)
-                        asyncio.create_task(self._refold_lead_summary(lead_id, raw_data.get('content')))
-
-
-                # 去重通过后，将计算好的向量持久化到 pgvector（供后续新闻比对用）
-                if self.deduplicator.last_vector is not None:
-                    await asyncio.to_thread(
-                        self.db.save_embedding_vec, source_id, self.deduplicator.last_vector
-                    )
+                # 将去重推后
 
                 # 3. AI 分析
                 logger.info(f"🤖 正在分析({raw_data.get('extraction_method', 'UNKNOWN')}): {source_id}")
@@ -317,7 +337,46 @@ class AlphaEngine:
                                     urgency_score
                                 )
 
+                    # 4.3 实体感知语义精筛 (Semantic Deduplication)
+                    # 只有拿到实体和情绪了，才能精准防反转丢失
+                    resolved_entities_cids = [e.get('canonical_id') for e in analysis_result["entities"] if e.get('canonical_id')]
+                    
+                    sem_dup = await asyncio.to_thread(
+                        self.deduplicator.is_semantic_duplicate,
+                        raw_data.get('content'),
+                        entities=resolved_entities_cids,
+                        sentiment=sentiment_score
+                    )
+                    
+                    if sem_dup["is_duplicate"]:
+                        logger.info(f"🚫 语义精筛命中 (拦截): {source_id} -> 重复于 Lead {sem_dup.get('lead_id')}")
+                        await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"Duplicate of {sem_dup.get('lead_id')}")
+                        return
+                    elif sem_dup["status"] == "SENTIMENT_REVERSAL":
+                        logger.warning(f"🚨 发现反转新闻 (Sentiment Reversal 放行): {source_id} 与 Lead {sem_dup.get('lead_id')} 情绪完全向左！")
+                        raw_data['is_story_update'] = True
+                        raw_data['parent_lead_id'] = sem_dup.get('lead_id')
+                    elif sem_dup["status"] == "SUSPECTED":
+                        logger.info(f"⚖️ 发起疑似数据的后置 Delta 检测 ({source_id})")
+                        has_delta = await self._check_delta_gain(raw_data.get('content'), sem_dup.get("lead_summary"))
+                        if not has_delta:
+                            logger.info(f"🚫 无信息增量 (拦截): {source_id} -> 相似于 Lead {sem_dup.get('lead_id')}")
+                            await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"No Delta from {sem_dup.get('lead_id')}")
+                            return
+                        else:
+                            logger.info(f"🌟 发现重要增量 (放行): {source_id}")
+                            raw_data['is_story_update'] = True
+                            raw_data['parent_lead_id'] = sem_dup.get('lead_id')
+                            asyncio.create_task(self._refold_lead_summary(sem_dup.get('lead_id'), raw_data.get('content')))
+
+                    # 将最终的向量赋给分析结果
                     analysis_result['embedding'] = self.deduplicator.last_vector
+
+                    if self.deduplicator.last_vector is not None:
+                        await asyncio.to_thread(
+                            self.db.save_embedding_vec, source_id, self.deduplicator.last_vector
+                        )
+
                     await asyncio.to_thread(self.db.update_intelligence_analysis, source_id, analysis_result, raw_data)
                     await asyncio.to_thread(self.db.upsert_knowledge_graph, source_id, analysis_result)
                     await self._trigger_trade_and_dispatch(analysis_result, raw_data)

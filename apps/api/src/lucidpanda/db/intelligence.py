@@ -323,47 +323,65 @@ class IntelligenceRepo(DBBase):
 
     # ── pgvector 语义去重 ─────────────────────────────────────────────────
 
-    def is_semantic_duplicate(self, vector, threshold: float = 0.85) -> dict:
+    def is_semantic_duplicate(self, vector, entities: list = None, sentiment: float = None, threshold: float = 0.85) -> dict:
         """
-        查询 pgvector 判断语义重复 (HNSW 优化)。
-        返回dict: {status: 'NEW'|'DUP'|'SUSPECTED', sim: float, lead_id: int, lead_summary: str}
+        查询 pgvector 判断语义重复 (HNSW 优化)，支持实体约束和情绪反转校验。
+        返回dict: {status: 'NEW'|'DUP'|'SUSPECTED'|'SENTIMENT_REVERSAL', sim: float, lead_id: int, lead_summary: str}
         """
+        if vector is None:
+             return {"status": "NEW", "sim": 0.0}
         try:
             vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    # HNSW 召回最近的一条记录
-                    cursor.execute("""
-                        SELECT source_id, summary::text, 1 - (embedding_vec <=> %s::vector) AS sim
-                        FROM intelligence
-                        WHERE embedding_vec IS NOT NULL
-                          AND timestamp > NOW() - INTERVAL '48 hours'
-                        ORDER BY embedding_vec <=> %s::vector
-                        LIMIT 1
-                    """, (vec_list, vec_list))
+                    if entities:
+                        cursor.execute("""
+                            SELECT source_id, summary::text, sentiment_score, 1 - (embedding_vec <=> %s::vector) AS sim
+                            FROM intelligence
+                            WHERE embedding_vec IS NOT NULL
+                              AND timestamp > NOW() - INTERVAL '48 hours'
+                              AND (
+                                  EXISTS (
+                                      SELECT 1 FROM jsonb_array_elements(entities) AS elem
+                                      WHERE elem->>'canonical_id' = ANY(%s::text[])
+                                  )
+                              )
+                            ORDER BY embedding_vec <=> %s::vector
+                            LIMIT 1
+                        """, (vec_list, entities, vec_list))
+                    else:
+                         cursor.execute("""
+                             SELECT source_id, summary::text, sentiment_score, 1 - (embedding_vec <=> %s::vector) AS sim
+                             FROM intelligence
+                             WHERE embedding_vec IS NOT NULL
+                               AND timestamp > NOW() - INTERVAL '48 hours'
+                             ORDER BY embedding_vec <=> %s::vector
+                             LIMIT 1
+                         """, (vec_list, vec_list))
                     row = cursor.fetchone()
                     
                     if not row:
                         return {"status": "NEW", "sim": 0.0}
                     
                     sim = row['sim']
-                    # 确定性重复阈值 (e.g. 0.95)
-                    if sim > 0.95:
-                        return {"status": "DUP", "sim": sim, "lead_id": row['source_id']}
+                    lead_sentiment = row['sentiment_score']
                     
-                    # 疑似重复阈值 (待 Delta 判定)
-                    if sim > 0.65:
-                        return {
-                            "status": "SUSPECTED", 
-                            "sim": sim, 
-                            "lead_id": row['source_id'], 
-                            "lead_summary": row['summary']
-                        }
+                    if sim > threshold:
+                        # 检查是否有重大的情绪反转
+                        if sentiment is not None and lead_sentiment is not None:
+                            if abs(lead_sentiment - sentiment) > 0.5:
+                                return {"status": "SENTIMENT_REVERSAL", "sim": sim, "lead_id": row['source_id']}
+                        
+                        # 确定性重复阈值
+                        if sim > 0.95:
+                            return {"status": "DUP", "sim": sim, "lead_id": row['source_id']}
+                        else:
+                            return {"status": "SUSPECTED", "sim": sim, "lead_id": row['source_id'], "lead_summary": row['summary']}
                     
-            return {"status": "NEW", "sim": sim if 'sim' in locals() else 0.0}
+                    return {"status": "NEW", "sim": sim}
         except Exception as e:
-            logger.warning(f"⚠️ pgvector HNSW 语义查询失败: {e}")
-            return {"status": "ERROR", "error": str(e)}
+            logger.error(f"Semantic Duplicate Check Failed: {e}")
+            return {"status": "ERROR", "sim": 0.0}
 
     def save_embedding_vec(self, source_id: str, vector) -> None:
         """将 BERT 嵌入向量持久化到 intelligence 表的 embedding_vec 列。"""
@@ -981,40 +999,21 @@ class IntelligenceRepo(DBBase):
         except:
             return False
 
-    def is_duplicate(self, new_url, new_content, new_summary=None, vector=None) -> dict:
-        """
-        判断情报是否重复。
-        返回 dict: {is_duplicate: bool, status: 'DUP'|'SUSPECTED'|'NEW', lead_id: int, lead_summary: str}
-        """
+    def is_url_duplicate(self, new_url) -> dict:
+        """只依据 URL 进行短路直接排重"""
+        if not new_url:
+            return {"is_duplicate": False, "status": "NEW"}
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    # 1. URL 绝对重复校验
                     cursor.execute("SELECT id FROM intelligence WHERE url = %s LIMIT 1", (new_url,))
                     row = cursor.fetchone()
                     if row:
                         logger.info(f"🚫 URL {new_url} 已存在，跳过。")
                         return {"is_duplicate": True, "status": "DUP", "lead_id": row['id']}
-                    
-                    # 2. 向量语义重复校验 (HNSW)
-                    if vector is not None:
-                        result = self.is_semantic_duplicate(vector)
-                        if result["status"] == "DUP":
-                            logger.info(f"🚫 发现语义重复 (HNSW ID: {result.get('lead_id')}, 分数: {result.get('sim', 0):.2f})")
-                            return {"is_duplicate": True, "status": "DUP", "lead_id": result.get('lead_id')}
-                        
-                        if result["status"] == "SUSPECTED":
-                            logger.info(f"⚖️ 发现疑似重复 (HNSW ID: {result.get('lead_id')}, 分数: {result.get('sim', 0):.2f})，进入 Delta 判定。")
-                            return {
-                                "is_duplicate": False, 
-                                "status": "SUSPECTED", 
-                                "lead_id": result.get('lead_id'),
-                                "lead_summary": result.get('lead_summary')
-                            }
-            
             return {"is_duplicate": False, "status": "NEW"}
         except Exception as e:
-            logger.error(f"Duplicate Check 综合判定失败: {e}")
+            logger.error(f"URL 判重失败: {e}")
             return {"is_duplicate": False, "status": "ERROR"}
 
     # ── 事件聚类支持方法 ──────────────────────────────────────────────────

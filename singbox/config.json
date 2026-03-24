@@ -416,7 +416,8 @@
           "hexun.com",
           "caixin.com",
           "yicai.com",
-          "21jingji.com"
+          "21jingji.com",
+          "dashscope.aliyuncs.com"
         ],
         "outbound": "direct"
       },

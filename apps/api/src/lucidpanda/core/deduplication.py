@@ -86,24 +86,23 @@ class NewsDeduplicator:
                 return True
         return False
 
-    def is_duplicate(self, news_content, news_url=None) -> dict:
+    def is_early_duplicate(self, news_url) -> dict:
+        """轻量级初始查重，仅阻挡 URL。"""
+        if self.db and news_url:
+            return self.db.is_url_duplicate(news_url)
+        return {"is_duplicate": False, "status": "NEW"}
+
+    def is_semantic_duplicate(self, news_content, entities=None, sentiment=None) -> dict:
         """
-        综合判断函数。
-        返回 dict: {is_duplicate: bool, status: str, lead_id: int, lead_summary: str}
-        
-        注意：SimHash L1 粗筛已禁用。
-        原因：SimHash 在启动时加载历史记录，但无法跟踪对应 DB 记录是否仍存在，
-        导致命中已删除记录时返回 is_duplicate=True 但 lead_id=None（幽灵记录），
-        形成永久死锁。pgvector HNSW (L2) 已提供有 lead_id 追踪的语义去重，足以替代。
+        后置语义去重。
+        在 AI 处理完成后，通过 pgvector + 实体约束 + 情绪约束防抖。
         """
         clean_text = self.normalize(news_content)
         if not clean_text:
             return {"is_duplicate": False, "status": "NEW"}
 
-        # SimHash 仅用于历史追踪，不再作为拦截手段
         current_simhash = Simhash(clean_text)
 
-        # 语义精筛 (遵守全局开关)
         if not settings.ENABLE_SEMANTIC_DEDUPE:
             self.add_to_history(current_simhash, None)
             return {"is_duplicate": False, "status": "NEW"}
@@ -114,19 +113,23 @@ class NewsDeduplicator:
             self.last_vector = current_vector
 
             if self.db is not None:
-                # 调用 IntelligenceDB 的综合判定方法 (带 lead_id 追踪)
-                result = self.db.is_duplicate(news_url, news_content, vector=current_vector)
-                if result["is_duplicate"] or result["status"] == "SUSPECTED":
-                    return result
+                result = self.db.is_semantic_duplicate(current_vector, entities=entities, sentiment=sentiment)
+                if result["status"] == "DUP":
+                    return {"is_duplicate": True, "status": "DUP", "lead_id": result.get("lead_id")}
+                elif result["status"] in ["SUSPECTED", "SENTIMENT_REVERSAL"]:
+                    return {
+                        "is_duplicate": False, 
+                        "status": result["status"], 
+                        "lead_id": result.get("lead_id"),
+                        "lead_summary": result.get("lead_summary")
+                    }
             else:
-                # 无数据库模式下的回退逻辑
                 if self.semantic_duplicate(current_vector):
                     return {"is_duplicate": True, "status": "DUP_MEMORY"}
         except Exception as e:
             logger.warning(f"Semantic deduplication failed: {e}")
             self.last_vector = None
 
-        # 不是重复
         self.add_to_history(current_simhash, current_vector if self.db is None else None)
         return {"is_duplicate": False, "status": "NEW"}
 

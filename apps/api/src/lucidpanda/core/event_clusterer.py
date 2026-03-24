@@ -65,7 +65,7 @@ class EventClusterer:
         """
         self.db = db
 
-    def cluster(self, pending_items: list[dict]) -> tuple[list[dict], int]:
+    def cluster(self, pending_items: list[dict]) -> tuple[list[dict], list[dict]]:
         """
         对 PENDING 记录进行事件聚类。
 
@@ -75,9 +75,9 @@ class EventClusterer:
                            source_credibility_score (可为 None)
 
         Returns:
-            (lead_items, n_suppressed)
-            lead_items    — 需要进 AI 分析的记录（每事件仅 1 条）
-            n_suppressed  — 被压制的记录数
+            (lead_items, follower_items)
+            lead_items    — 需要进全量 AI 分析的记录（每事件仅 1 条）
+            follower_items — 注入了 parent_lead_id 的跟进报道，用于提取 Delta
         """
         if len(pending_items) < 2:
             return pending_items, 0
@@ -123,17 +123,26 @@ class EventClusterer:
             self.db.mark_clustered(group_members, cluster_id, lead_sid)
             suppressed_sids.update(follower_sids)
 
-        # Step 4: 过滤返回仅 lead 记录
+            # 为 follower 字典注入 parent_lead_id
+            for fsid in follower_sids:
+                if fsid in sid_to_item:
+                    sid_to_item[fsid]['parent_lead_id'] = lead_sid
+
+        # Step 4: 过滤返回仅 lead 记录和 follower 记录
         lead_items = [
             item for item in pending_items
             if (item.get('source_id') or item.get('id')) not in suppressed_sids
         ]
-        n_suppressed = len(suppressed_sids)
+        follower_items = [
+            item for item in pending_items
+            if (item.get('source_id') or item.get('id')) in suppressed_sids
+        ]
+        
         logger.info(
             f"✅ 事件聚类完成 | 本轮 {len(pending_items)} 条 → "
-            f"{len(lead_items)} lead + {n_suppressed} suppressed"
+            f"{len(lead_items)} lead + {len(follower_items)} followers (进入 Delta 检查)"
         )
-        return lead_items, n_suppressed
+        return lead_items, follower_items
 
     # ── 内部 ──────────────────────────────────────────────────────────────
 
