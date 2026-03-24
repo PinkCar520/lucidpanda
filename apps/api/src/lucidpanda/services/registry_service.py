@@ -56,6 +56,10 @@ class RegistryService:
         with self._lock:
             return self._taxonomy_cache.copy()
 
+    def find_closest_entity(self, vector, threshold: float = 0.90) -> Optional[str]:
+        """代理调用 repo 的向量匹配兜底"""
+        return self.repo.find_closest_entity(vector, threshold)
+
     def add_new_entity_async(self, canonical_id: str, display_name: str, entity_type: str, aliases: List[str] = None):
         """动态增加实体（并异步刷新缓存）"""
         self.repo.upsert_entity(canonical_id, display_name, entity_type)

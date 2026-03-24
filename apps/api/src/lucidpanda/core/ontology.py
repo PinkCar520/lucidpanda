@@ -1,6 +1,7 @@
 import re
 from typing import Dict, List, Any, Optional
 from src.lucidpanda.core.logger import logger
+from src.lucidpanda.services.embedding_service import embedding_service
 
 # ──────────────────────────────────────────────────────────────────────
 # 1. 多级标签体系 (Taxonomy)
@@ -144,7 +145,18 @@ class EntityResolver:
             if alias in clean_name:
                 return current_map[alias]
                 
-        # 3. 未匹配到
+        # 3. 向量化兜底匹配 (如果存在 registry_service)
+        if self.registry_service:
+            try:
+                vec = embedding_service.encode(clean_name)
+                canonical_id = self.registry_service.find_closest_entity(vec)
+                if canonical_id:
+                    logger.debug(f"🧲 向量兜底命中: [{clean_name}] -> {canonical_id}")
+                    return canonical_id
+            except Exception as e:
+                logger.warning(f"⚠️ 实体兜底向量化处理失败 [{clean_name}]: {e}")
+
+        # 4. 未匹配到
         return None
 
     def process_ai_entities(self, raw_entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

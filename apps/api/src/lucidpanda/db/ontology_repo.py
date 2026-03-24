@@ -92,3 +92,39 @@ class OntologyRepo(DBBase):
                     conn.commit()
         except Exception as e:
             logger.error(f"❌ Upsert Taxonomy Failed: {e}")
+
+    def find_closest_entity(self, vector, threshold: float = 0.90) -> Optional[str]:
+        """通过 embedding_vec 进行向量兜底查询"""
+        try:
+            vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT canonical_id, 1 - (embedding_vec <=> %s::vector) AS sim
+                        FROM entity_registry
+                        WHERE embedding_vec IS NOT NULL
+                        ORDER BY embedding_vec <=> %s::vector
+                        LIMIT 1;
+                    """, (vec_list, vec_list))
+                    row = cursor.fetchone()
+                    if row and row['sim'] >= threshold:
+                        return row['canonical_id']
+                    return None
+        except Exception as e:
+            logger.warning(f"⚠️ 向量匹配实体兜底失败: {e}")
+            return None
+
+    def update_entity_vector(self, canonical_id: str, vector) -> None:
+        """更新实体的向量"""
+        try:
+            vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE entity_registry
+                        SET embedding_vec = %s::vector
+                        WHERE canonical_id = %s;
+                    """, (vec_list, canonical_id))
+                    conn.commit()
+        except Exception as e:
+            logger.warning(f"⚠️ 更新实体向量失败 [{canonical_id}]: {e}")

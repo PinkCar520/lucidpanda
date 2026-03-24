@@ -24,6 +24,11 @@ from src.lucidpanda.core.deduplication import NewsDeduplicator
 from src.lucidpanda.core.event_clusterer import EventClusterer
 from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
 
+# Prompt 模块（版本化管理，不再内嵌于代码）
+from src.lucidpanda.prompts.analysis_v1 import build_agent_plan_prompt, build_agent_final_prompt
+from src.lucidpanda.prompts.delta_check_v1 import build_delta_check_prompt
+from src.lucidpanda.prompts.refold_v1 import build_refold_prompt
+
 
 class LLMFactory:
     """LLM 工厂类，根据提供商名称创建对应的 LLM 实例"""
@@ -215,10 +220,18 @@ class AlphaEngine:
                 )
                 
                 # 情况 A: 确定性重复 (L1 直接拦截)
+                # 注意：如果 lead_id 为 None，说明 SimHash 命中的是已删除的幽灵记录，
+                # 不应拦截，降级为 SUSPECTED 继续走 L2 Delta 判定。
                 if dup_result["is_duplicate"]:
-                    logger.info(f"🚫 确定性重复 (L1 拦截): {source_id} -> Lead ID: {dup_result.get('lead_id')}")
-                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"Duplicate of {dup_result.get('lead_id')}")
-                    return
+                    lead_id_a = dup_result.get('lead_id')
+                    logger.info(f"🚫 确定性重复 (L1 拦截): {source_id} -> Lead ID: {lead_id_a}")
+                    if lead_id_a is not None:
+                        await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"Duplicate of {lead_id_a}")
+                        return
+                    else:
+                        logger.info(f"⚠️ L1 命中幽灵记录 (lead_id=None)，降级到 L2 Delta 判定: {source_id}")
+                        dup_result["is_duplicate"] = False
+                        dup_result["status"] = "SUSPECTED"
 
                 # 情况 B: 疑似重复 (L2 Delta 判定)
                 if dup_result["status"] == "SUSPECTED":
@@ -278,7 +291,7 @@ class AlphaEngine:
                         raw_ai_entities = [e.get('name') for e in analysis_result["entities"] if e.get('name')]
                         logger.debug(f"🤖 Raw AI Entities: {raw_ai_entities}")
                         
-                        analysis_result["entities"] = self.entity_resolver.process_ai_entities(analysis_result["entities"])
+                        analysis_result["entities"] = await asyncio.to_thread(self.entity_resolver.process_ai_entities, analysis_result["entities"])
                         
                         # 日志：展示解析后的实体
                         resolved_cids = [e.get('canonical_id') for e in analysis_result["entities"] if e.get('canonical_id')]
@@ -286,6 +299,11 @@ class AlphaEngine:
                             logger.info(f"🧠 Resolved Entities: {resolved_cids}")
                         else:
                             logger.warning(f"⚠️ No entities resolved to canonical IDs for {source_id}")
+
+                        # 新增：记录未匹配上的实体
+                        missed_entities = [e.get("name") for e in analysis_result["entities"] if not e.get("canonical_id") and e.get("name")]
+                        if missed_entities:
+                            await asyncio.to_thread(self.db.log_entity_miss_batch, source_id, missed_entities)
 
                         # 4.2 触发舆情因子聚合 (Factor Indexing)
                         sentiment_score = analysis_result.get("sentiment_score", 0.0)
@@ -476,39 +494,9 @@ class AlphaEngine:
         return await asyncio.gather(*tasks) if tasks else []
 
     def _build_agent_plan_prompt(self, raw_data: Dict[str, Any]) -> str:
-        tool_list = json.dumps(self.tool_summaries, ensure_ascii=False)
-        content = raw_data.get("content", "")
-        context = raw_data.get("context", "无")
-        return f"""
-你是 LucidPanda 的研究型 Agent。你可以使用工具来核验宏观数据。
-请先制定是否需要调用工具，并给出调用计划（不需要思维链）。
-
-工具清单（JSON）:
-{tool_list}
-
-输入信息：
-- 来源: {raw_data.get('source')}
-- 作者: {raw_data.get('author')}
-- 内容: {content[:1200]}
-- 市场背景: {context}
-
-输出要求：仅输出 JSON，不要包含 Markdown。
-JSON 结构：
-{{
-  "use_tools": true/false,
-  "plan_summary": "一句话说明是否需要工具与原因",
-  "tool_calls": [
-    {{
-      "name": "tool_name",
-      "args": {{"param": "value"}},
-      "purpose": "一句话说明用途"
-    }}
-  ]
-}}
-约束：
-1) 不需要工具时，tool_calls 必须为 []。
-2) tool_calls 最多 {getattr(settings, "AGENT_TOOL_MAX_CALLS", 3)} 个。
-"""
+        """委托 prompts/analysis_v1.py 构建 Agent 规划 Prompt。"""
+        max_calls = max(1, int(getattr(settings, "AGENT_TOOL_MAX_CALLS", 3)))
+        return build_agent_plan_prompt(raw_data, self.tool_summaries, max_tool_calls=max_calls)
 
     def _build_agent_final_prompt(
         self,
@@ -517,79 +505,8 @@ JSON 结构：
         plan_response: Optional[Dict[str, Any]],
         taxonomy: Optional[dict] = None
     ) -> str:
-        content = raw_data.get("content", "")
-        context = raw_data.get("context", "无")
-        tools_json = json.dumps(tool_results, ensure_ascii=False)
-        plan_summary = ""
-        if isinstance(plan_response, dict):
-            plan_summary = plan_response.get("plan_summary") or ""
-            
-        # 注入 Taxonomy
-        if not taxonomy:
-            from src.lucidpanda.core.ontology import TAXONOMY
-            taxonomy = TAXONOMY
-            
-        taxonomy_info = f"多维分类标签 Taxonomy 参考 (仅可选以下值):\n{json.dumps(taxonomy, ensure_ascii=False, indent=2)}"
-        return f"""
-你是一个华尔街顶级宏观策略分析师。请结合工具结果给出最终分析。
-分析目标：识别该事件对【黄金 (Gold/XAU)】及相关市场的影响。
-
-输入信息：
-- 来源: {raw_data.get('source')}
-- 作者: {raw_data.get('author')}
-- 内容: {content[:1200]}
-- 市场背景: {context}
-- 工具调用摘要: {plan_summary}
-- 工具结果(JSON): {tools_json}
-
-输出格式要求：请必须输出标准的 JSON 格式，不要包含 Markdown 代码块标记。
-JSON 结构定义：
-{{
-    "summary": {{
-        "zh": "50字以内的中文简练摘要，突出核心事实。",
-        "en": "Concise summary in English within 40 words."
-    }},
-    "sentiment": {{
-        "zh": "情绪标签（鹰派/鸽派/避险/中性/利好/利空）",
-        "en": "Sentiment Label (Hawkish/Dovish/Risk-off/Neutral/Bullish/Bearish)"
-    }},
-    "sentiment_score": -1.0 to 1.0,
-    "urgency_score": 1-10,
-    "market_implication": {{
-        "zh": "结合当前背景（美元、波动、持仓、宏观）的中文深评，重点放在黄金、美元、美债。",
-        "en": "Deep analysis of market impact in English."
-    }},
-    "actionable_advice": {{
-        "zh": "针对黄金交易员的具体中文操作建议。注意：对反向波动需有风险规避方案。",
-        "en": "Specific actionable advice for Gold traders in English."
-    }},
-    "entities": [
-        {{
-            "name": "实体名称",
-            "type": "person/organization/policy/country/commodity/other",
-            "impact": "bullish/bearish/neutral"
-        }}
-    ],
-    "relations": [
-        {{
-            "from": "主体实体名",
-            "to": "客体实体名",
-            "relation": "关系类型（必须从枚举中选择）",
-            "direction": "forward/bidirectional",
-            "strength": 0.0 to 1.0
-        }}
-    ]
-}}
-{taxonomy_info}
-
-relations.relation 合法枚举（仅可选以下值）：
-- 利多黄金：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down
-- 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
-
-强约束：
-1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金或其驱动因子，必须至少输出 1 条 relations。
-2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
-"""
+        """委托 prompts/analysis_v1.py 构建 Agent 最终分析 Prompt（含实体提取铁律）。"""
+        return build_agent_final_prompt(raw_data, tool_results, plan_response, taxonomy=taxonomy)
 
     async def _trigger_trade_and_dispatch(self, analysis_result, raw_data):
         sentiment_score = analysis_result.get('sentiment_score', 0)

@@ -90,17 +90,20 @@ class NewsDeduplicator:
         """
         综合判断函数。
         返回 dict: {is_duplicate: bool, status: str, lead_id: int, lead_summary: str}
+        
+        注意：SimHash L1 粗筛已禁用。
+        原因：SimHash 在启动时加载历史记录，但无法跟踪对应 DB 记录是否仍存在，
+        导致命中已删除记录时返回 is_duplicate=True 但 lead_id=None（幽灵记录），
+        形成永久死锁。pgvector HNSW (L2) 已提供有 lead_id 追踪的语义去重，足以替代。
         """
         clean_text = self.normalize(news_content)
         if not clean_text:
             return {"is_duplicate": False, "status": "NEW"}
 
-        # 1. SimHash 粗筛 (内存)
+        # SimHash 仅用于历史追踪，不再作为拦截手段
         current_simhash = Simhash(clean_text)
-        if self.rough_duplicate(current_simhash):
-            return {"is_duplicate": True, "status": "DUP_SIMHASH"}
 
-        # 2. 语义精筛 (遵守全局开关)
+        # 语义精筛 (遵守全局开关)
         if not settings.ENABLE_SEMANTIC_DEDUPE:
             self.add_to_history(current_simhash, None)
             return {"is_duplicate": False, "status": "NEW"}
@@ -111,7 +114,7 @@ class NewsDeduplicator:
             self.last_vector = current_vector
 
             if self.db is not None:
-                # 调用 IntelligenceDB 的综合判定方法
+                # 调用 IntelligenceDB 的综合判定方法 (带 lead_id 追踪)
                 result = self.db.is_duplicate(news_url, news_content, vector=current_vector)
                 if result["is_duplicate"] or result["status"] == "SUSPECTED":
                     return result
@@ -123,7 +126,7 @@ class NewsDeduplicator:
             logger.warning(f"Semantic deduplication failed: {e}")
             self.last_vector = None
 
-        # 3. 不是重复
+        # 不是重复
         self.add_to_history(current_simhash, current_vector if self.db is None else None)
         return {"is_duplicate": False, "status": "NEW"}
 

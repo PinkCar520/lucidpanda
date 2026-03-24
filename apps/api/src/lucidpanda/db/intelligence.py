@@ -1096,6 +1096,47 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"mark_clustered 失败: {e}")
 
+    # ── 实体未命中监控 (Entity Miss Logging) ──────────────────────────────
+    
+    def log_entity_miss_batch(self, source_id: str, missing_names: list) -> None:
+        """记录实体提取中未对齐（查无此人）的名称，用于后续人工审核补全"""
+        if not missing_names:
+            return
+            
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    for name in missing_names:
+                        cursor.execute("""
+                            INSERT INTO entity_miss_log (raw_entity_name, last_source_id)
+                            VALUES (%s, %s)
+                            ON CONFLICT (raw_entity_name) DO UPDATE 
+                            SET occurrence_count = entity_miss_log.occurrence_count + 1,
+                                last_seen = NOW(),
+                                last_source_id = EXCLUDED.last_source_id
+                        """, (name, source_id))
+                    conn.commit()
+            logger.info(f"📝 已记录 {len(missing_names)} 个未识别实体至待审核库: {missing_names}")
+        except Exception as e:
+            logger.warning(f"⚠️ 记录 missing entities 失败: {e}")
+
+    def get_frequent_missed_entities(self, days: int = 1, min_count: int = 3) -> list:
+        """查询这段时间内高频出现的未知实体"""
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT raw_entity_name, occurrence_count, last_seen, last_source_id
+                        FROM entity_miss_log
+                        WHERE last_seen >= (NOW() - INTERVAL '%s days')
+                          AND occurrence_count >= %s
+                        ORDER BY occurrence_count DESC
+                    """, (days, min_count))
+                    return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"❌ Failed to fetch frequent missed entities: {e}")
+            return []
+
     # ── 事件知识图谱 ──────────────────────────────────────────────────────
 
     def _upsert_entity_node(self, cursor, entity_name: str, entity_type: str = "unknown") -> int | None:
