@@ -16,6 +16,7 @@ build/
 .env.local
 .env.*.local
 *.env
+*.env.ai
 
 # Database files (Contains user data)
 *.db
