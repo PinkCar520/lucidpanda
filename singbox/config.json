@@ -94,7 +94,7 @@
         "sg-02"
       ],
       "url": "https://www.gstatic.com/generate_204",
-      "interval": "5m",
+      "interval": "1m",
       "tolerance": 50
     },
     {
@@ -107,7 +107,7 @@
         "us-04"
       ],
       "url": "https://www.gstatic.com/generate_204",
-      "interval": "5m",
+      "interval": "1m",
       "tolerance": 50
     },
     {
@@ -126,7 +126,7 @@
         "hk-08"
       ],
       "url": "https://www.gstatic.com/generate_204",
-      "interval": "5m",
+      "interval": "1m",
       "tolerance": 50
     },
     {

@@ -169,9 +169,22 @@ class RSSHubSource(BaseDataSource):
         host = urlparse(url).hostname or ""
         active_client = ssl_client if "reuters" in host else client
 
+        from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+        async def _do_request():
+            @retry(
+                stop=stop_after_attempt(3),
+                wait=wait_exponential(multiplier=1, min=2, max=10),
+                retry=retry_if_exception_type((httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout)),
+                reraise=True
+            )
+            async def _inner_get():
+                return await active_client.get(url, timeout=15.0)
+            return await _inner_get()
+
         async with self._semaphore:
             try:
-                resp = await active_client.get(url, timeout=15.0)
+                resp = await _do_request()
                 if resp.status_code != 200:
                     status["status"] = "failed"
                     status["reason"] = f"HTTP {resp.status_code}"

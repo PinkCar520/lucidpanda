@@ -47,3 +47,4 @@ statsmodels
 taskiq
 taskiq-redis
 taskiq-fastapi
+tenacity
