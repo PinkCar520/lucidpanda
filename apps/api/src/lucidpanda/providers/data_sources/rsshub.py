@@ -14,61 +14,47 @@ import httpx
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.data_sources.base import BaseDataSource
 
-# 正确修复：给 feedparser 提供时区映射，解决 EST/EDT 等美国时区无法识别的 UnknownTimezoneWarning
-# dateutil 在解析 RSS 时间戳时会用到此映射（单位: UTC 秒偏移量）
-_TZINFOS = {
-    "EST": -5 * 3600,
-    "EDT": -4 * 3600,
-    "CST": -6 * 3600,
-    "CDT": -5 * 3600,
-    "MST": -7 * 3600,
-    "MDT": -6 * 3600,
-    "PST": -8 * 3600,
-    "PDT": -7 * 3600,
-}
-
-
 # ──────────────────────────────────────────────────────────────────────
 # 1. 黄金宏观信源 (Category: macro_gold)
 # ──────────────────────────────────────────────────────────────────────
 MACRO_GOLD_FEEDS = [
-    ("Trump Truth Social",     "https://www.trumpstruth.org/feed"),
-    ("WhiteHouse Exec Orders", "https://www.whitehouse.gov/presidential-actions/feed/"),
-    ("Politico Politics",      "https://rss.politico.com/politics-news.xml"),
-    ("Bloomberg Economics",    "https://feeds.bloomberg.com/economics/news.rss"),
-    ("Fed Speeches",           "https://www.federalreserve.gov/feeds/speeches.xml"),
-    ("Fed Press Releases",     "https://www.federalreserve.gov/feeds/press_all.xml"),
-    ("WSJ Economy",            "https://feeds.content.dowjones.io/public/rss/socialeconomyfeed"),
-    ("CFTC Press Releases",    "http://rsshub:1200/cftc/pressreleases"),
+    ("Trump Truth Social",     "https://www.trumpstruth.org/feed", "US/Eastern"),
+    ("WhiteHouse Exec Orders", "https://www.whitehouse.gov/presidential-actions/feed/", "US/Eastern"),
+    ("Politico Politics",      "https://rss.politico.com/politics-news.xml", "US/Eastern"),
+    ("Bloomberg Economics",    "https://feeds.bloomberg.com/economics/news.rss", "US/Eastern"),
+    ("Fed Speeches",           "https://www.federalreserve.gov/feeds/speeches.xml", "US/Eastern"),
+    ("Fed Press Releases",     "https://www.federalreserve.gov/feeds/press_all.xml", "US/Eastern"),
+    ("WSJ Economy",            "https://feeds.content.dowjones.io/public/rss/socialeconomyfeed", "US/Eastern"),
+    ("CFTC Press Releases",    "http://rsshub:1200/cftc/pressreleases", "US/Eastern"),
 ]
 
 # ──────────────────────────────────────────────────────────────────────
 # 2. A股政策与快讯 (Category: equity_cn)
 # ──────────────────────────────────────────────────────────────────────
 EQUITY_CN_FEEDS = [
-    ("华尔街见闻-A股",         "http://rsshub:1200/wallstreetcn/news/a-stock"),
+    ("华尔街见闻-A股",         "http://rsshub:1200/wallstreetcn/news/a-stock", "Asia/Shanghai"),
 ]
 
 # ──────────────────────────────────────────────────────────────────────
 # 3. 美股权益与行业 (Category: equity_us)
 # ──────────────────────────────────────────────────────────────────────
 EQUITY_US_FEEDS = [
-    ("CNBC Technology",        "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910"),
-    ("Bloomberg Markets",      "https://feeds.bloomberg.com/markets/news.rss"),
-    ("WSJ Markets",            "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain"),
-    ("MarketWatch-Top",        "https://feeds.content.dowjones.io/public/rss/mw_topstories"),
-    ("Yahoo Finance-News",      "https://finance.yahoo.com/news/rssindex"),
-    ("Reuters-Business",       "http://rsshub:1200/reuters/business"),
+    ("CNBC Technology",        "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910", "US/Eastern"),
+    ("Bloomberg Markets",      "https://feeds.bloomberg.com/markets/news.rss", "US/Eastern"),
+    ("WSJ Markets",            "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain", "US/Eastern"),
+    ("MarketWatch-Top",        "https://feeds.content.dowjones.io/public/rss/mw_topstories", "US/Eastern"),
+    ("Yahoo Finance-News",      "https://finance.yahoo.com/news/rssindex", "US/Eastern"),
+    ("Reuters-Business",       "http://rsshub:1200/reuters/business", "Europe/London"),
 ]
 
 # 汇总所有信源并标记分类
 TIER1_FEEDS_CONFIG = []
-for name, url in MACRO_GOLD_FEEDS:
-    TIER1_FEEDS_CONFIG.append({"name": name, "url": url, "category": "macro_gold"})
-for name, url in EQUITY_CN_FEEDS:
-    TIER1_FEEDS_CONFIG.append({"name": name, "url": url, "category": "equity_cn"})
-for name, url in EQUITY_US_FEEDS:
-    TIER1_FEEDS_CONFIG.append({"name": name, "url": url, "category": "equity_us"})
+for name, url, tz in MACRO_GOLD_FEEDS:
+    TIER1_FEEDS_CONFIG.append({"name": name, "url": url, "category": "macro_gold", "timezone": tz})
+for name, url, tz in EQUITY_CN_FEEDS:
+    TIER1_FEEDS_CONFIG.append({"name": name, "url": url, "category": "equity_cn", "timezone": tz})
+for name, url, tz in EQUITY_US_FEEDS:
+    TIER1_FEEDS_CONFIG.append({"name": name, "url": url, "category": "equity_us", "timezone": tz})
 
 
 # ──────────────────────────────────────────────
@@ -134,23 +120,28 @@ class RSSHubSource(BaseDataSource):
             return any(kw in text for kw in _US_EQUITY_KEYWORDS)
         return False
 
-    def _normalize_rss_time(self, entry) -> str:
+    def _normalize_rss_time(self, entry, tz_context: str) -> str:
         """
-        [最现代化的边缘归一化实践] (Edge Normalization)
-        将无论带有多么脏的原始时间缩写或格式，统统强制洗为绝对的 UTC ISO-8601 标准字符串。
-        如果原始资讯不带时间或解析发生严重错误，启用 Fallback 回退机制：使用抓取时的系统时间。
+        [最现代化的边缘归一化实践] (Edge Normalization) + Context-Aware TZ
+        使用 dateparser 智能时间解析库，根据信源的主场时区，将任意混乱的时间字符串解析为绝对 UTC 时间。
         """
-        try:
-            # feedparser.parse 已经帮我们在内部把含 EST 的原始字符串成功解为了 UTC 的 struct_time
-            if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                # calendar.timegm 严禁用本地环境时区，强制把已有的 UTC struct_time 转为跨系统的绝对时间戳
-                ts = calendar.timegm(entry.published_parsed)
-                dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-                return dt.strftime("%Y-%m-%dT%H:%M:%SZ") # 输出类似 "2026-03-24T15:00:00Z"
-        except Exception:
-            pass
+        pub_str = getattr(entry, "published", None) or getattr(entry, "updated", None)
+        if pub_str:
+            try:
+                import dateparser
+                dt = dateparser.parse(
+                    pub_str, 
+                    settings={
+                        'TIMEZONE': tz_context, 
+                        'RETURN_AS_TIMEZONE_AWARE': True
+                    }
+                )
+                if dt:
+                    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:
+                pass
         
-        # Fallback：解析失败或原始无时间，兜底使用当前数据摄取的绝对 UTC 时间
+        # Fallback：解析失败或无时间，兜底使用当前数据摄取的绝对 UTC 时间
         return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     async def _fetch_feed_async(
@@ -186,8 +177,7 @@ class RSSHubSource(BaseDataSource):
                     status["reason"] = f"HTTP {resp.status_code}"
                     return [], status
                 
-                # 传入 tzinfos 参数，从根源修复 EST 等美国时区无法识别的问题
-                feed = feedparser.parse(resp.content, tzinfos=_TZINFOS)
+                feed = feedparser.parse(resp.content)
                 if not feed.entries:
                     status["status"] = "ok_empty"
                     status["reason"] = "feed 无条目"
@@ -221,7 +211,7 @@ class RSSHubSource(BaseDataSource):
                         "source": name,
                         "author": name,
                         "category": category,
-                        "timestamp": self._normalize_rss_time(entry), # <--- 边缘归一化！
+                        "timestamp": self._normalize_rss_time(entry, config.get("timezone", "UTC")), # <--- Context-Aware 归一化
                         "content": f"{title}. {summary}",
                         "url": getattr(entry, "link", url),
                         "id": item_id,
