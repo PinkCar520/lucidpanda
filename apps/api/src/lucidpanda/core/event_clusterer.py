@@ -145,6 +145,45 @@ class EventClusterer:
         )
         return lead_items, follower_items
 
+    async def rebuild_story_threading_history_async(self, limit: int = 5000):
+        """
+        [运维/迁移工具] 为历史数据补全 story_id 和 is_story_lead。
+        针对已经 COMPLETED 但 story_id 为空的存量记录，进行回溯式聚类。
+        """
+        import uuid
+        import asyncio
+        logger.info(f"⏳ 开始执行历史故事线回填，目标限额：{limit}...")
+        
+        # 1. 查找缺失 story_id 的存量记录
+        query = """
+            SELECT source_id, content, timestamp, source_credibility_score 
+            FROM intelligence 
+            WHERE status = 'COMPLETED' AND story_id IS NULL 
+            ORDER BY timestamp DESC LIMIT %s
+        """
+        records = await asyncio.to_thread(self.db.query, query, (limit,))
+        
+        if not records:
+            logger.info("✅ 没有发现缺失故事线的历史记录，跳过回填。")
+            return
+            
+        logger.info(f"📚 发现 {len(records)} 条待处理历史记录，正在进行追溯性聚类分析...")
+        
+        # 2. 调用标准聚类逻辑
+        lead_items, follower_items = self.cluster(records)
+        
+        # 3. 为 Lead 记录打上标记
+        for lead in lead_items:
+            sid = lead.get('source_id') or lead.get('id')
+            # 使用 SID 派生确定性的 Story ID (或随机，此处为了回溯一致性使用随机 UUID4)
+            story_id = str(uuid.uuid4())
+            await asyncio.to_thread(self.db.execute, 
+                "UPDATE intelligence SET story_id = %s, is_story_lead = TRUE WHERE source_id = %s",
+                (story_id, sid)
+            )
+            
+        logger.info(f"✨ 历史回填完成 | 本轮处理: {len(records)} | 形成故事主线: {len(lead_items)}")
+
     # ── 内部 ──────────────────────────────────────────────────────────────
 
     def _pick_lead(self, member_sids: list[str], sid_to_item: dict) -> str:
