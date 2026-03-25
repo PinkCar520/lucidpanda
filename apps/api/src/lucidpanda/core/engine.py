@@ -334,6 +334,13 @@ class AlphaEngine:
                         logger.warning(f"🚨 发现反转新闻 (Sentiment Reversal 放行): {source_id} 与 Lead {sem_dup.get('lead_id')} 情绪完全向左！")
                         raw_data['is_story_update'] = True
                         raw_data['parent_lead_id'] = sem_dup.get('lead_id')
+                        lead_sid = sem_dup.get('lead_id')
+                        if lead_sid:
+                            # Attach story metadata for cross-round traceability.
+                            raw_data['story_id'] = await asyncio.to_thread(
+                                self.db.get_story_id_by_source_id, lead_sid
+                            )
+                            raw_data['is_story_lead'] = False
                     elif sem_dup["status"] == "SUSPECTED":
                         logger.info(f"⚖️ 发起疑似数据的后置 Delta 检测 ({source_id})")
                         has_delta = await self._check_delta_gain(raw_data.get('content'), sem_dup.get("lead_summary"))
@@ -345,7 +352,24 @@ class AlphaEngine:
                             logger.info(f"🌟 发现重要增量 (放行): {source_id}")
                             raw_data['is_story_update'] = True
                             raw_data['parent_lead_id'] = sem_dup.get('lead_id')
-                            asyncio.create_task(self.follower_processor._refold_lead_summary(sem_dup.get('lead_id'), raw_data.get('content')))
+                            lead_sid = sem_dup.get('lead_id')
+                            parent_story_id = None
+                            if lead_sid:
+                                parent_story_id = await asyncio.to_thread(
+                                    self.db.get_story_id_by_source_id, lead_sid
+                                )
+                            raw_data['story_id'] = parent_story_id
+                            raw_data['is_story_lead'] = False
+                            if lead_sid:
+                                asyncio.create_task(
+                                    self.follower_processor._refold_lead_summary(
+                                        lead_sid,
+                                        raw_data.get('content'),
+                                        story_id=parent_story_id,
+                                    )
+                                )
+                            else:
+                                logger.warning(f"⚠️ SUSPECTED delta but missing lead_id for {source_id}")
 
                     # 将最终的向量赋给分析结果
                     analysis_result['embedding'] = self.deduplicator.last_vector

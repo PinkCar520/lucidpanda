@@ -19,6 +19,7 @@ class FollowerProcessor:
         """处理聚类中的 Follower 数据，执行 Delta Check 和 Refold。"""
         source_id = raw_data.get('source_id') or raw_data.get('id')
         lead_id = raw_data.get('parent_lead_id')
+        story_id = raw_data.get('parent_story_id')
         
         if not lead_id:
             logger.warning(f"⚠️ Follower {source_id} missing parent_lead_id.")
@@ -48,7 +49,7 @@ class FollowerProcessor:
                     await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'CLUSTERED', f"No Delta from Lead {lead_id}")
                 else:
                     logger.info(f"🌟 发现重要增量 (Follower): {source_id}")
-                    await self._refold_lead_summary(lead_id, raw_data.get('content'))
+                    await self._refold_lead_summary(lead_id, raw_data.get('content'), story_id=story_id)
                     await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"Delta Refolded to {lead_id}")
             except Exception as e:
                 logger.error(f"处理 Follower 条目失败 {source_id}: {e}")
@@ -70,9 +71,11 @@ class FollowerProcessor:
             logger.warning(f"Delta Analysis failed, defaulting to True (Safety first): {e}")
             return True
 
-    async def _refold_lead_summary(self, lead_id: str, new_content: str):
+    async def _refold_lead_summary(self, lead_id: str, new_content: str, story_id: Optional[str] = None):
         """故事线演化：将新发现的增量事实融合进主事件（Lead）的摘要中。"""
         try:
+            if story_id:
+                logger.info(f"🔁 Refold Lead {lead_id} under story_id={story_id}")
             lead_analysis = await asyncio.to_thread(self.db.get_intelligence_analysis, lead_id)
             if not lead_analysis:
                 logger.warning(f"Refold aborted: Lead {lead_id} analysis not found.")

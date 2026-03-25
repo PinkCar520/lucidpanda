@@ -200,6 +200,9 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS entities JSONB;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS relation_triples JSONB;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS is_cluster_lead BOOLEAN DEFAULT TRUE;",
+                # Story Threading 字段：跨轮次追踪同一事件的演进链
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS story_id TEXT;",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS is_story_lead BOOLEAN DEFAULT FALSE;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS category TEXT;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS tags JSONB;",
             ]:
@@ -208,6 +211,7 @@ class DBBase:
 
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_status ON intelligence(status);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_event_cluster ON intelligence(event_cluster_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_story_id ON intelligence(story_id);")
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intel_embedding_hnsw
                 ON intelligence USING hnsw (embedding_vec vector_cosine_ops)

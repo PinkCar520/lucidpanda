@@ -48,12 +48,12 @@ class EmailDataSource(BaseDataSource):
             logger.warning("⚠️ IMAP 配置不完整，跳过采集。")
             return items
 
+        mail = None
         try:
             # 1. 建立 SSL 连接
             mail = imaplib.IMAP4_SSL(self.server, self.port)
             
             # 2. 【关键】网易 163 要求 ID 指令声明身份
-            # 尝试在登录前和登录后都发送一次，使用最简约的 ios 声明
             try:
                 mail.xatom('ID', '("name" "ios")')
             except:
@@ -62,7 +62,7 @@ class EmailDataSource(BaseDataSource):
             # 3. 登录
             mail.login(self.user, self.password)
             
-            # 登录后再发一次 ID 指令（部分 163 账户要求在登录后确认）
+            # 登录后再发一次 ID 指令
             try:
                 mail.xatom('ID', '("name" "ios")')
             except:
@@ -71,41 +71,32 @@ class EmailDataSource(BaseDataSource):
             # --- 诊断：列出该账户所有可用的文件夹 ---
             try:
                 _, folders = mail.list()
-                # 提取带双引号的真实名称
                 logger.info(f"📁 您的 163 邮箱可用文件夹: {[f.decode() for f in folders]}")
             except:
                 pass
 
             # 4. 扫描文件夹
-            # 网易会将通稿分发至：INBOX (收件箱)、&dcVr0mWHTvZZOQ- (订阅邮件)、&V4NXPpCuTvY- (垃圾箱)
             target_folders = ["INBOX", "&dcVr0mWHTvZZOQ-", "&V4NXPpCuTvY-"]
             
             for folder in target_folders:
                 try:
-                    # 尝试进入文件夹
                     status, _ = mail.select(folder)
                     if status != 'OK':
-                        # 如果失败，尝试带引号进入
                         status, _ = mail.select(f'"{folder}"')
                     
                     if status != 'OK':
                         logger.info(f"ℹ️ 无法选择文件夹 {folder}: {status}")
                         continue
                     
-                    # 搜索总数与未读
-                    _, all_msg = mail.search(None, 'ALL')
                     _, unseen_msg = mail.search(None, 'UNSEEN')
-                    
-                    total = len(all_msg[0].split()) if all_msg[0] else 0
-                    unseen = len(unseen_msg[0].split()) if unseen_msg[0] else 0
-                    
-                    logger.info(f"📂 正在检查文件夹 [{folder}]: 总数={total}, 未读={unseen}")
-
-                    if unseen == 0:
+                    if not unseen_msg[0]:
+                        logger.info(f"📂 正在检查文件夹 [{folder}]: 未读=0")
                         continue
+                    
+                    unseen_ids = unseen_msg[0].split()
+                    logger.info(f"📂 正在检查文件夹 [{folder}]: 未读={len(unseen_ids)}")
 
-                    for num in unseen_msg[0].split():
-                        # 抓取邮件
+                    for num in unseen_ids:
                         res, msg_data = mail.fetch(num, '(RFC822)')
                         if res != 'OK':
                             continue
@@ -113,39 +104,25 @@ class EmailDataSource(BaseDataSource):
                         raw_content = msg_data[0][1]
                         msg = email.message_from_bytes(raw_content)
                         
-                        # 解析元数据
                         sender_raw = self._decode_str(msg.get("From", ""))
                         subject = self._decode_str(msg.get("Subject", ""))
                         
-                        # 规范化发件人地址
                         sender_addr = ""
                         if "<" in sender_raw:
                             sender_addr = sender_raw.split("<")[-1].split(">")[0].lower()
                         else:
                             sender_addr = sender_raw.strip().lower()
 
-                        logger.info(f"🔎 正在检查邮件: 发件人={sender_addr}, 标题={subject}")
-
-                        # 来源匹配逻辑 (后缀匹配以支持子域名)
                         source_label = None
                         is_verified = False
-                        
                         for domain, label in self.OFFICIAL_DOMAINS.items():
                             if sender_addr.endswith(f"@{domain}") or sender_addr.endswith(f".{domain}"):
                                 source_label = label
                                 is_verified = True
                                 break
                         
-                        # 测试绕过
-                        test_sender = os.getenv("IMAP_TEST_SENDER", "").lower()
-                        if not is_verified and test_sender and test_sender in sender_addr:
-                            source_label = "Test Source (Bypass)"
-                            is_verified = True
+                        if not is_verified: continue
 
-                        if not is_verified:
-                            continue
-
-                        # 提取正文
                         content_body = ""
                         if msg.is_multipart():
                             for part in msg.walk():
@@ -159,10 +136,8 @@ class EmailDataSource(BaseDataSource):
                             charset = msg.get_content_charset() or 'utf-8'
                             content_body = payload.decode(charset, errors='ignore')
 
-                        # 构建条目
                         ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                         msg_id = msg.get("Message-ID", f"manual_{num.decode()}")
-                        
                         items.append({
                             "source": source_label,
                             "author": sender_raw,
@@ -173,18 +148,21 @@ class EmailDataSource(BaseDataSource):
                             "id": f"email_{msg_id.strip('<>')}"
                         })
 
-                        # 标记已读
                         mail.store(num, '+FLAGS', '\\Seen')
                         logger.info(f"✅ 成功摄入官方情报: {subject}")
 
                 except Exception as folder_err:
                     logger.debug(f"ℹ️ 文件夹 {folder} 扫描故障: {folder_err}")
 
-            mail.logout()
-            logger.info(f"✅ 邮件巡检完毕: 发现并录入 {len(items)} 条新通稿。")
-            
         except Exception as e:
             logger.error(f"❌ IMAP 深度摄入失败: {e}")
+        finally:
+            if mail:
+                try:
+                    mail.logout()
+                except:
+                    pass
+            logger.info(f"✅ 邮件巡检完毕: 发现并录入 {len(items)} 条新通稿。")
             
         return items
 

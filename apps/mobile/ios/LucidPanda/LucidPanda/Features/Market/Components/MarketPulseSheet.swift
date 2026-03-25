@@ -244,7 +244,7 @@ struct MarketPulseSheet: View {
 
                                 Spacer()
 
-                                Text(alert.timestamp.formatted(date: .omitted, time: .shortened))
+                                Text(alertDateFormatter.string(from: alert.timestamp))
                                     .font(.system(size: 10, design: .monospaced))
                                     .foregroundStyle(.secondary)
                             }
@@ -308,7 +308,14 @@ struct MarketPulseSheet: View {
         }
     }
     
+    
     // --- Helpers ---
+    
+    private let alertDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
+    }()
 
     private func sentimentLocalizationKey(_ sentiment: String) -> LocalizedStringKey {
         switch sentiment {

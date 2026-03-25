@@ -715,6 +715,10 @@ class IntelligenceRepo(DBBase):
             orig_score = sentiment_score
             fed_val = raw_data.get('fed_val', 0)
             macro_adj = 0.0
+            # Story Threading: allow engine to attach story metadata for cross-round traceability.
+            # When values are None, COALESCE keeps existing DB values.
+            story_id = raw_data.get('story_id')
+            is_story_lead = raw_data.get('is_story_lead')
             if fed_val > 0:
                 macro_adj = 0.15
                 sentiment_score = max(-1.0, min(1.0, sentiment_score + 0.15))
@@ -755,6 +759,8 @@ class IntelligenceRepo(DBBase):
                                     relation_triples = %s,
                                     agent_trace = %s,
                                     expectation_gap = %s,
+                                    story_id = COALESCE(%s, story_id),
+                                    is_story_lead = COALESCE(%s::boolean, is_story_lead),
                                     embedding = COALESCE(%s, embedding),
                                     status = 'COMPLETED', last_error = NULL
                                 WHERE source_id = %s
@@ -769,6 +775,7 @@ class IntelligenceRepo(DBBase):
                                 _to_jsonb(relation_triples),
                                 _to_jsonb(agent_trace),
                                 float(expectation_gap) if expectation_gap is not None else None,
+                                story_id, is_story_lead,
                                 embedding_binary, source_id,
                             ))
                         except Exception as e:
@@ -781,6 +788,8 @@ class IntelligenceRepo(DBBase):
                                         entities = %s,
                                         relation_triples = %s,
                                         expectation_gap = %s,
+                                        story_id = COALESCE(%s, story_id),
+                                        is_story_lead = COALESCE(%s::boolean, is_story_lead),
                                         embedding = COALESCE(%s, embedding),
                                         status = 'COMPLETED', last_error = NULL
                                     WHERE source_id = %s
@@ -794,6 +803,7 @@ class IntelligenceRepo(DBBase):
                                     _to_jsonb(entities),
                                     _to_jsonb(relation_triples),
                                     float(expectation_gap) if expectation_gap is not None else None,
+                                    story_id, is_story_lead,
                                     embedding_binary, source_id,
                                 ))
                             else:
@@ -807,6 +817,8 @@ class IntelligenceRepo(DBBase):
                                 entities = %s,
                                 relation_triples = %s,
                                 expectation_gap = %s,
+                                story_id = COALESCE(%s, story_id),
+                                is_story_lead = COALESCE(%s::boolean, is_story_lead),
                                 embedding = COALESCE(%s, embedding),
                                 status = 'COMPLETED', last_error = NULL
                             WHERE source_id = %s
@@ -820,6 +832,7 @@ class IntelligenceRepo(DBBase):
                             _to_jsonb(entities),
                             _to_jsonb(relation_triples),
                             float(expectation_gap) if expectation_gap is not None else None,
+                            story_id, is_story_lead,
                             embedding_binary, source_id,
                         ))
                     conn.commit()
@@ -1064,6 +1077,8 @@ class IntelligenceRepo(DBBase):
         将非 lead 的同事件记录批量标记为 CLUSTERED。
           - is_cluster_lead = FALSE  （非 lead）
           - event_cluster_id = cluster_id
+          - is_story_lead = FALSE  （非 lead）
+          - story_id = cluster_id  （Story Threading：用同一 UUID 作为故事链主键）
           - status = 'CLUSTERED'
         Lead 记录只写入 event_cluster_id，状态保持 PENDING。
         """
@@ -1078,12 +1093,15 @@ class IntelligenceRepo(DBBase):
                     cursor.execute("""
                         UPDATE intelligence
                         SET event_cluster_id = %s,
+                            story_id = %s,
                             corroboration_count = %s
                         WHERE source_id = ANY(%s)
-                    """, (cluster_id, corroboration_count, source_ids))
+                    """, (cluster_id, cluster_id, corroboration_count, source_ids))
                     # Lead 标记
                     cursor.execute("""
-                        UPDATE intelligence SET is_cluster_lead = TRUE
+                        UPDATE intelligence
+                        SET is_cluster_lead = TRUE,
+                            is_story_lead = TRUE
                         WHERE source_id = %s
                     """, (lead_source_id,))
                     # Followers → CLUSTERED
@@ -1091,6 +1109,7 @@ class IntelligenceRepo(DBBase):
                         cursor.execute("""
                             UPDATE intelligence
                             SET is_cluster_lead = FALSE,
+                                is_story_lead = FALSE,
                                 status = 'CLUSTERED',
                                 last_error = 'Suppressed: same event as ' || %s
                             WHERE source_id = ANY(%s)
@@ -1102,6 +1121,23 @@ class IntelligenceRepo(DBBase):
                     )
         except Exception as e:
             logger.error(f"mark_clustered 失败: {e}")
+
+    def get_story_id_by_source_id(self, source_id: str) -> Optional[str]:
+        """Fetch story_id for a given intelligence record (source_id)."""
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT story_id FROM intelligence WHERE source_id = %s LIMIT 1",
+                        (source_id,),
+                    )
+                    row = cursor.fetchone()
+                    if not row:
+                        return None
+                    return row.get("story_id")
+        except Exception as e:
+            logger.error(f"get_story_id_by_source_id failed: {e}")
+            return None
 
     # ── 实体未命中监控 (Entity Miss Logging) ──────────────────────────────
     

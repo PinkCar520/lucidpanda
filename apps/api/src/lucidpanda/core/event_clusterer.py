@@ -127,6 +127,7 @@ class EventClusterer:
             for fsid in follower_sids:
                 if fsid in sid_to_item:
                     sid_to_item[fsid]['parent_lead_id'] = lead_sid
+                    sid_to_item[fsid]['parent_story_id'] = cluster_id
 
         # Step 4: 过滤返回仅 lead 记录和 follower 记录
         lead_items = [
