@@ -122,6 +122,7 @@ class AlphaEngine:
         self.tool_summaries = self.deps.tool_summaries
         self.entity_resolver = self.deps.entity_resolver
         self.factor_service = self.deps.factor_service
+        self.follower_processor = self.deps.follower_processor
         
         # 日志记录
         primary_provider = settings.AI_PROVIDER.lower()
@@ -137,11 +138,10 @@ class AlphaEngine:
         
     def _bootstrap_deduplicator(self):
         """Load recent intelligence from DB to initialize deduplicator history"""
-        logger.info("🧵正在初始化去重引擎历史数据 (SimHash)...")
+        logger.info("🧵正在初始化去重引擎历史数据 (Semantic Only)...")
         try:
             recent_items = self.db.get_recent_intelligence(limit=200)
             if recent_items:
-                from simhash import Simhash
                 for item in reversed(recent_items):
                     summary = item.get('summary')
                     summary_text = ""
@@ -154,11 +154,10 @@ class AlphaEngine:
                     if text:
                         clean_text = self.deduplicator.normalize(text)
                         if clean_text:
-                            sh = Simhash(clean_text)
-                            # 仅预热 SimHash 粗筛历史。语义精筛改由 pgvector 接管，无需预热到内存。
-                            self.deduplicator.add_to_history(sh, vector=None, record_id=item.get('id'))
+                            # 仅预热向量/实体历史。语义精筛由 pgvector 接管。
+                            self.deduplicator.add_to_history(None, vector=None, record_id=item.get('id'))
                 
-                logger.info(f"✅ 已加载 {len(self.deduplicator.simhash_history)} 条记录到 SimHash 历史。")
+                logger.info(f"✅ 已加载 {len(self.deduplicator.vec_history)} 条记录到去重历史。")
         except Exception as e:
             logger.error(f"❌ 初始化去重引擎失败: {e}")
 
@@ -203,52 +202,11 @@ class AlphaEngine:
         # 4. AI 并发分析 Followers (仅做轻量 Delta 检查和 Refold)
         if follower_records:
             logger.info(f"🔄 启动 Follower 增量检查 (任务数: {len(follower_records)})...")
-            follower_tasks = [self._process_follower_item_async(item) for item in follower_records]
+            follower_tasks = [self.follower_processor.process_follower_item_async(item) for item in follower_records]
             await asyncio.gather(*follower_tasks)
 
         logger.info("<<< 本轮分析完成。")
 
-    async def _process_follower_item_async(self, raw_data):
-        """处理聚类中的 Follower 数据，执行 Delta Check 和 Refold。"""
-        source_id = raw_data.get('source_id') or raw_data.get('id')
-        lead_id = raw_data.get('parent_lead_id')
-        
-        if not lead_id:
-            logger.warning(f"⚠️ Follower {source_id} missing parent_lead_id.")
-            return
-
-        async with self.ai_semaphore:
-            try:
-                # 提取 Lead 的 summary 作为 Delta Check 的基准
-                lead_analysis = await asyncio.to_thread(self.db.get_intelligence_analysis, lead_id)
-                if not lead_analysis or not lead_analysis.get('summary'):
-                    logger.warning(f"⚠️ Lead {lead_id} 的分析结果尚未就绪，跳过 Follower {source_id} 的增量检查。")
-                    return
-                
-                lead_summary_text = lead_analysis.get('summary')
-                if isinstance(lead_summary_text, dict):
-                    lead_summary_text = lead_summary_text.get('zh', str(lead_summary_text))
-                elif isinstance(lead_summary_text, str):
-                    pass
-                else:
-                    lead_summary_text = str(lead_summary_text)
-
-                logger.info(f"⚖️ 判断 Follower ({source_id}) 对 Lead ({lead_id}) 是否有信息增量 (Story Threading)...")
-                has_delta = await self._check_delta_gain(raw_data.get('content'), lead_summary_text)
-                
-                if not has_delta:
-                    logger.info(f"🚫 无信息增量 (Follower): {source_id}")
-                    # 在 DB 中更新状态
-                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'CLUSTERED', f"No Delta from Lead {lead_id}")
-                else:
-                    logger.info(f"🌟 发现重要增量 (Follower): {source_id}")
-                    # 融合反转内容到 Lead，实现故事树折叠 (Refold)
-                    await self._refold_lead_summary(lead_id, raw_data.get('content'))
-                    # 更新自己的状态
-                    await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'COMPLETED', f"Delta Refolded to {lead_id}")
-            except Exception as e:
-                logger.error(f"处理 Follower 条目失败 {source_id}: {e}")
-                await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'FAILED', f"Delta check error: {e}")
 
     async def _process_single_item_async(self, raw_data):
         """单条情报的异步处理状态机"""
@@ -338,7 +296,7 @@ class AlphaEngine:
                                 anomaly_info = await self.factor_service.check_sentiment_anomaly(cid, sentiment_score)
                                 if anomaly_info.get("is_anomaly"):
                                     logger.warning(f"🚨 因子异动告警! {cid} 情绪突破 3σ (Z-Score: {anomaly_info.get('z_score')}, 现值: {sentiment_score}, 均值: {anomaly_info.get('current_mean')})")
-                                    bark = self.channels.get('bark')
+                                    bark = next((c for c in self.channels if isinstance(c, BarkChannel)), None)
                                     if bark:
                                         try:
                                             await bark.send_message_async(
@@ -385,7 +343,7 @@ class AlphaEngine:
                             logger.info(f"🌟 发现重要增量 (放行): {source_id}")
                             raw_data['is_story_update'] = True
                             raw_data['parent_lead_id'] = sem_dup.get('lead_id')
-                            asyncio.create_task(self._refold_lead_summary(sem_dup.get('lead_id'), raw_data.get('content')))
+                            asyncio.create_task(self.follower_processor._refold_lead_summary(sem_dup.get('lead_id'), raw_data.get('content')))
 
                     # 将最终的向量赋给分析结果
                     analysis_result['embedding'] = self.deduplicator.last_vector
@@ -406,94 +364,8 @@ class AlphaEngine:
                 await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'FAILED', str(e))
 
     async def _check_delta_gain(self, new_content: str, lead_summary: str) -> bool:
-        """
-        使用 LLM 判定两个高度相似的文本之间是否存在“信息增量”。
-        """
-        if not lead_summary or not new_content:
-            return True
-            
-        prompt = f"""
-你是一个专业的新闻编辑。请对比以下“已有内容摘要”和“新消息内容”，判定新消息是否包含任何“实质性的信息增量”。
-
-【判定标准】：
-1. 包含新发布的数据点（如：具体的伤亡数字更新、利率数值、价格变动等）。
-2. 包含新的事态进展或反转（如：事件已从“传言”变为“证实”）。
-3. 包含新的因果解释或重要评论。
-※ 若仅为措辞微调、翻译差异或无意义的重复，请判定为无增量。
-
-【输入】：
-- 已有内容摘要: {lead_summary}
-- 新消息内容: {new_content[:1000]} 
-
-【输出格式】：
-请直接返回 JSON 格式：
-{{"has_delta": boolean, "reason": "简短原因", "new_fact": "提取的新事实（若有）"}}
-"""
-        try:
-            # 优先使用 Flash 模型进行低成本快速判定
-            res = await self.primary_llm.generate_json_async(prompt, temperature=0.0)
-            has_delta = res.get("has_delta", False)
-            if has_delta:
-                logger.info(f"✨ Delta Found: {res.get('reason')} | New Fact: {res.get('new_fact')}")
-            return has_delta
-        except Exception as e:
-            logger.warning(f"Delta Analysis failed, defaulting to True (Safety first): {e}")
-            return True
-
-    async def _refold_lead_summary(self, lead_id: str, new_content: str):
-        """
-        故事线演化：将新发现的增量事实融合进主事件（Lead）的摘要中。
-        """
-        try:
-            # 1. 获取 Lead 的当前分析结果
-            lead_analysis = await asyncio.to_thread(self.db.get_intelligence_analysis, lead_id)
-            if not lead_analysis:
-                logger.warning(f"Refold aborted: Lead {lead_id} analysis not found.")
-                return
-
-            # 2. 构建 Refold Prompt
-            prompt = f"""
-你是一个专业的新闻主编。请根据“新发现的事实”更新现有的“主事件综述”。
-
-【现有综述】：
-- 摘要: {(lead_analysis.get('summary') or {}).get('zh', "无")}
-- 市场影响: {(lead_analysis.get('market_implication') or {}).get('zh', "无")}
-
-【新发现的事实/内容】：
-{new_content[:1500]}
-
-【任务要求】：
-1. 保持原有综述的核心内容不丢失。
-2. 将新事实有机地融入摘要中，使其成为最新的“事件全貌”。
-3. 如果情绪 (sentiment) 或紧迫性 (urgency_score) 发生显著变化，请相应调整。
-4. 语言必须简洁、专业（分析师语气）。
-
-【输出格式】：
-请直接返回更新后的 JSON 格式分析结果（包含 summary, sentiment, sentiment_score, urgency_score, market_implication 结构）：
-"""
-            # 3. 调用 LLM 进行融合 (使用效率模型 Flash)
-            updated_analysis = await self.primary_llm.generate_json_async(prompt, temperature=0.2)
-            
-            if not updated_analysis or "summary" not in updated_analysis:
-                logger.warning(f"Refold LLM output invalid for Lead {lead_id}")
-                return
-
-            # 4. 合并感知字段并持久化
-            # 我们主要更新摘要、情绪分值、紧迫性和市场影响
-            lead_analysis.update({
-                "summary": updated_analysis.get("summary", lead_analysis.get("summary")),
-                "sentiment": updated_analysis.get("sentiment", lead_analysis.get("sentiment")),
-                "sentiment_score": updated_analysis.get("sentiment_score", lead_analysis.get("sentiment_score")),
-                "urgency_score": updated_analysis.get("urgency_score", lead_analysis.get("urgency_score")),
-                "market_implication": updated_analysis.get("market_implication", lead_analysis.get("market_implication")),
-            })
-            
-            await asyncio.to_thread(self.db.update_lead_analysis, lead_id, lead_analysis)
-            logger.info(f"🔄 故事线 Lead {lead_id} 摘要已通过 Refold 进化完成。")
-            
-        except Exception as e:
-            logger.error(f"Refold 融合失败 for Lead {lead_id}: {e}")
-
+        """委托 FollowerProcessor 进行增量检查。"""
+        return await self.follower_processor._check_delta_gain(new_content, lead_summary)
 
     async def _analyze_with_tools(self, llm, raw_data: Dict[str, Any], taxonomy: Optional[dict] = None) -> Dict[str, Any]:
         if not hasattr(llm, "generate_json_async") or not self.tool_summaries:
@@ -742,7 +614,7 @@ class AlphaEngine:
 {advice}
 
 🔗 [原文来源及链接]
-{data.get('url')}
+{data.get('url', 'N/A')}
 --------------------------------------------
 (此消息由 LucidPanda AI 实时生成，仅供参考)
 """

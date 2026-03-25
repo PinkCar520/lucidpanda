@@ -14,6 +14,7 @@ from src.lucidpanda.auth.schemas import (
 from src.lucidpanda.auth.service import AuthService
 from src.lucidpanda.auth.dependencies import get_db, get_current_user
 from src.lucidpanda.config import settings
+from src.lucidpanda.core.logger import logger
 from typing import List, Any, Optional
 import os
 import uuid
@@ -392,11 +393,19 @@ def refresh_token(
     db: Session = Depends(get_db)
 ):
     auth_service = AuthService(db)
-    tokens = auth_service.refresh_session(
-        refresh_in.refresh_token,
-        ip_address=request.client.host,
-        user_agent=request.headers.get("user-agent")
-    )
+    try:
+        tokens = auth_service.refresh_session(
+            refresh_in.refresh_token,
+            ip_address=request.client.host,
+            user_agent=request.headers.get("user-agent")
+        )
+    except Exception as e:
+        logger.error(f"refresh_session 内部错误: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal authentication error during session refresh"
+        )
+        
     if not tokens:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -78,6 +78,7 @@ class EngineDependencies:
         self._registry_service: Optional[Any] = None
         self._primary_llm = None
         self._fallback_llm = None
+        self._follower_processor: Optional[Any] = None
     
     @property
     def db(self) -> IntelligenceDB:
@@ -172,6 +173,18 @@ class EngineDependencies:
         if self._factor_service is None:
             self._factor_service = FactorService()
         return self._factor_service
+    
+    @property
+    def follower_processor(self) -> Any:
+        """Follower 数据处理器（从 AlphaEngine 剥离的增量逻辑）"""
+        if self._follower_processor is None:
+            from src.lucidpanda.core.follower_processor import FollowerProcessor
+            self._follower_processor = FollowerProcessor(
+                db=self.db, 
+                primary_llm=self.primary_llm, 
+                ai_semaphore=self.ai_semaphore
+            )
+        return self._follower_processor
     
     @property
     def enable_agent_tools(self) -> bool:

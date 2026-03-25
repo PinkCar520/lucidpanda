@@ -1,6 +1,5 @@
 import re
 import logging
-from simhash import Simhash
 # from sklearn.metrics.pairwise import cosine_similarity  # 延迟导入
 import numpy as np
 from src.lucidpanda.services.embedding_service import embedding_service
@@ -14,12 +13,9 @@ MAX_HISTORY = 500
 
 class NewsDeduplicator:
     def __init__(self, db=None):
-        self.simhash_threshold = 12 # Hamming distance <= 12
         self.semantic_threshold = settings.NEWS_SIMILARITY_THRESHOLD
         self.db = db  # IntelligenceDB 实例，用于 pgvector 语义查询
         
-        # SimHash 历史（仍在内存维护，轻量级粗筛）
-        self.simhash_history = []
         # 内存向量历史（仅当 db=None 时用作降级方案）
         self.vec_history = []
         self.id_history = []
@@ -58,15 +54,6 @@ class NewsDeduplicator:
             
         return text.strip()
 
-    def rough_duplicate(self, text_simhash):
-        """
-        SimHash rough filtering.
-        Returns True if duplicate found in history.
-        """
-        for old_hash in self.simhash_history:
-            if text_simhash.distance(old_hash) <= self.simhash_threshold:
-                return True
-        return False
 
     def semantic_duplicate(self, text_vector):
         """BERT semantic vector reranking. Returns True if duplicate found in history."""
@@ -101,10 +88,8 @@ class NewsDeduplicator:
         if not clean_text:
             return {"is_duplicate": False, "status": "NEW"}
 
-        current_simhash = Simhash(clean_text)
-
         if not settings.ENABLE_SEMANTIC_DEDUPE:
-            self.add_to_history(current_simhash, None)
+            self.add_to_history(None, None)
             return {"is_duplicate": False, "status": "NEW"}
 
         current_vector = None
@@ -130,22 +115,19 @@ class NewsDeduplicator:
             logger.warning(f"Semantic deduplication failed: {e}")
             self.last_vector = None
 
-        self.add_to_history(current_simhash, current_vector if self.db is None else None)
+        self.add_to_history(None, current_vector if self.db is None else None)
         return {"is_duplicate": False, "status": "NEW"}
 
     def add_to_history(self, sh_obj, vector, record_id=None):
         """Add an item to history, maintaining a FIFO sliding window."""
-        self.simhash_history.append(sh_obj)
         self.vec_history.append(vector)
         if record_id:
             self.id_history.append(record_id)
         # FIFO 滑动窗口：超出上限则丢弃最旧的条目
-        if len(self.simhash_history) > MAX_HISTORY:
-            self.simhash_history = self.simhash_history[-MAX_HISTORY:]
+        if len(self.vec_history) > MAX_HISTORY:
             self.vec_history     = self.vec_history[-MAX_HISTORY:]
             self.id_history      = self.id_history[-MAX_HISTORY:]
 
     def clear_history(self):
-        self.simhash_history = []
         self.vec_history = []
         self.id_history = []
