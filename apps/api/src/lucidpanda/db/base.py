@@ -117,6 +117,29 @@ class DBBase:
     def _get_conn(self):
         return self.get_connection()
 
+    def query(self, sql: str, params: tuple = None) -> list[dict]:
+        """执行查询并返回字典列表。"""
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(sql, params or ())
+                    return cursor.fetchall()
+        except Exception as e:
+            logger.error(f"DB Query Failed: {e} | SQL: {sql[:100]}")
+            return []
+
+    def execute(self, sql: str, params: tuple = None) -> bool:
+        """执行更新/删除/插入并提交。"""
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(sql, params or ())
+                    conn.commit()
+                    return True
+        except Exception as e:
+            logger.error(f"DB Execute Failed: {e} | SQL: {sql[:100]}")
+            return False
+
     def _init_db(self):
         """Ensure PostgreSQL schema exists (建表 + Migration)."""
         try:
