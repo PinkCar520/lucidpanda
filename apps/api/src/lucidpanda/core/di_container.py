@@ -79,6 +79,8 @@ class EngineDependencies:
         self._primary_llm = None
         self._fallback_llm = None
         self._follower_processor: Optional[Any] = None
+        self._fred_source: Optional[Any] = None
+        self._email_source: Optional[Any] = None
     
     @property
     def db(self) -> IntelligenceDB:
@@ -185,6 +187,22 @@ class EngineDependencies:
                 ai_semaphore=self.ai_semaphore
             )
         return self._follower_processor
+    
+    @property
+    def fred_source(self) -> Any:
+        """美联储经济数据源 (FRED)"""
+        if self._fred_source is None:
+            from src.lucidpanda.providers.data_sources.fred import FredDataSource
+            self._fred_source = FredDataSource()
+        return self._fred_source
+    
+    @property
+    def email_source(self) -> Any:
+        """Email/IMAP 情报源"""
+        if self._email_source is None:
+            from src.lucidpanda.providers.data_sources.email_source import EmailDataSource
+            self._email_source = EmailDataSource(db=self.db)
+        return self._email_source
     
     @property
     def enable_agent_tools(self) -> bool:

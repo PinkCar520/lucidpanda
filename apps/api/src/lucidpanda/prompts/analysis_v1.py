@@ -85,6 +85,7 @@ def build_agent_final_prompt(
     tool_results: List[Dict[str, Any]],
     plan_response: Optional[Dict[str, Any]],
     taxonomy: Optional[Dict[str, List[str]]] = None,
+    macro_context: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     构建 Agent 最终分析 Prompt（输出结构化 JSON）。
@@ -93,19 +94,27 @@ def build_agent_final_prompt(
     - 新增"实体提取铁律"章节，强制区分 Person 和 Organization
     - 提供别名候选示例，减少实体名称碎片化
     - relations.relation 枚举更紧凑
+    - 新增核心宏观指标（FRED）输入支持
 
     Args:
         raw_data: 原始情报数据字典
         tool_results: 工具调用结果列表
         plan_response: 规划阶段的 LLM 响应（提取 plan_summary）
         taxonomy: 动态分类体系字典
-
-    Returns:
-        str: Prompt 字符串
+        macro_context: 美联储 FRED 核心宏观指标数据
     """
     content = raw_data.get("content", "")
     context = raw_data.get("context", "无")
     tools_json = json.dumps(tool_results, ensure_ascii=False)
+    
+    # 格式化宏观背景
+    macro_info = "无"
+    if macro_context:
+        macro_info = "\n".join([
+            f"  - {v['name']} ({k}): {v['value']} (发布日期: {v['date']})"
+            for k, v in macro_context.items() if v
+        ])
+
     plan_summary = ""
     if isinstance(plan_response, dict):
         plan_summary = plan_response.get("plan_summary") or ""
@@ -128,6 +137,8 @@ def build_agent_final_prompt(
 输入信息：
 - 来源: {raw_data.get('source')}
 - 作者: {raw_data.get('author')}
+- 核心宏观背景 (FRED):
+{macro_info}
 - 内容: {content[:1200]}
 - 市场背景: {context}
 - 工具调用摘要: {plan_summary}

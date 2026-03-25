@@ -28,6 +28,7 @@ from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
 from src.lucidpanda.prompts.analysis_v1 import build_agent_plan_prompt, build_agent_final_prompt
 from src.lucidpanda.prompts.delta_check_v1 import build_delta_check_prompt
 from src.lucidpanda.prompts.refold_v1 import build_refold_prompt
+from src.lucidpanda.providers.data_sources.fred import FredDataSource
 
 
 class LLMFactory:
@@ -123,6 +124,7 @@ class AlphaEngine:
         self.entity_resolver = self.deps.entity_resolver
         self.factor_service = self.deps.factor_service
         self.follower_processor = self.deps.follower_processor
+        self.fred_source = self.deps.fred_source
         
         # 日志记录
         primary_provider = settings.AI_PROVIDER.lower()
@@ -383,7 +385,12 @@ class AlphaEngine:
         if tool_calls:
             tool_results = await self._run_tool_calls(tool_calls)
 
-        final_prompt = self._build_agent_final_prompt(raw_data, tool_results, plan_response, taxonomy=taxonomy)
+        # 并发拉取美联储宏观背景 (仅针对 Agent 分析模式，提升深度建议准确度)
+        macro_context = await self.fred_source.fetch_macro_dashboard()
+        
+        final_prompt = self._build_agent_final_prompt(
+            raw_data, tool_results, plan_response, taxonomy=taxonomy, macro_context=macro_context
+        )
         try:
             analysis_result = await llm.generate_json_async(final_prompt, temperature=0.2)
         except Exception as exc:
@@ -452,10 +459,13 @@ class AlphaEngine:
         raw_data: Dict[str, Any],
         tool_results: List[Dict[str, Any]],
         plan_response: Optional[Dict[str, Any]],
-        taxonomy: Optional[dict] = None
+        taxonomy: Optional[dict] = None,
+        macro_context: Optional[dict] = None
     ) -> str:
         """委托 prompts/analysis_v1.py 构建 Agent 最终分析 Prompt（含实体提取铁律）。"""
-        return build_agent_final_prompt(raw_data, tool_results, plan_response, taxonomy=taxonomy)
+        return build_agent_final_prompt(
+            raw_data, tool_results, plan_response, taxonomy=taxonomy, macro_context=macro_context
+        )
 
     async def _trigger_trade_and_dispatch(self, analysis_result, raw_data):
         sentiment_score = analysis_result.get('sentiment_score', 0)

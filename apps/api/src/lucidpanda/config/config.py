@@ -121,7 +121,10 @@ class Settings:
     # RSSHub
     RSSHUB_BASE_URL = os.getenv("RSSHUB_BASE_URL", "https://rsshub.app")
     
-    # Email
+    # FRED (Federal Reserve Economic Data)
+    FRED_API_KEY = os.getenv("FRED_API_KEY")
+    
+    # Email / Notifications
     SMTP_SERVER = os.getenv("SMTP_SERVER")
     SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
     EMAIL_SENDER = os.getenv("EMAIL_SENDER")
@@ -129,6 +132,12 @@ class Settings:
     EMAIL_RECEIVER = os.getenv("EMAIL_RECEIVER")
     EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "resend")
     RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+    
+    # IMAP (Intelligence Ingestion)
+    IMAP_SERVER = os.getenv("IMAP_SERVER")
+    IMAP_PORT = int(os.getenv("IMAP_PORT", 993))
+    IMAP_USER = os.getenv("IMAP_USER")
+    IMAP_PASSWORD = os.getenv("IMAP_PASSWORD")
     
     # -------------------------------------------------------------------------
     # 8. 数据库配置

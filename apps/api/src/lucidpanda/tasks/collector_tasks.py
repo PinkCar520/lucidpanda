@@ -197,6 +197,29 @@ async def fetch_single_feed_task(feed_name: str, feed_url: str, category: str) -
         logger.error(f"❌ [{feed_name}] 采集失败：{e}")
         raise e
 
+@broker.task(max_retries=2)
+async def fetch_email_task() -> Dict[str, Any]:
+    """官方新闻邮件摄入任务"""
+    from src.lucidpanda.core.di_container import EngineDependencies
+    deps = EngineDependencies()
+    db = deps.db
+    email_source = deps.email_source
+    
+    try:
+        items = await email_source.fetch_async()
+        saved = 0
+        if items:
+            saved = await asyncio.to_thread(db.batch_save_raw_intelligence, items)
+            if saved > 0:
+                r = redis.from_url(settings.REDIS_URL, decode_responses=True)
+                r.publish('lucidpanda:new_intelligence', json.dumps({"type": "new_data", "count": saved}))
+                logger.info(f"✅ Email 摄入成功：{saved}条新情报")
+        
+        return {'source': 'Email', 'saved': saved}
+    except Exception as e:
+        logger.error(f"❌ Email 摄入失败：{e}")
+        return {'source': 'Email', 'error': str(e)}
+
 
 # 每分钟运行一次！通过给定时器加 schedule 标签实现
 @broker.task(schedule=[{"cron": "* * * * *"}])
@@ -207,8 +230,10 @@ async def fetch_all_feeds() -> Dict[str, Any]:
     for feed in TIER1_FEEDS_CONFIG:
         should_fetch, _ = _should_fetch(feed['name'])
         if should_fetch:
-            # TaskIQ 并发执行调用： kiq() 发送到后端
             tasks.append(await fetch_single_feed_task.kiq(feed['name'], feed['url'], feed['category']))
+    
+    # 2. Email Ingestion (每分钟检查一次官方邮件)
+    tasks.append(await fetch_email_task.kiq())
     
     if not tasks:
         logger.info("📊 [TaskIQ] 所有信源未到时间，跳过本轮")
