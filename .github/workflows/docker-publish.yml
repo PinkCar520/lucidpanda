@@ -15,6 +15,11 @@ on:
       - '.github/workflows/docker-publish.yml'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
 jobs:
   prep:
     runs-on: ubuntu-latest
@@ -92,16 +97,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      - name: Check for DB changes
+        id: check_db
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            db:
+              - 'infra/postgres/**'
+              - 'docker-compose.yml'
+
       - name: Log in to Docker Hub
+        if: steps.check_db.outputs.db == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Set up Docker Buildx
+        if: steps.check_db.outputs.db == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Extract metadata
+        if: steps.check_db.outputs.db == 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -111,6 +128,7 @@ jobs:
             type=raw,value=${{ needs.prep.outputs.sha_short }}
 
       - name: Build and push DB Docker image
+        if: steps.check_db.outputs.db == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./infra/postgres
