@@ -1533,7 +1533,9 @@ class FundEngine:
         conn = self.db.get_connection()
         pending_tasks = [] # List of (date, code)
         try:
-            with conn.cursor() as cursor:
+            # IMPORTANT: force tuple rows for legacy reconciliation code path
+            from psycopg.rows import tuple_row
+            with conn.cursor(row_factory=tuple_row) as cursor:
                 if target_date:
                     cursor.execute("""
                         SELECT trade_date, fund_code FROM fund_valuation_archive 
@@ -1550,7 +1552,7 @@ class FundEngine:
                 pending_tasks = cursor.fetchall()
         finally:
             conn.close()
-            
+
         if not pending_tasks:
             d_str = str(target_date) if target_date else "the last 5 days"
             logger.info(f"No pending reconciliation found for {d_str}")
@@ -1572,6 +1574,13 @@ class FundEngine:
         # 3. Group by date for efficient processing
         tasks_by_date = {}
         for d, c in pending_tasks:
+            # Defensive conversion in case upstream SQL/cursor config changes again
+            if isinstance(d, str):
+                try:
+                    d = datetime.strptime(d, "%Y-%m-%d").date()
+                except ValueError:
+                    logger.warning(f"Skipping task with invalid trade_date format: {d}")
+                    continue
             if d not in tasks_by_date: tasks_by_date[d] = []
             tasks_by_date[d].append(c)
 
