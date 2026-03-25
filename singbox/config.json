@@ -432,15 +432,17 @@
     "rule_set": [
       {
         "tag": "geosite-cn",
-        "type": "local",
+        "type": "remote",
         "format": "binary",
-        "path": "/etc/sing-box/geosite-cn.srs"
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/main/rule-set/geosite-cn.srs",
+        "download_detour": "🚀 自动选优"
       },
       {
         "tag": "geoip-cn",
-        "type": "local",
+        "type": "remote",
         "format": "binary",
-        "path": "/etc/sing-box/geoip-cn.srs"
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/main/rule-set/geoip-cn.srs",
+        "download_detour": "🚀 自动选优"
       }
     ],
     "final": "🚀 自动选优",
