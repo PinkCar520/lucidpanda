@@ -219,13 +219,19 @@ class BacktestEngine:
             total_return = 0
 
             for start_price, end_price in rows:
-                if not start_price or not end_price:
+                if start_price is None or end_price is None:
                     continue
 
-                ret = (end_price - start_price) / start_price * 100
-                total_return += ret
-                if ret > 0:
-                    up_count += 1
+                try:
+                    s_p = float(start_price)
+                    e_p = float(end_price)
+                    if s_p == 0: continue
+                    ret = (e_p - s_p) / s_p * 100
+                    total_return += ret
+                    if ret > 0:
+                        up_count += 1
+                except (ValueError, TypeError):
+                    continue
 
             if total == 0:
                 return None

@@ -513,6 +513,17 @@ class DBBase:
                     UNIQUE(dimension, value)
                 );
             """)
+            
+            # ── 实体未命中监控表 (Entity Miss Log) ────────────────────────
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS entity_miss_log (
+                    raw_entity_name TEXT PRIMARY KEY,
+                    occurrence_count INTEGER DEFAULT 1,
+                    last_seen TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    last_source_id TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_entity_miss_count ON entity_miss_log(occurrence_count DESC);
+            """)
 
             conn.commit()
             conn.close()
