@@ -109,7 +109,6 @@ class MarketRepo(DBBase):
             elif ticker_symbol == "DX-Y.NYB":
                 # 方案 A: 新浪行情接口，美元指数 symbol = DINIW
                 try:
-                    import requests
                     url = "https://hq.sinajs.cn/list=DINIW"
                     resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
                     raw = resp.text
@@ -144,7 +143,6 @@ class MarketRepo(DBBase):
                 except: pass
                 # 方案 B: 新浪
                 try:
-                    import requests
                     url = "https://hq.sinajs.cn/list=TB10Y"  # 新浪10年期美债 symbol
                     resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
                     raw = resp.text
@@ -161,7 +159,6 @@ class MarketRepo(DBBase):
 
             elif ticker_symbol == "CL=F": # 原油 (WTI)
                 try:
-                    import requests
                     url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=CL"
                     resp = requests.get(url, timeout=5)
                     data = resp.json()

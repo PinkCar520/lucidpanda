@@ -47,6 +47,8 @@ def setup_logger(name="LucidPanda"):
     file_handler.setFormatter(json_formatter)
     logger.addHandler(file_handler)
 
+    logger.propagate = False
+
     return logger
 
 logger = setup_logger()
