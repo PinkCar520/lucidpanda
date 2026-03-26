@@ -14,8 +14,13 @@ import {
     Clock, 
     ChevronLeft,
     TrendingDown,
-    ShieldCheck
+    ShieldCheck,
+    RefreshCw,
+    Zap,
+    BarChart3,
+    ArrowUpRight
 } from 'lucide-react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -30,13 +35,36 @@ export default function FundMonitorPage() {
     // Ensure we only render time-sensitive UI on client
     React.useEffect(() => {
         setIsMounted(true);
+    setIsMounted(true);
     }, []);
 
-    const { data: stats, isLoading } = useQuery({
+    const [retryingId, setRetryingId] = React.useState<string | null>(null);
+
+    const { data: stats, isLoading, refetch } = useQuery({
         queryKey: ['admin', 'fund-monitor'],
         queryFn: () => fundService.getMonitorStats(session),
         refetchInterval: 1000 * 60 * 5, // 5 min
     });
+
+    const handleRetry = async (date: string, code?: string) => {
+        const id = code ? `${date}-${code}` : date;
+        setRetryingId(id);
+        try {
+            const res = await fundService.triggerReconciliation({ trade_date: date, fund_code: code }, session);
+            if (res.success) {
+                toast.success(t('retrySuccess'), {
+                    description: `${code ? code : 'All funds'} on ${date}: matched ${res.matched_count}`
+                });
+                refetch();
+            } else {
+                toast.error(t('retryFailed'), { description: res.error });
+            }
+        } catch (err: any) {
+            toast.error(t('retryFailed'), { description: err.message });
+        } finally {
+            setRetryingId(null);
+        }
+    };
 
     const heatmapTraces = React.useMemo(() => {
         if (!stats?.heatmap || stats.heatmap.length === 0) return null;
@@ -102,8 +130,55 @@ export default function FundMonitorPage() {
                 )}
             </div>
 
+            {/* Health Score Hero */}
+            {stats?.health && (
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                    <Card className="lg:col-span-2 bg-gradient-to-br from-blue-600 to-indigo-700 text-white border-none shadow-xl shadow-blue-500/20 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+                            <ShieldCheck className="w-32 h-32" />
+                        </div>
+                        <div className="relative z-10 p-2">
+                            <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Zap className="w-3 h-3 fill-current" /> {t('healthScore')}
+                            </p>
+                            <div className="flex items-center gap-6">
+                                <div className="text-6xl font-black tabular-nums tracking-tighter">
+                                    {stats.health.score}
+                                </div>
+                                <div className="flex flex-col">
+                                    <div className="text-sm font-bold opacity-80 mb-1">{t('systemHealth')}</div>
+                                    <div className="h-2 w-32 bg-white/20 rounded-full overflow-hidden">
+                                        <div 
+                                            className="h-full bg-white transition-all duration-1000" 
+                                            style={{ width: `${stats.health.score}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                    
+                    <div className="grid grid-cols-1 gap-4 lg:col-span-2">
+                        <div className="grid grid-cols-3 gap-4 h-full">
+                            <Card className="flex flex-col justify-center items-center text-center border-b-4 border-b-emerald-500">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">{t('coverageLabel')}</p>
+                                <span className="text-xl font-black">{stats.health.components.coverage}%</span>
+                            </Card>
+                            <Card className="flex flex-col justify-center items-center text-center border-b-4 border-b-blue-500">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">{t('accuracyLabel')}</p>
+                                <span className="text-xl font-black">{stats.health.components.accuracy}%</span>
+                            </Card>
+                            <Card className="flex flex-col justify-center items-center text-center border-b-4 border-b-amber-500">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">{t('anomalyRate')}</p>
+                                <span className="text-xl font-black">{stats.health.components.anomaly}%</span>
+                            </Card>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Quick KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 opacity-50 contrast-75 grayscale-[0.5] hover:opacity-100 hover:grayscale-0 hover:contrast-100 transition-all">
                 <Card className="border-l-4 border-l-blue-500">
                     <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">{t('successRate')}</p>
                     <div className="flex items-baseline gap-2">
@@ -206,11 +281,39 @@ export default function FundMonitorPage() {
                                         </div>
                                         <Badge variant="bearish" className="text-[10px] px-1.5">{Number(a.deviation).toFixed(2)}%</Badge>
                                     </div>
-                                    <div className="flex justify-between items-center text-[10px] font-mono">
+                                    <div className="flex justify-between items-center text-[10px] font-mono mb-1">
                                         <span className="opacity-60">{t('estLabel')} {Number(a.frozen_est_growth).toFixed(2)}%</span>
                                         <span className="opacity-60">{t('actLabel')} {Number(a.official_growth).toFixed(2)}%</span>
                                         <span className="font-bold text-rose-500">{t('gradeLabel')} {a.tracking_status}</span>
                                     </div>
+                                    
+                                    {/* Sector Drift Drill-down */}
+                                    {a.frozen_sector_attribution && (
+                                        <div className="mt-2 p-2 bg-white/50 dark:bg-black/20 rounded border border-slate-100 dark:border-slate-800/50">
+                                            <p className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1.5">
+                                                <BarChart3 className="w-2.5 h-2.5" /> {t('sectorDrift')}
+                                            </p>
+                                            <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto pr-1">
+                                                {Object.entries(a.frozen_sector_attribution).slice(0, 5).map(([sector, impact]: any) => (
+                                                    <div key={sector} className="flex justify-between items-center text-[9px]">
+                                                        <span className="truncate max-w-[100px] opacity-70">{sector}</span>
+                                                        <span className={`font-mono ${Number(impact) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                            {Number(impact) >= 0 ? '+' : ''}{Number(impact).toFixed(3)}%
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <button 
+                                        onClick={() => handleRetry(a.trade_date, a.fund_code)}
+                                        disabled={retryingId === `${a.trade_date}-${a.fund_code}`}
+                                        className="mt-2 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-bold transition-all disabled:opacity-50"
+                                    >
+                                        <RefreshCw className={`w-3 h-3 ${retryingId === `${a.trade_date}-${a.fund_code}` ? 'animate-spin' : ''}`} />
+                                        {retryingId === `${a.trade_date}-${a.fund_code}` ? t('retrying') : t('fixNow')}
+                                    </button>
                                 </div>
                             ))
                         ) : (
@@ -255,11 +358,21 @@ export default function FundMonitorPage() {
                                             {d.avg_mae ? `${Number(d.avg_mae).toFixed(4)}%` : '--'}
                                         </td>
                                         <td className="p-3 text-center">
-                                            {rate >= 95 ? (
-                                                <CheckCircle2 className="w-4 h-4 text-emerald-500 mx-auto" />
-                                            ) : (
-                                                <AlertCircle className="w-4 h-4 text-amber-500 mx-auto" />
-                                            )}
+                                            <div className="flex items-center justify-center gap-4">
+                                                {rate >= 95 ? (
+                                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                                ) : (
+                                                    <AlertCircle className="w-4 h-4 text-amber-500" />
+                                                )}
+                                                <button 
+                                                    onClick={() => handleRetry(d.trade_date)}
+                                                    disabled={retryingId === d.trade_date}
+                                                    className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors disabled:opacity-30"
+                                                    title={t('retry')}
+                                                >
+                                                    <RefreshCw className={`w-3.5 h-3.5 text-blue-500 ${retryingId === d.trade_date ? 'animate-spin' : ''}`} />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 );

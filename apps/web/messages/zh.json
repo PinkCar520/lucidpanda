@@ -395,7 +395,18 @@
         "tableTotal": "总任务数",
         "tableMatched": "成功匹配",
         "tableMae": "平均误差 (MAE)",
-        "tableStatus": "状态"
+        "tableStatus": "状态",
+        "healthScore": "数据质量评分",
+        "coverageLabel": "对账覆盖率",
+        "accuracyLabel": "预测精度",
+        "anomalyRate": "异常控制",
+        "retry": "重试",
+        "retrying": "正在对账...",
+        "retrySuccess": "对账任务已触发",
+        "retryFailed": "对账触发失败",
+        "sectorDrift": "行业偏离分析",
+        "opsUrgency": "运营关注 (T-1)",
+        "fixNow": "立即修复"
     },
     "Settings": {
         "title": "账户设置",

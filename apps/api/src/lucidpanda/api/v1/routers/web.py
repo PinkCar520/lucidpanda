@@ -1027,3 +1027,40 @@ async def get_web_monitor_stats(current_user: User = Depends(get_current_user)):
     stats = db_legacy.get_reconciliation_stats()
     stats['heatmap'] = db_legacy.get_heatmap_stats()
     return v1_prepare_json(stats)
+
+class ReconcileTriggerDTO(BaseModel):
+    trade_date: str
+    fund_code: Optional[str] = None
+
+@router.post("/admin/reconcile/trigger", response_model=Dict[str, Any])
+async def trigger_reconciliation(
+    payload: ReconcileTriggerDTO,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Trigger manual reconciliation for a specific date or fund.
+    Allows administrators to fix data quality issues in real-time.
+    """
+    from src.lucidpanda.core.fund_engine import FundEngine
+    from datetime import datetime
+    
+    logger.info(f"🚀 Manual reconciliation triggered by user {current_user.id} for {payload.trade_date} (Code: {payload.fund_code or 'ALL'})")
+    
+    try:
+        dt = datetime.strptime(payload.trade_date, "%Y-%m-%d").date()
+        engine = FundEngine()
+        
+        codes = [payload.fund_code] if payload.fund_code else []
+        
+        # Call the core engine reconciliation logic
+        # synchronous call here as it's typically < 5s for a single day/fund
+        result_count = engine.reconcile_official_valuations(target_date=dt, fund_codes=codes)
+        
+        return v1_prepare_json({
+            "success": True, 
+            "matched_count": result_count,
+            "message": f"Successfully matched {result_count} funds for {payload.trade_date}"
+        })
+    except Exception as e:
+        logger.error(f"Manual reconciliation trigger failed: {e}")
+        return {"success": False, "error": str(e)}

@@ -269,36 +269,105 @@ class FundRepo(DBBase):
             logger.error(f"Get Fund Stats Failed: {e}")
             return {}
 
+    def get_health_score(self, days=3):
+        """Calculate a composite health score (0-100) for recent data quality."""
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    # 1. Coverage (Matched / Total) - Weight 50
+                    cursor.execute("""
+                        SELECT COUNT(*) as total, COUNT(official_growth) as matched
+                        FROM fund_valuation_archive
+                        WHERE trade_date > CURRENT_DATE - (INTERVAL '1 day' * %s)
+                    """, (days,))
+                    row = cursor.fetchone()
+                    total = row['total'] if row and row['total'] else 0
+                    matched = row['matched'] if row and row['matched'] else 0
+                    coverage_score = (matched / total * 100) if total > 0 else 100
+                    
+                    # 2. Accuracy (MAE) - Weight 30
+                    cursor.execute("""
+                        SELECT AVG(ABS(deviation)) as mae
+                        FROM fund_valuation_archive
+                        WHERE trade_date > CURRENT_DATE - (INTERVAL '1 day' * %s)
+                        AND official_growth IS NOT NULL
+                    """, (days,))
+                    row = cursor.fetchone()
+                    mae = float(row['mae']) if row and row['mae'] is not None else 0
+                    # 0 MAE = 100 score, 1.0 MAE = 0 score (roughly)
+                    accuracy_score = max(0, 100 - (mae * 100))
+                    
+                    # 3. Anomalies (Grade C count) - Weight 20
+                    cursor.execute("""
+                        SELECT COUNT(*) as cases
+                        FROM fund_valuation_archive
+                        WHERE tracking_status = 'C'
+                        AND trade_date > CURRENT_DATE - (INTERVAL '1 day' * %s)
+                    """, (days,))
+                    row = cursor.fetchone()
+                    c_cases = row['cases'] if row and row['cases'] else 0
+                    # 0 cases = 100 score, each case deducts 10 points
+                    anomaly_score = max(0, 100 - (c_cases * 10))
+                    
+                    composite = (coverage_score * 0.5) + (accuracy_score * 0.3) + (anomaly_score * 0.2)
+                    return {
+                        "score": round(composite, 1),
+                        "components": {
+                            "coverage": round(coverage_score, 1),
+                            "accuracy": round(accuracy_score, 1),
+                            "anomaly": round(anomaly_score, 1)
+                        },
+                        "mae": round(mae, 4)
+                    }
+        except Exception as e:
+            logger.error(f"Health score calc failed: {e}")
+            return {"score": 0, "error": str(e)}
+
     def get_reconciliation_stats(self, days=14):
         """Fetch aggregate stats for the monitoring dashboard."""
         try:
-            conn = self.get_connection()
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    SELECT trade_date, COUNT(*) as total_count,
-                           COUNT(official_growth) as reconciled_count,
-                           AVG(ABS(deviation)) as avg_mae
-                    FROM fund_valuation_archive
-                    WHERE trade_date > CURRENT_DATE - (INTERVAL '1 day' * %s)
-                    GROUP BY trade_date ORDER BY trade_date DESC
-                """, (days,))
-                daily_stats = [dict(row) for row in cursor.fetchall()]
-                cursor.execute("""
-                    SELECT fund_code, trade_date, frozen_est_growth, official_growth,
-                           deviation, tracking_status
-                    FROM fund_valuation_archive
-                    WHERE ABS(deviation) >= 1.0
-                    AND trade_date > CURRENT_DATE - INTERVAL '7 days'
-                    ORDER BY trade_date DESC, ABS(deviation) DESC LIMIT 20
-                """)
-                anomalies = [dict(row) for row in cursor.fetchall()]
-                return {"daily": daily_stats, "anomalies": anomalies,
-                        "updated_at": format_iso8601(datetime.now())}
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT trade_date, COUNT(*) as total_count,
+                               COUNT(official_growth) as reconciled_count,
+                               AVG(ABS(deviation)) as avg_mae
+                        FROM fund_valuation_archive
+                        WHERE trade_date > CURRENT_DATE - (INTERVAL '1 day' * %s)
+                        GROUP BY trade_date ORDER BY trade_date DESC
+                    """, (days,))
+                    daily_stats = [dict(row) for row in cursor.fetchall()]
+
+                    # Fix: Ensure dates are stringified for JSON serialization
+                    for d in daily_stats:
+                        if hasattr(d['trade_date'], 'isoformat'):
+                            d['trade_date'] = d['trade_date'].isoformat()
+
+                    cursor.execute("""
+                        SELECT fund_code, trade_date, frozen_est_growth, official_growth,
+                               deviation, tracking_status, frozen_sector_attribution
+                        FROM fund_valuation_archive
+                        WHERE (ABS(deviation) >= 1.0 OR tracking_status = 'C')
+                        AND trade_date > CURRENT_DATE - INTERVAL '7 days'
+                        ORDER BY trade_date DESC, ABS(deviation) DESC LIMIT 20
+                    """)
+                    anomalies = [dict(row) for row in cursor.fetchall()]
+                    for a in anomalies:
+                        if hasattr(a['trade_date'], 'isoformat'):
+                            a['trade_date'] = a['trade_date'].isoformat()
+
+                    # Calculate health score for the Hero section (last 3 days)
+                    health = self.get_health_score(days=3)
+
+                    return {
+                        "daily": daily_stats, 
+                        "anomalies": anomalies,
+                        "health": health,
+                        "updated_at": format_iso8601(datetime.now())
+                    }
         except Exception as e:
             logger.error(f"Failed to fetch reconciliation stats: {e}")
             return {"daily": [], "anomalies": [], "error": str(e)}
-        finally:
-            conn.close()
 
     def get_heatmap_stats(self, days=10):
         """Fetch MAE grouped by category and date for heatmap visualization."""

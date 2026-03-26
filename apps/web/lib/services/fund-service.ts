@@ -117,5 +117,19 @@ export const fundService = {
     const res = await authenticatedFetch(`${V1_BASE}/admin/monitor`, session);
     if (!res.ok) throw new Error('Failed to fetch monitor stats');
     return await res.json();
+  },
+
+  /**
+   * Trigger manual reconciliation for a date/fund
+   */
+  async triggerReconciliation(payload: { trade_date: string, fund_code?: string }, session: Session | null): Promise<any> {
+    const res = await authenticatedFetch(`${V1_BASE}/admin/reconcile/trigger`, session, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Failed to trigger reconciliation');
+    const json = await res.json();
+    return json;
   }
 };
