@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/auth';
 
 // Enhanced in-memory cache with metadata
 interface CacheEntry {
-  data: any;
+  data: Record<string, unknown>;
   timestamp: number;
   fetchedAt: string; // ISO timestamp for debugging
 }
@@ -24,24 +24,25 @@ async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchWithTimeout(promise: Promise<any>, timeoutMs: number) {
-  const timeout = new Promise((_, reject) =>
+async function fetchWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
   );
   return Promise.race([promise, timeout]);
 }
 
-async function fetchMarketData(symbol: string, queryOptions: any, retries = MAX_RETRIES): Promise<any> {
+async function fetchMarketData(symbol: string, queryOptions: Record<string, unknown>, retries = MAX_RETRIES): Promise<Record<string, unknown>> {
   try {
     const yahooFinance = new YahooFinance();
     const result = await fetchWithTimeout(
-      yahooFinance.chart(symbol, queryOptions),
+      yahooFinance.chart(symbol, queryOptions as { period1: Date | number | string; period2: Date | number | string; interval: "1m" | "2m" | "5m" | "15m" | "30m" | "60m" | "90m" | "1h" | "1d" | "5d" | "1wk" | "1mo" | "3mo" }) as Promise<Record<string, unknown>>,
       REQUEST_TIMEOUT
     );
     return result;
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     if (retries > 0) {
-      console.warn(`[Market API] Retry ${MAX_RETRIES - retries + 1}/${MAX_RETRIES} after error:`, error.message);
+      console.warn(`[Market API] Retry ${MAX_RETRIES - retries + 1}/${MAX_RETRIES} after error:`, message);
       await sleep(RETRY_DELAY);
       return fetchMarketData(symbol, queryOptions, retries - 1);
     }
@@ -137,7 +138,7 @@ export async function GET(request: Request) {
       default: period1Date.setMonth(period1Date.getMonth() - 1);
     }
 
-    const queryOptions: any = {
+    const queryOptions: Record<string, unknown> = {
       period1: searchParams.get('period1') || period1Date,
       period2: searchParams.get('period2') || period2Date,
       interval: interval,
@@ -146,12 +147,20 @@ export async function GET(request: Request) {
     console.log(`[Market API] ⟳ Fetching fresh data for ${cacheKey}...`);
 
     try {
+      interface ChartResult {
+        meta?: {
+          regularMarketPrice?: number;
+          [key: string]: unknown;
+        };
+        [key: string]: unknown;
+      }
+
       // Parallel fetch for chart data, domestic spot, and FX rate
       const [chartResult, domesticSpot, fxRate] = await Promise.all([
         fetchMarketData(symbol, queryOptions),
         symbol === 'GC=F' ? fetchDomesticSpot() : Promise.resolve(null),
         symbol === 'GC=F' ? fetchExchangeRate() : Promise.resolve(null)
-      ]);
+      ]) as [ChartResult, number | null, number | null];
 
       // Calculate Indicators (Spread)
       let indicators = null;
@@ -189,8 +198,9 @@ export async function GET(request: Request) {
 
       return NextResponse.json(responseData);
 
-    } catch (fetchError: any) {
-      console.error(`[Market API] ✗ Data source error:`, fetchError.message);
+    } catch (fetchError: unknown) {
+      const message = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+      console.error(`[Market API] ✗ Data source error:`, message);
 
       // Graceful degradation: serve stale cache if available
       if (cachedEntry && (Date.now() - cachedEntry.timestamp < STALE_CACHE_MAX_AGE)) {
@@ -198,7 +208,7 @@ export async function GET(request: Request) {
         console.warn(`[Market API] ⚠ Serving stale cache (${ageMinutes} min old) due to API failure`);
 
         return NextResponse.json({
-          ...cachedEntry.data,
+          ...(cachedEntry.data as object),
           _cached: true,
           _stale: true,
           _fetchedAt: cachedEntry.fetchedAt,
@@ -210,11 +220,12 @@ export async function GET(request: Request) {
       throw fetchError;
     }
 
-  } catch (error: any) {
-    console.error('[Market API] ✗ Fatal error:', error.message || error);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[Market API] ✗ Fatal error:', message);
     return NextResponse.json({
       error: 'Market data temporarily unavailable',
-      message: error.message,
+      message: message,
       suggestion: 'Please try again in a few moments'
     }, { status: 503 });
   }

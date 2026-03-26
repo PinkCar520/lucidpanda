@@ -1,7 +1,4 @@
-"use client"
 
-import * as React from "react"
-import { getSession } from "next-auth/react"
 
 // Create a singleton EventBus for auth events
 type AuthEvent = { type: "REAUTH_REQUIRED"; retry: (token: string) => void }

@@ -109,9 +109,10 @@ export default function ProfilePage() {
       }
 
       setToast({ message: t('profileUpdateSuccess'), type: 'success' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Profile] Error:', error);
-      setToast({ message: error.message || t('profileUpdateError'), type: 'error' });
+      const message = error instanceof Error ? error.message : t('profileUpdateError');
+      setToast({ message, type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -149,8 +150,9 @@ export default function ProfilePage() {
       });
 
       setToast({ message: t('usernameUpdateSuccess'), type: 'success' });
-    } catch (error: any) {
-      setToast({ message: error.message, type: 'error' });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : t('usernameUpdateError');
+      setToast({ message, type: 'error' });
     } finally {
       setUsernameLoading(false);
     }
@@ -194,7 +196,7 @@ export default function ProfilePage() {
       }
       
       setToast({ message: t('avatarUpdateSuccess'), type: 'success' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Avatar] Error:', error);
       setToast({ message: t('avatarUpdateError'), type: 'error' });
     } finally {

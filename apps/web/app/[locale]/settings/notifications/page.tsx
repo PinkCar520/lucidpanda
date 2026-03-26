@@ -79,8 +79,8 @@ export default function NotificationsPage() {
       }
   };
 
-  const handleToggle = (key: string) => {
-      setPrefs(prev => ({ ...prev, [key]: !(prev as any)[key] }));
+  const handleToggle = (key: keyof typeof prefs) => {
+      setPrefs(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleFrequencyChange = (key: string, value: string) => {
@@ -118,8 +118,9 @@ export default function NotificationsPage() {
           } else {
               throw new Error('Failed to save preferences');
           }
-      } catch (error: any) {
-          setToast({ message: error.message, type: 'error' });
+      } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'An unknown error occurred';
+          setToast({ message, type: 'error' });
       } finally {
           setSaving(false);
       }

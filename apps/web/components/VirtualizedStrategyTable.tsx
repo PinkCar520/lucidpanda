@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Intelligence } from '@/lib/db';
 import { RefreshCw } from 'lucide-react';
@@ -12,7 +12,7 @@ interface VirtualizedStrategyTableProps {
   isFetchingNextPage: boolean;
   fetchNextPage: () => void;
   locale: string;
-  getLocalizedText: (jsonString: any, locale: string) => string;
+  getLocalizedText: (jsonString: unknown, locale: string) => string;
   tTable: (key: string) => string;
 }
 

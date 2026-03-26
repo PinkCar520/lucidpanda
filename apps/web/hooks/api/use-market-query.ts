@@ -14,9 +14,9 @@ export function useMarketQuery(symbol: string, range: string, interval: string) 
     enabled: !!session && !!symbol,
     staleTime: 1000 * 60, // Consider market data fresh for 1 minute
     gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry immediately if rate limited
-      if (error.message === 'RATE_LIMIT_EXCEEDED') return false;
+      if (error instanceof Error && error.message === 'RATE_LIMIT_EXCEEDED') return false;
       return failureCount < 2;
     }
   });

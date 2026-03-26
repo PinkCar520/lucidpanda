@@ -25,7 +25,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
 // Dynamic import for Plotly to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as any;
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as unknown as React.ComponentType<Record<string, unknown>>;
 
 export default function FundMonitorPage() {
     const t = useTranslations('Monitor');
@@ -59,8 +59,9 @@ export default function FundMonitorPage() {
             } else {
                 toast.error(t('retryFailed'), { description: res.error });
             }
-        } catch (err: any) {
-            toast.error(t('retryFailed'), { description: err.message });
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'An unknown error occurred';
+            toast.error(t('retryFailed'), { description: message });
         } finally {
             setRetryingId(null);
         }
@@ -69,12 +70,12 @@ export default function FundMonitorPage() {
     const heatmapTraces = React.useMemo(() => {
         if (!stats?.heatmap || stats.heatmap.length === 0) return null;
 
-        const dates = Array.from(new Set(stats.heatmap.map((h: any) => h.trade_date))).sort().reverse();
-        const categories = Array.from(new Set(stats.heatmap.map((h: any) => h.category)));
+        const dates = Array.from(new Set(stats.heatmap.map(h => h.trade_date))).sort().reverse();
+        const categories = Array.from(new Set(stats.heatmap.map(h => h.category)));
         
         const zMatrix = dates.map(d => {
             return categories.map(c => {
-                const match = stats.heatmap.find((h: any) => h.trade_date === d && h.category === c);
+                const match = stats.heatmap.find(h => h.trade_date === d && h.category === c);
                 return match ? match.mae : null;
             });
         });
@@ -242,8 +243,8 @@ export default function FundMonitorPage() {
                         <Plot
                             data={[
                                 {
-                                    x: stats?.daily?.map((d: any) => d.trade_date).reverse(),
-                                    y: stats?.daily?.map((d: any) => d.avg_mae).reverse(),
+                                    x: stats?.daily?.map(d => d.trade_date).reverse(),
+                                    y: stats?.daily?.map(d => d.avg_mae).reverse(),
                                     type: 'scatter',
                                     mode: 'lines+markers',
                                     name: t('maeLabel'),
@@ -271,8 +272,8 @@ export default function FundMonitorPage() {
                 {/* Anomalies List */}
                 <Card title={t('anomaliesTitle')} action={<Badge variant="bearish">{t('alertsCount', { count: stats?.anomalies?.length || 0 })}</Badge>}>
                     <div className="flex flex-col gap-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
-                        {stats?.anomalies?.length > 0 ? (
-                            stats.anomalies.map((a: any, i: number) => (
+                        {stats && stats.anomalies && stats.anomalies.length > 0 ? (
+                            stats.anomalies.map((a, i) => (
                                 <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col gap-2 hover:border-rose-500/50 transition-colors">
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-2">
@@ -294,7 +295,7 @@ export default function FundMonitorPage() {
                                                 <BarChart3 className="w-2.5 h-2.5" /> {t('sectorDrift')}
                                             </p>
                                             <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto pr-1">
-                                                {Object.entries(a.frozen_sector_attribution).slice(0, 5).map(([sector, impact]: any) => (
+                                                {Object.entries(a.frozen_sector_attribution).slice(0, 5).map(([sector, impact]) => (
                                                     <div key={sector} className="flex justify-between items-center text-[9px]">
                                                         <span className="truncate max-w-[100px] opacity-70">{sector}</span>
                                                         <span className={`font-mono ${Number(impact) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -340,7 +341,7 @@ export default function FundMonitorPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
-                            {stats?.daily?.map((d: any, i: number) => {
+                            {stats?.daily?.map((d, i) => {
                                 const rate = (d.reconciled_count / d.total_count) * 100;
                                 return (
                                     <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">

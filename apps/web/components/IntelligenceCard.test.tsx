@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'
 import IntelligenceCard from './IntelligenceCard'
+import { Intelligence } from '@/lib/db'
 
 // Mock data
-const mockItem: any = {
+const mockItem: Intelligence = {
     id: 1,
     source: 'google',
     source_id: '123',
@@ -20,7 +21,12 @@ const mockItem: any = {
     original_content: 'Content',
     gold_price_snapshot: 2000,
     price_1h: 0.1,
-    price_24h: 0.5
+    price_24h: 0.5,
+    confidence_level: 'HIGH',
+    corroboration_count: 1,
+    source_credibility_score: 0.8,
+    entities: [],
+    categories: []
 };
 
 const mockGetLocalizedText = jest.fn((text: string, locale: string) => text);

@@ -47,7 +47,7 @@ export default function RegisterPage() {
         router.push(`/${locale}/login`);
       }, 2000);
 
-    } catch (err) {
+    } catch (err: unknown) {
       setError(t('networkError'));
     } finally {
       setLoading(false);

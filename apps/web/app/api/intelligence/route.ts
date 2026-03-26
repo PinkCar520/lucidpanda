@@ -23,7 +23,7 @@ export async function GET(request: Request) {
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
     let query: string;
-    let params: any[];
+    let params: (string | number)[];
 
     const baseConfidenceExpr = `
       (

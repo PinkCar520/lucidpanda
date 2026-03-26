@@ -16,83 +16,14 @@ import { fundKeys } from '@/lib/query-keys';
 import { SectorAttribution } from '@/components/SectorAttribution';
 import { FundSparkline } from '@/components/FundSparkline';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip';
-
-interface ComponentStock {
-    code: string;
-    name: string;
-    price: number;
-    change_pct: number;
-    impact: number;
-    weight: number;
-}
-
-interface FundStats {
-    return_1w: number;
-    return_1m: number;
-    return_3m: number;
-    return_1y: number;
-    sharpe_ratio: number;
-    sharpe_grade: string;
-    max_drawdown: number;
-    drawdown_grade: string;
-    volatility: number;
-    sparkline_data: number[];
-}
-
-interface FundConfidence {
-    level: 'high' | 'medium' | 'low';
-    score: number;
-    is_suspected_rebalance?: boolean;
-    reasons: string[];
-}
-
-interface FundValuation {
-    fund_code: string;
-    fund_name: string;
-    estimated_growth: number;
-    total_weight: number;
-    is_qdii?: boolean;
-    confidence?: FundConfidence;
-    risk_level?: string;
-    status?: string;
-    message?: string;
-    components: ComponentStock[];
-    sector_attribution?: Record<string, {
-        impact: number;
-        weight: number;
-        sub: Record<string, { impact: number; weight: number; }>;
-    }>;
-    timestamp: string;
-    source?: string;
-    stats?: FundStats;
-}
-
-interface ValuationHistory {
-    trade_date: string;
-    frozen_est_growth: number;
-    official_growth: number;
-    deviation: number;
-    tracking_status: string;
-    sector_attribution?: Record<string, {
-        impact: number;
-        weight: number;
-        sub: Record<string, { impact: number; weight: number; }>;
-    }>;
-    timestamp: string;
-    source?: string;
-}
-
-interface WatchlistItem {
-    code: string;
-    name: string;
-    is_qdii?: boolean;
-    estimated_growth?: number; // For sorting by daily performance
-    previous_growth?: number; // For trend arrows (↑↓)
-    source?: string; // For confidence indicators
-    confidence?: FundConfidence;
-    risk_level?: string;
-    stats?: FundStats;
-}
+import { 
+    ComponentStock, 
+    FundStats, 
+    FundConfidence, 
+    FundValuation, 
+    ValuationHistory, 
+    WatchlistItem 
+} from '@/lib/services/fund-service';
 
 export default function FundDashboard({ params }: { params: Promise<{ locale: string }> }) {
     const { locale } = React.use(params);
@@ -129,25 +60,47 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
 
     // Sync last updated time
     useEffect(() => {
-        if (valuation) setLastUpdated(new Date());
+        if (valuation) {
+            // Defer update to avoid cascading render warning
+            const timer = setTimeout(() => {
+                setLastUpdated(prev => {
+                    const now = new Date();
+                    if (prev && now.getTime() - prev.getTime() < 1000) return prev;
+                    return now;
+                });
+            }, 0);
+            return () => clearTimeout(timer);
+        }
     }, [valuation]);
 
-    // Initialize selected fund
+    // Initialize selected fund from multiple sources
     useEffect(() => {
         if (watchlistData && watchlistData.length > 0 && !selectedFund) {
+            const queryCode = searchParams.get('code');
             const stored = localStorage.getItem('fund_selected');
-            if (stored && watchlistData.some(i => i.code === stored)) {
-                setSelectedFund(stored);
+
+            let codeToSelect = '';
+            if (queryCode && watchlistData.some(i => i.code === queryCode)) {
+                codeToSelect = queryCode;
+            } else if (stored && watchlistData.some(i => i.code === stored)) {
+                codeToSelect = stored;
             } else {
-                setSelectedFund(watchlistData[0].code);
+                codeToSelect = watchlistData[0].code;
+            }
+            
+            if (codeToSelect) {
+                const timer = setTimeout(() => {
+                    setSelectedFund(codeToSelect);
+                }, 0);
+                return () => clearTimeout(timer);
             }
         }
-    }, [watchlistData, selectedFund]);
+    }, [watchlistData, searchParams, selectedFund]);
 
     const watchlist = useMemo(() => {
         if (!watchlistData) return [];
         return watchlistData.map(item => {
-            const val = batchData?.find((v: any) => v.fund_code === item.code);
+            const val = batchData?.find((v: FundValuation) => v.fund_code === item.code);
             return {
                 ...item,
                 estimated_growth: val?.estimated_growth ?? item.estimated_growth,
@@ -165,22 +118,6 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     const watchlistValidating = watchlistFetching;
 
     // --- Selection Persistence & Initialization ---
-
-    // 1. Initialize from URL or LocalStorage
-    useEffect(() => {
-        if (watchlistData && watchlistData.length > 0 && !selectedFund) {
-            const queryCode = searchParams.get('code');
-            const stored = localStorage.getItem('fund_selected');
-
-            if (queryCode && watchlistData.some(i => i.code === queryCode)) {
-                setSelectedFund(queryCode);
-            } else if (stored && watchlistData.some(i => i.code === stored)) {
-                setSelectedFund(stored);
-            } else {
-                setSelectedFund(watchlistData[0].code);
-            }
-        }
-    }, [watchlistData, searchParams, selectedFund]);
 
     // 2. Persist to LocalStorage whenever selection changes
     useEffect(() => {

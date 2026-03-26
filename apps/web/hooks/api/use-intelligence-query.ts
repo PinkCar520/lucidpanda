@@ -7,7 +7,7 @@ import { intelligenceKeys } from '@/lib/query-keys';
  * Hook for fetching intelligence news with infinite scrolling
  * Handles thousands of items efficiently with TanStack Query's pagination
  */
-export function useIntelligenceInfiniteQuery(filters: any = {}) {
+export function useIntelligenceInfiniteQuery(filters: Record<string, unknown> = {}) {
   const { data: session } = useSession();
   const limit = 50;
   

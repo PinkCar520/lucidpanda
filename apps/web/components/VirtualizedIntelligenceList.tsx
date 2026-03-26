@@ -12,10 +12,10 @@ interface VirtualizedIntelligenceListProps {
   isFetchingNextPage: boolean;
   fetchNextPage: () => void;
   locale: string;
-  getLocalizedText: (jsonString: any, locale: string) => string;
+  getLocalizedText: (jsonString: unknown, locale: string) => string;
   t: (key: string) => string;
   tSentiment: (key: string) => string;
-  isBearishSentiment: (sentimentInput: any) => boolean;
+  isBearishSentiment: (sentimentInput: unknown) => boolean;
 }
 
 /**

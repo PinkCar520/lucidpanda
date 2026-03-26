@@ -31,8 +31,8 @@ export default function LoginPage() {
 
   // If there's an error in the session, clear it
   useEffect(() => {
-    if (session && (session as any).error) {
-      console.log("[Login] Session error detected, signing out to clear state:", (session as any).error);
+    if (session && session.error) {
+      console.log("[Login] Session error detected, signing out to clear state:", session.error);
       signOut({ redirect: false });
     }
   }, [session]);
@@ -56,9 +56,11 @@ export default function LoginPage() {
         router.push(`/${locale}`);
         router.refresh();
       }
-    } catch (err: any) {
-      if (err.name !== 'NotAllowedError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name !== 'NotAllowedError') {
         setError(err.message || t('passkeyLoginFailed'));
+      } else if (!(err instanceof Error)) {
+          setError(t('passkeyLoginFailed'));
       }
     } finally {
       setPasskeyLoading(false);
