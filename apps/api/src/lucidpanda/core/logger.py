@@ -17,6 +17,7 @@ def setup_logger(name="LucidPanda"):
     )
 
     # JSON Formatter (Structured)
+    json_formatter: logging.Formatter
     try:
         from pythonjsonlogger import jsonlogger
         json_formatter = jsonlogger.JsonFormatter(

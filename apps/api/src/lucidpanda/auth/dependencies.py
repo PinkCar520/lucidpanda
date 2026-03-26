@@ -36,9 +36,9 @@ async def get_current_user(
     )
     try:
         payload = decode_token(token)
-        user_id: str = payload.get("sub")
-        token_type: str = payload.get("type")
-        if user_id is None or token_type != "access":
+        user_id = payload.get("sub")
+        token_type = payload.get("type")
+        if not isinstance(user_id, str) or not isinstance(token_type, str) or token_type != "access":
             print(f"[AUTH] Invalid payload: user_id={user_id}, type={token_type}")
             raise credentials_exception
         token_data = TokenPayload(sub=user_id, type=token_type)

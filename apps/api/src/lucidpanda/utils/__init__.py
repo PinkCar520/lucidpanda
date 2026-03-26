@@ -4,8 +4,7 @@ from decimal import Decimal
 from sqlalchemy.engine.row import RowMapping
 
 
-def format_iso8601(dt:
-    datetime) -> str:
+def format_iso8601(dt: datetime) -> str | None:
     """Standardize date string for iOS/Web compatibility."""
     if not dt:
         return None
