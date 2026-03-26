@@ -1527,7 +1527,7 @@ class FundEngine:
         """
         # 0. Robustness: If no target_date, auto-detect missed trading days in the last 7 days
         if not target_date:
-            self._ensure_archive_placeholders_exist(days_lookback=7)
+            self._ensure_archive_placeholders_exist(days_lookback=14)
 
         # 1. Get the list of pending reconciliation tasks
         conn = self.db.get_connection()
@@ -1546,8 +1546,9 @@ class FundEngine:
                     cursor.execute("""
                         SELECT trade_date, fund_code FROM fund_valuation_archive 
                         WHERE official_growth IS NULL 
-                        AND trade_date >= CURRENT_DATE - INTERVAL '5 days'
+                        AND trade_date >= '2026-03-01'
                         ORDER BY trade_date DESC
+                        LIMIT 500
                     """)
                 pending_tasks = cursor.fetchall()
         finally:
