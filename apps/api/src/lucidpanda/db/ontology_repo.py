@@ -22,10 +22,10 @@ class OntologyRepo(DBBase):
                 with conn.cursor() as cursor:
                     # 使用聚合查询减少循环
                     cursor.execute("""
-                        SELECT 
-                            r.canonical_id, 
-                            r.display_name, 
-                            r.entity_type, 
+                        SELECT
+                            r.canonical_id,
+                            r.display_name,
+                            r.entity_type,
                             r.importance_weight,
                             array_agg(a.alias) filter (where a.alias is not null) as aliases
                         FROM entity_registry r
@@ -33,7 +33,9 @@ class OntologyRepo(DBBase):
                         WHERE r.is_active = TRUE
                         GROUP BY r.canonical_id;
                     """)
-                    return cursor.fetchall()
+                    # Type cast result to avoid Any return
+                    rows = cursor.fetchall()
+                    return [dict(row) for row in rows]
         except Exception as e:
             logger.error(f"❌ Failed to fetch entities from DB: {e}")
             return []
@@ -44,12 +46,14 @@ class OntologyRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT dimension, value FROM taxonomy_registry;")
-                    return cursor.fetchall()
+                    rows = cursor.fetchall()
+                    return [dict(row) for row in rows]
         except Exception as e:
             logger.error(f"❌ Failed to fetch taxonomy from DB: {e}")
             return []
 
-    def upsert_entity(self, canonical_id: str, display_name: str, entity_type: str, weight: float = 1.0):
+    def upsert_entity(self, canonical_id:
+        str, display_name: str, entity_type: str, weight: float = 1.0) -> None:
         """新增或更新核心实体"""
         try:
             with self._get_conn() as conn:
@@ -67,7 +71,8 @@ class OntologyRepo(DBBase):
         except Exception as e:
             logger.error(f"❌ Upsert Entity Failed: {e}")
 
-    def add_alias(self, canonical_id: str, alias: str):
+    def add_alias(self, canonical_id:
+        str, alias: str) -> None:
         """为实体绑定别名"""
         try:
             with self._get_conn() as conn:
@@ -81,7 +86,8 @@ class OntologyRepo(DBBase):
         except Exception as e:
             logger.error(f"❌ Add Alias Failed: {e}")
 
-    def upsert_taxonomy(self, dimension: str, value: str):
+    def upsert_taxonomy(self, dimension:
+        str, value: str) -> None:
         """维护分类维度"""
         try:
             with self._get_conn() as conn:
@@ -95,7 +101,8 @@ class OntologyRepo(DBBase):
         except Exception as e:
             logger.error(f"❌ Upsert Taxonomy Failed: {e}")
 
-    def find_closest_entity(self, vector, threshold: float = 0.90) -> str | None:
+    def find_closest_entity(self, vector:
+        Any, threshold: float = 0.90) -> str | None:
         """通过 embedding_vec 进行向量兜底查询"""
         try:
             vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
@@ -110,13 +117,14 @@ class OntologyRepo(DBBase):
                     """, (vec_list, vec_list))
                     row = cursor.fetchone()
                     if row and row['sim'] >= threshold:
-                        return row['canonical_id']
+                        return str(row['canonical_id'])
                     return None
         except Exception as e:
             logger.warning(f"⚠️ 向量匹配实体兜底失败: {e}")
             return None
 
-    def update_entity_vector(self, canonical_id: str, vector) -> None:
+    def update_entity_vector(self, canonical_id:
+        str, vector: Any) -> None:
         """更新实体的向量"""
         try:
             vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)

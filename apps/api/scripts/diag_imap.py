@@ -7,7 +7,7 @@ import sys
 # 路径修复
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(root_dir, "apps/api"))
-from src.lucidpanda.config import settings
+from src.lucidpanda.config import settings  # noqa: E402
 
 
 def test_imap_connection():

@@ -19,7 +19,8 @@ def patch_feb6_data():
     count = 0
 
     for val in valuations:
-        if 'error' in val: continue
+        if 'error' in val:
+            continue
 
         db.save_valuation_snapshot(
             trade_date=target_date,

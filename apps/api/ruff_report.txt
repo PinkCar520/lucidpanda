@@ -1,0 +1,5215 @@
+F841 Local variable `result` is assigned to but never used
+   --> scripts/backfills/backfill_knowledge_graph.py:113:17
+    |
+111 |             try:
+112 |                 # 用已有的 entities 构造一个轻量 analysis_result
+113 |                 result = db.upsert_knowledge_graph(
+    |                 ^^^^^^
+114 |                     source_id,
+115 |                     {"entities": entities}
+    |
+help: Remove assignment to unused variable `result`
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:33:20
+   |
+32 | cursor.execute('''
+33 |     SELECT COUNT(*) 
+   |                    ^
+34 |     FROM intelligence 
+35 |     WHERE price_1h IS NOT NULL 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:34:22
+   |
+32 | cursor.execute('''
+33 |     SELECT COUNT(*) 
+34 |     FROM intelligence 
+   |                      ^
+35 |     WHERE price_1h IS NOT NULL 
+36 |        OR price_12h IS NOT NULL 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:35:31
+   |
+33 |     SELECT COUNT(*) 
+34 |     FROM intelligence 
+35 |     WHERE price_1h IS NOT NULL 
+   |                               ^
+36 |        OR price_12h IS NOT NULL 
+37 |        OR price_24h IS NOT NULL
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:36:32
+   |
+34 |     FROM intelligence 
+35 |     WHERE price_1h IS NOT NULL 
+36 |        OR price_12h IS NOT NULL 
+   |                                ^
+37 |        OR price_24h IS NOT NULL
+38 | ''')
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:44:20
+   |
+42 | # 检查异常数据 (触发价>3000 但结果价<3000)
+43 | cursor.execute('''
+44 |     SELECT COUNT(*) 
+   |                    ^
+45 |     FROM intelligence 
+46 |     WHERE gold_price_snapshot > 3000 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:45:22
+   |
+43 | cursor.execute('''
+44 |     SELECT COUNT(*) 
+45 |     FROM intelligence 
+   |                      ^
+46 |     WHERE gold_price_snapshot > 3000 
+47 |       AND price_1h IS NOT NULL 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:46:37
+   |
+44 |     SELECT COUNT(*) 
+45 |     FROM intelligence 
+46 |     WHERE gold_price_snapshot > 3000 
+   |                                     ^
+47 |       AND price_1h IS NOT NULL 
+48 |       AND price_1h < 3000
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:47:31
+   |
+45 |     FROM intelligence 
+46 |     WHERE gold_price_snapshot > 3000 
+47 |       AND price_1h IS NOT NULL 
+   |                               ^
+48 |       AND price_1h < 3000
+49 | ''')
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:69:24
+   |
+68 | cursor.execute('''
+69 |     UPDATE intelligence 
+   |                        ^
+70 |     SET price_15m = NULL, 
+71 |         price_1h = NULL, 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:70:26
+   |
+68 | cursor.execute('''
+69 |     UPDATE intelligence 
+70 |     SET price_15m = NULL, 
+   |                          ^
+71 |         price_1h = NULL, 
+72 |         price_4h = NULL, 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:71:25
+   |
+69 |     UPDATE intelligence 
+70 |     SET price_15m = NULL, 
+71 |         price_1h = NULL, 
+   |                         ^
+72 |         price_4h = NULL, 
+73 |         price_12h = NULL, 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:72:25
+   |
+70 |     SET price_15m = NULL, 
+71 |         price_1h = NULL, 
+72 |         price_4h = NULL, 
+   |                         ^
+73 |         price_12h = NULL, 
+74 |         price_24h = NULL
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:73:26
+   |
+71 |         price_1h = NULL, 
+72 |         price_4h = NULL, 
+73 |         price_12h = NULL, 
+   |                          ^
+74 |         price_24h = NULL
+75 |     WHERE price_1h IS NOT NULL 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:75:31
+   |
+73 |         price_12h = NULL, 
+74 |         price_24h = NULL
+75 |     WHERE price_1h IS NOT NULL 
+   |                               ^
+76 |        OR price_12h IS NOT NULL 
+77 |        OR price_24h IS NOT NULL
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/backfills/replay_backtest.py:76:32
+   |
+74 |         price_24h = NULL
+75 |     WHERE price_1h IS NOT NULL 
+76 |        OR price_12h IS NOT NULL 
+   |                                ^
+77 |        OR price_24h IS NOT NULL
+78 | ''')
+   |
+help: Remove trailing whitespace
+
+E701 Multiple statements on one line (colon)
+  --> scripts/backfills/sync_stock_industries.py:94:24
+   |
+92 |             # logger.info(f"   Fetching members for {industry_code} (L{level})...")
+93 |             df = ak.index_component_sw(symbol=industry_code)
+94 |             if df.empty: return
+   |                        ^
+95 |
+96 |             # Columns: 序号, 证券代码, 证券名称, ...
+   |
+
+E701 Multiple statements on one line (colon)
+   --> scripts/backfills/sync_stock_industries.py:104:27
+    |
+102 |                 updates.append((stock_code, stock_name))
+103 |
+104 |             if not updates: return
+    |                           ^
+105 |
+106 |             with self.conn.cursor() as cursor:
+    |
+
+E701 Multiple statements on one line (colon)
+   --> scripts/backfills/sync_stock_industries.py:116:72
+    |
+114 |                     # Determine market
+115 |                     market = 'SZ'
+116 |                     if s_code.startswith('6') or s_code.startswith('9'): market = 'SH'
+    |                                                                        ^
+117 |                     elif s_code.startswith('8') or s_code.startswith('4'): market = 'BJ'
+    |
+
+E701 Multiple statements on one line (colon)
+   --> scripts/backfills/sync_stock_industries.py:117:74
+    |
+115 |                     market = 'SZ'
+116 |                     if s_code.startswith('6') or s_code.startswith('9'): market = 'SH'
+117 |                     elif s_code.startswith('8') or s_code.startswith('4'): market = 'BJ'
+    |                                                                          ^
+118 |
+119 |                     if level == 1:
+    |
+
+E701 Multiple statements on one line (colon)
+   --> scripts/backfills/sync_stock_industries.py:158:30
+    |
+156 |             self.sync_constituents(code, 1)
+157 |             time.sleep(0.3)
+158 |             if (i+1) % 5 == 0: logger.info(f"   Progress L1: {i+1}/{len(l1_codes)}")
+    |                              ^
+159 |
+160 |         # 3. Sync L2
+    |
+
+E701 Multiple statements on one line (colon)
+   --> scripts/backfills/sync_stock_industries.py:168:31
+    |
+166 |             self.sync_constituents(code, 2)
+167 |             time.sleep(0.3)
+168 |             if (i+1) % 10 == 0: logger.info(f"   Progress L2: {i+1}/{len(l2_codes)}")
+    |                               ^
+169 |
+170 |         logger.info("✅ All Done!")
+    |
+
+E701 Multiple statements on one line (colon)
+  --> scripts/backfills/update_stock_pinyin.py:8:16
+   |
+ 7 | def get_pinyin_shorthand(name):
+ 8 |     if not name: return ""
+   |                ^
+ 9 |     letters = pinyin(name, style=Style.FIRST_LETTER)
+10 |     return "".join([item[0].upper() for item in letters if item[0].isalnum()])
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run.py:10:1
+   |
+ 8 |     sys.path.insert(0, root_dir)
+ 9 |
+10 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+11 | from src.lucidpanda.core.engine import AlphaEngine
+12 | from src.lucidpanda.core.logger import logger
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run.py:11:1
+   |
+10 | from src.lucidpanda.config import settings
+11 | from src.lucidpanda.core.engine import AlphaEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 | from src.lucidpanda.core.logger import logger
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run.py:12:1
+   |
+10 | from src.lucidpanda.config import settings
+11 | from src.lucidpanda.core.engine import AlphaEngine
+12 | from src.lucidpanda.core.logger import logger
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E722 Do not use bare `except`
+  --> scripts/core/run.py:58:13
+   |
+56 |                 if pubsub:
+57 |                     await pubsub.close()
+58 |             except:
+   |             ^^^^^^
+59 |                 pass
+60 |             pubsub = None
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run_collector.py:20:1
+   |
+18 |     sys.path.insert(0, root_dir)
+19 |
+20 | from src.lucidpanda.core.logger import logger
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21 | from src.lucidpanda.core.rss_collector import RSSCollector
+22 | from src.lucidpanda.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run_collector.py:21:1
+   |
+20 | from src.lucidpanda.core.logger import logger
+21 | from src.lucidpanda.core.rss_collector import RSSCollector
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+22 | from src.lucidpanda.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run_collector.py:22:1
+   |
+20 | from src.lucidpanda.core.logger import logger
+21 | from src.lucidpanda.core.rss_collector import RSSCollector
+22 | from src.lucidpanda.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 |
+24 | # 采集间隔：比分析引擎更频繁（2 分钟），确保 PENDING 队列始终有新鲜数据
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run_funds.py:13:1
+   |
+11 |     sys.path.insert(0, root_dir)
+12 |
+13 | from scripts.backfills.sync_fund_metadata import sync_all_funds
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+14 | from scripts.backfills.sync_stock_industries import IndustrySyncer
+15 | from scripts.daily_tasks.calc_fund_stats import StatsEngine
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run_funds.py:14:1
+   |
+13 | from scripts.backfills.sync_fund_metadata import sync_all_funds
+14 | from scripts.backfills.sync_stock_industries import IndustrySyncer
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+15 | from scripts.daily_tasks.calc_fund_stats import StatsEngine
+16 | from src.lucidpanda.core.fund_engine import FundEngine
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run_funds.py:15:1
+   |
+13 | from scripts.backfills.sync_fund_metadata import sync_all_funds
+14 | from scripts.backfills.sync_stock_industries import IndustrySyncer
+15 | from scripts.daily_tasks.calc_fund_stats import StatsEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+16 | from src.lucidpanda.core.fund_engine import FundEngine
+17 | from src.lucidpanda.core.logger import logger
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run_funds.py:16:1
+   |
+14 | from scripts.backfills.sync_stock_industries import IndustrySyncer
+15 | from scripts.daily_tasks.calc_fund_stats import StatsEngine
+16 | from src.lucidpanda.core.fund_engine import FundEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+17 | from src.lucidpanda.core.logger import logger
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/run_funds.py:17:1
+   |
+15 | from scripts.daily_tasks.calc_fund_stats import StatsEngine
+16 | from src.lucidpanda.core.fund_engine import FundEngine
+17 | from src.lucidpanda.core.logger import logger
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:18:1
+   |
+17 | # ... imports remaining the same ...
+18 | import asyncio
+   | ^^^^^^^^^^^^^^
+19 | import json
+20 | import logging
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:19:1
+   |
+17 | # ... imports remaining the same ...
+18 | import asyncio
+19 | import json
+   | ^^^^^^^^^^^
+20 | import logging
+21 | from collections.abc import AsyncGenerator
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:20:1
+   |
+18 | import asyncio
+19 | import json
+20 | import logging
+   | ^^^^^^^^^^^^^^
+21 | from collections.abc import AsyncGenerator
+22 | from contextlib import asynccontextmanager
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:21:1
+   |
+19 | import json
+20 | import logging
+21 | from collections.abc import AsyncGenerator
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+22 | from contextlib import asynccontextmanager
+23 | from datetime import datetime
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:22:1
+   |
+20 | import logging
+21 | from collections.abc import AsyncGenerator
+22 | from contextlib import asynccontextmanager
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 | from datetime import datetime
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:23:1
+   |
+21 | from collections.abc import AsyncGenerator
+22 | from contextlib import asynccontextmanager
+23 | from datetime import datetime
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |
+25 | import psycopg
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:25:1
+   |
+23 | from datetime import datetime
+24 |
+25 | import psycopg
+   | ^^^^^^^^^^^^^^
+26 | from fastapi import Depends, FastAPI, Request
+27 | from fastapi.middleware.cors import CORSMiddleware
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:26:1
+   |
+25 | import psycopg
+26 | from fastapi import Depends, FastAPI, Request
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+27 | from fastapi.middleware.cors import CORSMiddleware
+28 | from fastapi.responses import StreamingResponse
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:27:1
+   |
+25 | import psycopg
+26 | from fastapi import Depends, FastAPI, Request
+27 | from fastapi.middleware.cors import CORSMiddleware
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+28 | from fastapi.responses import StreamingResponse
+29 | from src.lucidpanda.auth.dependencies import get_current_user
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:28:1
+   |
+26 | from fastapi import Depends, FastAPI, Request
+27 | from fastapi.middleware.cors import CORSMiddleware
+28 | from fastapi.responses import StreamingResponse
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+29 | from src.lucidpanda.auth.dependencies import get_current_user
+30 | from src.lucidpanda.auth.models import User
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:29:1
+   |
+27 | from fastapi.middleware.cors import CORSMiddleware
+28 | from fastapi.responses import StreamingResponse
+29 | from src.lucidpanda.auth.dependencies import get_current_user
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+30 | from src.lucidpanda.auth.models import User
+31 | from src.lucidpanda.auth.router import router as auth_router
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:30:1
+   |
+28 | from fastapi.responses import StreamingResponse
+29 | from src.lucidpanda.auth.dependencies import get_current_user
+30 | from src.lucidpanda.auth.models import User
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+31 | from src.lucidpanda.auth.router import router as auth_router
+32 | from src.lucidpanda.config import settings
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:31:1
+   |
+29 | from src.lucidpanda.auth.dependencies import get_current_user
+30 | from src.lucidpanda.auth.models import User
+31 | from src.lucidpanda.auth.router import router as auth_router
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+32 | from src.lucidpanda.config import settings
+   |
+
+E402 Module level import not at top of file
+  --> scripts/core/sse_server.py:32:1
+   |
+30 | from src.lucidpanda.auth.models import User
+31 | from src.lucidpanda.auth.router import router as auth_router
+32 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+33 |
+34 | # --- Broadcast System ---
+   |
+
+E402 Module level import not at top of file
+   --> scripts/core/sse_server.py:150:1
+    |
+148 |     task.cancel()
+149 |
+150 | import os
+    | ^^^^^^^^^
+151 |
+152 | from fastapi.staticfiles import StaticFiles
+    |
+
+E402 Module level import not at top of file
+   --> scripts/core/sse_server.py:152:1
+    |
+150 | import os
+151 |
+152 | from fastapi.staticfiles import StaticFiles
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+153 |
+154 | app = FastAPI(lifespan=lifespan)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> scripts/core/sse_server.py:158:14
+    |
+156 | # Helper for iOS compatible ISO8601 strings
+157 | def format_iso8601(dt):
+158 |     if not dt: return None
+    |              ^
+159 |     # Ensure it's UTC and formatted as YYYY-MM-DDTHH:mm:ss.sssZ
+160 |     return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:23] + 'Z'
+    |
+
+E402 Module level import not at top of file
+   --> scripts/core/sse_server.py:185:1
+    |
+184 | # V1 Production Architecture
+185 | from src.lucidpanda.api.v1.main import api_v1_router
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+186 | from src.lucidpanda.api.v1.routers import watchlist_v2
+    |
+
+E402 Module level import not at top of file
+   --> scripts/core/sse_server.py:186:1
+    |
+184 | # V1 Production Architecture
+185 | from src.lucidpanda.api.v1.main import api_v1_router
+186 | from src.lucidpanda.api.v1.routers import watchlist_v2
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+187 |
+188 | app.include_router(api_v1_router)
+    |
+
+E722 Do not use bare `except`
+   --> scripts/core/sse_server.py:219:17
+    |
+217 |                         dt = datetime.fromisoformat(results[0]['timestamp'].replace('Z', '+00:00'))
+218 |                         results[0]['timestamp'] = format_iso8601(dt)
+219 |                 except: pass
+    |                 ^^^^^^
+220 |
+221 |             return results[0]
+    |
+
+E701 Multiple statements on one line (colon)
+   --> scripts/core/sse_server.py:219:23
+    |
+217 |                         dt = datetime.fromisoformat(results[0]['timestamp'].replace('Z', '+00:00'))
+218 |                         results[0]['timestamp'] = format_iso8601(dt)
+219 |                 except: pass
+    |                       ^
+220 |
+221 |             return results[0]
+    |
+
+E722 Do not use bare `except`
+   --> scripts/core/sse_server.py:274:17
+    |
+272 |                         dt = datetime.fromisoformat(res['timestamp'].replace('Z', '+00:00'))
+273 |                         res['timestamp'] = format_iso8601(dt)
+274 |                 except: pass
+    |                 ^^^^^^
+275 |
+276 |         return {"data": results}
+    |
+
+E701 Multiple statements on one line (colon)
+   --> scripts/core/sse_server.py:274:23
+    |
+272 |                         dt = datetime.fromisoformat(res['timestamp'].replace('Z', '+00:00'))
+273 |                         res['timestamp'] = format_iso8601(dt)
+274 |                 except: pass
+    |                       ^
+275 |
+276 |         return {"data": results}
+    |
+
+E402 Module level import not at top of file
+   --> scripts/core/sse_server.py:340:1
+    |
+339 | # --- Watchlist APIs ---
+340 | from pydantic import BaseModel
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+E402 Module level import not at top of file
+   --> scripts/core/sse_server.py:405:1
+    |
+403 | # --- Watchlist V2 SSE Stream ---
+404 |
+405 | import asyncio
+    | ^^^^^^^^^^^^^^
+406 |
+407 | from sse_starlette.sse import EventSourceResponse
+    |
+
+E402 Module level import not at top of file
+   --> scripts/core/sse_server.py:407:1
+    |
+405 | import asyncio
+406 |
+407 | from sse_starlette.sse import EventSourceResponse
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+W293 Blank line contains whitespace
+   --> scripts/core/sse_server.py:479:1
+    |
+477 |     """
+478 |     Search for funds by code or name.
+479 |     
+    | ^^^^
+480 |     Args:
+481 |         q: Search query (fund code or name)
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> scripts/core/sse_server.py:483:1
+    |
+481 |         q: Search query (fund code or name)
+482 |         limit: Maximum number of results (default 20, max 50)
+483 |     
+    | ^^^^
+484 |     Returns:
+485 |         List of matching funds with code, name, type, and company
+    |
+help: Remove whitespace from blank line
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:554:50
+    |
+552 |             WHERE urgency_score >= %(min_score)s
+553 |               AND (sentiment::text ~* %(keywords)s)
+554 |               AND gold_price_snapshot IS NOT NULL 
+    |                                                  ^
+555 |               AND {outcome_col} IS NOT NULL
+556 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:559:41
+    |
+557 |         deduplicated_events AS (
+558 |             SELECT * FROM filtered_intelligence
+559 |             WHERE prev_timestamp IS NULL 
+    |                                         ^
+560 |                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+561 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:563:19
+    |
+561 |         ),
+562 |         qualified_events AS (
+563 |             SELECT 
+    |                   ^
+564 |                 gold_price_snapshot as entry,
+565 |                 {outcome_col} as exit,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:573:15
+    |
+571 |             FROM deduplicated_events
+572 |         )
+573 |         SELECT 
+    |               ^
+574 |             COUNT(*) as count,
+575 |             COUNT(CASE WHEN {win_condition} THEN 1 END) as wins,
+    |
+help: Remove trailing whitespace
+
+W293 Blank line contains whitespace
+   --> scripts/core/sse_server.py:579:1
+    |
+577 |             AVG(clustering_score) as avg_clustering,
+578 |             AVG(exhaustion_score) as avg_exhaustion,
+579 |             
+    | ^^^^^^^^^^^^
+580 |             -- Correlation Stats
+581 |             AVG(dxy_snapshot) as avg_dxy,
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> scripts/core/sse_server.py:584:1
+    |
+582 |             AVG(us10y_snapshot) as avg_us10y,
+583 |             AVG(gvz_snapshot) as avg_gvz,
+584 |             
+    | ^^^^^^^^^^^^
+585 |             -- Adjusted Win Rate: Exclude noise
+586 |             COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float / 
+    |
+help: Remove whitespace from blank line
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:586:117
+    |
+585 |             -- Adjusted Win Rate: Exclude noise
+586 |             COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float / 
+    |                                                                                                                     ^
+587 |             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
+588 |         FROM qualified_events;
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:599:50
+    |
+597 |             WHERE urgency_score >= %(min_score)s
+598 |               AND (sentiment::text ~* %(keywords)s)
+599 |               AND gold_price_snapshot IS NOT NULL 
+    |                                                  ^
+600 |               AND {outcome_col} IS NOT NULL
+601 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:604:41
+    |
+602 |         deduplicated_events AS (
+603 |             SELECT * FROM filtered_intelligence
+604 |             WHERE prev_timestamp IS NULL 
+    |                                         ^
+605 |                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+606 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:611:15
+    |
+609 |             FROM deduplicated_events
+610 |         )
+611 |         SELECT 
+    |               ^
+612 |             floor(ret / 0.5) * 0.5 as bin,
+613 |             COUNT(*) as count
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:627:50
+    |
+625 |             WHERE urgency_score >= %(min_score)s
+626 |               AND (sentiment::text ~* %(keywords)s)
+627 |               AND gold_price_snapshot IS NOT NULL 
+    |                                                  ^
+628 |               AND {outcome_col} IS NOT NULL
+629 |               AND market_session IS NOT NULL
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:633:41
+    |
+631 |         deduplicated_events AS (
+632 |             SELECT * FROM filtered_intelligence
+633 |             WHERE prev_timestamp IS NULL 
+    |                                         ^
+634 |                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+635 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:637:19
+    |
+635 |         ),
+636 |         qualified_events AS (
+637 |             SELECT 
+    |                   ^
+638 |                 market_session,
+639 |                 gold_price_snapshot as entry,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:643:15
+    |
+641 |             FROM deduplicated_events
+642 |         )
+643 |         SELECT 
+    |               ^
+644 |             market_session,
+645 |             COUNT(*) as count,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:661:50
+    |
+659 |             WHERE urgency_score >= %(min_score)s
+660 |               AND (sentiment::text ~* %(keywords)s)
+661 |               AND gold_price_snapshot IS NOT NULL 
+    |                                                  ^
+662 |               AND {outcome_col} IS NOT NULL
+663 |               AND dxy_snapshot IS NOT NULL
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:667:41
+    |
+665 |         deduplicated_events AS (
+666 |             SELECT * FROM filtered_intelligence
+667 |             WHERE prev_timestamp IS NULL 
+    |                                         ^
+668 |                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+669 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:671:19
+    |
+669 |         ),
+670 |         qualified AS (
+671 |             SELECT 
+    |                   ^
+672 |                 gold_price_snapshot as entry,
+673 |                 {outcome_col} as exit,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:677:15
+    |
+675 |             FROM deduplicated_events, stats
+676 |         )
+677 |         SELECT 
+    |               ^
+678 |             CASE WHEN dxy_snapshot > (SELECT mid FROM stats) THEN 'DXY_STRONG' ELSE 'DXY_WEAK' END as env,
+679 |             COUNT(*) as count,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:693:50
+    |
+691 |             WHERE urgency_score >= %(min_score)s
+692 |               AND (sentiment::text ~* %(keywords)s)
+693 |               AND gold_price_snapshot IS NOT NULL 
+    |                                                  ^
+694 |               AND {outcome_col} IS NOT NULL
+695 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:698:41
+    |
+696 |         deduplicated_events AS (
+697 |             SELECT * FROM filtered_intelligence
+698 |             WHERE prev_timestamp IS NULL 
+    |                                         ^
+699 |                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+700 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:702:19
+    |
+700 |         ),
+701 |         qualified AS (
+702 |             SELECT 
+    |                   ^
+703 |                 i.gold_price_snapshot as entry,
+704 |                 i.{outcome_col} as exit,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:705:58
+    |
+703 |                 i.gold_price_snapshot as entry,
+704 |                 i.{outcome_col} as exit,
+705 |                 (SELECT percentile FROM market_indicators 
+    |                                                          ^
+706 |                  WHERE indicator_name = 'COT_GOLD_NET' AND timestamp <= i.timestamp 
+707 |                  ORDER BY timestamp DESC LIMIT 1) as cot_pct
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:706:84
+    |
+704 |                 i.{outcome_col} as exit,
+705 |                 (SELECT percentile FROM market_indicators 
+706 |                  WHERE indicator_name = 'COT_GOLD_NET' AND timestamp <= i.timestamp 
+    |                                                                                    ^
+707 |                  ORDER BY timestamp DESC LIMIT 1) as cot_pct
+708 |             FROM deduplicated_events i
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:710:15
+    |
+708 |             FROM deduplicated_events i
+709 |         )
+710 |         SELECT 
+    |               ^
+711 |             CASE 
+712 |                 WHEN cot_pct >= 85 THEN 'OVERCROWDED_LONG'
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:711:17
+    |
+709 |         )
+710 |         SELECT 
+711 |             CASE 
+    |                 ^
+712 |                 WHEN cot_pct >= 85 THEN 'OVERCROWDED_LONG'
+713 |                 WHEN cot_pct <= 15 THEN 'OVERCROWDED_SHORT'
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:731:50
+    |
+729 |             WHERE urgency_score >= %(min_score)s
+730 |               AND (sentiment::text ~* %(keywords)s)
+731 |               AND gold_price_snapshot IS NOT NULL 
+    |                                                  ^
+732 |               AND {outcome_col} IS NOT NULL
+733 |               AND gvz_snapshot IS NOT NULL
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:737:41
+    |
+735 |         deduplicated_events AS (
+736 |             SELECT * FROM filtered_intelligence
+737 |             WHERE prev_timestamp IS NULL 
+    |                                         ^
+738 |                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+739 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:741:19
+    |
+739 |         ),
+740 |         qualified AS (
+741 |             SELECT 
+    |                   ^
+742 |                 gold_price_snapshot as entry,
+743 |                 {outcome_col} as exit,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:747:15
+    |
+745 |             FROM deduplicated_events
+746 |         )
+747 |         SELECT 
+    |               ^
+748 |             CASE WHEN gvz_snapshot > 25 THEN 'HIGH_VOL' ELSE 'LOW_VOL' END as env,
+749 |             COUNT(*) as count,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:763:50
+    |
+761 |             WHERE urgency_score >= %(min_score)s
+762 |               AND (sentiment::text ~* %(keywords)s)
+763 |               AND gold_price_snapshot IS NOT NULL 
+    |                                                  ^
+764 |               AND {outcome_col} IS NOT NULL
+765 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:768:41
+    |
+766 |         deduplicated_events AS (
+767 |             SELECT * FROM filtered_intelligence
+768 |             WHERE prev_timestamp IS NULL 
+    |                                         ^
+769 |                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+770 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:772:19
+    |
+770 |         ),
+771 |         qualified AS (
+772 |             SELECT 
+    |                   ^
+773 |                 i.gold_price_snapshot as entry,
+774 |                 i.{outcome_col} as exit,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:775:53
+    |
+773 |                 i.gold_price_snapshot as entry,
+774 |                 i.{outcome_col} as exit,
+775 |                 (SELECT value FROM market_indicators 
+    |                                                     ^
+776 |                  WHERE indicator_name = 'FED_REGIME' AND timestamp <= i.timestamp 
+777 |                  ORDER BY timestamp DESC LIMIT 1) as fed_val
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:776:82
+    |
+774 |                 i.{outcome_col} as exit,
+775 |                 (SELECT value FROM market_indicators 
+776 |                  WHERE indicator_name = 'FED_REGIME' AND timestamp <= i.timestamp 
+    |                                                                                  ^
+777 |                  ORDER BY timestamp DESC LIMIT 1) as fed_val
+778 |             FROM deduplicated_events i
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:780:15
+    |
+778 |             FROM deduplicated_events i
+779 |         )
+780 |         SELECT 
+    |               ^
+781 |             CASE 
+782 |                 WHEN fed_val > 0 THEN 'DOVISH_REGIME'
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:781:17
+    |
+779 |         )
+780 |         SELECT 
+781 |             CASE 
+    |                 ^
+782 |                 WHEN fed_val > 0 THEN 'DOVISH_REGIME'
+783 |                 WHEN fed_val < 0 THEN 'HAWKISH_REGIME'
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:800:50
+    |
+798 |             WHERE urgency_score >= %(min_score)s
+799 |               AND (sentiment::text ~* %(keywords)s)
+800 |               AND gold_price_snapshot IS NOT NULL 
+    |                                                  ^
+801 |               AND {outcome_col} IS NOT NULL
+802 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:805:41
+    |
+803 |         deduplicated_events AS (
+804 |             SELECT * FROM filtered_intelligence
+805 |             WHERE prev_timestamp IS NULL 
+    |                                         ^
+806 |                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+807 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:809:19
+    |
+807 |         ),
+808 |         raw_items AS (
+809 |             SELECT 
+    |                   ^
+810 |                 id,
+811 |                 summary as title,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:818:15
+    |
+816 |             FROM deduplicated_events
+817 |         )
+818 |         SELECT 
+    |               ^
+819 |             *,
+820 |             CASE WHEN {win_condition} THEN true ELSE false END as is_win,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:910:24
+    |
+909 |         query = """
+910 |         SELECT COUNT(*) 
+    |                        ^
+911 |         FROM intelligence 
+912 |         WHERE urgency_score >= 8 
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:911:26
+    |
+909 |         query = """
+910 |         SELECT COUNT(*) 
+911 |         FROM intelligence 
+    |                          ^
+912 |         WHERE urgency_score >= 8 
+913 |         AND timestamp > NOW() - INTERVAL '24 hours'
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> scripts/core/sse_server.py:912:33
+    |
+910 |         SELECT COUNT(*) 
+911 |         FROM intelligence 
+912 |         WHERE urgency_score >= 8 
+    |                                 ^
+913 |         AND timestamp > NOW() - INTERVAL '24 hours'
+914 |         """
+    |
+help: Remove trailing whitespace
+
+E722 Do not use bare `except`
+    --> scripts/core/sse_server.py:1279:13
+     |
+1277 |                     "price": price_val
+1278 |                 })
+1279 |             except:
+     |             ^^^^^^
+1280 |                 continue
+     |
+
+E701 Multiple statements on one line (colon)
+  --> scripts/daily_tasks/calc_fund_stats.py:22:21
+   |
+21 |     def get_grade_sharpe(self, val):
+22 |         if val > 2.0: return 'S'
+   |                     ^
+23 |         if val > 1.2: return 'A'
+24 |         if val > 0.5: return 'B'
+   |
+
+E701 Multiple statements on one line (colon)
+  --> scripts/daily_tasks/calc_fund_stats.py:23:21
+   |
+21 |     def get_grade_sharpe(self, val):
+22 |         if val > 2.0: return 'S'
+23 |         if val > 1.2: return 'A'
+   |                     ^
+24 |         if val > 0.5: return 'B'
+25 |         return 'C'
+   |
+
+E701 Multiple statements on one line (colon)
+  --> scripts/daily_tasks/calc_fund_stats.py:24:21
+   |
+22 |         if val > 2.0: return 'S'
+23 |         if val > 1.2: return 'A'
+24 |         if val > 0.5: return 'B'
+   |                     ^
+25 |         return 'C'
+   |
+
+E701 Multiple statements on one line (colon)
+  --> scripts/daily_tasks/calc_fund_stats.py:29:25
+   |
+27 |     def get_grade_drawdown(self, val):
+28 |         abs_val = abs(val)
+29 |         if abs_val < 5.0: return 'S'
+   |                         ^
+30 |         if abs_val < 15.0: return 'A'
+31 |         if abs_val < 25.0: return 'B'
+   |
+
+E701 Multiple statements on one line (colon)
+  --> scripts/daily_tasks/calc_fund_stats.py:30:26
+   |
+28 |         abs_val = abs(val)
+29 |         if abs_val < 5.0: return 'S'
+30 |         if abs_val < 15.0: return 'A'
+   |                          ^
+31 |         if abs_val < 25.0: return 'B'
+32 |         return 'C'
+   |
+
+E701 Multiple statements on one line (colon)
+  --> scripts/daily_tasks/calc_fund_stats.py:31:26
+   |
+29 |         if abs_val < 5.0: return 'S'
+30 |         if abs_val < 15.0: return 'A'
+31 |         if abs_val < 25.0: return 'B'
+   |                          ^
+32 |         return 'C'
+   |
+
+E402 Module level import not at top of file
+  --> scripts/diag_imap.py:10:1
+   |
+ 8 | root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ 9 | sys.path.insert(0, os.path.join(root_dir, "apps/api"))
+10 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+C414 Unnecessary `list()` call within `sorted()`
+   --> scripts/diagnostics/check_duplicates_postgres.py:101:21
+    |
+ 99 |     # EXECUTION
+100 |     # ---------------------------------------------------------
+101 |     ids_to_delete = sorted(list(set(ids_to_delete)))
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+102 |
+103 |     if ids_to_delete:
+    |
+help: Remove the inner `list()` call
+
+B007 Loop control variable `idx` not used within loop body
+   --> scripts/diagnostics/dashboard.py:119:9
+    |
+117 | # 将情报映射到最近的时间点
+118 | if not intel_df.empty:
+119 |     for idx, row in intel_df.iterrows():
+    |         ^^^
+120 |         # 判断颜色
+121 |         sentiment = row['sentiment']
+    |
+help: Rename unused `idx` to `_idx`
+
+W291 Trailing whitespace
+  --> scripts/diagnostics/diagnose_events.py:41:19
+   |
+39 | …     # Query intelligence records for this range
+40 | …     query = """
+41 | …         SELECT 
+   |                 ^
+42 | …             i.*,
+43 | …             (SELECT value FROM market_indicators WHERE indicator_name = 'FED_REGIME' AND timestamp <= i.timestamp ORDER BY timestamp…
+   |
+help: Remove trailing whitespace
+
+F841 Local variable `summary` is assigned to but never used
+  --> scripts/diagnostics/diagnose_events.py:61:13
+   |
+59 | …     for i, row in enumerate(rows):
+60 | …         # Format Analysis Result
+61 | …         summary = row['summary'].get('zh', row['summary']) if isinstance(row['summary'], dict) else row['summary']
+   |           ^^^^^^^
+62 | …         advice = row['actionable_advice'].get('zh', row['actionable_advice']) if isinstance(row['actionable_advice'], dict) else row…
+   |
+help: Remove assignment to unused variable `summary`
+
+E402 Module level import not at top of file
+  --> scripts/diagnostics/test_qwen_llm.py:16:1
+   |
+14 |     sys.path.insert(0, root_dir)
+15 |
+16 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+17 | from src.lucidpanda.providers.llm.qwen_llm import QwenLLM
+   |
+
+E402 Module level import not at top of file
+  --> scripts/diagnostics/test_qwen_llm.py:17:1
+   |
+16 | from src.lucidpanda.config import settings
+17 | from src.lucidpanda.providers.llm.qwen_llm import QwenLLM
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E402 Module level import not at top of file
+  --> scripts/diagnostics/verify_phase_e.py:11:1
+   |
+ 9 |     sys.path.insert(0, root_dir)
+10 |
+11 | from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 | from src.lucidpanda.services.embedding_service import embedding_service
+   |
+
+E402 Module level import not at top of file
+  --> scripts/diagnostics/verify_phase_e.py:12:1
+   |
+11 | from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
+12 | from src.lucidpanda.services.embedding_service import embedding_service
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+W293 [*] Blank line contains whitespace
+  --> scripts/migrate_vectors.py:11:1
+   |
+ 9 |     """
+10 |     logger.info("🚀 正在检查并迁移向量维度 (384 -> 768)...")
+11 |     
+   | ^^^^
+12 |     conn_str = f"host={settings.POSTGRES_HOST} port={settings.POSTGRES_PORT} user={settings.POSTGRES_USER} password={settings.POSTGRES…
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> scripts/migrate_vectors.py:13:1
+   |
+12 |     conn_str = f"host={settings.POSTGRES_HOST} port={settings.POSTGRES_PORT} user={settings.POSTGRES_USER} password={settings.POSTGRES…
+13 |     
+   | ^^^^
+14 |     try:
+15 |         conn = psycopg.connect(conn_str, row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row)
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> scripts/migrate_vectors.py:17:1
+   |
+15 |         conn = psycopg.connect(conn_str, row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row)
+16 |         cursor = conn.cursor()
+17 |         
+   | ^^^^^^^^
+18 |         # 1. 检查当前维度
+19 |         cursor.execute("""
+   |
+help: Remove whitespace from blank line
+
+W291 Trailing whitespace
+  --> scripts/migrate_vectors.py:20:29
+   |
+18 |         # 1. 检查当前维度
+19 |         cursor.execute("""
+20 |             SELECT atttypmod 
+   |                             ^
+21 |             FROM pg_attribute 
+22 |             WHERE attrelid = 'intelligence'::regclass 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/migrate_vectors.py:21:30
+   |
+19 |         cursor.execute("""
+20 |             SELECT atttypmod 
+21 |             FROM pg_attribute 
+   |                              ^
+22 |             WHERE attrelid = 'intelligence'::regclass 
+23 |               AND attname = 'embedding_vec';
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/migrate_vectors.py:22:54
+   |
+20 |             SELECT atttypmod 
+21 |             FROM pg_attribute 
+22 |             WHERE attrelid = 'intelligence'::regclass 
+   |                                                      ^
+23 |               AND attname = 'embedding_vec';
+24 |         """)
+   |
+help: Remove trailing whitespace
+
+W293 [*] Blank line contains whitespace
+  --> scripts/migrate_vectors.py:26:1
+   |
+24 |         """)
+25 |         row = cursor.fetchone()
+26 |         
+   | ^^^^^^^^
+27 |         if row:
+28 |             current_dim = row[0]
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> scripts/migrate_vectors.py:42:1
+   |
+40 |         logger.info("🧹 发现潜在重复条目，正在清理重复的 source_id...")
+41 |         cursor.execute("DELETE FROM intelligence a USING intelligence b WHERE a.id < b.id AND a.source_id = b.source_id;")
+42 |         
+   | ^^^^^^^^
+43 |         # b. 删除索引
+44 |         logger.info("🗑️ 正在删除旧索引 idx_intel_embedding_hnsw...")
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> scripts/migrate_vectors.py:46:1
+   |
+44 |         logger.info("🗑️ 正在删除旧索引 idx_intel_embedding_hnsw...")
+45 |         cursor.execute("DROP INDEX IF EXISTS idx_intel_embedding_hnsw;")
+46 |         
+   | ^^^^^^^^
+47 |         # b. 修改列类型 (必须先清空数据，因为维度不兼容)
+48 |         logger.info("🔄 正在清空旧向量数据并修改列类型为 vector(768)...")
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> scripts/migrate_vectors.py:51:1
+   |
+49 |         cursor.execute("UPDATE intelligence SET embedding_vec = NULL;")
+50 |         cursor.execute("ALTER TABLE intelligence ALTER COLUMN embedding_vec TYPE vector(768);")
+51 |         
+   | ^^^^^^^^
+52 |         # c. 重建索引
+53 |         logger.info("🏗️ 正在重建 HNSW 索引 (ef_construction=128)...")
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> scripts/migrate_vectors.py:59:1
+   |
+57 |             WITH (m = 16, ef_construction = 128);
+58 |         """)
+59 |         
+   | ^^^^^^^^
+60 |         conn.commit()
+61 |         logger.info("🎉 向量维度迁移完成 (768)！")
+   |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+  --> scripts/migrate_vectors.py:62:1
+   |
+60 |         conn.commit()
+61 |         logger.info("🎉 向量维度迁移完成 (768)！")
+62 |         
+   | ^^^^^^^^
+63 |     except Exception as e:
+64 |         logger.error(f"❌ 迁移失败: {e}")
+   |
+help: Remove whitespace from blank line
+
+E402 Module level import not at top of file
+  --> scripts/migrations/create_feed_statistics_table.py:14:1
+   |
+12 |     sys.path.insert(0, root_dir)
+13 |
+14 | from src.lucidpanda.core.logger import logger
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+15 | from src.lucidpanda.db.base import DBBase
+   |
+
+E402 Module level import not at top of file
+  --> scripts/migrations/create_feed_statistics_table.py:15:1
+   |
+14 | from src.lucidpanda.core.logger import logger
+15 | from src.lucidpanda.db.base import DBBase
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/create_feed_statistics_table.py:28:1
+   |
+26 |         feed_url TEXT,
+27 |         category VARCHAR(50),
+28 |         
+   | ^^^^^^^^
+29 |         -- 动态间隔控制
+30 |         current_interval INTEGER DEFAULT 120,  -- 当前间隔 (秒)
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/create_feed_statistics_table.py:33:1
+   |
+31 |         min_interval INTEGER DEFAULT 30,       -- 最小间隔
+32 |         max_interval INTEGER DEFAULT 1800,     -- 最大间隔
+33 |         
+   | ^^^^^^^^
+34 |         -- 统计指标
+35 |         consecutive_empty_count INTEGER DEFAULT 0,
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/create_feed_statistics_table.py:40:1
+   |
+38 |         last_fetch_at TIMESTAMPTZ,
+39 |         last_new_item_at TIMESTAMPTZ,
+40 |         
+   | ^^^^^^^^
+41 |         -- 元数据
+42 |         updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/create_feed_statistics_table.py:43:1
+   |
+41 |         -- 元数据
+42 |         updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+43 |         
+   | ^^^^^^^^
+44 |         CONSTRAINT chk_current_interval CHECK (current_interval > 0),
+45 |         CONSTRAINT chk_consecutive_empty CHECK (consecutive_empty_count >= 0),
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/create_feed_statistics_table.py:49:1
+   |
+47 |         CONSTRAINT chk_total_new_items CHECK (total_new_items >= 0)
+48 |     );
+49 |     
+   | ^^^^
+50 |     -- 创建索引
+51 |     CREATE INDEX IF NOT EXISTS idx_feed_category ON feed_statistics(category);
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/create_feed_statistics_table.py:54:1
+   |
+52 |     CREATE INDEX IF NOT EXISTS idx_feed_last_fetch ON feed_statistics(last_fetch_at);
+53 |     CREATE INDEX IF NOT EXISTS idx_feed_updated_at ON feed_statistics(updated_at);
+54 |     
+   | ^^^^
+55 |     -- 创建注释
+56 |     COMMENT ON TABLE feed_statistics IS 'RSS 信源统计表 - 用于动态自适应间隔';
+   |
+help: Remove whitespace from blank line
+
+F841 Local variable `init_data_sql` is assigned to but never used
+  --> scripts/migrations/create_feed_statistics_table.py:74:9
+   |
+72 |         from src.lucidpanda.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
+73 |
+74 |         init_data_sql = """
+   |         ^^^^^^^^^^^^^
+75 |         INSERT INTO feed_statistics (feed_name, feed_url, category, current_interval)
+76 |         VALUES %s
+   |
+help: Remove assignment to unused variable `init_data_sql`
+
+F821 Undefined name `execute_values`
+  --> scripts/migrations/create_feed_statistics_table.py:90:17
+   |
+88 |         with db.get_connection() as conn:
+89 |             with conn.cursor() as cursor:
+90 |                 execute_values(
+   |                 ^^^^^^^^^^^^^^
+91 |                     cursor,
+92 |                     """
+   |
+
+W291 Trailing whitespace
+  --> scripts/migrations/migrate_correlation.py:62:36
+   |
+61 |             cursor.execute("""
+62 |                 UPDATE intelligence 
+   |                                    ^
+63 |                 SET dxy_snapshot = %s, us10y_snapshot = %s 
+64 |                 WHERE id = %s
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/migrations/migrate_correlation.py:63:59
+   |
+61 |             cursor.execute("""
+62 |                 UPDATE intelligence 
+63 |                 SET dxy_snapshot = %s, us10y_snapshot = %s 
+   |                                                           ^
+64 |                 WHERE id = %s
+65 |             """, (dxy, us10y, record_id))
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/migrations/migrate_gvz.py:59:36
+   |
+58 |             cursor.execute("""
+59 |                 UPDATE intelligence 
+   |                                    ^
+60 |                 SET gvz_snapshot = %s 
+61 |                 WHERE id = %s
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/migrations/migrate_gvz.py:60:38
+   |
+58 |             cursor.execute("""
+59 |                 UPDATE intelligence 
+60 |                 SET gvz_snapshot = %s 
+   |                                      ^
+61 |                 WHERE id = %s
+62 |             """, (gvz, record_id))
+   |
+help: Remove trailing whitespace
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/migrate_to_postgres.py:61:1
+   |
+59 |             author TEXT,
+60 |             content TEXT,
+61 |             
+   | ^^^^^^^^^^^^
+62 |             -- JSONB Fields
+63 |             summary JSONB,
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/migrate_to_postgres.py:67:1
+   |
+65 |             market_implication JSONB,
+66 |             actionable_advice JSONB,
+67 |             
+   | ^^^^^^^^^^^^
+68 |             urgency_score INTEGER,
+69 |             url TEXT,
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/migrate_to_postgres.py:70:1
+   |
+68 |             urgency_score INTEGER,
+69 |             url TEXT,
+70 |             
+   | ^^^^^^^^^^^^
+71 |             -- Market Data
+72 |             gold_price_snapshot DOUBLE PRECISION,
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> scripts/migrations/migrate_to_postgres.py:76:1
+   |
+74 |             price_24h DOUBLE PRECISION
+75 |         );
+76 |         
+   | ^^^^^^^^
+77 |         CREATE INDEX IF NOT EXISTS idx_intelligence_timestamp ON intelligence(timestamp DESC);
+78 |         CREATE INDEX IF NOT EXISTS idx_intelligence_source_id ON intelligence(source_id);
+   |
+help: Remove whitespace from blank line
+
+E722 Do not use bare `except`
+  --> scripts/migrations/migrate_to_postgres.py:89:5
+   |
+87 |     try:
+88 |         return json.loads(value)
+89 |     except:
+   |     ^^^^^^
+90 |         # If it's a plain string, wrap it in our i18n structure or just return as is?
+91 |         # Better key it to 'en' or 'zh' generally, but simple structure is safer.
+   |
+
+E722 Do not use bare `except`
+   --> scripts/migrations/migrate_to_postgres.py:135:25
+    |
+133 |                         try:
+134 |                             ts_dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S.%f")
+135 |                         except:
+    |                         ^^^^^^
+136 |                             pass
+    |
+
+E402 Module level import not at top of file
+  --> scripts/migrations/migrate_to_timescaledb.py:10:1
+   |
+ 8 | sys.path.insert(0, root_dir)
+ 9 |
+10 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+11 | from src.lucidpanda.core.logger import logger
+   |
+
+E402 Module level import not at top of file
+  --> scripts/migrations/migrate_to_timescaledb.py:11:1
+   |
+10 | from src.lucidpanda.config import settings
+11 | from src.lucidpanda.core.logger import logger
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+W291 Trailing whitespace
+  --> scripts/migrations/migrate_to_timescaledb.py:40:67
+   |
+38 |         # 将 market_indicators 转为时序表
+39 |         """
+40 |         SELECT create_hypertable('market_indicators', 'timestamp', 
+   |                                                                   ^
+41 |                                  chunk_time_interval => INTERVAL '1 day',
+42 |                                  migrate_data => TRUE,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> scripts/migrations/migrate_to_timescaledb.py:48:73
+   |
+46 |         # 3. 如果存在 fund_valuation_archive（长线资金估值快照），将其归档为超表
+47 |         """
+48 |         SELECT create_hypertable('fund_valuation_archive', 'trade_date', 
+   |                                                                         ^
+49 |                                  chunk_time_interval => INTERVAL '1 day',
+50 |                                  migrate_data => TRUE,
+   |
+help: Remove trailing whitespace
+
+E701 Multiple statements on one line (colon)
+  --> scripts/migrations/patch_feb6.py:22:26
+   |
+21 |     for val in valuations:
+22 |         if 'error' in val: continue
+   |                          ^
+23 |
+24 |         db.save_valuation_snapshot(
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_email_ingestion.py:13:1
+   |
+11 |     sys.path.insert(0, api_src)
+12 |
+13 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+14 | from src.lucidpanda.providers.data_sources.email_source import EmailDataSource
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_email_ingestion.py:14:1
+   |
+13 | from src.lucidpanda.config import settings
+14 | from src.lucidpanda.providers.data_sources.email_source import EmailDataSource
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_entity_resolution.py:14:1
+   |
+12 | load_dotenv(ai_env_path, override=True)
+13 |
+14 | from src.lucidpanda.core.ontology import EntityResolver
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+15 | from src.lucidpanda.providers.llm.gemini import GeminiLLM
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_entity_resolution.py:15:1
+   |
+14 | from src.lucidpanda.core.ontology import EntityResolver
+15 | from src.lucidpanda.providers.llm.gemini import GeminiLLM
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+F841 Local variable `test_id` is assigned to but never used
+  --> scripts/test_entity_resolution.py:22:5
+   |
+21 |     # 1. 模拟一条复杂的突发新闻
+22 |     test_id = f"test_{uuid.uuid4().hex[:8]}"
+   |     ^^^^^^^
+23 |     mock_content = "美联储主席鲍威尔今日在杰克逊霍尔年会上意外释放强烈的鸽派信号，暗示将在9月降息50个基点。同时，中东地区的紧张局势升级                                                       …
+   |
+help: Remove assignment to unused variable `test_id`
+
+E402 Module level import not at top of file
+  --> scripts/test_factor_indexing.py:17:1
+   |
+15 | load_dotenv(ai_env_path, override=True)
+16 |
+17 | from src.lucidpanda.core.engine import AlphaEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18 |
+19 | # 使用默认配置 (由环境变量从 Docker Compose 注入)
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_fred.py:14:1
+   |
+12 |     sys.path.insert(0, api_src)
+13 |
+14 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+15 | from src.lucidpanda.providers.data_sources.fred import FredDataSource
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_fred.py:15:1
+   |
+14 | from src.lucidpanda.config import settings
+15 | from src.lucidpanda.providers.data_sources.fred import FredDataSource
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_full_factor_flow.py:18:1
+   |
+16 | load_dotenv(ai_env_path, override=True)
+17 |
+18 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+19 | from src.lucidpanda.core.engine import AlphaEngine
+20 | from src.lucidpanda.db.base import close_global_pool
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_full_factor_flow.py:19:1
+   |
+18 | from src.lucidpanda.config import settings
+19 | from src.lucidpanda.core.engine import AlphaEngine
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+20 | from src.lucidpanda.db.base import close_global_pool
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_full_factor_flow.py:20:1
+   |
+18 | from src.lucidpanda.config import settings
+19 | from src.lucidpanda.core.engine import AlphaEngine
+20 | from src.lucidpanda.db.base import close_global_pool
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21 |
+22 | # 强制本地数据库与开启所有组件 (已在 docker-compose 中暴露 6379)
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_memory_fix.py:10:1
+   |
+ 8 |     sys.path.insert(0, root_dir)
+ 9 |
+10 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+11 | from src.lucidpanda.core.deduplication import NewsDeduplicator
+   |
+
+E402 Module level import not at top of file
+  --> scripts/test_memory_fix.py:11:1
+   |
+10 | from src.lucidpanda.config import settings
+11 | from src.lucidpanda.core.deduplication import NewsDeduplicator
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+12 |
+13 | # Configure logging
+   |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+  --> src/lucidpanda/api/v1/routers/analytics.py:34:9
+   |
+32 |     except Exception as e:
+33 |         logger.error(f"API Error in get_entity_trend: {e}")
+34 |         raise HTTPException(status_code=500, detail="Internal server error")
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+35 |
+36 | @router.get("/pulse/hotspots")
+   |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+  --> src/lucidpanda/api/v1/routers/analytics.py:53:9
+   |
+51 |     except Exception as e:
+52 |         logger.error(f"API Error in get_hotspots: {e}")
+53 |         raise HTTPException(status_code=500, detail="Internal server error")
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/api/v1/routers/calendar.py:128:38
+    |
+126 |                         if hasattr(value, "hour"):
+127 |                             h = value.hour
+128 |                             if h < 12: period = EventPeriod.PRE_MARKET
+    |                                      ^
+129 |                             elif h >= 16: period = EventPeriod.AFTER_HOURS
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/api/v1/routers/calendar.py:129:41
+    |
+127 |                             h = value.hour
+128 |                             if h < 12: period = EventPeriod.PRE_MARKET
+129 |                             elif h >= 16: period = EventPeriod.AFTER_HOURS
+    |                                         ^
+130 |
+131 |                         result[out_key] = {"date": d, "period": period}
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/api/v1/routers/calendar.py:373:32
+    |
+371 |         for m in db.exec(stmt).all():
+372 |             desc_parts = [f"[{m.country}]"]
+373 |             if m.previous_value: desc_parts.append(f"前:{m.previous_value}")
+    |                                ^
+374 |             if m.forecast_value: desc_parts.append(f"预:{m.forecast_value}")
+375 |             if m.actual_value:   desc_parts.append(f"今:{m.actual_value}")
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/api/v1/routers/calendar.py:374:32
+    |
+372 |             desc_parts = [f"[{m.country}]"]
+373 |             if m.previous_value: desc_parts.append(f"前:{m.previous_value}")
+374 |             if m.forecast_value: desc_parts.append(f"预:{m.forecast_value}")
+    |                                ^
+375 |             if m.actual_value:   desc_parts.append(f"今:{m.actual_value}")
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/api/v1/routers/calendar.py:375:30
+    |
+373 |             if m.previous_value: desc_parts.append(f"前:{m.previous_value}")
+374 |             if m.forecast_value: desc_parts.append(f"预:{m.forecast_value}")
+375 |             if m.actual_value:   desc_parts.append(f"今:{m.actual_value}")
+    |                              ^
+376 |
+377 |             # Try to parse string values to floats for macro_details
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/api/v1/routers/calendar.py:379:25
+    |
+377 |             # Try to parse string values to floats for macro_details
+378 |             def _try_float(v: str | None) -> float | None:
+379 |                 if not v: return None
+    |                         ^
+380 |                 try:
+381 |                     # Clean common symbols like %, $, K, M
+    |
+
+E711 Comparison to `None` should be `cond is not None`
+  --> src/lucidpanda/api/v1/routers/mobile.py:68:40
+   |
+66 |         .where(Intelligence.category == "macro_gold")
+67 |         .where(Intelligence.status == "COMPLETED")
+68 |         .where(Intelligence.summary != None)
+   |                                        ^^^^
+69 |         .order_by(Intelligence.timestamp.desc())
+70 |         .limit(limit)
+   |
+help: Replace with `cond is not None`
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:112:9
+    |
+110 |         return v1_prepare_json({"data": groups})
+111 |     except Exception as e:
+112 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+113 |
+114 | @router.post("/groups", response_model=dict[str, Any])
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:151:9
+    |
+149 |     except Exception as e:
+150 |         db.rollback()
+151 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+152 |
+153 | @router.put("/groups/{group_id}", response_model=dict[str, Any])
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:218:9
+    |
+216 |     except Exception as e:
+217 |         db.rollback()
+218 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+219 |
+220 | @router.delete("/groups/{group_id}", response_model=dict[str, Any])
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:275:9
+    |
+273 |     except Exception as e:
+274 |         db.rollback()
+275 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+276 |
+277 | async def _reorder_watchlist_groups_impl(
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:335:9
+    |
+333 |     except Exception as e:
+334 |         db.rollback()
+335 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:420:9
+    |
+418 |         })
+419 |     except Exception as e:
+420 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+421 |
+422 | @router.post("/batch-add", response_model=dict[str, Any])
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:479:9
+    |
+477 |     except Exception as e:
+478 |         db.rollback()
+479 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+480 |
+481 | @router.post("/batch-remove", response_model=dict[str, Any])
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:511:9
+    |
+509 |     except Exception as e:
+510 |         db.rollback()
+511 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+512 |
+513 | @router.post("/reorder", response_model=dict[str, Any])
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:563:9
+    |
+561 |     except Exception as e:
+562 |         db.rollback()
+563 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+564 |
+565 | @router.put("/{code}/group", response_model=dict[str, Any])
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:591:9
+    |
+589 |     except Exception as e:
+590 |         db.rollback()
+591 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+592 |
+593 | # ==================== 同步接口 ====================
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:610:13
+    |
+608 |             try:
+609 |                 since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
+610 |             except:
+    |             ^^^^^^
+611 |                 since_dt = None
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:683:9
+    |
+681 |         })
+682 |     except Exception as e:
+683 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+684 |
+685 | @router.post("/sync", response_model=dict[str, Any])
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/api/v1/routers/watchlist_v2.py:798:9
+    |
+796 |     except Exception as e:
+797 |         db.rollback()
+798 |         raise HTTPException(status_code=500, detail=str(e))
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+E402 Module level import not at top of file
+   --> src/lucidpanda/api/v1/routers/web.py:196:1
+    |
+194 |     return {"data": [_with_confidence(item) for item in results]}
+195 |
+196 | from pydantic import BaseModel
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+W291 Trailing whitespace
+   --> src/lucidpanda/api/v1/routers/web.py:853:50
+    |
+851 |             WHERE urgency_score >= :min_score
+852 |               AND (sentiment::text ~* :keywords)
+853 |               AND gold_price_snapshot IS NOT NULL 
+    |                                                  ^
+854 |               AND {outcome_col} IS NOT NULL
+855 |         ),
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/api/v1/routers/web.py:857:22
+    |
+855 |         ),
+856 |         deduplicated_events AS (
+857 |             SELECT *, 
+    |                      ^
+858 |                    gold_price_snapshot as entry, 
+859 |                    {outcome_col} as exit
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/api/v1/routers/web.py:858:49
+    |
+856 |         deduplicated_events AS (
+857 |             SELECT *, 
+858 |                    gold_price_snapshot as entry, 
+    |                                                 ^
+859 |                    {outcome_col} as exit
+860 |             FROM filtered_intelligence
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/api/v1/routers/web.py:861:41
+    |
+859 |                    {outcome_col} as exit
+860 |             FROM filtered_intelligence
+861 |             WHERE prev_timestamp IS NULL 
+    |                                         ^
+862 |                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
+863 |         )
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/api/v1/routers/web.py:873:117
+    |
+871 |             AVG(clustering_score) as avg_clustering, AVG(exhaustion_score) as avg_exhaustion,
+872 |             AVG(dxy_snapshot) as avg_dxy, AVG(us10y_snapshot) as avg_us10y, AVG(gvz_snapshot) as avg_gvz,
+873 |             COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float / 
+    |                                                                                                                     ^
+874 |             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
+875 |         FROM deduplicated_events;
+    |
+help: Remove trailing whitespace
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+  --> src/lucidpanda/auth/dependencies.py:47:9
+   |
+45 |     except JWTError as e:
+46 |         print(f"[AUTH] JWT Decode Error: {e}")
+47 |         raise credentials_exception
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+48 |     except Exception as e:
+49 |         print(f"[AUTH] Unexpected Error during decode: {e}")
+   |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+  --> src/lucidpanda/auth/dependencies.py:50:9
+   |
+48 |     except Exception as e:
+49 |         print(f"[AUTH] Unexpected Error during decode: {e}")
+50 |         raise credentials_exception
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+51 |
+52 |     user = db.query(User).filter(User.id == token_data.sub).first()
+   |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+  --> src/lucidpanda/auth/router.py:86:9
+   |
+84 |         return passkey
+85 |     except ValueError as e:
+86 |         raise HTTPException(status_code=400, detail=str(e))
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+87 |
+88 | @router.post("/passkeys/login/options", response_model=Any)
+   |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/auth/router.py:442:9
+    |
+440 |       except Exception as e:
+441 |           logger.error(f"refresh_session 内部错误: {e}", exc_info=True)
+442 | /         raise HTTPException(
+443 | |             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+444 | |             detail="Internal authentication error during session refresh"
+445 | |         )
+    | |_________^
+446 |
+447 |       if not tokens:
+    |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+   --> src/lucidpanda/auth/router.py:524:9
+    |
+523 |     except Exception as e:
+524 |         raise HTTPException(status_code=500, detail=f"Could not process image: {str(e)}")
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+525 |
+526 |     avatar_url = f"/static/avatars/{filename}"
+    |
+
+F841 Local variable `raw_token` is assigned to but never used
+   --> src/lucidpanda/auth/router.py:578:5
+    |
+576 | def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)) -> dict[str, str]:
+577 |     auth_service = AuthService(db)
+578 |     raw_token = auth_service.generate_password_reset_token(body.email)
+    |     ^^^^^^^^^
+579 |     return {"message": "If an account with that email exists, a password reset link has been sent."}
+    |
+help: Remove assignment to unused variable `raw_token`
+
+E711 Comparison to `None` should be `cond is None`
+   --> src/lucidpanda/auth/service.py:170:44
+    |
+168 |             and_(
+169 |                 RefreshToken.token_hash == token_hash,
+170 |                 RefreshToken.revoked_at == None,
+    |                                            ^^^^
+171 |                 RefreshToken.expires_at > datetime.utcnow()
+172 |             )
+    |
+help: Replace with `cond is None`
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:251:28
+    |
+249 |             return None
+250 |
+251 |         if name is not None: user.name = name
+    |                            ^
+252 |         if nickname is not None: user.nickname = nickname
+253 |         if gender is not None: user.gender = gender
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:252:32
+    |
+251 |         if name is not None: user.name = name
+252 |         if nickname is not None: user.nickname = nickname
+    |                                ^
+253 |         if gender is not None: user.gender = gender
+254 |         if birthday is not None: user.birthday = birthday
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:253:30
+    |
+251 |         if name is not None: user.name = name
+252 |         if nickname is not None: user.nickname = nickname
+253 |         if gender is not None: user.gender = gender
+    |                              ^
+254 |         if birthday is not None: user.birthday = birthday
+255 |         if location is not None: user.location = location
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:254:32
+    |
+252 |         if nickname is not None: user.nickname = nickname
+253 |         if gender is not None: user.gender = gender
+254 |         if birthday is not None: user.birthday = birthday
+    |                                ^
+255 |         if location is not None: user.location = location
+256 |         if language_preference is not None: user.language_preference = language_preference
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:255:32
+    |
+253 |         if gender is not None: user.gender = gender
+254 |         if birthday is not None: user.birthday = birthday
+255 |         if location is not None: user.location = location
+    |                                ^
+256 |         if language_preference is not None: user.language_preference = language_preference
+257 |         if timezone is not None: user.timezone = timezone
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:256:43
+    |
+254 |         if birthday is not None: user.birthday = birthday
+255 |         if location is not None: user.location = location
+256 |         if language_preference is not None: user.language_preference = language_preference
+    |                                           ^
+257 |         if timezone is not None: user.timezone = timezone
+258 |         if theme_preference is not None: user.theme_preference = theme_preference
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:257:32
+    |
+255 |         if location is not None: user.location = location
+256 |         if language_preference is not None: user.language_preference = language_preference
+257 |         if timezone is not None: user.timezone = timezone
+    |                                ^
+258 |         if theme_preference is not None: user.theme_preference = theme_preference
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:258:40
+    |
+256 |         if language_preference is not None: user.language_preference = language_preference
+257 |         if timezone is not None: user.timezone = timezone
+258 |         if theme_preference is not None: user.theme_preference = theme_preference
+    |                                        ^
+259 |
+260 |         self.db.add(user)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:354:26
+    |
+352 |             and_(EmailChangeRequest.token_hash == token_hash, EmailChangeRequest.expires_at > datetime.utcnow())
+353 |         ).first()
+354 |         if not db_request: return False, "Invalid or expired token"
+    |                          ^
+355 |
+356 |         user = self.db.query(User).filter(User.id == db_request.user_id).first()
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:357:20
+    |
+356 |         user = self.db.query(User).filter(User.id == db_request.user_id).first()
+357 |         if not user: return False, "User not found"
+    |                    ^
+358 |
+359 |         user.email = db_request.new_email
+    |
+
+E712 Avoid equality comparisons to `False`; use `not PhoneVerificationToken.is_used:` for false checks
+   --> src/lucidpanda/auth/service.py:390:17
+    |
+388 |                 PhoneVerificationToken.phone_number == phone_number,
+389 |                 PhoneVerificationToken.otp_code_hash == code_hash,
+390 |                 PhoneVerificationToken.is_used == False,
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+391 |                 PhoneVerificationToken.expires_at > datetime.utcnow()
+392 |             )
+    |
+help: Replace with `not PhoneVerificationToken.is_used`
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:394:24
+    |
+392 |             )
+393 |         ).first()
+394 |         if not db_token: return False, "Invalid or expired code"
+    |                        ^
+395 |
+396 |         db_token.is_used = True
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:530:19
+    |
+528 |         key_uuid = self._to_uuid(key_id)
+529 |         key = self.db.query(APIKey).filter(and_(APIKey.id == key_uuid, APIKey.user_id == user_uuid)).first()
+530 |         if not key: return None
+    |                   ^
+531 |         for k, v in kwargs.items():
+532 |             if hasattr(key, k) and v is not None:
+    |
+
+E711 Comparison to `None` should be `cond is None`
+   --> src/lucidpanda/auth/service.py:578:80
+    |
+576 |         user_uuid = self._to_uuid(user_id)
+577 |         return self.db.query(RefreshToken).filter(
+578 |             and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at == None, RefreshToken.expires_at > datetime.utcnow())
+    |                                                                                ^^^^
+579 |         ).order_by(desc(RefreshToken.created_at)).all()
+    |
+help: Replace with `cond is None`
+
+E711 Comparison to `None` should be `cond is None`
+   --> src/lucidpanda/auth/service.py:595:80
+    |
+593 |         user_uuid = self._to_uuid(user_id)
+594 |         query = self.db.query(RefreshToken).filter(
+595 |             and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at == None, RefreshToken.expires_at > datetime.utcnow())
+    |                                                                                ^^^^
+596 |         )
+597 |         if exclude_token_hash:
+    |
+help: Replace with `cond is None`
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:653:20
+    |
+651 |     def generate_password_reset_token(self, email: str) -> str | None:
+652 |         user = self.get_user_by_email(email)
+653 |         if not user: return None
+    |                    ^
+654 |         self.db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
+655 |         raw_token = secrets.token_urlsafe(32)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:665:24
+    |
+663 | …     token_hash = self._hash_token(raw_token)
+664 | …     db_token = self.db.query(PasswordResetToken).filter(and_(PasswordResetToken.token_hash == token_hash, PasswordResetToken.expire…
+665 | …     if not db_token: return False
+    |                      ^
+666 | …     user = self.db.query(User).filter(User.id == db_token.user_id).first()
+667 | …     if not user: return False
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/auth/service.py:667:20
+    |
+665 |         if not db_token: return False
+666 |         user = self.db.query(User).filter(User.id == db_token.user_id).first()
+667 |         if not user: return False
+    |                    ^
+668 |         user.hashed_password = get_password_hash(new_password)
+669 |         self.db.delete(db_token)
+    |
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/config/pydantic_settings.py:94:1
+   |
+92 |     """
+93 |     统一配置类
+94 |     
+   | ^^^^
+95 |     所有配置从环境变量加载，提供类型安全和自动验证。
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/config/pydantic_settings.py:96:1
+   |
+95 |     所有配置从环境变量加载，提供类型安全和自动验证。
+96 |     
+   | ^^^^
+97 |     Example:
+98 |         settings = Settings()
+   |
+help: Remove whitespace from blank line
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/backtest.py:142:13
+    |
+140 |                 if (now - dt).total_seconds() > 1800:
+141 |                     ready_records.append((record, dt))
+142 |             except:
+    |             ^^^^^^
+143 |                 continue
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/backtest.py:229:32
+    |
+227 |                     s_p = float(start_price)
+228 |                     e_p = float(end_price)
+229 |                     if s_p == 0: continue
+    |                                ^
+230 |                     ret = (e_p - s_p) / s_p * 100
+231 |                     total_return += ret
+    |
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/core/deduplication.py:70:25
+   |
+69 |         for v in self.vec_history:
+70 |             if v is None: continue
+   |                         ^
+71 |             v_2d = np.array(v).reshape(1, -1)
+72 |             score = cosine_similarity(vec, v_2d)[0][0]
+   |
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/di_container.py:32:1
+   |
+30 |     """
+31 |     AlphaEngine 依赖容器
+32 |     
+   | ^^^^
+33 |     按需初始化依赖，避免不必要的内存占用。
+34 |     支持延迟加载（lazy loading）。
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/di_container.py:35:1
+   |
+33 |     按需初始化依赖，避免不必要的内存占用。
+34 |     支持延迟加载（lazy loading）。
+35 |     
+   | ^^^^
+36 |     Attributes:
+37 |         db: 数据库连接（立即初始化）
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/di_container.py:55:1
+   |
+53 |         """
+54 |         初始化依赖容器
+55 |         
+   | ^^^^^^^^
+56 |         Args:
+57 |             db: 数据库实例（可选，默认自动创建）
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/core/di_container.py:217:1
+    |
+215 |         """
+216 |         清理缓存的依赖实例
+217 |         
+    | ^^^^^^^^
+218 |         用于测试或重新加载配置。
+219 |         注意：不会清理数据库连接。
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/engine.py:50:1
+   |
+48 |         """
+49 |         获取备用提供商
+50 |         
+   | ^^^^^^^^
+51 |         从配置读取降级顺序，返回第一个可用的备用提供商。
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/engine.py:52:1
+   |
+51 |         从配置读取降级顺序，返回第一个可用的备用提供商。
+52 |         
+   | ^^^^^^^^
+53 |         Args:
+54 |             primary: 主力提供商名称
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/engine.py:55:1
+   |
+53 |         Args:
+54 |             primary: 主力提供商名称
+55 |             
+   | ^^^^^^^^^^^^
+56 |         Returns:
+57 |             备用提供商名称
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/engine.py:58:1
+   |
+56 |         Returns:
+57 |             备用提供商名称
+58 |             
+   | ^^^^^^^^^^^^
+59 |         Note:
+60 |             降级顺序可在 .env.ai 中通过 LLM_FALLBACK_ORDER 配置
+   |
+help: Remove whitespace from blank line
+
+E402 Module level import not at top of file
+  --> src/lucidpanda/core/engine.py:76:1
+   |
+76 | from src.lucidpanda.core.di_container import EngineDependencies
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/engine.py:84:1
+   |
+82 |     不再负责采集，只消费 intelligence 表中 status=PENDING 的记录。
+83 |     RSS 采集由独立的 RSSCollector（run_collector.py）负责。
+84 |     
+   | ^^^^
+85 |     使用依赖注入容器管理所有依赖，实现：
+86 |     - 依赖解耦
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/engine.py:93:1
+   |
+91 |         """
+92 |         初始化 AlphaEngine
+93 |         
+   | ^^^^^^^^
+94 |         Args:
+95 |             deps: 依赖容器（可选，默认自动创建）
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/core/engine.py:96:1
+   |
+94 |         Args:
+95 |             deps: 依赖容器（可选，默认自动创建）
+96 |             
+   | ^^^^^^^^^^^^
+97 |         Example:
+98 |             # 使用默认依赖
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/core/engine.py:100:1
+    |
+ 98 |             # 使用默认依赖
+ 99 |             engine = AlphaEngine()
+100 |             
+    | ^^^^^^^^^^^^
+101 |             # 使用自定义依赖（测试场景）
+102 |             deps = EngineDependencies(db=mock_db)
+    |
+help: Remove whitespace from blank line
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/engine.py:600:17
+    |
+598 |                 try:
+599 |                     data = json.loads(sentiment_json.replace("'", '"'))
+600 |                 except:
+    |                 ^^^^^^
+601 |                     data = {'en': sentiment_json}
+602 |             else:
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/engine.py:611:9
+    |
+609 |                 return 'Short'
+610 |             return 'Neutral'
+611 |         except:
+    |         ^^^^^^
+612 |             return 'Neutral'
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/engine.py:628:37
+    |
+627 |         summary = data.get('summary', '')
+628 |         if isinstance(summary, dict): summary = summary.get('zh') or summary.get('en')
+    |                                     ^
+629 |
+630 |         advice = data.get('actionable_advice', '')
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/engine.py:631:36
+    |
+630 |         advice = data.get('actionable_advice', '')
+631 |         if isinstance(advice, dict): advice = advice.get('zh') or advice.get('en')
+    |                                    ^
+632 |
+633 |         return f"""
+    |
+
+W291 Trailing whitespace
+   --> src/lucidpanda/core/event_clusterer.py:160:75
+    |
+158 |         # 1. 查找缺失 story_id 的存量记录
+159 |         query = """
+160 |             SELECT source_id, content, timestamp, source_credibility_score 
+    |                                                                           ^
+161 |             FROM intelligence 
+162 |             WHERE status = 'COMPLETED' AND story_id IS NULL 
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/core/event_clusterer.py:161:30
+    |
+159 |         query = """
+160 |             SELECT source_id, content, timestamp, source_credibility_score 
+161 |             FROM intelligence 
+    |                              ^
+162 |             WHERE status = 'COMPLETED' AND story_id IS NULL 
+163 |             ORDER BY timestamp DESC LIMIT %s
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/core/event_clusterer.py:162:60
+    |
+160 |             SELECT source_id, content, timestamp, source_credibility_score 
+161 |             FROM intelligence 
+162 |             WHERE status = 'COMPLETED' AND story_id IS NULL 
+    |                                                            ^
+163 |             ORDER BY timestamp DESC LIMIT %s
+164 |         """
+    |
+help: Remove trailing whitespace
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:151:13
+    |
+149 |             try:
+150 |                 df = ak.fund_portfolio_hold_em(symbol=fund_code, date=last_year)
+151 |             except:
+    |             ^^^^^^
+152 |                 df = pd.DataFrame()
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:158:17
+    |
+156 |                 try:
+157 |                     df = ak.fund_portfolio_hold_em(symbol=fund_code, date=current_year)
+158 |                 except:
+    |                 ^^^^^^
+159 |                     pass
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:167:38
+    |
+165 |             # 2. Sort by quarter to get truly latest
+166 |             all_quarters = df['季度'].unique()
+167 |             if len(all_quarters) == 0: return []
+    |                                      ^
+168 |
+169 |             latest_quarter = sorted(all_quarters, reverse=True)[0]
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:215:25
+    |
+213 |         core_name = core_name.strip()
+214 |
+215 |         if not core_name: return None
+    |                         ^
+216 |
+217 |         logger.info(f"🧩 Feeder Detected: '{fund_name}' -> Core: '{core_name}'")
+    |
+
+W291 Trailing whitespace
+   --> src/lucidpanda/core/fund_engine.py:226:56
+    |
+224 |                 # Standard ETFs usually start with 51, 15, 56, 58
+225 |                 cursor.execute("""
+226 |                     SELECT fund_code FROM fund_metadata 
+    |                                                        ^
+227 |                     WHERE (fund_name = %s OR fund_name LIKE %s)
+228 |                     AND (fund_code LIKE '51%%' OR fund_code LIKE '15%%' OR fund_code LIKE '56%%' OR fund_code LIKE '58%%')
+    |
+help: Remove trailing whitespace
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:241:43
+    |
+239 |             logger.error(f"Shadow identification DB error: {e}")
+240 |         finally:
+241 |             if 'conn' in locals() and conn: conn.close()
+    |                                           ^
+242 |
+243 |         return None
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:292:27
+    |
+290 |         if self.redis:
+291 |             cached_name = self.redis.get(f"fund:name:{fund_code}")
+292 |             if cached_name: return cached_name
+    |                           ^
+293 |
+294 |         fund_name = ""
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:304:46
+    |
+302 |             if not fund_name:
+303 |                 # Force disable proxy for reliability
+304 |                 if "HTTP_PROXY" in os.environ: del os.environ["HTTP_PROXY"]
+    |                                              ^
+305 |                 if "HTTPS_PROXY" in os.environ: del os.environ["HTTPS_PROXY"]
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:305:47
+    |
+303 |                 # Force disable proxy for reliability
+304 |                 if "HTTP_PROXY" in os.environ: del os.environ["HTTP_PROXY"]
+305 |                 if "HTTPS_PROXY" in os.environ: del os.environ["HTTPS_PROXY"]
+    |                                               ^
+306 |
+307 |                 info_df = ak.fund_individual_basic_info_xq(symbol=fund_code)
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:313:9
+    |
+311 |                 self.redis.setex(f"fund:name:{fund_code}", 86400 * 7, fund_name) # 7 days
+312 |
+313 |         except:
+    |         ^^^^^^
+314 |             pass
+315 |         return fund_name or fund_code
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:323:27
+    |
+321 |         Returns: { '600519': {'l1': '食品饮料', 'l2': '白酒'} }
+322 |         """
+323 |         if not stock_codes: return {}
+    |                           ^
+324 |         if not self.redis: return {}
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:324:26
+    |
+322 |         """
+323 |         if not stock_codes: return {}
+324 |         if not self.redis: return {}
+    |                          ^
+325 |
+326 |         # 1. Try Fetch from Redis
+    |
+
+B905 `zip()` without an explicit `strict=` parameter
+   --> src/lucidpanda/core/fund_engine.py:334:35
+    |
+332 |             missing_codes = []
+333 |
+334 |             for code, raw_json in zip(stock_codes, raw_data):
+    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+335 |                 if raw_json:
+336 |                     try:
+    |
+help: Add explicit value for parameter `strict=`
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:338:21
+    |
+336 |                     try:
+337 |                         result[code] = json.loads(raw_json)
+338 |                     except:
+    |                     ^^^^^^
+339 |                         missing_codes.append(code)
+340 |                 else:
+    |
+
+W291 Trailing whitespace
+   --> src/lucidpanda/core/fund_engine.py:354:82
+    |
+352 |                     with conn.cursor() as cursor:
+353 |                         cursor.execute("""
+354 |                             SELECT stock_code, industry_l1_name, industry_l2_name 
+    |                                                                                  ^
+355 |                             FROM stock_metadata 
+356 |                             WHERE stock_code = ANY(%s)
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/core/fund_engine.py:355:48
+    |
+353 |                         cursor.execute("""
+354 |                             SELECT stock_code, industry_l1_name, industry_l2_name 
+355 |                             FROM stock_metadata 
+    |                                                ^
+356 |                             WHERE stock_code = ANY(%s)
+357 |                         """, (missing_codes,))
+    |
+help: Remove trailing whitespace
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:377:47
+    |
+375 |                              unknown_map = dict.fromkeys(unknowns, unknown_json)
+376 |                              pipeline.hset("stock:industry:full", mapping=unknown_map)
+377 |                              for c in unknowns: result[c] = unknown_val
+    |                                               ^
+378 |                     pipeline.execute() # Execute pipeline
+379 |                 finally:
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:418:48
+    |
+416 |             secid = None
+417 |             if parent_code.startswith(('5', '9', '000', 'sh')):
+418 |                 if parent_code.startswith('sh'): secid = parent_code
+    |                                                ^
+419 |                 else: secid = f"sh{parent_code}"
+420 |             elif parent_code.startswith(('sz', 'hk')):
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:419:21
+    |
+417 |             if parent_code.startswith(('5', '9', '000', 'sh')):
+418 |                 if parent_code.startswith('sh'): secid = parent_code
+419 |                 else: secid = f"sh{parent_code}"
+    |                     ^
+420 |             elif parent_code.startswith(('sz', 'hk')):
+421 |                 secid = parent_code
+    |
+
+F821 Undefined name `real_name`
+   --> src/lucidpanda/core/fund_engine.py:475:41
+    |
+473 | …                     "components": [{
+474 | …                         "code": parent_code,
+475 | …                         "name": real_name,
+    |                                   ^^^^^^^^^
+476 | …                         "price": price,
+477 | …                         "change_pct": pct,
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:522:34
+    |
+521 |                 if not is_syncing:
+522 |                     if self.redis: self.redis.setex(sync_key, 300, "1")
+    |                                  ^
+523 |                     threading.Thread(target=self.update_fund_holdings, args=(fund_code,), daemon=True).start()
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:546:28
+    |
+544 |             for h in holdings:
+545 |                 code = h.get('stock_code') or h.get('code')
+546 |                 if not code: continue
+    |                            ^
+547 |                 holding_codes.add(code)
+548 |                 if len(code) == 6 or (len(code) == 5 and code.startswith("0") and not code.startswith("00")):
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:560:25
+    |
+558 |                 if self.redis:
+559 |                     c = self.redis.get(cache_key)
+560 |                     if c: return pd.read_json(c)
+    |                         ^
+561 |
+562 |                 if market_type == 'a':
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:592:33
+    |
+590 |                                         'change_pct': float(row[change_col])
+591 |                                     }
+592 |                                 except: pass
+    |                                 ^^^^^^
+593 |                 except Exception as e:
+594 |                     logger.error(f"Failed to fetch A-share snapshot: {e}")
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:592:39
+    |
+590 |                                         'change_pct': float(row[change_col])
+591 |                                     }
+592 |                                 except: pass
+    |                                       ^
+593 |                 except Exception as e:
+594 |                     logger.error(f"Failed to fetch A-share snapshot: {e}")
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:613:33
+    |
+611 |                                         'change_pct': float(row[change_col])
+612 |                                     }
+613 |                                 except: pass
+    |                                 ^^^^^^
+614 |                 except Exception as e:
+615 |                     logger.error(f"Failed to fetch HK-share snapshot: {e}")
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:613:39
+    |
+611 |                                         'change_pct': float(row[change_col])
+612 |                                     }
+613 |                                 except: pass
+    |                                       ^
+614 |                 except Exception as e:
+615 |                     logger.error(f"Failed to fetch HK-share snapshot: {e}")
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:663:26
+    |
+661 |                              # If snapshot 'a' covers all A shares, it should be there.
+662 |                              pass
+663 |                          except: pass
+    |                          ^^^^^^
+664 |
+665 |                     if etf_quote:
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:663:32
+    |
+661 |                              # If snapshot 'a' covers all A shares, it should be there.
+662 |                              pass
+663 |                          except: pass
+    |                                ^
+664 |
+665 |                     if etf_quote:
+    |
+
+F821 Undefined name `infer_market_region`
+   --> src/lucidpanda/core/fund_engine.py:807:52
+    |
+805 |                 "components": components,
+806 |                 "sector_attribution": sector_stats,
+807 |                 "market_status": get_market_status(infer_market_region(fund_code)),
+    |                                                    ^^^^^^^^^^^^^^^^^^^
+808 |                 "timestamp": datetime.now(tz_cn).isoformat(),
+809 |                 "source": "System Engine" + calibration_note + fx_note,
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:821:13
+    |
+819 |             try:
+820 |                 self.db.save_fund_valuation(fund_code, final_est, result)
+821 |             except: pass
+    |             ^^^^^^
+822 |
+823 |             # Set Cache (180s)
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:821:19
+    |
+819 |             try:
+820 |                 self.db.save_fund_valuation(fund_code, final_est, result)
+821 |             except: pass
+    |                   ^
+822 |
+823 |             # Set Cache (180s)
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:834:13
+    |
+832 |                 # Fire and forget publication
+833 |                 asyncio.create_task(hub.publish("fund_updates", result))
+834 |             except: pass
+    |             ^^^^^^
+835 |
+836 |             return result
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:834:19
+    |
+832 |                 # Fire and forget publication
+833 |                 asyncio.create_task(hub.publish("fund_updates", result))
+834 |             except: pass
+    |                   ^
+835 |
+836 |             return result
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:945:29
+    |
+944 |         level = "medium"
+945 |         if final_score >= 80: level = "high"
+    |                             ^
+946 |         elif final_score < 50: level = "low"
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/core/fund_engine.py:946:30
+    |
+944 |         level = "medium"
+945 |         if final_score >= 80: level = "high"
+946 |         elif final_score < 50: level = "low"
+    |                              ^
+947 |
+948 |         return {
+    |
+
+B905 `zip()` without an explicit `strict=` parameter
+   --> src/lucidpanda/core/fund_engine.py:969:36
+    |
+967 |         if self.redis:
+968 |             cached_meta = self.redis.mget([f"fund:meta:{c}" for c in fund_codes])
+969 |             for code, meta_json in zip(fund_codes, cached_meta):
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+970 |                 if meta_json:
+971 |                     try:
+    |
+help: Add explicit value for parameter `strict=`
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/core/fund_engine.py:975:21
+    |
+973 |                         fund_meta_map[code] = meta
+974 |                         fund_name_map[code] = meta['name']
+975 |                     except:
+    |                     ^^^^^^
+976 |                         missing_meta_codes.append(code)
+977 |                 else:
+    |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1021:47
+     |
+1019 |                 secid = None
+1020 |                 if p_code.startswith(('5', '9', '000', 'sh')):
+1021 |                     if p_code.startswith('sh'): secid = p_code
+     |                                               ^
+1022 |                     else: secid = f"sh{p_code}"
+1023 |                 elif p_code.startswith(('sz', 'hk')):
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1022:25
+     |
+1020 |                 if p_code.startswith(('5', '9', '000', 'sh')):
+1021 |                     if p_code.startswith('sh'): secid = p_code
+1022 |                     else: secid = f"sh{p_code}"
+     |                         ^
+1023 |                 elif p_code.startswith(('sz', 'hk')):
+1024 |                     secid = p_code
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1031:36
+     |
+1029 |         # Collect holdings for NON-shadow funds
+1030 |         for f_code in fund_codes:
+1031 |             if f_code in shadow_map: continue
+     |                                    ^
+1032 |
+1033 |             holdings = self.db.get_fund_holdings(f_code)
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1040:34
+     |
+1039 |                 if not is_syncing:
+1040 |                     if self.redis: self.redis.setex(sync_key, 300, "1")
+     |                                  ^
+1041 |                     threading.Thread(target=self.update_fund_holdings, args=(f_code,), daemon=True).start()
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1050:30
+     |
+1048 |             for h in holdings:
+1049 |                 s_code = h.get('stock_code') or h.get('code')
+1050 |                 if not s_code: continue
+     |                              ^
+1051 |
+1052 |                 # Determine SecID for Market API
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1057:76
+     |
+1055 |                 if s_code.isdigit():
+1056 |                     if len(s_code) == 6:
+1057 |                         if s_code.startswith('6') or s_code.startswith('9'): secid = f"sh{s_code}"
+     |                                                                            ^
+1058 |                         elif s_code.startswith('0') or s_code.startswith('3'): secid = f"sz{s_code}"
+1059 |                         elif s_code.startswith('8') or s_code.startswith('4'): secid = f"bj{s_code}"
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1058:78
+     |
+1056 |                     if len(s_code) == 6:
+1057 |                         if s_code.startswith('6') or s_code.startswith('9'): secid = f"sh{s_code}"
+1058 |                         elif s_code.startswith('0') or s_code.startswith('3'): secid = f"sz{s_code}"
+     |                                                                              ^
+1059 |                         elif s_code.startswith('8') or s_code.startswith('4'): secid = f"bj{s_code}"
+1060 |                         else: secid = f"sz{s_code}" # Fallback
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1059:78
+     |
+1057 |                         if s_code.startswith('6') or s_code.startswith('9'): secid = f"sh{s_code}"
+1058 |                         elif s_code.startswith('0') or s_code.startswith('3'): secid = f"sz{s_code}"
+1059 |                         elif s_code.startswith('8') or s_code.startswith('4'): secid = f"bj{s_code}"
+     |                                                                              ^
+1060 |                         else: secid = f"sz{s_code}" # Fallback
+1061 |                     elif len(s_code) == 5:
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1060:29
+     |
+1058 |                         elif s_code.startswith('0') or s_code.startswith('3'): secid = f"sz{s_code}"
+1059 |                         elif s_code.startswith('8') or s_code.startswith('4'): secid = f"bj{s_code}"
+1060 |                         else: secid = f"sz{s_code}" # Fallback
+     |                             ^
+1061 |                     elif len(s_code) == 5:
+1062 |                         secid = f"hk{s_code}"
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1110:32
+     |
+1108 |                 for line in content.split(';'):
+1109 |                     line = line.strip()
+1110 |                     if not line: continue
+     |                                ^
+1111 |
+1112 |                     # line: v_sh600519="1~..."
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1113:39
+     |
+1112 |                     # line: v_sh600519="1~..."
+1113 |                     if '=' not in line: continue
+     |                                       ^
+1114 |
+1115 |                     key_part, val_part = line.split('=', 1)
+     |
+
+E722 Do not use bare `except`
+    --> src/lucidpanda/core/fund_engine.py:1146:25
+     |
+1144 |                                 if base_code not in quotes:
+1145 |                                     quotes[base_code] = {'price': price, 'change_pct': pct, 'name': real_name}
+1146 |                         except:
+     |                         ^^^^^^
+1147 |                             pass
+1148 |             except Exception as e:
+     |
+
+F841 Local variable `tz_cn` is assigned to but never used
+    --> src/lucidpanda/core/fund_engine.py:1153:9
+     |
+1151 |         # 3. Calculate Valuations
+1152 |         results = []
+1153 |         tz_cn = datetime.now().astimezone().replace(tzinfo=None) # simple local time
+     |         ^^^^^
+1154 |
+1155 |         # Pre-fetch industry mappings (Skip if summary)
+     |
+help: Remove assignment to unused variable `tz_cn`
+
+B007 Loop control variable `f_code` not used within loop body
+    --> src/lucidpanda/core/fund_engine.py:1159:17
+     |
+1157 |         if not summary:
+1158 |             all_stock_codes = []
+1159 |             for f_code, holdings in all_holdings.items():
+     |                 ^^^^^^
+1160 |                 if holdings:
+1161 |                     for h in holdings:
+     |
+help: Rename unused `f_code` to `_f_code`
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1163:34
+     |
+1161 |                     for h in holdings:
+1162 |                         s_code = h.get('stock_code') or h.get('code')
+1163 |                         if s_code: all_stock_codes.append(s_code)
+     |                                  ^
+1164 |             industry_map = self._get_industry_map(list(set(all_stock_codes)))
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1442:30
+     |
+1440 |         count = 0
+1441 |         for val in valuations:
+1442 |             if 'error' in val: continue
+     |                              ^
+1443 |
+1444 |             f_code = val['fund_code']
+     |
+
+W291 Trailing whitespace
+    --> src/lucidpanda/core/fund_engine.py:1477:82
+     |
+1475 |     def _ensure_archive_placeholders_exist(self, days_lookback=7):
+1476 |         """
+1477 |         Check for missed trading days in the recent window and create placeholder 
+     |                                                                                  ^
+1478 |         records for all funds in the watchlist.
+1479 |         Returns the list of missing trade dates that were backfilled.
+     |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+    --> src/lucidpanda/core/fund_engine.py:1531:74
+     |
+1529 |     def reconcile_official_valuations(self, target_date=None, fund_codes: list[str] | None = None):
+1530 |         """
+1531 |         Fetch real growth for specific funds in the archive by looking up 
+     |                                                                          ^
+1532 |         their historical NAV series. Targeted and precise.
+1533 |         Now supports a sliding window to automatically catch QDII and missed dates.
+     |
+help: Remove trailing whitespace
+
+C414 Unnecessary `list()` call within `sorted()`
+    --> src/lucidpanda/core/fund_engine.py:1571:24
+     |
+1570 |         # 2. Mature Zombie Cleanup: Filter out non-trading days (Weekends & Holidays)
+1571 |         unique_dates = sorted(list(set(d for d, c in pending_tasks)), reverse=True)
+     |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1572 |         zombie_dates = [d for d in unique_dates if not is_market_open(d)]
+     |
+help: Remove the inner `list()` call
+
+C401 Unnecessary generator (rewrite as a set comprehension)
+    --> src/lucidpanda/core/fund_engine.py:1571:36
+     |
+1570 |         # 2. Mature Zombie Cleanup: Filter out non-trading days (Weekends & Holidays)
+1571 |         unique_dates = sorted(list(set(d for d, c in pending_tasks)), reverse=True)
+     |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1572 |         zombie_dates = [d for d in unique_dates if not is_market_open(d)]
+     |
+help: Rewrite as a set comprehension
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1593:38
+     |
+1591 |                     logger.warning(f"Skipping task with invalid trade_date format: {d}")
+1592 |                     continue
+1593 |             if d not in tasks_by_date: tasks_by_date[d] = []
+     |                                      ^
+1594 |             tasks_by_date[d].append(c)
+     |
+
+E722 Do not use bare `except`
+    --> src/lucidpanda/core/fund_engine.py:1638:37
+     |
+1636 | …                         if val and val != "" and val != "nan":
+1637 | …                             batch_results[f_code] = float(val)
+1638 | …                     except:
+     |                       ^^^^^^
+1639 | …                         continue
+     |
+
+E722 Do not use bare `except`
+    --> src/lucidpanda/core/fund_engine.py:1680:37
+     |
+1678 |                                         if val and str(val) != 'nan':
+1679 |                                             batch_results[c] = float(val)
+1680 |                                     except: continue
+     |                                     ^^^^^^
+1681 |
+1682 |                                 if batch_results:
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1680:43
+     |
+1678 |                                         if val and str(val) != 'nan':
+1679 |                                             batch_results[c] = float(val)
+1680 |                                     except: continue
+     |                                           ^
+1681 |
+1682 |                                 if batch_results:
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1717:48
+     |
+1715 | …                     try:
+1716 | …                         df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
+1717 | …                         if not df.empty: break
+     |                                          ^
+1718 | …                     except Exception as req_err:
+1719 | …                         if attempt == 0:
+     |
+
+B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+    --> src/lucidpanda/core/fund_engine.py:1744:41
+     |
+1742 |                                     except Exception as backup_err:
+1743 |                                         logger.error(f"Backup source also failed for {code}: {backup_err}")
+1744 |                                         raise req_err
+     |                                         ^^^^^^^^^^^^^
+1745 |
+1746 |                         if df.empty:
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1751:48
+     |
+1750 |                         # If df was marked as 'done' by backup, move to next fund
+1751 |                         if 'done' in df.columns: continue
+     |                                                ^
+1752 |
+1753 |                         # df usually has columns: ['净值日期', '单位净值', '日增长率', ...]
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1775:33
+     |
+1773 |             finally:
+1774 |                 # Restore proxy settings
+1775 |                 if original_http: os.environ['HTTP_PROXY'] = original_http
+     |                                 ^
+1776 |                 if original_https: os.environ['HTTPS_PROXY'] = original_https
+     |
+
+E701 Multiple statements on one line (colon)
+    --> src/lucidpanda/core/fund_engine.py:1776:34
+     |
+1774 |                 # Restore proxy settings
+1775 |                 if original_http: os.environ['HTTP_PROXY'] = original_http
+1776 |                 if original_https: os.environ['HTTPS_PROXY'] = original_https
+     |                                  ^
+1777 |
+1778 |             logger.info(f"✨ Session for {trade_date} finished. {count}/{len(codes)} updated.")
+     |
+
+UP035 `typing.Dict` is deprecated, use `dict` instead
+ --> src/lucidpanda/db/fund.py:7:1
+  |
+5 | """
+6 | from datetime import datetime
+7 | from typing import Any, Dict, List, Optional, Union
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 |
+9 | from psycopg.types.json import Jsonb
+  |
+
+UP035 `typing.List` is deprecated, use `list` instead
+ --> src/lucidpanda/db/fund.py:7:1
+  |
+5 | """
+6 | from datetime import datetime
+7 | from typing import Any, Dict, List, Optional, Union
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 |
+9 | from psycopg.types.json import Jsonb
+  |
+
+UP006 [*] Use `list` instead of `List` for type annotation
+  --> src/lucidpanda/db/fund.py:52:46
+   |
+50 |             return False
+51 |
+52 |     def get_watchlist(self, user_id: str) -> List[Dict[str, Any]]:
+   |                                              ^^^^
+53 |         """Get all funds in the user's watchlist."""
+54 |         try:
+   |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+  --> src/lucidpanda/db/fund.py:52:51
+   |
+50 |             return False
+51 |
+52 |     def get_watchlist(self, user_id: str) -> List[Dict[str, Any]]:
+   |                                                   ^^^^
+53 |         """Get all funds in the user's watchlist."""
+54 |         try:
+   |
+help: Replace with `dict`
+
+UP006 [*] Use `list` instead of `List` for type annotation
+  --> src/lucidpanda/db/fund.py:69:42
+   |
+67 |             return []
+68 |
+69 |     def get_watchlist_all_codes(self) -> List[str]:
+   |                                          ^^^^
+70 |         """Internal helper to get all unique codes across all users."""
+71 |         try:
+   |
+help: Replace with `list`
+
+UP006 [*] Use `list` instead of `List` for type annotation
+  --> src/lucidpanda/db/fund.py:83:60
+   |
+81 |     # ── 持仓 ──────────────────────────────────────────────────────────────
+82 |
+83 |     def save_fund_holdings(self, fund_code: str, holdings: List[Dict[str, Any]]) -> None:
+   |                                                            ^^^^
+84 |         """Save fund holdings to DB."""
+85 |         try:
+   |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+  --> src/lucidpanda/db/fund.py:83:65
+   |
+81 |     # ── 持仓 ──────────────────────────────────────────────────────────────
+82 |
+83 |     def save_fund_holdings(self, fund_code: str, holdings: List[Dict[str, Any]]) -> None:
+   |                                                                 ^^^^
+84 |         """Save fund holdings to DB."""
+85 |         try:
+   |
+help: Replace with `dict`
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:99:52
+    |
+ 97 |             logger.error(f"Save Fund Holdings Failed: {e}")
+ 98 |
+ 99 |     def get_fund_holdings(self, fund_code: str) -> List[Dict[str, Any]]:
+    |                                                    ^^^^
+100 |         try:
+101 |             with self._get_conn() as conn:
+    |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:99:57
+    |
+ 97 |             logger.error(f"Save Fund Holdings Failed: {e}")
+ 98 |
+ 99 |     def get_fund_holdings(self, fund_code: str) -> List[Dict[str, Any]]:
+    |                                                         ^^^^
+100 |         try:
+101 |             with self._get_conn() as conn:
+    |
+help: Replace with `dict`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:112:75
+    |
+110 |     # ── 估值 ──────────────────────────────────────────────────────────────
+111 |
+112 |     def save_fund_valuation(self, fund_code: str, growth: float, details: Dict[str, Any]) -> None:
+    |                                                                           ^^^^
+113 |         try:
+114 |             with self._get_conn() as conn:
+    |
+help: Replace with `dict`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/fund.py:124:55
+    |
+122 |             logger.error(f"Save Fund Valuation Failed: {e}")
+123 |
+124 |     def get_latest_valuation(self, fund_code: str) -> Optional[Dict[str, Any]]:
+    |                                                       ^^^^^^^^^^^^^^^^^^^^^^^^
+125 |         try:
+126 |             with self._get_conn() as conn:
+    |
+help: Convert to `X | None`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:124:64
+    |
+122 |             logger.error(f"Save Fund Valuation Failed: {e}")
+123 |
+124 |     def get_latest_valuation(self, fund_code: str) -> Optional[Dict[str, Any]]:
+    |                                                                ^^^^
+125 |         try:
+126 |             with self._get_conn() as conn:
+    |
+help: Replace with `dict`
+
+UP007 [*] Use `X | Y` for type annotations
+   --> src/lucidpanda/db/fund.py:141:21
+    |
+139 |     def save_valuation_snapshot(
+140 |         self,
+141 |         trade_date: Union[str, datetime],
+    |                     ^^^^^^^^^^^^^^^^^^^^
+142 |         fund_code: str,
+143 |         est_growth: float,
+    |
+help: Convert to `X | Y`
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:144:26
+    |
+142 |         fund_code: str,
+143 |         est_growth: float,
+144 |         components_json: List[Dict[str, Any]],
+    |                          ^^^^
+145 |         sector_json: Optional[Dict[str, Any]] = None,
+146 |     ) -> None:
+    |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:144:31
+    |
+142 |         fund_code: str,
+143 |         est_growth: float,
+144 |         components_json: List[Dict[str, Any]],
+    |                               ^^^^
+145 |         sector_json: Optional[Dict[str, Any]] = None,
+146 |     ) -> None:
+    |
+help: Replace with `dict`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/fund.py:145:22
+    |
+143 |         est_growth: float,
+144 |         components_json: List[Dict[str, Any]],
+145 |         sector_json: Optional[Dict[str, Any]] = None,
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^
+146 |     ) -> None:
+147 |         """Save the 15:00 frozen snapshot of a fund valuation."""
+    |
+help: Convert to `X | None`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:145:31
+    |
+143 |         est_growth: float,
+144 |         components_json: List[Dict[str, Any]],
+145 |         sector_json: Optional[Dict[str, Any]] = None,
+    |                               ^^^^
+146 |     ) -> None:
+147 |         """Save the 15:00 frozen snapshot of a fund valuation."""
+    |
+help: Replace with `dict`
+
+UP007 [*] Use `X | Y` for type annotations
+   --> src/lucidpanda/db/fund.py:165:47
+    |
+163 |             logger.error(f"Save Valuation Snapshot Failed: {e}")
+164 |
+165 |     def update_official_nav(self, trade_date: Union[str, datetime], fund_code: str, official_growth: float) -> None:
+    |                                               ^^^^^^^^^^^^^^^^^^^^
+166 |         """Reconcile official growth, calculate deviations and status."""
+167 |         try:
+    |
+help: Convert to `X | Y`
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/fund.py:183:42
+    |
+181 |                         abs_dev = abs(dev)
+182 |                         status = 'S'
+183 |                         if abs_dev >= 1.0:   status = 'C'
+    |                                          ^
+184 |                         elif abs_dev >= 0.5: status = 'B'
+185 |                         elif abs_dev >= 0.2: status = 'A'
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/fund.py:184:44
+    |
+182 |                         status = 'S'
+183 |                         if abs_dev >= 1.0:   status = 'C'
+184 |                         elif abs_dev >= 0.5: status = 'B'
+    |                                            ^
+185 |                         elif abs_dev >= 0.2: status = 'A'
+186 |                         cursor.execute("""
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/fund.py:185:44
+    |
+183 |                         if abs_dev >= 1.0:   status = 'C'
+184 |                         elif abs_dev >= 0.5: status = 'B'
+185 |                         elif abs_dev >= 0.2: status = 'A'
+    |                                            ^
+186 |                         cursor.execute("""
+187 |                             UPDATE fund_valuation_archive
+    |
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:195:73
+    |
+193 |             logger.error(f"Update Official NAV Failed: {e}")
+194 |
+195 |     def get_valuation_history(self, fund_code: str, limit: int = 30) -> List[Dict[str, Any]]:
+    |                                                                         ^^^^
+196 |         """Fetch historical valuation performance for UI charts."""
+197 |         try:
+    |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:195:78
+    |
+193 |             logger.error(f"Update Official NAV Failed: {e}")
+194 |
+195 |     def get_valuation_history(self, fund_code: str, limit: int = 30) -> List[Dict[str, Any]]:
+    |                                                                              ^^^^
+196 |         """Fetch historical valuation performance for UI charts."""
+197 |         try:
+    |
+help: Replace with `dict`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:231:54
+    |
+229 |     # ── 统计 & 对账 ───────────────────────────────────────────────────────
+230 |
+231 |     def save_fund_stats(self, fund_code: str, stats: Dict[str, Any]) -> bool:
+    |                                                      ^^^^
+232 |         """Save calculated fund statistics and grades."""
+233 |         try:
+    |
+help: Replace with `dict`
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:268:42
+    |
+266 |             return False
+267 |
+268 |     def get_fund_stats(self, fund_codes: List[str]) -> Dict[str, Dict[str, Any]]:
+    |                                          ^^^^
+269 |         """Batch fetch fund statistics."""
+270 |         if not fund_codes: return {}
+    |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:268:56
+    |
+266 |             return False
+267 |
+268 |     def get_fund_stats(self, fund_codes: List[str]) -> Dict[str, Dict[str, Any]]:
+    |                                                        ^^^^
+269 |         """Batch fetch fund statistics."""
+270 |         if not fund_codes: return {}
+    |
+help: Replace with `dict`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:268:66
+    |
+266 |             return False
+267 |
+268 |     def get_fund_stats(self, fund_codes: List[str]) -> Dict[str, Dict[str, Any]]:
+    |                                                                  ^^^^
+269 |         """Batch fetch fund statistics."""
+270 |         if not fund_codes: return {}
+    |
+help: Replace with `dict`
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/fund.py:270:26
+    |
+268 |     def get_fund_stats(self, fund_codes: List[str]) -> Dict[str, Dict[str, Any]]:
+269 |         """Batch fetch fund statistics."""
+270 |         if not fund_codes: return {}
+    |                          ^
+271 |         try:
+272 |             with self._get_conn() as conn:
+    |
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:281:50
+    |
+279 |             return {}
+280 |
+281 |     def get_health_score(self, days: int = 3) -> Dict[str, Any]:
+    |                                                  ^^^^
+282 |         """Calculate a composite health score (0-100) for recent data quality."""
+283 |         try:
+    |
+help: Replace with `dict`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:335:59
+    |
+333 |             return {"score": 0.0, "error": str(e), "components": {}, "mae": 0.0}
+334 |
+335 |     def get_reconciliation_stats(self, days: int = 14) -> Dict[str, Any]:
+    |                                                           ^^^^
+336 |         """Fetch aggregate stats for the monitoring dashboard."""
+337 |         try:
+    |
+help: Replace with `dict`
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:381:52
+    |
+379 |             return {"daily": [], "anomalies": [], "error": str(e)}
+380 |
+381 |     def get_heatmap_stats(self, days: int = 10) -> List[Dict[str, Any]]:
+    |                                                    ^^^^
+382 |         """Fetch MAE grouped by category and date for heatmap visualization."""
+383 |         conn = None
+    |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:381:57
+    |
+379 |             return {"daily": [], "anomalies": [], "error": str(e)}
+380 |
+381 |     def get_heatmap_stats(self, days: int = 10) -> List[Dict[str, Any]]:
+    |                                                         ^^^^
+382 |         """Fetch MAE grouped by category and date for heatmap visualization."""
+383 |         conn = None
+    |
+help: Replace with `dict`
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:404:56
+    |
+402 |                 conn.close()
+403 |
+404 |     def delete_valuation_records_by_dates(self, dates: List[Union[str, datetime]]) -> int:
+    |                                                        ^^^^
+405 |         """Physically remove records for specific dates that have no official growth data."""
+406 |         if not dates: return 0
+    |
+help: Replace with `list`
+
+UP007 [*] Use `X | Y` for type annotations
+   --> src/lucidpanda/db/fund.py:404:61
+    |
+402 |                 conn.close()
+403 |
+404 |     def delete_valuation_records_by_dates(self, dates: List[Union[str, datetime]]) -> int:
+    |                                                             ^^^^^^^^^^^^^^^^^^^^
+405 |         """Physically remove records for specific dates that have no official growth data."""
+406 |         if not dates: return 0
+    |
+help: Convert to `X | Y`
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/fund.py:406:21
+    |
+404 |     def delete_valuation_records_by_dates(self, dates: List[Union[str, datetime]]) -> int:
+405 |         """Physically remove records for specific dates that have no official growth data."""
+406 |         if not dates: return 0
+    |                     ^
+407 |         conn = None
+408 |         try:
+    |
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:427:51
+    |
+425 |     # ── 元数据 ────────────────────────────────────────────────────────────
+426 |
+427 |     def get_fund_metadata_batch(self, fund_codes: List[str]) -> Dict[str, Dict[str, Any]]:
+    |                                                   ^^^^
+428 |         """Fetch multiple fund metadata (name, type, fee rates) in one query."""
+429 |         if not fund_codes: return {}
+    |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:427:65
+    |
+425 |     # ── 元数据 ────────────────────────────────────────────────────────────
+426 |
+427 |     def get_fund_metadata_batch(self, fund_codes: List[str]) -> Dict[str, Dict[str, Any]]:
+    |                                                                 ^^^^
+428 |         """Fetch multiple fund metadata (name, type, fee rates) in one query."""
+429 |         if not fund_codes: return {}
+    |
+help: Replace with `dict`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:427:75
+    |
+425 |     # ── 元数据 ────────────────────────────────────────────────────────────
+426 |
+427 |     def get_fund_metadata_batch(self, fund_codes: List[str]) -> Dict[str, Dict[str, Any]]:
+    |                                                                           ^^^^
+428 |         """Fetch multiple fund metadata (name, type, fee rates) in one query."""
+429 |         if not fund_codes: return {}
+    |
+help: Replace with `dict`
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/fund.py:429:26
+    |
+427 |     def get_fund_metadata_batch(self, fund_codes: List[str]) -> Dict[str, Dict[str, Any]]:
+428 |         """Fetch multiple fund metadata (name, type, fee rates) in one query."""
+429 |         if not fund_codes: return {}
+    |                          ^
+430 |         conn = None
+431 |         try:
+    |
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:452:42
+    |
+450 |                 conn.close()
+451 |
+452 |     def get_fund_names(self, fund_codes: List[str]) -> Dict[str, str]:
+    |                                          ^^^^
+453 |         """Fetch multiple fund names from metadata in one query."""
+454 |         if not fund_codes: return {}
+    |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:452:56
+    |
+450 |                 conn.close()
+451 |
+452 |     def get_fund_names(self, fund_codes: List[str]) -> Dict[str, str]:
+    |                                                        ^^^^
+453 |         """Fetch multiple fund names from metadata in one query."""
+454 |         if not fund_codes: return {}
+    |
+help: Replace with `dict`
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/fund.py:454:26
+    |
+452 |     def get_fund_names(self, fund_codes: List[str]) -> Dict[str, str]:
+453 |         """Fetch multiple fund names from metadata in one query."""
+454 |         if not fund_codes: return {}
+    |                          ^
+455 |         conn = None
+456 |         try:
+    |
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:471:69
+    |
+469 |                 conn.close()
+470 |
+471 |     def search_funds_metadata(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    |                                                                     ^^^^
+472 |         """Search funds and stocks in local metadata tables (Cross-Asset Pinyin Fuzzy Search).
+    |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:471:74
+    |
+469 |                 conn.close()
+470 |
+471 |     def search_funds_metadata(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    |                                                                          ^^^^
+472 |         """Search funds and stocks in local metadata tables (Cross-Asset Pinyin Fuzzy Search).
+    |
+help: Replace with `dict`
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/db/fund.py:473:1
+    |
+471 |     def search_funds_metadata(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+472 |         """Search funds and stocks in local metadata tables (Cross-Asset Pinyin Fuzzy Search).
+473 |         
+    | ^^^^^^^^
+474 |         Priority layers:
+475 |           1 - Exact code prefix match
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/db/fund.py:494:1
+    |
+492 |                             LEFT JOIN fund_companies c ON m.company_id = c.company_id
+493 |                             WHERE m.fund_code LIKE %s
+494 |                     
+    | ^^^^^^^^^^^^^^^^^^^^
+495 |                             UNION ALL
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/db/fund.py:496:1
+    |
+495 |                             UNION ALL
+496 |                     
+    | ^^^^^^^^^^^^^^^^^^^^
+497 |                             SELECT s.stock_code as code, s.stock_name as name, s.market as type,
+498 |                                    s.industry_l1_name as company, 1 as priority
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/db/fund.py:509:1
+    |
+507 |                             LEFT JOIN fund_companies c ON m.company_id = c.company_id
+508 |                             WHERE m.pinyin_shorthand LIKE %s AND m.fund_code NOT LIKE %s
+509 |                     
+    | ^^^^^^^^^^^^^^^^^^^^
+510 |                             UNION ALL
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/db/fund.py:511:1
+    |
+510 |                             UNION ALL
+511 |                     
+    | ^^^^^^^^^^^^^^^^^^^^
+512 |                             SELECT s.stock_code as code, s.stock_name as name, s.market as type,
+513 |                                    s.industry_l1_name as company, 2 as priority
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/db/fund.py:525:1
+    |
+523 |                             WHERE m.pinyin_full LIKE %s
+524 |                             AND m.fund_code NOT LIKE %s AND m.pinyin_shorthand NOT LIKE %s
+525 |                     
+    | ^^^^^^^^^^^^^^^^^^^^
+526 |                             UNION ALL
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/db/fund.py:527:1
+    |
+526 |                             UNION ALL
+527 |                     
+    | ^^^^^^^^^^^^^^^^^^^^
+528 |                             SELECT s.stock_code as code, s.stock_name as name, s.market as type,
+529 |                                    s.industry_l1_name as company, 3 as priority
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/db/fund.py:543:1
+    |
+541 |                             AND m.fund_code NOT LIKE %s AND m.pinyin_shorthand NOT LIKE %s
+542 |                             AND (m.pinyin_full IS NULL OR m.pinyin_full NOT LIKE %s)
+543 |                     
+    | ^^^^^^^^^^^^^^^^^^^^
+544 |                             UNION ALL
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/db/fund.py:545:1
+    |
+544 |                             UNION ALL
+545 |                     
+    | ^^^^^^^^^^^^^^^^^^^^
+546 |                             SELECT s.stock_code as code, s.stock_name as name, s.market as type,
+547 |                                    s.industry_l1_name as company, 4 as priority
+    |
+help: Remove whitespace from blank line
+
+UP006 [*] Use `list` instead of `List` for type annotation
+   --> src/lucidpanda/db/fund.py:576:79
+    |
+574 |     # ── 追踪 ──────────────────────────────────────────────────────────────
+575 |
+576 |     def get_recent_tracking_statuses(self, fund_code: str, limit: int = 3) -> List[Dict[str, Any]]:
+    |                                                                               ^^^^
+577 |         """Fetch the last N tracking statuses for rebalance detection."""
+578 |         conn = None
+    |
+help: Replace with `list`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:576:84
+    |
+574 |     # ── 追踪 ──────────────────────────────────────────────────────────────
+575 |
+576 |     def get_recent_tracking_statuses(self, fund_code: str, limit: int = 3) -> List[Dict[str, Any]]:
+    |                                                                                    ^^^^
+577 |         """Fetch the last N tracking statuses for rebalance detection."""
+578 |         conn = None
+    |
+help: Replace with `dict`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:596:78
+    |
+594 |                 conn.close()
+595 |
+596 |     def get_fund_performance_metrics(self, fund_code: str, days: int = 5) -> Dict[str, Any]:
+    |                                                                              ^^^^
+597 |         """Fetch average absolute deviation and sample count for the last N days."""
+598 |         conn = None
+    |
+help: Replace with `dict`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/fund.py:621:55
+    |
+619 |     # ── 关系映射 ──────────────────────────────────────────────────────────
+620 |
+621 |     def get_fund_relationship(self, sub_code: str) -> Optional[Dict[str, Any]]:
+    |                                                       ^^^^^^^^^^^^^^^^^^^^^^^^
+622 |         """Retrieve the parent/shadow mapping for a fund."""
+623 |         try:
+    |
+help: Convert to `X | None`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/fund.py:621:64
+    |
+619 |     # ── 关系映射 ──────────────────────────────────────────────────────────
+620 |
+621 |     def get_fund_relationship(self, sub_code: str) -> Optional[Dict[str, Any]]:
+    |                                                                ^^^^
+622 |         """Retrieve the parent/shadow mapping for a fund."""
+623 |         try:
+    |
+help: Replace with `dict`
+
+UP035 `typing.Dict` is deprecated, use `dict` instead
+ --> src/lucidpanda/db/intelligence.py:7:1
+  |
+5 | """
+6 | from datetime import datetime
+7 | from typing import Any, Dict, List, Optional, Union
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 |
+9 | import pytz
+  |
+
+UP035 `typing.List` is deprecated, use `list` instead
+ --> src/lucidpanda/db/intelligence.py:7:1
+  |
+5 | """
+6 | from datetime import datetime
+7 | from typing import Any, Dict, List, Optional, Union
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 |
+9 | import pytz
+  |
+
+F401 [*] `typing.Union` imported but unused
+ --> src/lucidpanda/db/intelligence.py:7:47
+  |
+5 | """
+6 | from datetime import datetime
+7 | from typing import Any, Dict, List, Optional, Union
+  |                                               ^^^^^
+8 |
+9 | import pytz
+  |
+help: Remove unused import: `typing.Union`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/intelligence.py:289:81
+    |
+287 |             logger.warning(f"⚠️ alpha_return 回填失败: {e}")
+288 |         return updated
+289 |     def _compute_rolling_correlation(self, record_id: int, window: int = 15) -> Dict[str, Optional[float]]:
+    |                                                                                 ^^^^
+290 |         """Compute rolling correlation between gold and macro indicators (DXY, US10Y)."""
+291 |         try:
+    |
+help: Replace with `dict`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/intelligence.py:289:91
+    |
+287 |             logger.warning(f"⚠️ alpha_return 回填失败: {e}")
+288 |         return updated
+289 |     def _compute_rolling_correlation(self, record_id: int, window: int = 15) -> Dict[str, Optional[float]]:
+    |                                                                                           ^^^^^^^^^^^^^^^
+290 |         """Compute rolling correlation between gold and macro indicators (DXY, US10Y)."""
+291 |         try:
+    |
+help: Convert to `X | None`
+
+W293 [*] Blank line contains whitespace
+   --> src/lucidpanda/db/intelligence.py:302:1
+    |
+300 |                     if not target:
+301 |                         return {}
+302 |                     
+    | ^^^^^^^^^^^^^^^^^^^^
+303 |                     cursor.execute("""
+304 |                         SELECT gold_price_snapshot, dxy_snapshot, us10y_snapshot
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src/lucidpanda/db/intelligence.py:314:1
+    |
+312 |                     """, (target["timestamp"], window + 1))
+313 |                     rows = cursor.fetchall()
+314 |             
+    | ^^^^^^^^^^^^
+315 |             if len(rows) < 2 or np is None:
+316 |                 return {}
+    |
+help: Remove whitespace from blank line
+
+W293 [*] Blank line contains whitespace
+   --> src/lucidpanda/db/intelligence.py:336:1
+    |
+334 |             da = np.array(d_chgs) # type: ignore
+335 |             ua = np.array(u_chgs) # type: ignore
+336 |             
+    | ^^^^^^^^^^^^
+337 |             return {
+338 |                 "gold_dxy_corr": float(np.corrcoef(ga, da)[0, 1]) if len(da) == len(ga) else None, # type: ignore
+    |
+help: Remove whitespace from blank line
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/intelligence.py:643:27
+    |
+642 |             dxy = raw_data.get('dxy_snapshot') or snaps.get("DX-Y.NYB")
+643 |             if dxy is None: dxy = self.get_market_snapshot("DX-Y.NYB", news_time)
+    |                           ^
+644 |
+645 |             us10y = raw_data.get('us10y_snapshot') or snaps.get("^TNX")
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/intelligence.py:646:29
+    |
+645 |             us10y = raw_data.get('us10y_snapshot') or snaps.get("^TNX")
+646 |             if us10y is None: us10y = self.get_market_snapshot("^TNX", news_time)
+    |                             ^
+647 |
+648 |             gvz = raw_data.get('gvz_snapshot') or snaps.get("^GVZ")
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/intelligence.py:649:27
+    |
+648 |             gvz = raw_data.get('gvz_snapshot') or snaps.get("^GVZ")
+649 |             if gvz is None: gvz = self.get_market_snapshot("^GVZ", news_time)
+    |                           ^
+650 |
+651 |             gold = raw_data.get('gold_price_snapshot') or snaps.get("GC=F")
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/intelligence.py:652:28
+    |
+651 |             gold = raw_data.get('gold_price_snapshot') or snaps.get("GC=F")
+652 |             if gold is None: gold = self.get_market_snapshot("GC=F", news_time)
+    |                            ^
+653 |
+654 |             oil = raw_data.get('oil_price_snapshot') or snaps.get("CL=F")
+    |
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/intelligence.py:766:40
+    |
+764 |         """仅更新标杆节点的分析结果 (用于 Lead Evolution 自动融合阶段)"""
+765 |         try:
+766 |             def _to_jsonb(val: Any) -> Optional[Jsonb]:
+    |                                        ^^^^^^^^^^^^^^^
+767 |                 if val is None:
+768 |                     return None
+    |
+help: Convert to `X | None`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/intelligence.py:817:40
+    |
+815 |                 logger.info(f"⚖️  Dimension D 权调节 (Hawkish/-0.15): {orig_score:.2f} -> {sentiment_score:.2f}")
+816 |
+817 |             def _to_jsonb(val: Any) -> Optional[Jsonb]:
+    |                                        ^^^^^^^^^^^^^^^
+818 |                 if val is None:
+819 |                     return None
+    |
+help: Convert to `X | None`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/intelligence.py:980:40
+    |
+978 |                 sentiment_score = max(-1.0, min(1.0, sentiment_score - 0.15))
+979 |
+980 |             def _to_jsonb(val: Any) -> Optional[Jsonb]:
+    |                                        ^^^^^^^^^^^^^^^
+981 |                 if val is None:
+982 |                     return None
+    |
+help: Convert to `X | None`
+
+UP006 [*] Use `list` instead of `List` for type annotation
+    --> src/lucidpanda/db/intelligence.py:1168:42
+     |
+1166 |             logger.error(f"find_similar_pairs (Story Threading) failed: {e}")
+1167 |             return []
+1168 |     def mark_clustered(self, source_ids: List[str], cluster_id: str, lead_source_id: str) -> None:
+     |                                          ^^^^
+1169 |         """Mark non-lead records as CLUSTERED and group them under a common story ID."""
+1170 |         if not source_ids:
+     |
+help: Replace with `list`
+
+UP035 `typing.Dict` is deprecated, use `dict` instead
+ --> src/lucidpanda/db/market.py:7:1
+  |
+5 | """
+6 | from datetime import datetime
+7 | from typing import Any, Dict, Optional, Union
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+8 |
+9 | import akshare as ak
+  |
+
+F401 [*] `typing.Union` imported but unused
+ --> src/lucidpanda/db/market.py:7:41
+  |
+5 | """
+6 | from datetime import datetime
+7 | from typing import Any, Dict, Optional, Union
+  |                                         ^^^^^
+8 |
+9 | import akshare as ak
+  |
+help: Remove unused import: `typing.Union`
+
+UP045 [*] Use `X | None` for type annotations
+  --> src/lucidpanda/db/market.py:20:38
+   |
+18 | class MarketRepo(DBBase):
+19 |
+20 |     def get_market_session(self, dt: Optional[datetime] = None) -> str:
+   |                                      ^^^^^^^^^^^^^^^^^^
+21 |         """
+22 |         Determine market session from UTC timestamp.
+   |
+help: Convert to `X | None`
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/db/market.py:32:25
+   |
+30 |             dt = dt.astimezone(pytz.utc)
+31 |         hour = dt.hour
+32 |         if 0 <= hour < 8:   return "ASIA"
+   |                         ^
+33 |         if 8 <= hour < 15:  return "LONDON"
+34 |         if 15 <= hour < 22: return "NEWYORK"
+   |
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/db/market.py:33:26
+   |
+31 |         hour = dt.hour
+32 |         if 0 <= hour < 8:   return "ASIA"
+33 |         if 8 <= hour < 15:  return "LONDON"
+   |                          ^
+34 |         if 15 <= hour < 22: return "NEWYORK"
+35 |         return "LATE_NY"
+   |
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/db/market.py:34:27
+   |
+32 |         if 0 <= hour < 8:   return "ASIA"
+33 |         if 8 <= hour < 15:  return "LONDON"
+34 |         if 15 <= hour < 22: return "NEWYORK"
+   |                           ^
+35 |         return "LATE_NY"
+   |
+
+UP045 [*] Use `X | None` for type annotations
+  --> src/lucidpanda/db/market.py:61:81
+   |
+59 |             return 0, 0.0
+60 |
+61 |     def get_market_snapshot(self, ticker_symbol: str, target_time: datetime) -> Optional[float]:
+   |                                                                                 ^^^^^^^^^^^^^^^
+62 |         """
+63 |         Unified snapshot fetcher for international gold (USD/oz) and macro indices.
+   |
+help: Convert to `X | None`
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/db/market.py:192:17
+    |
+190 |                     r.setex(cache_key, 60, str(val)) # 60s TTL
+191 |                     # logger.debug(f"💾 Market Cache Set: {ticker_symbol} = {val}")
+192 |                 except: pass
+    |                 ^^^^^^
+193 |                 return float(val) if val is not None else None
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/db/market.py:192:23
+    |
+190 |                     r.setex(cache_key, 60, str(val)) # 60s TTL
+191 |                     # logger.debug(f"💾 Market Cache Set: {ticker_symbol} = {val}")
+192 |                 except: pass
+    |                       ^
+193 |                 return float(val) if val is not None else None
+    |
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/market.py:200:54
+    |
+198 |             return None
+199 |
+200 |     def get_historical_gold_price(self, target_time: Optional[datetime] = None) -> Optional[float]:
+    |                                                      ^^^^^^^^^^^^^^^^^^
+201 |         """Fetch gold price using domestic sources (London Gold spot)."""
+202 |         try:
+    |
+help: Convert to `X | None`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/market.py:200:84
+    |
+198 |             return None
+199 |
+200 |     def get_historical_gold_price(self, target_time: Optional[datetime] = None) -> Optional[float]:
+    |                                                                                    ^^^^^^^^^^^^^^^
+201 |         """Fetch gold price using domestic sources (London Gold spot)."""
+202 |         try:
+    |
+help: Convert to `X | None`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/market.py:242:61
+    |
+240 |             return 0.0
+241 |
+242 |     def get_latest_indicator(self, indicator_name: str, dt: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+    |                                                             ^^^^^^^^^^^^^^^^^^
+243 |         """Get the most recent indicator value relative to a timestamp."""
+244 |         try:
+    |
+help: Convert to `X | None`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/market.py:242:91
+    |
+240 |             return 0.0
+241 |
+242 |     def get_latest_indicator(self, indicator_name: str, dt: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+    |                                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^
+243 |         """Get the most recent indicator value relative to a timestamp."""
+244 |         try:
+    |
+help: Convert to `X | None`
+
+UP006 [*] Use `dict` instead of `Dict` for type annotation
+   --> src/lucidpanda/db/market.py:242:100
+    |
+240 |             return 0.0
+241 |
+242 |     def get_latest_indicator(self, indicator_name: str, dt: Optional[datetime] = None) -> Optional[Dict[str, Any]]:
+    |                                                                                                    ^^^^
+243 |         """Get the most recent indicator value relative to a timestamp."""
+244 |         try:
+    |
+help: Replace with `dict`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/market.py:265:21
+    |
+263 |         name: str,
+264 |         value: float,
+265 |         percentile: Optional[float] = None,
+    |                     ^^^^^^^^^^^^^^^
+266 |         description: Optional[str] = None,
+267 |     ) -> None:
+    |
+help: Convert to `X | None`
+
+UP045 [*] Use `X | None` for type annotations
+   --> src/lucidpanda/db/market.py:266:22
+    |
+264 |         value: float,
+265 |         percentile: Optional[float] = None,
+266 |         description: Optional[str] = None,
+    |                      ^^^^^^^^^^^^^
+267 |     ) -> None:
+268 |         """Save or update a market indicator."""
+    |
+help: Convert to `X | None`
+
+W291 Trailing whitespace
+  --> src/lucidpanda/db/ontology_repo.py:25:31
+   |
+23 |                     # 使用聚合查询减少循环
+24 |                     cursor.execute("""
+25 |                         SELECT 
+   |                               ^
+26 |                             r.canonical_id, 
+27 |                             r.display_name, 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> src/lucidpanda/db/ontology_repo.py:26:44
+   |
+24 |                     cursor.execute("""
+25 |                         SELECT 
+26 |                             r.canonical_id, 
+   |                                            ^
+27 |                             r.display_name, 
+28 |                             r.entity_type, 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> src/lucidpanda/db/ontology_repo.py:27:44
+   |
+25 |                         SELECT 
+26 |                             r.canonical_id, 
+27 |                             r.display_name, 
+   |                                            ^
+28 |                             r.entity_type, 
+29 |                             r.importance_weight,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> src/lucidpanda/db/ontology_repo.py:28:43
+   |
+26 | …                     r.canonical_id, 
+27 | …                     r.display_name, 
+28 | …                     r.entity_type, 
+   |                                     ^
+29 | …                     r.importance_weight,
+30 | …                     array_agg(a.alias) filter (where a.alias is not null) as aliases
+   |
+help: Remove trailing whitespace
+
+E722 Do not use bare `except`
+  --> src/lucidpanda/providers/data_sources/email_source.py:60:13
+   |
+58 |             try:
+59 |                 mail.xatom('ID', '("name" "ios")')
+60 |             except:
+   |             ^^^^^^
+61 |                 pass
+   |
+
+E722 Do not use bare `except`
+  --> src/lucidpanda/providers/data_sources/email_source.py:69:13
+   |
+67 |             try:
+68 |                 mail.xatom('ID', '("name" "ios")')
+69 |             except:
+   |             ^^^^^^
+70 |                 pass
+   |
+
+E722 Do not use bare `except`
+  --> src/lucidpanda/providers/data_sources/email_source.py:76:13
+   |
+74 |                 _, folders = mail.list()
+75 |                 logger.info(f"📁 您的 163 邮箱可用文件夹: {[f.decode() for f in folders]}")
+76 |             except:
+   |             ^^^^^^
+77 |                 pass
+   |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/providers/data_sources/email_source.py:125:43
+    |
+123 |                                 break
+124 |
+125 |                         if not is_verified: continue
+    |                                           ^
+126 |
+127 |                         content_body = ""
+    |
+
+E722 Do not use bare `except`
+   --> src/lucidpanda/providers/data_sources/email_source.py:164:17
+    |
+162 |                 try:
+163 |                     mail.logout()
+164 |                 except:
+    |                 ^^^^^^
+165 |                     pass
+166 |             logger.info(f"✅ 邮件巡检完毕: 发现并录入 {len(items)} 条新通稿。")
+    |
+
+B905 `zip()` without an explicit `strict=` parameter
+  --> src/lucidpanda/providers/data_sources/fred.py:89:31
+   |
+88 |         dashboard = {}
+89 |         for series_id, res in zip(self.MACRO_INDICATORS.keys(), results):
+   |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+90 |             if isinstance(res, Exception):
+91 |                 logger.error(f"⚠️ 获取宏观指标 {series_id} 出现异常：{res}")
+   |
+help: Add explicit value for parameter `strict=`
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/providers/data_sources/google_news.py:46:48
+   |
+44 |         """Return (Tier Level, Score Multiplier)"""
+45 |         for s in self.SOURCE_TIERS['TIER_1']:
+46 |             if s.lower() in source_name.lower(): return (1, 1.5)
+   |                                                ^
+47 |         for s in self.SOURCE_TIERS['TIER_2']:
+48 |             if s.lower() in source_name.lower(): return (2, 1.0)
+   |
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/providers/data_sources/google_news.py:48:48
+   |
+46 |             if s.lower() in source_name.lower(): return (1, 1.5)
+47 |         for s in self.SOURCE_TIERS['TIER_2']:
+48 |             if s.lower() in source_name.lower(): return (2, 1.0)
+   |                                                ^
+49 |         for s in self.SOURCE_TIERS['BLOCKED']:
+50 |             if s.lower() in source_name.lower(): return (-1, 0.0)
+   |
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/providers/data_sources/google_news.py:50:48
+   |
+48 |             if s.lower() in source_name.lower(): return (2, 1.0)
+49 |         for s in self.SOURCE_TIERS['BLOCKED']:
+50 |             if s.lower() in source_name.lower(): return (-1, 0.0)
+   |                                                ^
+51 |         return (3, 0.8)
+   |
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/providers/data_sources/google_news.py:75:32
+   |
+73 |             # Google News RSS supports 'after:YYYY-MM-DD' and 'before:YYYY-MM-DD'
+74 |             def format_date_for_rss(date_str):
+75 |                 if not date_str: return None
+   |                                ^
+76 |                 try:
+77 |                     # Input is MM/DD/YYYY from historical importer
+   |
+
+E722 Do not use bare `except`
+  --> src/lucidpanda/providers/data_sources/google_news.py:80:17
+   |
+78 |                     dt = datetime.strptime(date_str, '%m/%d/%Y')
+79 |                     return dt.strftime('%Y-%m-%d')
+80 |                 except:
+   |                 ^^^^^^
+81 |                     return date_str # Assume already formatted or handled by dateparser
+   |
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/providers/data_sources/google_news.py:87:25
+   |
+85 |             rss_before = format_date_for_rss(end_date)
+86 |
+87 |             if rss_after: search_query += f" after:{rss_after}"
+   |                         ^
+88 |             if rss_before: search_query += f" before:{rss_before}"
+   |
+
+E701 Multiple statements on one line (colon)
+  --> src/lucidpanda/providers/data_sources/google_news.py:88:26
+   |
+87 |             if rss_after: search_query += f" after:{rss_after}"
+88 |             if rss_before: search_query += f" before:{rss_before}"
+   |                          ^
+89 |
+90 |             # 2. Encode URL
+   |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/providers/data_sources/google_news.py:110:35
+    |
+108 |                 except Exception as e:
+109 |                     logger.warning(f"Attempt {attempt+1}/3 failed to fetch Google News RSS: {e}")
+110 |                     if attempt < 2: time.sleep(2)
+    |                                   ^
+111 |
+112 |             if not content:
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/providers/data_sources/google_news.py:136:30
+    |
+134 |                 # --- FILTER 1: Source Quality Check ---
+135 |                 tier, multiplier = self._get_source_rank(source_name)
+136 |                 if tier == -1: continue
+    |                              ^
+137 |
+138 |                 # --- FILTER 2: Content Type Check ---
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/providers/data_sources/google_news.py:139:68
+    |
+138 |                 # --- FILTER 2: Content Type Check ---
+139 |                 if any(x in clean_title for x in self.NOISE_TITLES): continue
+    |                                                                    ^
+140 |
+141 |                 # ID for deduplication
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/providers/llm/qwen_llm.py:125:20
+    |
+124 |     def _truncate_content(self, text: str, max_chars: int) -> str:
+125 |         if not text: return ""
+    |                    ^
+126 |         text = text.strip()
+127 |         if len(text) <= max_chars: return text
+    |
+
+E701 Multiple statements on one line (colon)
+   --> src/lucidpanda/providers/llm/qwen_llm.py:127:34
+    |
+125 |         if not text: return ""
+126 |         text = text.strip()
+127 |         if len(text) <= max_chars: return text
+    |                                  ^
+128 |         return text[:max_chars] + "...（已截断）"
+    |
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/services/embedding_service.py:34:1
+   |
+32 |     """
+33 |     Embedding 服务类
+34 |     
+   | ^^^^
+35 |     提供文本向量化功能，支持多种云服务商 API。
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/services/embedding_service.py:36:1
+   |
+35 |     提供文本向量化功能，支持多种云服务商 API。
+36 |     
+   | ^^^^
+37 |     Attributes:
+38 |         None (类方法，无状态)
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/services/embedding_service.py:39:1
+   |
+37 |     Attributes:
+38 |         None (类方法，无状态)
+39 |         
+   | ^^^^^^^^
+40 |     Raises:
+41 |         Exception: 当所有 API 提供商都失败时抛出异常
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/services/embedding_service.py:42:1
+   |
+40 |     Raises:
+41 |         Exception: 当所有 API 提供商都失败时抛出异常
+42 |         
+   | ^^^^^^^^
+43 |     Example:
+44 |         >>> vector = EmbeddingService.encode("你好世界")
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/services/embedding_service.py:52:1
+   |
+50 |         """
+51 |         使用 Gemini Cloud API 生成向量
+52 |         
+   | ^^^^^^^^
+53 |         Args:
+54 |             text: 输入文本
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/services/embedding_service.py:55:1
+   |
+53 |         Args:
+54 |             text: 输入文本
+55 |             
+   | ^^^^^^^^^^^^
+56 |         Returns:
+57 |             768 维向量（List[float]）
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/services/embedding_service.py:58:1
+   |
+56 |         Returns:
+57 |             768 维向量（List[float]）
+58 |             
+   | ^^^^^^^^^^^^
+59 |         Raises:
+60 |             Exception: API 调用失败时抛出异常
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/services/embedding_service.py:61:1
+   |
+59 |         Raises:
+60 |             Exception: API 调用失败时抛出异常
+61 |             
+   | ^^^^^^^^^^^^
+62 |         Note:
+63 |             - 维度固定为 768
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+  --> src/lucidpanda/services/embedding_service.py:95:1
+   |
+93 |         """
+94 |         使用阿里云 DashScope Embedding API 生成向量
+95 |         
+   | ^^^^^^^^
+96 |         Args:
+97 |             text: 输入文本
+   |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/services/embedding_service.py:98:1
+    |
+ 96 |         Args:
+ 97 |             text: 输入文本
+ 98 |             
+    | ^^^^^^^^^^^^
+ 99 |         Returns:
+100 |             可配置维度的向量（默认 768 维）
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/services/embedding_service.py:101:1
+    |
+ 99 |         Returns:
+100 |             可配置维度的向量（默认 768 维）
+101 |             
+    | ^^^^^^^^^^^^
+102 |         Raises:
+103 |             Exception: API 调用失败时抛出异常
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/services/embedding_service.py:104:1
+    |
+102 |         Raises:
+103 |             Exception: API 调用失败时抛出异常
+104 |             
+    | ^^^^^^^^^^^^
+105 |         Note:
+106 |             - 支持弹性维度：1024/768/512/256/128/64
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/services/embedding_service.py:145:1
+    |
+143 |         """
+144 |         根据配置生成文本嵌入向量
+145 |         
+    | ^^^^^^^^
+146 |         根据 `EMBEDDING_PROVIDER` 配置选择合适的提供商。
+147 |         不支持降级到本地模型（已禁用，避免内存占用）。
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/services/embedding_service.py:148:1
+    |
+146 |         根据 `EMBEDDING_PROVIDER` 配置选择合适的提供商。
+147 |         不支持降级到本地模型（已禁用，避免内存占用）。
+148 |         
+    | ^^^^^^^^
+149 |         Args:
+150 |             text: 输入文本
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/services/embedding_service.py:151:1
+    |
+149 |         Args:
+150 |             text: 输入文本
+151 |             
+    | ^^^^^^^^^^^^
+152 |         Returns:
+153 |             嵌入向量（List[float]），维度取决于提供商：
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/services/embedding_service.py:156:1
+    |
+154 |             - DashScope: 768 维（可配置）
+155 |             - Gemini: 768 维
+156 |             
+    | ^^^^^^^^^^^^
+157 |         Raises:
+158 |             Exception: API 调用失败时抛出异常（不再降级到本地模型）
+    |
+help: Remove whitespace from blank line
+
+W293 Blank line contains whitespace
+   --> src/lucidpanda/services/embedding_service.py:159:1
+    |
+157 |         Raises:
+158 |             Exception: API 调用失败时抛出异常（不再降级到本地模型）
+159 |             
+    | ^^^^^^^^^^^^
+160 |         Example:
+161 |             >>> vector = embedding_service.encode("测试文本")
+    |
+help: Remove whitespace from blank line
+
+W291 Trailing whitespace
+  --> src/lucidpanda/services/factor_service.py:89:23
+   |
+87 |                 cursor = conn.cursor()
+88 |                 query = """
+89 |                 SELECT 
+   |                       ^
+90 |                     m.metric_date, 
+91 |                     m.avg_sentiment, 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> src/lucidpanda/services/factor_service.py:90:35
+   |
+88 |                 query = """
+89 |                 SELECT 
+90 |                     m.metric_date, 
+   |                                   ^
+91 |                     m.avg_sentiment, 
+92 |                     m.mention_count, 
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> src/lucidpanda/services/factor_service.py:91:37
+   |
+89 |                 SELECT 
+90 |                     m.metric_date, 
+91 |                     m.avg_sentiment, 
+   |                                     ^
+92 |                     m.mention_count, 
+93 |                     m.urgency_sum,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+  --> src/lucidpanda/services/factor_service.py:92:37
+   |
+90 |                     m.metric_date, 
+91 |                     m.avg_sentiment, 
+92 |                     m.mention_count, 
+   |                                     ^
+93 |                     m.urgency_sum,
+94 |                     r.display_name,
+   |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/services/factor_service.py:119:23
+    |
+117 |                 cursor = conn.cursor()
+118 |                 query = """
+119 |                 SELECT 
+    |                       ^
+120 |                     m.canonical_id,
+121 |                     SUM(m.mention_count) as total_mentions,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/services/factor_service.py:157:23
+    |
+155 |                 cursor = conn.cursor()
+156 |                 query = """
+157 |                 SELECT 
+    |                       ^
+158 |                     AVG(avg_sentiment) as mean_sent,
+159 |                     STDDEV(avg_sentiment) as std_sent,
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> src/lucidpanda/services/factor_service.py:162:40
+    |
+160 |                     COUNT(1) as sample_count
+161 |                 FROM entity_metrics
+162 |                 WHERE canonical_id = %s 
+    |                                        ^
+163 |                   AND metric_date >= CURRENT_DATE - INTERVAL '%s day'
+164 |                   AND metric_date < CURRENT_DATE;
+    |
+help: Remove trailing whitespace
+
+F401 `src.lucidpanda.tasks.collector_tasks` imported but unused
+ --> src/lucidpanda/tasks/__init__.py:4:8
+  |
+2 | LucidPanda 任务模块
+3 | """
+4 | import src.lucidpanda.tasks.collector_tasks
+  |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+help: Remove unused import: `src.lucidpanda.tasks.collector_tasks`
+
+E402 Module level import not at top of file
+  --> src/lucidpanda/tasks/collector_tasks.py:21:1
+   |
+19 |     sys.path.insert(0, root_dir)
+20 |
+21 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+22 | from src.lucidpanda.core.database import IntelligenceDB
+23 | from src.lucidpanda.core.logger import logger
+   |
+
+E402 Module level import not at top of file
+  --> src/lucidpanda/tasks/collector_tasks.py:22:1
+   |
+21 | from src.lucidpanda.config import settings
+22 | from src.lucidpanda.core.database import IntelligenceDB
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 | from src.lucidpanda.core.logger import logger
+   |
+
+E402 Module level import not at top of file
+  --> src/lucidpanda/tasks/collector_tasks.py:23:1
+   |
+21 | from src.lucidpanda.config import settings
+22 | from src.lucidpanda.core.database import IntelligenceDB
+23 | from src.lucidpanda.core.logger import logger
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+24 |
+25 | # 引入 TaskIQ broker
+   |
+
+E402 Module level import not at top of file
+  --> src/lucidpanda/tasks/collector_tasks.py:26:1
+   |
+25 | # 引入 TaskIQ broker
+26 | from src.lucidpanda.core.taskiq_broker import broker
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+27 | from src.lucidpanda.providers.data_sources.rsshub import (
+28 |     TIER1_FEEDS_CONFIG,
+   |
+
+E402 Module level import not at top of file
+  --> src/lucidpanda/tasks/collector_tasks.py:27:1
+   |
+25 |   # 引入 TaskIQ broker
+26 |   from src.lucidpanda.core.taskiq_broker import broker
+27 | / from src.lucidpanda.providers.data_sources.rsshub import (
+28 | |     TIER1_FEEDS_CONFIG,
+29 | |     RSSHubSource,
+30 | | )
+   | |_^
+31 |
+32 |   # ──────────────────────────────────────────────────────────────────────
+   |
+
+F841 Local variable `new_count` is assigned to but never used
+   --> src/lucidpanda/tasks/collector_tasks.py:171:9
+    |
+169 |             items, _ = await source._fetch_feed_async(client, ssl_client, config)
+170 |
+171 |         new_count = len(items) if items else 0
+    |         ^^^^^^^^^
+172 |         state = _get_feed_state(feed_name)
+    |
+help: Remove assignment to unused variable `new_count`
+
+E402 Module level import not at top of file
+  --> test_proxy_ignore.py:12:1
+   |
+10 | load_dotenv(ai_env_path, override=True)
+11 |
+12 | from src.lucidpanda.config import settings
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+
+E741 Ambiguous variable name: `l`
+   --> tests/test_auth_service.py:200:29
+    |
+198 |     assert len(logs) >= 2
+199 |
+200 |     actions = [l.action for l in logs]
+    |                             ^
+201 |     assert "TEST_ACTION" in actions
+202 |     assert "ANOTHER_ACTION" in actions
+    |
+
+E741 Ambiguous variable name: `l`
+   --> tests/test_auth_service.py:205:27
+    |
+204 |     # Verify details of one
+205 |     test_log = next(l for l in logs if l.action == "TEST_ACTION")
+    |                           ^
+206 |     assert test_log.ip_address == "1.2.3.4"
+207 |     assert test_log.details == {"info": "test"}
+    |
+
+F841 Local variable `llm` is assigned to but never used
+  --> tests/test_llm_factory.py:21:13
+   |
+19 |         """测试创建 Qwen LLM 实例"""
+20 |         with patch('src.lucidpanda.core.engine.QwenLLM') as mock_qwen:
+21 |             llm = LLMFactory.create('qwen')
+   |             ^^^
+22 |             mock_qwen.assert_called_once()
+   |
+help: Remove assignment to unused variable `llm`
+
+F841 Local variable `llm` is assigned to but never used
+  --> tests/test_llm_factory.py:27:13
+   |
+25 |         """测试创建 DeepSeek LLM 实例"""
+26 |         with patch('src.lucidpanda.core.engine.DeepSeekLLM') as mock_deepseek:
+27 |             llm = LLMFactory.create('deepseek')
+   |             ^^^
+28 |             mock_deepseek.assert_called_once()
+   |
+help: Remove assignment to unused variable `llm`
+
+F841 Local variable `llm` is assigned to but never used
+  --> tests/test_llm_factory.py:33:13
+   |
+31 |         """测试创建 Gemini LLM 实例"""
+32 |         with patch('src.lucidpanda.core.engine.GeminiLLM') as mock_gemini:
+33 |             llm = LLMFactory.create('gemini')
+   |             ^^^
+34 |             mock_gemini.assert_called_once()
+   |
+help: Remove assignment to unused variable `llm`
+
+E701 Multiple statements on one line (colon)
+  --> tests/test_stock_pinyin.py:8:16
+   |
+ 7 | def get_pinyin_shorthand(name):
+ 8 |     if not name: return ""
+   |                ^
+ 9 |     letters = pinyin(name, style=Style.FIRST_LETTER)
+10 |     return "".join([item[0].upper() for item in letters if item[0].isalnum()])
+   |
+
+Found 467 errors.
+[*] 69 fixable with the `--fix` option (166 hidden fixes can be enabled with the `--unsafe-fixes` option).

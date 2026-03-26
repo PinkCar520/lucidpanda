@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 import akshare as ak
 import requests
@@ -13,11 +14,11 @@ class MarketTerminalService:
     使用新浪财经 API（更稳定）
     """
 
-    def __init__(self):
-        self._cache = {}
-        self._cache_ttl = 15  # 15 秒缓存
+    def __init__(self) -> None:
+        self._cache: dict[str, Any] = {}
+        self._cache_ttl: int = 15  # 15 秒缓存
 
-    def get_market_snapshot(self):
+    def get_market_snapshot(self) -> dict[str, Any] | None:
         """
         获取市场快照（四大品种实时报价）
         """
@@ -44,7 +45,7 @@ class MarketTerminalService:
                 "dxy": dxy_data or self._empty_quote("DXY", "美元指数"),
                 "oil": oil_data or self._empty_quote("CL=F", "原油"),
                 "us10y": us10y_data or self._empty_quote("US10Y", "美债 10Y"),
-                "last_updated": format_iso8601(datetime.now())
+                "last_updated": format_iso8601(datetime.now()),
             }
 
             self._cache["market_snapshot"] = {"data": data, "timestamp": now}
@@ -54,16 +55,18 @@ class MarketTerminalService:
             logger.error(f"Failed to fetch market snapshot: {e}")
             return None
 
-    def _fetch_gold(self):
+    def _fetch_gold(self) -> dict[str, Any] | None:
         """获取黄金数据（COMEX 黄金 - 新浪财经 hf_GC）"""
         try:
             url = "https://hq.sinajs.cn/list=hf_GC"
-            resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
+            resp = requests.get(
+                url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"}
+            )
             raw = resp.text
-            if "=\"" in raw and len(raw.split("\"")[1].split(",")) > 8:
-                parts = raw.split("\"")[1].split(",")
-                current = float(parts[0])      # 最新价
-                prev_close = float(parts[8])   # 昨日收盘价
+            if '="' in raw and len(raw.split('"')[1].split(",")) > 8:
+                parts = raw.split('"')[1].split(",")
+                current = float(parts[0])  # 最新价
+                prev_close = float(parts[8])  # 昨日收盘价
 
                 if prev_close > 0:
                     change = current - prev_close
@@ -81,22 +84,24 @@ class MarketTerminalService:
                     "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
                     "open": float(parts[2]) if float(parts[2]) > 0 else current,
                     "previous_close": prev_close,
-                    "timestamp": datetime.now()
+                    "timestamp": datetime.now(),
                 }
         except Exception as e:
             logger.error(f"Failed to fetch gold data: {e}")
         return None
 
-    def _fetch_dxy(self):
+    def _fetch_dxy(self) -> dict[str, Any] | None:
         """获取美元指数数据（新浪财经外汇 DINIW）"""
         try:
             url = "https://hq.sinajs.cn/list=DINIW"
-            resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
+            resp = requests.get(
+                url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"}
+            )
             raw = resp.text
-            if "=\"" in raw and len(raw.split("\"")[1].split(",")) > 8:
-                parts = raw.split("\"")[1].split(",")
-                current = float(parts[1])      # 最新价
-                prev_close = float(parts[3])   # 昨收价
+            if '="' in raw and len(raw.split('"')[1].split(",")) > 8:
+                parts = raw.split('"')[1].split(",")
+                current = float(parts[1])  # 最新价
+                prev_close = float(parts[3])  # 昨收价
 
                 if prev_close > 0:
                     change = current - prev_close
@@ -114,22 +119,24 @@ class MarketTerminalService:
                     "low_24h": float(parts[7]) if float(parts[7]) > 0 else None,
                     "open": float(parts[5]) if float(parts[5]) > 0 else current,
                     "previous_close": prev_close,
-                    "timestamp": datetime.now()
+                    "timestamp": datetime.now(),
                 }
         except Exception as e:
             logger.error(f"Failed to fetch DXY data: {e}")
         return None
 
-    def _fetch_oil(self):
+    def _fetch_oil(self) -> dict[str, Any] | None:
         """获取原油数据（WTI 原油 - 新浪财经 hf_CL）"""
         try:
             url = "https://hq.sinajs.cn/list=hf_CL"
-            resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
+            resp = requests.get(
+                url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"}
+            )
             raw = resp.text
-            if "=\"" in raw and len(raw.split("\"")[1].split(",")) > 8:
-                parts = raw.split("\"")[1].split(",")
-                current = float(parts[0])      # 最新价
-                prev_close = float(parts[8])   # 昨收价
+            if '="' in raw and len(raw.split('"')[1].split(",")) > 8:
+                parts = raw.split('"')[1].split(",")
+                current = float(parts[0])  # 最新价
+                prev_close = float(parts[8])  # 昨收价
 
                 if prev_close > 0:
                     change = current - prev_close
@@ -147,21 +154,23 @@ class MarketTerminalService:
                     "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
                     "open": float(parts[2]) if float(parts[2]) > 0 else current,
                     "previous_close": prev_close,
-                    "timestamp": datetime.now()
+                    "timestamp": datetime.now(),
                 }
         except Exception as e:
             logger.error(f"Failed to fetch oil data: {e}")
         return None
 
-    def _fetch_us10y(self):
+    def _fetch_us10y(self) -> dict[str, Any] | None:
         """获取美债 10 年期收益率数据（AkShare / 新浪财经 TB10Y）"""
         try:
             url = "https://hq.sinajs.cn/list=TB10Y"
-            resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
+            resp = requests.get(
+                url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"}
+            )
             raw = resp.text
-            if "=\"" in raw and len(raw.split("\"")[1].split(",")) > 5:
+            if '="' in raw and len(raw.split('"')[1].split(",")) > 5:
                 # 债券格式: ['债券名称', '最新价', '涨跌幅', '昨收', '最高', '最低']
-                parts = raw.split("\"")[1].split(",")
+                parts = raw.split('"')[1].split(",")
                 current = float(parts[1])
                 change_pct = float(parts[2])
                 prev_close = float(parts[3])
@@ -176,7 +185,7 @@ class MarketTerminalService:
                     "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
                     "open": prev_close,
                     "previous_close": prev_close,
-                    "timestamp": datetime.now()
+                    "timestamp": datetime.now(),
                 }
         except Exception as e:
             logger.error(f"Failed to fetch US10Y data from Sina: {e}")
@@ -185,7 +194,7 @@ class MarketTerminalService:
             # Fallback to AkShare
             df = ak.bond_zh_us_rate()
             if not df.empty:
-                rate_col = next((c for c in df.columns if '10' in c), None)
+                rate_col = next((c for c in df.columns if "10" in c), None)
                 if rate_col and len(df) > 1:
                     current = round(float(df.iloc[-1][rate_col]), 3)
                     prev_close = round(float(df.iloc[-2][rate_col]), 3)
@@ -201,13 +210,13 @@ class MarketTerminalService:
                         "low_24h": None,
                         "open": current,
                         "previous_close": prev_close,
-                        "timestamp": datetime.now()
+                        "timestamp": datetime.now(),
                     }
         except Exception as e:
             logger.error(f"Failed to fetch US10Y data fallback: {e}")
         return None
 
-    def _empty_quote(self, symbol: str, name: str):
+    def _empty_quote(self, symbol: str, name: str) -> dict[str, Any]:
         """返回空报价（用于降级）"""
         return {
             "symbol": symbol,
@@ -219,7 +228,7 @@ class MarketTerminalService:
             "low_24h": None,
             "open": None,
             "previous_close": None,
-            "timestamp": None
+            "timestamp": None,
         }
 
 

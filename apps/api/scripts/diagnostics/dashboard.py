@@ -116,7 +116,7 @@ fig.add_trace(go.Candlestick(
 # 标记情报事件 (菠萝)
 # 将情报映射到最近的时间点
 if not intel_df.empty:
-    for idx, row in intel_df.iterrows():
+    for _idx, row in intel_df.iterrows():
         # 判断颜色
         sentiment = row['sentiment']
         color = "gray"

@@ -10,11 +10,11 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from scripts.backfills.sync_fund_metadata import sync_all_funds
-from scripts.backfills.sync_stock_industries import IndustrySyncer
-from scripts.daily_tasks.calc_fund_stats import StatsEngine
-from src.lucidpanda.core.fund_engine import FundEngine
-from src.lucidpanda.core.logger import logger
+from scripts.backfills.sync_fund_metadata import sync_all_funds  # noqa: E402
+from scripts.backfills.sync_stock_industries import IndustrySyncer  # noqa: E402
+from scripts.daily_tasks.calc_fund_stats import StatsEngine  # noqa: E402
+from src.lucidpanda.core.fund_engine import FundEngine  # noqa: E402
+from src.lucidpanda.core.logger import logger  # noqa: E402
 
 
 def run_snapshot():

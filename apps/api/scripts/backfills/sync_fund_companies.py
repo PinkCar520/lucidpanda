@@ -22,7 +22,8 @@ import akshare as ak
 from src.lucidpanda.db.base import DBBase
 
 
-def extract_short_name(full_name: str) -> str:
+def extract_short_name(full_name:
+    str) -> str:
     """Extract brand short name from full company name."""
     suffixes = [
         '基金管理有限责任公司', '基金管理有限公司', '基金管理股份有限公司',

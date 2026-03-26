@@ -17,7 +17,7 @@ class FactorService(DBBase):
         canonical_id: str,
         sentiment_score: float,
         urgency_score: int = 1,
-        metric_date: date | None = None
+        metric_date: date | None = None,
     ) -> None:
         """
         异步更新特定实体的每日情绪聚合指标 (Upsert)。
@@ -74,22 +74,26 @@ class FactorService(DBBase):
         except Exception as e:
             logger.error(f"❌ 更新实体因子失败 ({canonical_id}): {e}")
 
-    async def get_entity_trend_async(self, canonical_id: str, days: int = 7) -> list[dict[str, Any]]:
+    async def get_entity_trend_async(
+        self, canonical_id: str, days: int = 7
+    ) -> list[dict[str, Any]]:
         """
         获取某个实体的历史舆情趋势，并带上实体基本信息。
         """
         return await asyncio.to_thread(self._get_entity_trend_sync, canonical_id, days)
 
-    def _get_entity_trend_sync(self, canonical_id: str, days: int = 7) -> list[dict[str, Any]]:
+    def _get_entity_trend_sync(
+        self, canonical_id: str, days: int = 7
+    ) -> list[dict[str, Any]]:
         try:
             conn = self.get_connection()
             with conn:
                 cursor = conn.cursor()
                 query = """
-                SELECT 
-                    m.metric_date, 
-                    m.avg_sentiment, 
-                    m.mention_count, 
+                SELECT
+                    m.metric_date,
+                    m.avg_sentiment,
+                    m.mention_count,
                     m.urgency_sum,
                     r.display_name,
                     r.entity_type
@@ -104,19 +108,23 @@ class FactorService(DBBase):
             logger.error(f"❌ 获取实体趋势失败 ({canonical_id}): {e}")
             return []
 
-    async def get_top_hotspots_async(self, days: int = 1, limit: int = 10) -> list[dict[str, Any]]:
+    async def get_top_hotspots_async(
+        self, days: int = 1, limit: int = 10
+    ) -> list[dict[str, Any]]:
         """
         获取指定时间内活跃度最高的 Top N 实体。
         """
         return await asyncio.to_thread(self._get_top_hotspots_sync, days, limit)
 
-    def _get_top_hotspots_sync(self, days: int = 1, limit: int = 10) -> list[dict[str, Any]]:
+    def _get_top_hotspots_sync(
+        self, days: int = 1, limit: int = 10
+    ) -> list[dict[str, Any]]:
         try:
             conn = self.get_connection()
             with conn:
                 cursor = conn.cursor()
                 query = """
-                SELECT 
+                SELECT
                     m.canonical_id,
                     SUM(m.mention_count) as total_mentions,
                     AVG(m.avg_sentiment) as avg_sentiment,
@@ -136,30 +144,35 @@ class FactorService(DBBase):
             logger.error(f"❌ 获取全市场热点失败: {e}")
             return []
 
-    async def check_sentiment_anomaly(self, canonical_id: str, new_sentiment: float, history_days: int = 14) -> dict:
+    async def check_sentiment_anomaly(
+        self, canonical_id: str, new_sentiment: float, history_days: int = 14
+    ) -> dict[str, Any]:
         """
         计算新情绪分与历史 N 天均值的偏离度 (Z-Score)。
         如果 abs(Z-Score) >= 3.0 并且 abs(new - mean) > 0.5，则判定为异动。
         返回 { "is_anomaly": bool, "z_score": float, "current_mean": float, "current_std": float, "reason": str }
         """
         return await asyncio.to_thread(
-            self._check_sentiment_anomaly_sync, canonical_id, new_sentiment, history_days
+            self._check_sentiment_anomaly_sync,
+            canonical_id,
+            new_sentiment,
+            history_days,
         )
 
     def _check_sentiment_anomaly_sync(
         self, canonical_id: str, new_sentiment: float, history_days: int = 14
-    ) -> dict:
+    ) -> dict[str, Any]:
         try:
             conn = self.get_connection()
             with conn:
                 cursor = conn.cursor()
                 query = """
-                SELECT 
+                SELECT
                     AVG(avg_sentiment) as mean_sent,
                     STDDEV(avg_sentiment) as std_sent,
                     COUNT(1) as sample_count
                 FROM entity_metrics
-                WHERE canonical_id = %s 
+                WHERE canonical_id = %s
                   AND metric_date >= CURRENT_DATE - INTERVAL '%s day'
                   AND metric_date < CURRENT_DATE;
                 """
@@ -174,7 +187,9 @@ class FactorService(DBBase):
                 std_sent = max(std_sent, 0.1)  # 至少 0.1 以防除零
 
                 z_score = (new_sentiment - mean_sent) / std_sent
-                is_anomaly = abs(z_score) >= 3.0 and abs(new_sentiment - mean_sent) > 0.5
+                is_anomaly = (
+                    abs(z_score) >= 3.0 and abs(new_sentiment - mean_sent) > 0.5
+                )
 
                 return {
                     "is_anomaly": is_anomaly,

@@ -19,16 +19,22 @@ class StatsEngine:
         self.db = IntelligenceDB()
 
     def get_grade_sharpe(self, val):
-        if val > 2.0: return 'S'
-        if val > 1.2: return 'A'
-        if val > 0.5: return 'B'
+        if val > 2.0:
+            return 'S'
+        if val > 1.2:
+            return 'A'
+        if val > 0.5:
+            return 'B'
         return 'C'
 
     def get_grade_drawdown(self, val):
         abs_val = abs(val)
-        if abs_val < 5.0: return 'S'
-        if abs_val < 15.0: return 'A'
-        if abs_val < 25.0: return 'B'
+        if abs_val < 5.0:
+            return 'S'
+        if abs_val < 15.0:
+            return 'A'
+        if abs_val < 25.0:
+            return 'B'
         return 'C'
 
     def calculate_for_fund(self, fund_code):

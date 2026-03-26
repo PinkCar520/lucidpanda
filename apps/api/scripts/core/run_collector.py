@@ -17,9 +17,11 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.core.logger import logger
-from src.lucidpanda.core.rss_collector import RSSCollector
-from src.lucidpanda.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
+from src.lucidpanda.core.logger import logger  # noqa: E402
+from src.lucidpanda.core.rss_collector import RSSCollector  # noqa: E402
+from src.lucidpanda.providers.data_sources.rsshub import (  # noqa: E402
+    TIER1_FEEDS_CONFIG,
+)
 
 # 采集间隔：比分析引擎更频繁（2 分钟），确保 PENDING 队列始终有新鲜数据
 # 注意：Celery 集成后，此间隔由动态自适应算法自动调整

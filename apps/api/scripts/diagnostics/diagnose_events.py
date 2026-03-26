@@ -38,7 +38,7 @@ def diagnose():
 
         # Query intelligence records for this range
         query = """
-            SELECT 
+            SELECT
                 i.*,
                 (SELECT value FROM market_indicators WHERE indicator_name = 'FED_REGIME' AND timestamp <= i.timestamp ORDER BY timestamp DESC LIMIT 1) as fed_regime,
                 (SELECT percentile FROM market_indicators WHERE indicator_name = 'COT_GOLD_NET' AND timestamp <= i.timestamp ORDER BY timestamp DESC LIMIT 1) as cot_pct
@@ -58,7 +58,7 @@ def diagnose():
 
         for i, row in enumerate(rows):
             # Format Analysis Result
-            summary = row['summary'].get('zh', row['summary']) if isinstance(row['summary'], dict) else row['summary']
+            row['summary'].get('zh', row['summary']) if isinstance(row['summary'], dict) else row['summary']
             advice = row['actionable_advice'].get('zh', row['actionable_advice']) if isinstance(row['actionable_advice'], dict) else row['actionable_advice']
 
             # Outcome Calculation

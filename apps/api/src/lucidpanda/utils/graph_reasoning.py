@@ -23,7 +23,8 @@ BEARISH_RELATIONS = {
 }
 
 
-def relation_signal(relation: str) -> str:
+def relation_signal(relation:
+    str) -> str:
     rel = (relation or "").strip().lower()
     if rel in BULLISH_RELATIONS:
         return "BULLISH_GOLD"
@@ -32,7 +33,8 @@ def relation_signal(relation: str) -> str:
     return "NEUTRAL"
 
 
-def _time_decay_factor(created_at: Any) -> float:
+def _time_decay_factor(created_at:
+    Any) -> float:
     """
     基于边创建时间的时序衰减：
       <=24h: 1.00
@@ -92,7 +94,8 @@ def infer_event_chains(
     results: list[dict[str, Any]] = []
     gold_terms = {"gold", "xau", "黄金", "xauusd"}
 
-    def is_gold(name: str) -> bool:
+    def is_gold(name:
+        str) -> bool:
         low = name.lower()
         return any(token in low for token in gold_terms)
 

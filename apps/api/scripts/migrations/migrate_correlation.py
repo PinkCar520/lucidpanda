@@ -59,8 +59,8 @@ def migrate_correlation():
             )
 
             cursor.execute("""
-                UPDATE intelligence 
-                SET dxy_snapshot = %s, us10y_snapshot = %s 
+                UPDATE intelligence
+                SET dxy_snapshot = %s, us10y_snapshot = %s
                 WHERE id = %s
             """, (dxy, us10y, record_id))
             updated_count += 1

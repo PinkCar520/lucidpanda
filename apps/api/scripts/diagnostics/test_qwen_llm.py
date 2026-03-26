@@ -13,8 +13,8 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.config import settings
-from src.lucidpanda.providers.llm.qwen_llm import QwenLLM
+from src.lucidpanda.config import settings  # noqa: E402
+from src.lucidpanda.providers.llm.qwen_llm import QwenLLM  # noqa: E402
 
 
 def test_qwen_llm():

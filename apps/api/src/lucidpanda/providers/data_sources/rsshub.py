@@ -106,10 +106,12 @@ class RSSHubSource(BaseDataSource):
             "0", "false", "off"
         }
 
-    def _is_noise(self, text: str) -> bool:
+    def _is_noise(self, text:
+        str) -> bool:
         return any(kw in text for kw in _NOISE_KEYWORDS)
 
-    def _passes_category_filter(self, category: str, text: str) -> bool:
+    def _passes_category_filter(self, category:
+        str, text: str) -> bool:
         """根据情报分类应用不同的过滤策略。"""
         if category == "macro_gold":
             return any(kw in text for kw in _GOLD_MACRO_KEYWORDS)
@@ -119,7 +121,8 @@ class RSSHubSource(BaseDataSource):
             return any(kw in text for kw in _US_EQUITY_KEYWORDS)
         return False
 
-    def _normalize_rss_time(self, entry, tz_context: str) -> str:
+    def _normalize_rss_time(self, entry, tz_context:
+        str) -> str:
         """
         [最现代化的边缘归一化实践] (Edge Normalization) + Context-Aware TZ
         使用 dateparser 智能时间解析库，根据信源的主场时区，将任意混乱的时间字符串解析为绝对 UTC 时间。

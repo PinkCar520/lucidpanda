@@ -32,7 +32,8 @@ class EmailDataSource(BaseDataSource):
         self.user = settings.IMAP_USER
         self.password = settings.IMAP_PASSWORD
 
-    def _decode_str(self, s: Any) -> str:
+    def _decode_str(self, s:
+        Any) -> str:
         if s is None:
             return ""
         if isinstance(s, bytes):
@@ -57,7 +58,7 @@ class EmailDataSource(BaseDataSource):
             # 2. 【关键】网易 163 要求 ID 指令声明身份
             try:
                 mail.xatom('ID', '("name" "ios")')
-            except:
+            except Exception:
                 pass
 
             # 3. 登录
@@ -66,14 +67,14 @@ class EmailDataSource(BaseDataSource):
             # 登录后再发一次 ID 指令
             try:
                 mail.xatom('ID', '("name" "ios")')
-            except:
+            except Exception:
                 pass
 
             # --- 诊断：列出该账户所有可用的文件夹 ---
             try:
                 _, folders = mail.list()
                 logger.info(f"📁 您的 163 邮箱可用文件夹: {[f.decode() for f in folders]}")
-            except:
+            except Exception:
                 pass
 
             # 4. 扫描文件夹
@@ -122,7 +123,8 @@ class EmailDataSource(BaseDataSource):
                                 is_verified = True
                                 break
 
-                        if not is_verified: continue
+                        if not is_verified:
+                            continue
 
                         content_body = ""
                         if msg.is_multipart():
@@ -161,7 +163,7 @@ class EmailDataSource(BaseDataSource):
             if mail:
                 try:
                     mail.logout()
-                except:
+                except Exception:
                     pass
             logger.info(f"✅ 邮件巡检完毕: 发现并录入 {len(items)} 条新通稿。")
 

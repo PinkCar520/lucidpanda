@@ -19,7 +19,8 @@ from src.lucidpanda.core.logger import logger
 # ── Union-Find ────────────────────────────────────────────────────────────────
 
 class _UnionFind:
-    def __init__(self, items: list):
+    def __init__(self, items:
+        list):
         self._parent = {x: x for x in items}
 
     def find(self, x):
@@ -66,7 +67,8 @@ class EventClusterer:
         """
         self.db = db
 
-    def cluster(self, pending_items: list[dict]) -> tuple[list[dict], list[dict]]:
+    def cluster(self, pending_items:
+        list[dict]) -> tuple[list[dict], list[dict]]:
         """
         对 PENDING 记录进行事件聚类。
 
@@ -157,9 +159,9 @@ class EventClusterer:
 
         # 1. 查找缺失 story_id 的存量记录
         query = """
-            SELECT source_id, content, timestamp, source_credibility_score 
-            FROM intelligence 
-            WHERE status = 'COMPLETED' AND story_id IS NULL 
+            SELECT source_id, content, timestamp, source_credibility_score
+            FROM intelligence
+            WHERE status = 'COMPLETED' AND story_id IS NULL
             ORDER BY timestamp DESC LIMIT %s
         """
         records = await asyncio.to_thread(self.db.query, query, (limit,))
@@ -187,14 +189,16 @@ class EventClusterer:
 
     # ── 内部 ──────────────────────────────────────────────────────────────
 
-    def _pick_lead(self, member_sids: list[str], sid_to_item: dict) -> str:
+    def _pick_lead(self, member_sids:
+        list[str], sid_to_item: dict) -> str:
         """
         Lead 选择策略（优先级从高到低）：
           1. source_credibility_score 最高（历史准确率）
           2. timestamp 最早（最先报道）
           3. source_id 字典序（兜底确定性排序）
         """
-        def sort_key(sid: str):
+        def sort_key(sid:
+            str):
             item = sid_to_item.get(sid, {})
             credibility = item.get('source_credibility_score') or 0.0
             ts = item.get('timestamp')

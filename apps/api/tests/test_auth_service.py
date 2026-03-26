@@ -197,11 +197,11 @@ def test_audit_logging(auth_service):
     logs = auth_service.get_audit_logs(user_id)
     assert len(logs) >= 2
 
-    actions = [l.action for l in logs]
+    actions = [log.action for log in logs]
     assert "TEST_ACTION" in actions
     assert "ANOTHER_ACTION" in actions
 
     # Verify details of one
-    test_log = next(l for l in logs if l.action == "TEST_ACTION")
+    test_log = next(log for log in logs if log.action == "TEST_ACTION")
     assert test_log.ip_address == "1.2.3.4"
     assert test_log.details == {"info": "test"}

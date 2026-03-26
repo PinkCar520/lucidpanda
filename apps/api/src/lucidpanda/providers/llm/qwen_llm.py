@@ -23,7 +23,8 @@ class QwenLLM(BaseLLM):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data, taxonomy: dict | None = None):
+    def analyze(self, raw_data, taxonomy:
+        dict | None = None):
         import time
         try:
             client = OpenAI(
@@ -57,7 +58,8 @@ class QwenLLM(BaseLLM):
             logger.error(f"Qwen 分析失败：{e}")
             raise e
 
-    def generate_json(self, prompt: str, temperature: float = 0.2):
+    def generate_json(self, prompt:
+        str, temperature: float = 0.2):
         try:
             client = OpenAI(
                 api_key=settings.QWEN_API_KEY,
@@ -79,7 +81,8 @@ class QwenLLM(BaseLLM):
             logger.error(f"Qwen JSON 生成失败：{e}")
             raise e
 
-    def analyze_batch(self, news_items, taxonomy: dict | None = None):
+    def analyze_batch(self, news_items, taxonomy:
+        dict | None = None):
         import time
         try:
             client = OpenAI(
@@ -121,13 +124,17 @@ class QwenLLM(BaseLLM):
             logger.error(f"Qwen 批量分析失败：{e}")
             raise e
 
-    def _truncate_content(self, text: str, max_chars: int) -> str:
-        if not text: return ""
+    def _truncate_content(self, text:
+        str, max_chars: int) -> str:
+        if not text:
+            return ""
         text = text.strip()
-        if len(text) <= max_chars: return text
+        if len(text) <= max_chars:
+            return text
         return text[:max_chars] + "...（已截断）"
 
-    def _get_batch_prompt(self, news_items, taxonomy: dict | None = None):
+    def _get_batch_prompt(self, news_items, taxonomy:
+        dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         news_list_str = ""
         for i, item in enumerate(news_items, 1):
@@ -170,7 +177,8 @@ relations.relation 枚举：
 - 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
 """
 
-    def _get_prompt(self, raw_data, taxonomy: dict | None = None):
+    def _get_prompt(self, raw_data, taxonomy:
+        dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         content = self._truncate_content(raw_data.get('content', ''), CONTENT_MAX_CHARS)
         return f"""
@@ -205,7 +213,8 @@ relations.relation 枚举：
 - 利多黄金：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down
 - 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
 """
-    def _parse_json(self, text: str) -> Any:
+    def _parse_json(self, text:
+        str) -> Any:
         """从字符串中提取并解析 JSON，处理可能的 Markdown 代码块"""
         if not text:
             return {}

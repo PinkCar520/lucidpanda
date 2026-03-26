@@ -8,8 +8,11 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
-from src.lucidpanda.services.embedding_service import embedding_service
+from src.lucidpanda.services.agent_tools import (  # noqa: E402
+    call_tool,
+    list_tool_summaries,
+)
+from src.lucidpanda.services.embedding_service import embedding_service  # noqa: E402
 
 
 async def verify_embedding():

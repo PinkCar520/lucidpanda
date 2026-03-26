@@ -30,10 +30,10 @@ conn = db._get_conn()
 cursor = conn.cursor()
 
 cursor.execute('''
-    SELECT COUNT(*) 
-    FROM intelligence 
-    WHERE price_1h IS NOT NULL 
-       OR price_12h IS NOT NULL 
+    SELECT COUNT(*)
+    FROM intelligence
+    WHERE price_1h IS NOT NULL
+       OR price_12h IS NOT NULL
        OR price_24h IS NOT NULL
 ''')
 count_with_outcome = cursor.fetchone()[0]
@@ -41,10 +41,10 @@ print(f'已有回测结果的记录数：{count_with_outcome}')
 
 # 检查异常数据 (触发价>3000 但结果价<3000)
 cursor.execute('''
-    SELECT COUNT(*) 
-    FROM intelligence 
-    WHERE gold_price_snapshot > 3000 
-      AND price_1h IS NOT NULL 
+    SELECT COUNT(*)
+    FROM intelligence
+    WHERE gold_price_snapshot > 3000
+      AND price_1h IS NOT NULL
       AND price_1h < 3000
 ''')
 abnormal_count = cursor.fetchone()[0]
@@ -66,14 +66,14 @@ conn = db._get_conn()
 cursor = conn.cursor()
 
 cursor.execute('''
-    UPDATE intelligence 
-    SET price_15m = NULL, 
-        price_1h = NULL, 
-        price_4h = NULL, 
-        price_12h = NULL, 
+    UPDATE intelligence
+    SET price_15m = NULL,
+        price_1h = NULL,
+        price_4h = NULL,
+        price_12h = NULL,
         price_24h = NULL
-    WHERE price_1h IS NOT NULL 
-       OR price_12h IS NOT NULL 
+    WHERE price_1h IS NOT NULL
+       OR price_12h IS NOT NULL
        OR price_24h IS NOT NULL
 ''')
 

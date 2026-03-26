@@ -7,8 +7,8 @@ root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.config import settings
-from src.lucidpanda.core.deduplication import NewsDeduplicator
+from src.lucidpanda.config import settings  # noqa: E402
+from src.lucidpanda.core.deduplication import NewsDeduplicator  # noqa: E402
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

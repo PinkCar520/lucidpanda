@@ -7,6 +7,8 @@ db/base.py — 数据库基础设施层
   - _global_pool / _db_initialized: 全局单例
 """
 
+from typing import Any
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 
@@ -24,30 +26,38 @@ class DBConnectionProxy:
     代理真实的 psycopg 连接，使 conn.close() 变为归还连接池，
     同时支持 with 语句自动释放，完美解决高并发下的连接耗尽风险。
     """
-    def __init__(self, pool):
+
+    def __init__(self, pool:
+        Any) -> None:
         self._pool = pool
         self._conn = pool.getconn()
 
-    def __getattr__(self, name):
+    def __getattr__(self, name:
+        str) -> Any:
         if self._conn is None:
             raise RuntimeError("尝试操作已归还连接池的数据库连接")
         return getattr(self._conn, name)
 
-    def close(self):
+    def close(self) -> None:
         if self._pool and self._conn:
             try:
                 # 归还连接前，强制 rollback 掉任何未提交的或报错的残留事务
-                if getattr(self._conn, 'info', None) and self._conn.info.transaction_status != psycopg.pq.TransactionStatus.IDLE:
+                if (
+                    getattr(self._conn, "info", None)
+                    and self._conn.info.transaction_status
+                    != psycopg.pq.TransactionStatus.IDLE
+                ):
                     self._conn.rollback()
             except Exception as e:
                 logger.error(f"连接池归还清理异常: {e}")
             self._pool.putconn(self._conn)
             self._conn = None
 
-    def __enter__(self):
+    def __enter__(self) -> "DBConnectionProxy":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type:
+        Any, exc_val: Any, exc_tb: Any) -> None:
         self.close()
 
 
@@ -56,7 +66,7 @@ _global_pool = None
 _db_initialized = False
 
 
-def close_global_pool():
+def close_global_pool() -> None:
     """显式关闭全局连接池，防止脚本退出时报 FinalizationError"""
     global _global_pool
     if _global_pool:
@@ -73,7 +83,8 @@ class DBBase:
     所有 Repo 子类的基类。
     负责连接池初始化和 Schema 建表。
     """
-    def __init__(self):
+
+    def __init__(self) -> None:
         """Initialize PostgreSQL Database connection configuration."""
         self.host = settings.POSTGRES_HOST
         self.port = settings.POSTGRES_PORT
@@ -90,9 +101,11 @@ class DBBase:
                     min_size=5,
                     max_size=50,
                     timeout=10,
-                    kwargs={"row_factory": dict_row}
+                    kwargs={"row_factory": dict_row},
                 )
-                logger.info("✅ 数据库连接池已初始化 (min=5, max=50, row_factory=dict_row)")
+                logger.info(
+                    "✅ 数据库连接池已初始化 (min=5, max=50, row_factory=dict_row)"
+                )
             except Exception as e:
                 logger.error(f"❌ 初始化全局连接池失败: {e}")
                 raise
@@ -103,28 +116,32 @@ class DBBase:
             self._init_db()
             _db_initialized = True
 
-    def get_connection(self):
+    def get_connection(self) -> DBConnectionProxy:
         """
         从连接池获取代理连接。
         conn.close() → 归还连接池，而非物理断开。
         """
         return DBConnectionProxy(self._pool)
 
-    def _get_conn(self):
+    def _get_conn(self) -> DBConnectionProxy:
         return self.get_connection()
 
-    def query(self, sql: str, params: tuple = None) -> list[dict]:
+    def query(
+        self, sql: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """执行查询并返回字典列表。"""
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute(sql, params or ())
-                    return cursor.fetchall()
+                    return list(cursor.fetchall())
         except Exception as e:
             logger.error(f"DB Query Failed: {e} | SQL: {sql[:100]}")
             return []
 
-    def execute(self, sql: str, params: tuple = None) -> bool:
+    def execute(
+        self, sql: str, params: tuple[Any, ...] | dict[str, Any] | None = None
+    ) -> bool:
         """执行更新/删除/插入并提交。"""
         try:
             with self._get_conn() as conn:
@@ -136,7 +153,7 @@ class DBBase:
             logger.error(f"DB Execute Failed: {e} | SQL: {sql[:100]}")
             return False
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         """Ensure PostgreSQL schema exists (建表 + Migration)."""
         try:
             conn = self._get_conn()
@@ -226,11 +243,19 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS tags JSONB;",
             ]:
                 cursor.execute(col_sql)
-            cursor.execute("UPDATE intelligence SET corroboration_count = 1 WHERE corroboration_count IS NULL;")
+            cursor.execute(
+                "UPDATE intelligence SET corroboration_count = 1 WHERE corroboration_count IS NULL;"
+            )
 
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_status ON intelligence(status);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_event_cluster ON intelligence(event_cluster_id);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_story_id ON intelligence(story_id);")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_intel_status ON intelligence(status);"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_intel_event_cluster ON intelligence(event_cluster_id);"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_intel_story_id ON intelligence(story_id);"
+            )
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intel_embedding_hnsw
                 ON intelligence USING hnsw (embedding_vec vector_cosine_ops)
@@ -388,7 +413,9 @@ class DBBase:
                 );
                 CREATE INDEX IF NOT EXISTS idx_archive_date_code ON fund_valuation_archive (trade_date, fund_code);
             """)
-            cursor.execute("ALTER TABLE fund_valuation_archive ADD COLUMN IF NOT EXISTS frozen_sector_attribution JSONB;")
+            cursor.execute(
+                "ALTER TABLE fund_valuation_archive ADD COLUMN IF NOT EXISTS frozen_sector_attribution JSONB;"
+            )
 
             # ── fund_managers ─────────────────────────────────────────────
             cursor.execute("""

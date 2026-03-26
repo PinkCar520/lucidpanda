@@ -58,22 +58,22 @@ def create_pg_table(cursor):
             source_id TEXT UNIQUE,
             author TEXT,
             content TEXT,
-            
+
             -- JSONB Fields
             summary JSONB,
             sentiment JSONB,
             market_implication JSONB,
             actionable_advice JSONB,
-            
+
             urgency_score INTEGER,
             url TEXT,
-            
+
             -- Market Data
             gold_price_snapshot DOUBLE PRECISION,
             price_1h DOUBLE PRECISION,
             price_24h DOUBLE PRECISION
         );
-        
+
         CREATE INDEX IF NOT EXISTS idx_intelligence_timestamp ON intelligence(timestamp DESC);
         CREATE INDEX IF NOT EXISTS idx_intelligence_source_id ON intelligence(source_id);
     """)
@@ -86,7 +86,7 @@ def parse_json_safely(value):
         return value
     try:
         return json.loads(value)
-    except:
+    except Exception:
         # If it's a plain string, wrap it in our i18n structure or just return as is?
         # Better key it to 'en' or 'zh' generally, but simple structure is safer.
         # Fallback to simple object
@@ -132,7 +132,7 @@ def migrate_data():
                     except ValueError:
                         try:
                             ts_dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S.%f")
-                        except:
+                        except Exception:
                             pass
 
                 # If naive, assume UTC or Local? Project seems to use UTC internally mostly.

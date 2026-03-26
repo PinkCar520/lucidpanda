@@ -19,7 +19,8 @@ class DeepSeekLLM(BaseLLM):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data, taxonomy: dict | None = None):
+    def analyze(self, raw_data, taxonomy:
+        dict | None = None):
         import time
         try:
             client = OpenAI(
@@ -49,7 +50,8 @@ class DeepSeekLLM(BaseLLM):
             logger.error(f"DeepSeek 分析失败: {e}")
             raise e
 
-    def generate_json(self, prompt: str, temperature: float = 0.2):
+    def generate_json(self, prompt:
+        str, temperature: float = 0.2):
         try:
             client = OpenAI(
                 api_key=settings.DEEPSEEK_API_KEY,
@@ -67,7 +69,8 @@ class DeepSeekLLM(BaseLLM):
             logger.error(f"DeepSeek JSON 生成失败: {e}")
             raise e
 
-    def analyze_batch(self, news_items, taxonomy: dict | None = None):
+    def analyze_batch(self, news_items, taxonomy:
+        dict | None = None):
         """批量分析"""
         try:
             client = OpenAI(
@@ -97,7 +100,8 @@ class DeepSeekLLM(BaseLLM):
             logger.error(f"DeepSeek 批量分析失败: {e}")
             raise e
 
-    def _get_prompt(self, raw_data, taxonomy: dict | None = None):
+    def _get_prompt(self, raw_data, taxonomy:
+        dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         content = raw_data.get('content', '')
         if len(content) > CONTENT_MAX_CHARS:

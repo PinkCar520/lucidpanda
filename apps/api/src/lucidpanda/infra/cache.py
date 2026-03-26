@@ -41,7 +41,8 @@ def _get_client():
     return _redis_client
 
 
-def get_cached(key: str) -> Any | None:
+def get_cached(key:
+    str) -> Any | None:
     """从 Redis 读取缓存，反序列化为 Python 对象。不可用时返回 None。"""
     try:
         client = _get_client()
@@ -56,7 +57,8 @@ def get_cached(key: str) -> Any | None:
         return None
 
 
-def set_cached(key: str, value: Any, ttl: int = 30) -> None:
+def set_cached(key:
+    str, value: Any, ttl: int = 30) -> None:
     """将 Python 对象序列化后写入 Redis，ttl 单位为秒。失败时静默忽略。"""
     try:
         client = _get_client()
@@ -67,7 +69,8 @@ def set_cached(key: str, value: Any, ttl: int = 30) -> None:
         logger.debug(f"Cache SET error [{key}]: {e}")
 
 
-def invalidate(key: str) -> None:
+def invalidate(key:
+    str) -> None:
     """删除指定缓存 key。"""
     try:
         client = _get_client()

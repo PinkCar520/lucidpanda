@@ -29,10 +29,10 @@ if TYPE_CHECKING:
 class EngineDependencies:
     """
     AlphaEngine 依赖容器
-    
+
     按需初始化依赖，避免不必要的内存占用。
     支持延迟加载（lazy loading）。
-    
+
     Attributes:
         db: 数据库连接（立即初始化）
         backtester: 回测引擎（延迟初始化）
@@ -52,7 +52,7 @@ class EngineDependencies:
     ):
         """
         初始化依赖容器
-        
+
         Args:
             db: 数据库实例（可选，默认自动创建）
             llm_provider: 主力 LLM 提供商（可选，默认从配置读取）
@@ -214,7 +214,7 @@ class EngineDependencies:
     def clear_cache(self):
         """
         清理缓存的依赖实例
-        
+
         用于测试或重新加载配置。
         注意：不会清理数据库连接。
         """

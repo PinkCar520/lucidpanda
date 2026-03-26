@@ -14,7 +14,7 @@ ai_env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env.ai"
 load_dotenv(env_path)
 load_dotenv(ai_env_path, override=True)
 
-from src.lucidpanda.core.engine import AlphaEngine
+from src.lucidpanda.core.engine import AlphaEngine  # noqa: E402
 
 # 使用默认配置 (由环境变量从 Docker Compose 注入)
 pass

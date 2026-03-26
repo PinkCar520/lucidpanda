@@ -6,7 +6,8 @@ from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 
 
-def send_email_via_smtp(to_email: str, subject: str, body: str):
+def send_email_via_smtp(to_email:
+    str, subject: str, body: str):
     """传统 SMTP 发送逻辑"""
     if not settings.SMTP_SERVER or not settings.EMAIL_SENDER or not settings.EMAIL_PASSWORD:
         logger.warning("SMTP settings are incomplete. Cannot send email.")
@@ -28,7 +29,8 @@ def send_email_via_smtp(to_email: str, subject: str, body: str):
         logger.error(f"SMTP Failed: {e}")
         return False
 
-def send_email_via_resend(to_email: str, subject: str, body: str):
+def send_email_via_resend(to_email:
+    str, subject: str, body: str):
     """现代 Resend API 发送逻辑"""
     import resend
 
@@ -51,7 +53,8 @@ def send_email_via_resend(to_email: str, subject: str, body: str):
         logger.error(f"Resend API Failed: {e}")
         return False
 
-def send_email(to_email: str, subject: str, body: str):
+def send_email(to_email:
+    str, subject: str, body: str):
     """
     统一邮件发送入口
     根据环境变量 EMAIL_PROVIDER 选择具体实现

@@ -4,6 +4,7 @@ db/intelligence.py — 情报域
 情报 CRUD、去重（URL/pg_trgm/pgvector）、向量嵌入、信源可信度。
 """
 from datetime import datetime
+from typing import Any
 
 import pytz
 from psycopg.types.json import Jsonb
@@ -16,10 +17,26 @@ from src.lucidpanda.utils.entity_normalizer import (
 )
 from src.lucidpanda.utils.graph_reasoning import infer_event_chains, relation_signal
 
+try:
+    import numpy as np
+except ImportError:
+    np = None  # type: ignore
+
+try:
+    import statsmodels.api as sm
+except ImportError:
+    sm = None  # type: ignore
+
+try:
+    from dateutil import parser as date_parser
+except ImportError:
+    date_parser = None  # type: ignore
+
 
 class IntelligenceRepo(DBBase):
     @staticmethod
-    def _parse_float(value):
+    def _parse_float(value:
+        Any) -> float | None:
         if value is None:
             return None
         if isinstance(value, (int, float)):
@@ -39,7 +56,8 @@ class IntelligenceRepo(DBBase):
         except Exception:
             return None
 
-    def _compute_macro_surprise_std(self, event_code: str, lookback_years: int = 3):
+    def _compute_macro_surprise_std(self, event_code:
+        str, lookback_years: int = 3) -> float | None:
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -56,18 +74,19 @@ class IntelligenceRepo(DBBase):
             for row in rows:
                 actual = self._parse_float(row["actual_value"])
                 forecast = self._parse_float(row["forecast_value"])
-                if actual is None or forecast is None:
-                    continue
-                surprises.append(actual - forecast)
+                if actual is not None and forecast is not None:
+                    surprises.append(actual - forecast)
             if len(surprises) < 2:
                 return None
-            import numpy as _np
-            return float(_np.std(_np.array(surprises), ddof=1))
+            if np is None:
+                return None
+            return float(np.std(np.array(surprises), ddof=1))
         except Exception as e:
             logger.warning(f"⚠️ 计算宏观 surprise std 失败: {e}")
             return None
 
-    def _extract_macro_event_from_trace(self, agent_trace):
+    def _extract_macro_event_from_trace(self, agent_trace:
+        Any) -> dict[str, Any] | None:
         if not isinstance(agent_trace, dict):
             return None
         tool_results = agent_trace.get("tool_results") or []
@@ -92,11 +111,13 @@ class IntelligenceRepo(DBBase):
                 }
         return None
 
-    def compute_expectation_gap(self, agent_trace):
+    def compute_expectation_gap(self, agent_trace:
+        Any) -> float | None:
         info = self._extract_macro_event_from_trace(agent_trace)
         if not info:
             return None
-        std = self._compute_macro_surprise_std(info["event_code"])
+        # info["event_code"] is known to be a string from _extract_macro_event_from_trace
+        std = self._compute_macro_surprise_std(str(info["event_code"]))
         if std is None or std == 0:
             return None
         try:
@@ -104,7 +125,8 @@ class IntelligenceRepo(DBBase):
         except Exception:
             return None
 
-    def update_expectation_gap(self, source_id: str, expectation_gap: float) -> None:
+    def update_expectation_gap(self, source_id:
+        str, expectation_gap: float) -> None:
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -117,7 +139,8 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.warning(f"⚠️ expectation_gap 更新失败 [{source_id}]: {e}")
 
-    def backfill_expectation_gap(self, limit: int = 500) -> int:
+    def backfill_expectation_gap(self, limit:
+        int = 500) -> int:
         updated = 0
         try:
             with self._get_conn() as conn:
@@ -141,7 +164,8 @@ class IntelligenceRepo(DBBase):
             logger.warning(f"⚠️ expectation_gap 回填失败: {e}")
         return updated
 
-    def compute_alpha_return_for_record(self, record_id: int, window: int = 200):
+    def compute_alpha_return_for_record(self, record_id:
+        int, window: int = 200) -> float | None:
         """
         近似 Alpha：用 gold_return 回归 dxy/us10y 水平，取残差。
         """
@@ -191,9 +215,6 @@ class IntelligenceRepo(DBBase):
                 logger.warning(f"⚠️ alpha_return 计算失败 [ID:{record_id}]: 历史回归数据不足 {len(historical_rows)} 条")
                 return None
 
-            import numpy as _np
-            import statsmodels.api as _sm
-
             y_data = []
             X_dxy_data = []
             X_us10y_data = []
@@ -212,24 +233,29 @@ class IntelligenceRepo(DBBase):
                 logger.warning(f"⚠️ alpha_return 计算失败 [ID:{record_id}]: 过滤后历史回归数据不足 {len(y_data)} 条")
                 return None
 
-            y = _np.array(y_data, dtype=float)
-            X = _np.column_stack([
-                _np.array(X_dxy_data, dtype=float),
-                _np.array(X_us10y_data, dtype=float),
-            ])
-            X = _np.column_stack([_np.ones(len(X)), X]) # Add intercept
+            if np is None or sm is None:
+                logger.warning(f"⚠️ alpha_return 计算失败 [ID:{record_id}]: numpy or statsmodels not installed")
+                return None
 
-            model = _sm.OLS(y, X).fit()
+            y = np.array(y_data, dtype=float) # type: ignore
+            X = np.column_stack([ # type: ignore
+                np.array(X_dxy_data, dtype=float), # type: ignore
+                np.array(X_us10y_data, dtype=float), # type: ignore
+            ])
+            X = np.column_stack([np.ones(len(X)), X]) # type: ignore # Add intercept
+
+            model = sm.OLS(y, X).fit() # type: ignore
 
             # 5. Predict alpha for the target record
-            pred = model.predict([1.0, target_dxy, target_us10y])[0]
+            pred = model.predict([1.0, target_dxy, target_us10y])[0] # type: ignore
             alpha_return = float(target_gold_ret - pred)
             return alpha_return
         except Exception as e:
             logger.warning(f"⚠️ alpha_return 计算失败 [ID:{record_id}]: {e}")
             return None
 
-    def update_alpha_return(self, record_id: int, alpha_return: float) -> None:
+    def update_alpha_return(self, record_id:
+        int, alpha_return: float) -> None:
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -242,7 +268,8 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.warning(f"⚠️ alpha_return 更新失败 [{record_id}]: {e}")
 
-    def backfill_alpha_return(self, limit: int = 500, window: int = 200) -> int:
+    def backfill_alpha_return(self, limit:
+        int = 500, window: int = 200) -> int:
         updated = 0
         try:
             with self._get_conn() as conn:
@@ -268,8 +295,66 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.warning(f"⚠️ alpha_return 回填失败: {e}")
         return updated
+    def _compute_rolling_correlation(self, record_id:
+        int, window: int = 15) -> dict[str, float | None]:
+        """Compute rolling correlation between gold and macro indicators (DXY, US10Y)."""
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT gold_price_snapshot, dxy_snapshot, us10y_snapshot, timestamp
+                        FROM intelligence
+                        WHERE id = %s
+                    """, (record_id,))
+                    target = cursor.fetchone()
+                    if not target:
+                        return {}
+
+                    cursor.execute("""
+                        SELECT gold_price_snapshot, dxy_snapshot, us10y_snapshot
+                        FROM intelligence
+                        WHERE gold_price_snapshot IS NOT NULL
+                          AND dxy_snapshot IS NOT NULL
+                          AND us10y_snapshot IS NOT NULL
+                          AND timestamp <= %s
+                        ORDER BY timestamp DESC
+                        LIMIT %s
+                    """, (target["timestamp"], window + 1))
+                    rows = cursor.fetchall()
+
+            if len(rows) < 2 or np is None:
+                return {}
+
+            # Calculate returns/changes
+            g_rets = []
+            d_chgs = []
+            u_chgs = []
+            for i in range(len(rows) - 1):
+                curr, prev = rows[i], rows[i+1]
+                g_p1, g_p0 = float(curr["gold_price_snapshot"]), float(prev["gold_price_snapshot"])
+                if g_p0 != 0:
+                    g_rets.append((g_p1 - g_p0) / g_p0)
+                    d_chgs.append(float(curr["dxy_snapshot"]) - float(prev["dxy_snapshot"]))
+                    u_chgs.append(float(curr["us10y_snapshot"]) - float(prev["us10y_snapshot"]))
+
+            if len(g_rets) < 2:
+                return {}
+
+            ga = np.array(g_rets) # type: ignore
+            da = np.array(d_chgs) # type: ignore
+            ua = np.array(u_chgs) # type: ignore
+
+            return {
+                "gold_dxy_corr": float(np.corrcoef(ga, da)[0, 1]) if len(da) == len(ga) else None, # type: ignore
+                "gold_us10y_corr": float(np.corrcoef(ga, ua)[0, 1]) if len(ua) == len(ga) else None, # type: ignore
+            }
+        except Exception as e:
+            logger.warning(f"Rolling correlation failed for {record_id}: {e}")
+            return {}
+
     @staticmethod
-    def _normalize_entities(entities):
+    def _normalize_entities(entities:
+        Any) -> list[dict[str, str]]:
         """规范化 LLM 实体输出，确保入库结构稳定。"""
         if not isinstance(entities, list):
             return []
@@ -288,7 +373,8 @@ class IntelligenceRepo(DBBase):
         return normalized
 
     @staticmethod
-    def _normalize_relations(relations):
+    def _normalize_relations(relations:
+        Any) -> list[dict[str, Any]]:
         """规范化 LLM 关系三元组输出。"""
         if not isinstance(relations, list):
             return []
@@ -324,7 +410,13 @@ class IntelligenceRepo(DBBase):
 
     # ── pgvector 语义去重 ─────────────────────────────────────────────────
 
-    def is_semantic_duplicate(self, vector, entities: list = None, sentiment: float = None, threshold: float = 0.85) -> dict:
+    def is_semantic_duplicate(
+        self,
+        vector: Any,
+        entities: list[str] | None = None,
+        sentiment: float | None = None,
+        threshold: float = 0.85
+    ) -> dict[str, Any]:
         """
         查询 pgvector 判断语义重复 (HNSW 优化)，支持实体约束和情绪反转校验。
         返回dict: {status: 'NEW'|'DUP'|'SUSPECTED'|'SENTIMENT_REVERSAL', sim: float, lead_id: int, lead_summary: str}
@@ -384,7 +476,8 @@ class IntelligenceRepo(DBBase):
             logger.error(f"Semantic Duplicate Check Failed: {e}")
             return {"status": "ERROR", "sim": 0.0}
 
-    def save_embedding_vec(self, source_id: str, vector) -> None:
+    def save_embedding_vec(self, source_id:
+        str, vector: Any) -> None:
         """将 BERT 嵌入向量持久化到 intelligence 表的 embedding_vec 列。"""
         try:
             vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
@@ -401,7 +494,7 @@ class IntelligenceRepo(DBBase):
 
     # ── 信源可信度 ────────────────────────────────────────────────────────
 
-    def compute_source_credibility(self) -> dict:
+    def compute_source_credibility(self) -> dict[str, float | None]:
         """
         计算各信源的历史预测准确率，并将结果回填到 source_credibility_score 列。
         调用时机：BacktestEngine.sync_outcomes() 之后。
@@ -432,7 +525,8 @@ class IntelligenceRepo(DBBase):
                     credibility_map = {}
                     for row in rows:
                         source = row['source_name']
-                        accuracy = round(row['correct'] / row['total'], 4) if row['total'] > 0 else None
+                        # Accuracy calculation with explicit float cast and type ignore for round overload
+                        accuracy = round(float(row['correct']) / float(row['total']), 4) if row['total'] > 0 else None # type: ignore
                         credibility_map[source] = accuracy
 
                     for source_name, score in credibility_map.items():
@@ -472,14 +566,15 @@ class IntelligenceRepo(DBBase):
                         ORDER BY accuracy DESC
                     """)
                     rows = cursor.fetchall()
-            return [dict(r) for r in rows]
+            return [dict(row) for row in rows]
         except Exception as e:
             logger.error(f"❌ 获取信源报告失败: {e}")
             return []
 
     # ── Outcome 回填 ──────────────────────────────────────────────────────
 
-    def update_outcome(self, record_id, **kwargs):
+    def update_outcome(self, record_id:
+        str, **kwargs: Any) -> None:
         """Update historical outcome data dynamically."""
         if not kwargs:
             return
@@ -501,7 +596,7 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"Update Outcome Failed: {e}")
 
-    def get_pending_outcomes(self):
+    def get_pending_outcomes(self) -> list[dict[str, Any]]:
         """Get records older than 1 hour that lack any of the outcome prices."""
         try:
             with self._get_conn() as conn:
@@ -520,10 +615,11 @@ class IntelligenceRepo(DBBase):
 
     # ── 情报写入 ──────────────────────────────────────────────────────────
 
-    def save_raw_intelligence(self, raw_data, market_snapshots=None, conn=None):
+    def save_raw_intelligence(self, raw_data:
+        dict[str, Any], market_snapshots: dict[str, Any] | None = None, conn: Any = None) -> Any:
         """
         Save raw intelligence data immediately (before analysis).
-        
+
         Args:
             raw_data: The raw item data.
             market_snapshots: Optional dict of pre-fetched market snapshots.
@@ -559,22 +655,28 @@ class IntelligenceRepo(DBBase):
             snaps = market_snapshots or {}
 
             dxy = raw_data.get('dxy_snapshot') or snaps.get("DX-Y.NYB")
-            if dxy is None: dxy = self.get_market_snapshot("DX-Y.NYB", news_time)
+            if dxy is None:
+                dxy = self.get_market_snapshot("DX-Y.NYB", news_time)
 
             us10y = raw_data.get('us10y_snapshot') or snaps.get("^TNX")
-            if us10y is None: us10y = self.get_market_snapshot("^TNX", news_time)
+            if us10y is None:
+                us10y = self.get_market_snapshot("^TNX", news_time)
 
             gvz = raw_data.get('gvz_snapshot') or snaps.get("^GVZ")
-            if gvz is None: gvz = self.get_market_snapshot("^GVZ", news_time)
+            if gvz is None:
+                gvz = self.get_market_snapshot("^GVZ", news_time)
 
             gold = raw_data.get('gold_price_snapshot') or snaps.get("GC=F")
-            if gold is None: gold = self.get_market_snapshot("GC=F", news_time)
+            if gold is None:
+                gold = self.get_market_snapshot("GC=F", news_time)
 
             oil = raw_data.get('oil_price_snapshot') or snaps.get("CL=F")
-            if oil is None: oil = self.get_market_snapshot("CL=F", news_time)
+            if oil is None:
+                oil = self.get_market_snapshot("CL=F", news_time)
 
             # Define the actual save logic
-            def _execute_save(active_conn):
+            def _execute_save(active_conn:
+                Any) -> int | None:
                 with active_conn.cursor() as cursor:
 
                     embedding_binary = None
@@ -627,7 +729,8 @@ class IntelligenceRepo(DBBase):
             logger.error(f"Save Raw Failed: {e}")
             return None
 
-    def batch_save_raw_intelligence(self, items: list) -> int:
+    def batch_save_raw_intelligence(self, items:
+        list[dict[str, Any]]) -> int:
         """批量保存原始情报，共享数据库连接和市场快照。"""
         if not items:
             return 0
@@ -650,7 +753,7 @@ class IntelligenceRepo(DBBase):
                     try:
                         res = self.save_raw_intelligence(item, market_snapshots=snaps, conn=conn)
                         if res:
-                            saved_count += 1
+                            saved_count += 1  # type: ignore
                     except Exception as e:
                         logger.error(f"Batch item save failed: {e}")
 
@@ -659,14 +762,15 @@ class IntelligenceRepo(DBBase):
             logger.error(f"Batch Save Failed: {e}")
             return 0
 
-    def get_intelligence_analysis(self, source_id: str) -> dict | None:
+    def get_intelligence_analysis(self, source_id:
+        str) -> dict[str, Any] | None:
         """获取单条情报的分析结果 (将散列字段组装成 dict)"""
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("""
-                        SELECT summary, sentiment, urgency_score, market_implication, 
-                               actionable_advice, entities, relation_triples, tags, 
+                        SELECT summary, sentiment, urgency_score, market_implication,
+                               actionable_advice, entities, relation_triples, tags,
                                sentiment_score
                         FROM intelligence WHERE source_id = %s
                     """, (source_id,))
@@ -678,11 +782,14 @@ class IntelligenceRepo(DBBase):
             logger.error(f"获取情报分析失败 ({source_id}): {e}")
             return None
 
-    def update_lead_analysis(self, source_id: str, analysis_result: dict):
+    def update_lead_analysis(self, source_id:
+        str, analysis_result: dict[str, Any]) -> None:
         """仅更新标杆节点的分析结果 (用于 Lead Evolution 自动融合阶段)"""
         try:
-            def _to_jsonb(val):
-                if val is None: return None
+            def _to_jsonb(val:
+                Any) -> Jsonb | None:
+                if val is None:
+                    return None
                 return Jsonb(val)
 
             with self._get_conn() as conn:
@@ -690,7 +797,7 @@ class IntelligenceRepo(DBBase):
                     # 仅更新需要演化的核心分析字段
                     cursor.execute("""
                         UPDATE intelligence SET
-                            summary = %s, 
+                            summary = %s,
                             market_implication = %s,
                             sentiment = %s,
                             sentiment_score = %s,
@@ -711,7 +818,8 @@ class IntelligenceRepo(DBBase):
             logger.error(f"Lead Evolution 更新失败 ({source_id}): {e}")
             raise e
 
-    def update_intelligence_analysis(self, source_id, analysis_result, raw_data):
+    def update_intelligence_analysis(self, source_id:
+        str, analysis_result: dict[str, Any], raw_data: dict[str, Any]) -> None:
         """Update a record with analysis results."""
         try:
             sentiment_score = analysis_result.get('sentiment_score', 0)
@@ -731,7 +839,8 @@ class IntelligenceRepo(DBBase):
                 sentiment_score = max(-1.0, min(1.0, sentiment_score - 0.15))
                 logger.info(f"⚖️  Dimension D 权调节 (Hawkish/-0.15): {orig_score:.2f} -> {sentiment_score:.2f}")
 
-            def _to_jsonb(val):
+            def _to_jsonb(val:
+                Any) -> Jsonb | None:
                 if val is None:
                     return None
                 return Jsonb(val)
@@ -743,7 +852,7 @@ class IntelligenceRepo(DBBase):
                         import pickle
                         embedding_binary = pickle.dumps(analysis_result['embedding'])
                     entities = self._normalize_entities(analysis_result.get('entities'))
-                    tags = analysis_result.get('tags')
+                    analysis_result.get('tags')
                     relation_triples = self._normalize_relations(analysis_result.get('relations'))
                     expectation_gap = None
                     agent_trace = analysis_result.get("agent_trace")
@@ -843,7 +952,14 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"Update Analysis Failed: {e}")
 
-    def save_intelligence(self, raw_data, analysis_result, gold_price_snapshot=None, price_1h=None, price_24h=None):
+    def save_intelligence(
+        self,
+        raw_data: dict[str, Any],
+        analysis_result: dict[str, Any],
+        gold_price_snapshot: float | None = None,
+        price_1h: float | None = None,
+        price_24h: float | None = None
+    ) -> None:
         """Save fully-analyzed intelligence to PostgreSQL using JSONB."""
         try:
             news_time = None
@@ -878,7 +994,6 @@ class IntelligenceRepo(DBBase):
             gvz = raw_data.get('gvz_snapshot') or self.get_market_snapshot("^GVZ", news_time)
 
             sentiment_score = analysis_result.get('sentiment_score', 0)
-            orig_score = sentiment_score
             fed_val = raw_data.get('fed_val', 0)
             macro_adj = 0.0
             if fed_val > 0:
@@ -888,7 +1003,8 @@ class IntelligenceRepo(DBBase):
                 macro_adj = -0.15
                 sentiment_score = max(-1.0, min(1.0, sentiment_score - 0.15))
 
-            def _to_jsonb(val):
+            def _to_jsonb(val:
+                Any) -> Jsonb | None:
                 if val is None:
                     return None
                 return Jsonb(val)
@@ -938,7 +1054,8 @@ class IntelligenceRepo(DBBase):
 
     # ── 查询方法 ──────────────────────────────────────────────────────────
 
-    def source_id_exists(self, source_id: str) -> bool:
+    def source_id_exists(self, source_id:
+        str) -> bool:
         """O(1) 查询：source_id 是否已在 intelligence 表中。"""
         try:
             with self._get_conn() as conn:
@@ -950,7 +1067,8 @@ class IntelligenceRepo(DBBase):
             logger.warning(f"source_id_exists 查询失败，默认返回 False: {e}")
             return False
 
-    def source_ids_batch_exists(self, source_ids: list) -> set:
+    def source_ids_batch_exists(self, source_ids:
+        list[str]) -> set[str]:
         """批量查询一组 source_id 是否已存在，返回已存在的 ID 集合。"""
         if not source_ids:
             return set()
@@ -966,7 +1084,8 @@ class IntelligenceRepo(DBBase):
             logger.warning(f"source_ids_batch_exists 查询失败，返回空集合: {e}")
             return set()
 
-    def get_recent_intelligence(self, limit=10):
+    def get_recent_intelligence(self, limit:
+        int = 10) -> list[dict[str, Any]]:
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -977,7 +1096,8 @@ class IntelligenceRepo(DBBase):
             logger.error(f"Get Recent Failed: {e}")
             return []
 
-    def get_pending_intelligence(self, limit=20):
+    def get_pending_intelligence(self, limit:
+        int = 20) -> list[dict[str, Any]]:
         """Fetch records that need AI analysis or retries."""
         try:
             with self._get_conn() as conn:
@@ -993,7 +1113,8 @@ class IntelligenceRepo(DBBase):
             logger.error(f"Get Pending Failed: {e}")
             return []
 
-    def update_intelligence_status(self, source_id, status, error=None):
+    def update_intelligence_status(self, source_id:
+        str, status: str, error: str | None = None) -> None:
         """Update the lifecycle status of an intelligence item."""
         try:
             with self._get_conn() as conn:
@@ -1005,7 +1126,8 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"Update Status Failed: {e}")
 
-    def check_analysis_exists(self, source_id):
+    def check_analysis_exists(self, source_id:
+        str) -> bool:
         """Check if a record already has AI analysis data."""
         try:
             with self._get_conn() as conn:
@@ -1016,10 +1138,11 @@ class IntelligenceRepo(DBBase):
                     )
                     exists = cursor.fetchone() is not None
             return exists
-        except:
+        except Exception:
             return False
 
-    def is_url_duplicate(self, new_url: str, exclude_id: int = None) -> dict:
+    def is_url_duplicate(self, new_url:
+        str, exclude_id: int | None = None) -> dict[str, Any]:
         """只依据 URL 进行短路直接排重。如果指定了 exclude_id，则排除该记录自身。"""
         if not new_url:
             return {"is_duplicate": False, "status": "NEW"}
@@ -1044,7 +1167,8 @@ class IntelligenceRepo(DBBase):
 
     # ── 事件聚类支持方法 ──────────────────────────────────────────────────
 
-    def find_similar_pairs(self, source_ids: list, threshold: float = 0.45, time_window_hours: int = 48) -> list:
+    def find_similar_pairs(self, source_ids:
+        list[str], threshold: float = 0.45, time_window_hours: int = 48) -> list[tuple[str, str]]:
         """
         在给定的 source_ids 范围内查找相似对。
         Story Threading 优化：引入衰减式时间窗口。
@@ -1064,10 +1188,10 @@ class IntelligenceRepo(DBBase):
                         WHERE a.source_id = ANY(%s) AND b.source_id = ANY(%s)
                           AND ABS(EXTRACT(EPOCH FROM (a.timestamp - b.timestamp))) < %s
                           AND (
-                            (a.embedding_vec IS NOT NULL AND b.embedding_vec IS NOT NULL 
+                            (a.embedding_vec IS NOT NULL AND b.embedding_vec IS NOT NULL
                              AND ((1 - (a.embedding_vec <=> b.embedding_vec)) * exp(-ABS(EXTRACT(EPOCH FROM (a.timestamp - b.timestamp))) / 43200.0)) > %s)
                             OR
-                            ((a.embedding_vec IS NULL OR b.embedding_vec IS NULL) 
+                            ((a.embedding_vec IS NULL OR b.embedding_vec IS NULL)
                              AND (similarity(COALESCE(a.content, ''), COALESCE(b.content, '')) * exp(-ABS(EXTRACT(EPOCH FROM (a.timestamp - b.timestamp))) / 43200.0)) > %s)
                           )
                     """, (source_ids, source_ids, time_window_hours * 3600, threshold, threshold))
@@ -1076,17 +1200,9 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"find_similar_pairs (Story Threading) failed: {e}")
             return []
-
-    def mark_clustered(self, source_ids: list, cluster_id: str, lead_source_id: str) -> None:
-        """
-        将非 lead 的同事件记录批量标记为 CLUSTERED。
-          - is_cluster_lead = FALSE  （非 lead）
-          - event_cluster_id = cluster_id
-          - is_story_lead = FALSE  （非 lead）
-          - story_id = cluster_id  （Story Threading：用同一 UUID 作为故事链主键）
-          - status = 'CLUSTERED'
-        Lead 记录只写入 event_cluster_id，状态保持 PENDING。
-        """
+    def mark_clustered(self, source_ids:
+        list[str], cluster_id: str, lead_source_id: str) -> None:
+        """Mark non-lead records as CLUSTERED and group them under a common story ID."""
         if not source_ids:
             return
         follower_ids = [sid for sid in source_ids if sid != lead_source_id]
@@ -1120,14 +1236,18 @@ class IntelligenceRepo(DBBase):
                             WHERE source_id = ANY(%s)
                         """, (lead_source_id, follower_ids))
                     conn.commit()
+                    # Final slicing fix with explicit str cast and check
+                    c_id = str(cluster_id) if cluster_id else ""
+                    l_id = str(lead_source_id) if lead_source_id else ""
                     logger.info(
-                        f"🔗 事件聚类 [{cluster_id[:8]}] | lead={lead_source_id[:20]} | "
+                        f"🔗 事件聚类 [{c_id[:8]}] | lead={l_id[:20]} | " # type: ignore
                         f"suppressed={len(follower_ids)} 条"
                     )
         except Exception as e:
             logger.error(f"mark_clustered 失败: {e}")
 
-    def get_story_id_by_source_id(self, source_id: str) -> str | None:
+    def get_story_id_by_source_id(self, source_id:
+        str) -> str | None:
         """Fetch story_id for a given intelligence record (source_id)."""
         try:
             with self._get_conn() as conn:
@@ -1139,14 +1259,16 @@ class IntelligenceRepo(DBBase):
                     row = cursor.fetchone()
                     if not row:
                         return None
-                    return row.get("story_id")
-        except Exception as e:
-            logger.error(f"get_story_id_by_source_id failed: {e}")
+                    val = row.get("story_id")
+                    return str(val) if val is not None else None
+        except Exception as exc:
+            logger.error(f"get_story_id_by_source_id failed: {exc}")
             return None
 
     # ── 实体未命中监控 (Entity Miss Logging) ──────────────────────────────
 
-    def log_entity_miss_batch(self, source_id: str, missing_names: list) -> None:
+    def log_entity_miss_batch(self, source_id:
+        str, missing_names: list[str]) -> None:
         """记录实体提取中未对齐（查无此人）的名称，用于后续人工审核补全"""
         if not missing_names:
             return
@@ -1158,7 +1280,7 @@ class IntelligenceRepo(DBBase):
                         cursor.execute("""
                             INSERT INTO entity_miss_log (raw_entity_name, last_source_id)
                             VALUES (%s, %s)
-                            ON CONFLICT (raw_entity_name) DO UPDATE 
+                            ON CONFLICT (raw_entity_name) DO UPDATE
                             SET occurrence_count = entity_miss_log.occurrence_count + 1,
                                 last_seen = NOW(),
                                 last_source_id = EXCLUDED.last_source_id
@@ -1168,7 +1290,8 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.warning(f"⚠️ 记录 missing entities 失败: {e}")
 
-    def get_frequent_missed_entities(self, days: int = 1, min_count: int = 3) -> list:
+    def get_frequent_missed_entities(self, days:
+        int = 1, min_count: int = 3) -> list[dict[str, Any]]:
         """查询这段时间内高频出现的未知实体"""
         try:
             with self._get_conn() as conn:
@@ -1187,7 +1310,8 @@ class IntelligenceRepo(DBBase):
 
     # ── 事件知识图谱 ──────────────────────────────────────────────────────
 
-    def _upsert_entity_node(self, cursor, entity_name: str, entity_type: str = "unknown") -> int | None:
+    def _upsert_entity_node(self, cursor:
+        Any, entity_name: str, entity_type: str = "unknown") -> int | None:
         """
         根据名称和类型 Upsert 实体节点。
         使用标准化后的 normalized_name 作为唯一冲突检查，但保留展示用的 entity_name。
@@ -1213,7 +1337,7 @@ class IntelligenceRepo(DBBase):
 
     def _upsert_graph_edge(
         self,
-        cursor,
+        cursor: Any,
         from_node_id: int,
         to_node_id: int,
         relation: str,
@@ -1222,8 +1346,8 @@ class IntelligenceRepo(DBBase):
         confidence_score: float,
         cluster_id: str,
         source_id: str,
-        intelligence_id: int,
-        metadata: dict | None = None,
+        intelligence_id: int | None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         cursor.execute("""
             INSERT INTO entity_edges (
@@ -1250,7 +1374,8 @@ class IntelligenceRepo(DBBase):
             Jsonb(metadata or {}),
         ))
 
-    def _get_intelligence_context(self, cursor, source_id: str) -> dict | None:
+    def _get_intelligence_context(self, cursor:
+        Any, source_id: str) -> dict[str, Any] | None:
         cursor.execute("""
             SELECT id, source_id, event_cluster_id, urgency_score, source_credibility_score, timestamp
             FROM intelligence
@@ -1271,9 +1396,9 @@ class IntelligenceRepo(DBBase):
 
     def _upsert_cross_asset_edges(
         self,
-        cursor,
+        cursor: Any,
         source_id: str,
-        context: dict,
+        context: dict[str, Any],
         sentiment_score: float | None,
     ) -> None:
         """
@@ -1311,38 +1436,45 @@ class IntelligenceRepo(DBBase):
 
         oil_relation = "inflation_up" if signal >= 0 else "risk_off"
 
-        self._upsert_graph_edge(
-            cursor, dxy_id, gold_id, dxy_relation, "forward",
-            base_strength, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic", "asset": "DXY"}
-        )
-        self._upsert_graph_edge(
-            cursor, tnx_id, gold_id, tnx_relation, "forward",
-            base_strength, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic", "asset": "US10Y"}
-        )
-        self._upsert_graph_edge(
-            cursor, oil_id, gold_id, oil_relation, "forward",
-            0.5, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic", "asset": "Oil"}
-        )
-        self._upsert_graph_edge(
-            cursor, dxy_id, tnx_id, "macro_coupling", "bidirectional",
-            0.45, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic"}
-        )
-        self._upsert_graph_edge(
-            cursor, tnx_id, dxy_id, "macro_coupling", "bidirectional",
-            0.45, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic", "reverse": True}
-        )
-        self._upsert_graph_edge(
-            cursor, oil_id, tnx_id, "inflation_coupling", "forward",
-            0.4, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic"}
-        )
+        if dxy_id and gold_id:
+            self._upsert_graph_edge(
+                cursor, dxy_id, gold_id, dxy_relation, "forward",
+                base_strength, confidence_score, cluster_id, source_id, intelligence_id,
+                {"source": "cross_asset_heuristic", "asset": "DXY"}
+            )
+        if tnx_id and gold_id:
+            self._upsert_graph_edge(
+                cursor, tnx_id, gold_id, tnx_relation, "forward",
+                base_strength, confidence_score, cluster_id, source_id, intelligence_id,
+                {"source": "cross_asset_heuristic", "asset": "US10Y"}
+            )
+        if oil_id and gold_id:
+            self._upsert_graph_edge(
+                cursor, oil_id, gold_id, oil_relation, "forward",
+                0.5, confidence_score, cluster_id, source_id, intelligence_id,
+                {"source": "cross_asset_heuristic", "asset": "Oil"}
+            )
+        if dxy_id and tnx_id:
+            self._upsert_graph_edge(
+                cursor, dxy_id, tnx_id, "macro_coupling", "bidirectional",
+                0.45, confidence_score, cluster_id, source_id, intelligence_id,
+                {"source": "cross_asset_heuristic"}
+            )
+        if tnx_id and dxy_id:
+            self._upsert_graph_edge(
+                cursor, tnx_id, dxy_id, "macro_coupling", "bidirectional",
+                0.45, confidence_score, cluster_id, source_id, intelligence_id,
+                {"source": "cross_asset_heuristic", "reverse": True}
+            )
+        if oil_id and tnx_id:
+            self._upsert_graph_edge(
+                cursor, oil_id, tnx_id, "inflation_coupling", "forward",
+                0.4, confidence_score, cluster_id, source_id, intelligence_id,
+                {"source": "cross_asset_heuristic"}
+            )
 
-    def upsert_knowledge_graph(self, source_id: str, analysis_result: dict) -> None:
+    def upsert_knowledge_graph(self, source_id:
+        str, analysis_result: dict) -> None:
         """
         将单条情报的实体和关系写入图谱（节点/边）。
         调用时机：update_intelligence_analysis 成功后。
@@ -1376,7 +1508,8 @@ class IntelligenceRepo(DBBase):
                         entity_name = entity["name"]
                         entity_type = entity.get("type", "unknown")
                         node_id = self._upsert_entity_node(cursor, entity_name, entity_type)
-                        node_ids[(entity_name.strip().lower(), entity_type.strip().lower())] = node_id
+                        if node_id is not None:
+                            node_ids[(entity_name.strip().lower(), entity_type.strip().lower())] = node_id
 
                     for relation in relations:
                         sub_name = relation["subject"]
@@ -1387,30 +1520,20 @@ class IntelligenceRepo(DBBase):
                         obj_key = (obj_name.strip().lower(), obj_type)
 
                         if sub_key not in node_ids:
-                            node_ids[sub_key] = self._upsert_entity_node(cursor, sub_name, sub_type)
+                            sid = self._upsert_entity_node(cursor, sub_name, sub_type)
+                            if sid is not None:
+                                node_ids[sub_key] = sid
                         if obj_key not in node_ids:
-                            node_ids[obj_key] = self._upsert_entity_node(cursor, obj_name, obj_type)
+                            oid = self._upsert_entity_node(cursor, obj_name, obj_type)
+                            if oid is not None:
+                                node_ids[obj_key] = oid
 
                         metadata = {"source_id": source_id, "predicate": relation["predicate"], "source": "llm_relation_extract"}
-                        self._upsert_graph_edge(
-                            cursor,
-                            node_ids[sub_key],
-                            node_ids[obj_key],
-                            relation["predicate"],
-                            relation["direction"],
-                            relation["strength"],
-                            confidence_score,
-                            cluster_id,
-                            source_id,
-                            context.get("id"),
-                            metadata,
-                        )
-
-                        if relation["direction"] == "bidirectional":
+                        if sub_key in node_ids and obj_key in node_ids:
                             self._upsert_graph_edge(
                                 cursor,
-                                node_ids[obj_key],
                                 node_ids[sub_key],
+                                node_ids[obj_key],
                                 relation["predicate"],
                                 relation["direction"],
                                 relation["strength"],
@@ -1418,8 +1541,24 @@ class IntelligenceRepo(DBBase):
                                 cluster_id,
                                 source_id,
                                 context.get("id"),
-                                {**metadata, "reverse": True},
+                                metadata,
                             )
+
+                        if relation["direction"] == "bidirectional":
+                            if sub_key in node_ids and obj_key in node_ids:
+                                self._upsert_graph_edge(
+                                    cursor,
+                                    node_ids[obj_key],
+                                    node_ids[sub_key],
+                                    relation["predicate"],
+                                    relation["direction"],
+                                    relation["strength"],
+                                    confidence_score,
+                                    cluster_id,
+                                    source_id,
+                                    context.get("id"),
+                                    {**metadata, "reverse": True},
+                                )
 
                     self._upsert_cross_asset_edges(cursor, source_id, context, sentiment_score)
 
@@ -1428,7 +1567,8 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"图谱写入失败 [{source_id}]: {e}")
 
-    def refresh_relation_rule_stats(self, limit: int = 5000) -> None:
+    def refresh_relation_rule_stats(self, limit:
+        int = 5000) -> None:
         """
         基于历史 outcome 对关系规则做简单学习，更新 relation_rule_stats.weight。
         """
@@ -1450,8 +1590,8 @@ class IntelligenceRepo(DBBase):
                     stats: dict[str, dict[str, int]] = {}
                     for row in rows:
                         relation_triples = row["relation_triples"]
-                        entry = float(row["gold_price_snapshot"])
-                        exit_price = float(row["price_1h"])
+                        entry = float(row["gold_price_snapshot"] or 0.0)
+                        exit_price = float(row["price_1h"] or 0.0)
                         price_up = exit_price > entry
                         price_down = exit_price < entry
 
@@ -1504,8 +1644,8 @@ class IntelligenceRepo(DBBase):
                             agg["bullish_total"],
                             agg["bearish_hits"],
                             agg["bearish_total"],
-                            round(hit_rate, 4),
-                            round(weight, 4),
+                            round(float(hit_rate), 4),
+                            round(float(weight), 4),
                         ))
 
                     conn.commit()
@@ -1514,7 +1654,8 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"refresh_relation_rule_stats 失败: {e}")
 
-    def get_relation_rule_weights(self, relations: list[str]) -> dict[str, float]:
+    def get_relation_rule_weights(self, relations:
+        list[str]) -> dict[str, float]:
         if not relations:
             return {}
         normalized = sorted({str(r).strip().lower() for r in relations if str(r).strip()})
@@ -1534,7 +1675,8 @@ class IntelligenceRepo(DBBase):
             logger.error(f"get_relation_rule_weights 失败: {e}")
             return {}
 
-    def get_event_graph(self, event_cluster_id: str) -> dict:
+    def get_event_graph(self, event_cluster_id:
+        str) -> dict[str, Any]:
         """按 event_cluster_id 获取图谱节点、边与可解释推理链。"""
         if not event_cluster_id:
             return {"nodes": [], "edges": [], "inferences": [], "evidence": []}
@@ -1577,7 +1719,7 @@ class IntelligenceRepo(DBBase):
                         LIMIT 300
                     """, (event_cluster_id,))
                     edges = [dict(row) for row in cursor.fetchall()]
-                    relation_weights = self.get_relation_rule_weights([edge.get("relation") for edge in edges])
+                    relation_weights = self.get_relation_rule_weights([str(edge.get("relation") or "") for edge in edges])
 
                     cursor.execute("""
                         SELECT id, source_id, timestamp, summary
@@ -1600,7 +1742,8 @@ class IntelligenceRepo(DBBase):
             logger.error(f"get_event_graph 失败 [{event_cluster_id}]: {e}")
             return {"nodes": [], "edges": [], "inferences": [], "evidence": [], "relation_weights": {}}
 
-    def get_entity_graph(self, entity_name: str, limit: int = 100) -> dict:
+    def get_entity_graph(self, entity_name:
+        str, limit: int = 100) -> dict[str, Any]:
         """按实体名称返回邻接子图（聚合所有同名节点）。"""
         if not entity_name:
             return {"center": None, "nodes": [], "edges": []}
@@ -1656,10 +1799,10 @@ class IntelligenceRepo(DBBase):
                             "entity_name": edge["from_entity"],
                             "entity_type": edge["from_type"],
                         }
-                        node_map[edge["to_node_id"]] = {
-                            "node_id": edge["to_node_id"],
-                            "entity_name": edge["to_entity"],
-                            "entity_type": edge["to_type"],
+                        node_map[str(edge["to_node_id"])] = {
+                            "node_id": str(edge["to_node_id"]),
+                            "entity_name": str(edge["to_entity"]),
+                            "entity_type": str(edge["to_type"]),
                         }
 
             return {"center": center_info, "nodes": list(node_map.values()), "edges": edges}
@@ -1675,7 +1818,7 @@ class IntelligenceRepo(DBBase):
         min_confidence: float = 0.0,
         relation: str | None = None,
         event_cluster_id: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """搜索 from_entity 到 to_entity 的 1-hop / 2-hop 路径。"""
         if not from_entity or not to_entity:
             return {"paths": [], "max_hops": max_hops}
@@ -1703,7 +1846,7 @@ class IntelligenceRepo(DBBase):
                         JOIN entity_nodes tn ON e.to_node_id = tn.node_id
                         WHERE e.confidence_score >= %s
                     """
-                    params = [max(0.0, float(min_confidence or 0.0))]
+                    params: list[Any] = [max(0.0, float(min_confidence or 0.0))]
                     if relation:
                         sql += " AND e.relation = %s"
                         params.append(relation.strip().lower())
@@ -1720,7 +1863,7 @@ class IntelligenceRepo(DBBase):
                             paths.append({
                                 "hops": 1,
                                 "edges": [edge],
-                                "score": round(float(edge.get("confidence_score") or 50.0), 1),
+                                "score": round(float(edge.get("confidence_score", 50.0) or 50.0), 1),  # type: ignore
                             })
 
                     if max_hops >= 2:
@@ -1733,10 +1876,9 @@ class IntelligenceRepo(DBBase):
                                 score = round(
                                     (float(e1.get("confidence_score") or 50.0) + float(e2.get("confidence_score") or 50.0)) / 2.0,
                                     1
-                                )
+                                )  # type: ignore
                                 paths.append({"hops": 2, "edges": [e1, e2], "score": score})
 
-                    paths = sorted(paths, key=lambda x: x["score"], reverse=True)[:10]
             return {
                 "paths": paths,
                 "max_hops": max_hops,

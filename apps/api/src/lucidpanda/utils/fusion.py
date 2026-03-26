@@ -1,7 +1,8 @@
 from typing import Any
 
 
-def merge_entities(entity_sets: Any, max_items: int = 12) -> list[dict]:
+def merge_entities(entity_sets:
+    Any, max_items: int = 12) -> list[dict]:
     """
     合并 cluster 内多条情报的 entities 列表，按 name+type 去重。
     """

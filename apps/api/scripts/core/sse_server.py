@@ -15,21 +15,21 @@ if root_dir not in sys.path:
 # ... imports remaining the same ...
 
 # ... imports remaining the same ...
-import asyncio
-import json
-import logging
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
-from datetime import datetime
+import asyncio  # noqa: E402
+import json  # noqa: E402
+import logging  # noqa: E402
+from collections.abc import AsyncGenerator  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
+from datetime import datetime  # noqa: E402
 
-import psycopg
-from fastapi import Depends, FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from src.lucidpanda.auth.dependencies import get_current_user
-from src.lucidpanda.auth.models import User
-from src.lucidpanda.auth.router import router as auth_router
-from src.lucidpanda.config import settings
+import psycopg  # noqa: E402
+from fastapi import Depends, FastAPI, Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import StreamingResponse  # noqa: E402
+from src.lucidpanda.auth.dependencies import get_current_user  # noqa: E402
+from src.lucidpanda.auth.models import User  # noqa: E402
+from src.lucidpanda.auth.router import router as auth_router  # noqa: E402
+from src.lucidpanda.config import settings  # noqa: E402
 
 # --- Broadcast System ---
 
@@ -44,7 +44,8 @@ class ConnectionManager:
         print(f"[SSE] Client connected. Active: {len(self.active_connections)}")
         return queue
 
-    def disconnect(self, queue: asyncio.Queue):
+    def disconnect(self, queue:
+        asyncio.Queue):
         if queue in self.active_connections:
             self.active_connections.remove(queue)
             print(f"[SSE] Client disconnected. Active: {len(self.active_connections)}")
@@ -147,15 +148,16 @@ async def lifespan(app: FastAPI):
     # Shutdown
     task.cancel()
 
-import os
+import os  # noqa: E402
 
-from fastapi.staticfiles import StaticFiles
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 app = FastAPI(lifespan=lifespan)
 
 # Helper for iOS compatible ISO8601 strings
 def format_iso8601(dt):
-    if not dt: return None
+    if not dt:
+        return None
     # Ensure it's UTC and formatted as YYYY-MM-DDTHH:mm:ss.sssZ
     return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:23] + 'Z'
 
@@ -182,8 +184,8 @@ app.mount("/static", StaticFiles(directory=upload_dir), name="static")
 app.include_router(auth_router)
 
 # V1 Production Architecture
-from src.lucidpanda.api.v1.main import api_v1_router
-from src.lucidpanda.api.v1.routers import watchlist_v2
+from src.lucidpanda.api.v1.main import api_v1_router  # noqa: E402
+from src.lucidpanda.api.v1.routers import watchlist_v2  # noqa: E402
 
 app.include_router(api_v1_router)
 # V2-style watchlist routes for iOS (prefix: /api/v2/watchlist/*)
@@ -216,7 +218,8 @@ async def get_fund_valuation(code: str):
                     if isinstance(results[0]['timestamp'], str):
                         dt = datetime.fromisoformat(results[0]['timestamp'].replace('Z', '+00:00'))
                         results[0]['timestamp'] = format_iso8601(dt)
-                except: pass
+                except Exception:
+                    pass
 
             return results[0]
         return {"error": "Valuation failed"}
@@ -271,7 +274,8 @@ async def get_batch_valuations(codes: str, mode: str = "full"):
                     if isinstance(res['timestamp'], str):
                         dt = datetime.fromisoformat(res['timestamp'].replace('Z', '+00:00'))
                         res['timestamp'] = format_iso8601(dt)
-                except: pass
+                except Exception:
+                    pass
 
         return {"data": results}
     except AttributeError:
@@ -337,7 +341,7 @@ async def trigger_reconcile(date: str = None):
     return {"status": "reconciliation_triggered", "date": str(target_date)}
 
 # --- Watchlist APIs ---
-from pydantic import BaseModel
+from pydantic import BaseModel  # noqa: E402
 
 
 class WatchlistItem(BaseModel):
@@ -402,9 +406,9 @@ async def remove_from_watchlist(code: str, current_user: User = Depends(get_curr
 
 # --- Watchlist V2 SSE Stream ---
 
-import asyncio
+import asyncio  # noqa: E402
 
-from sse_starlette.sse import EventSourceResponse
+from sse_starlette.sse import EventSourceResponse  # noqa: E402
 
 
 @app.get("/api/v2/watchlist/stream")
@@ -476,11 +480,11 @@ async def broadcast_watchlist_update(operation: str, fund_code: str, user_id: st
 async def search_funds(q: str = "", limit: int = 20):
     """
     Search for funds by code or name.
-    
+
     Args:
         q: Search query (fund code or name)
         limit: Maximum number of results (default 20, max 50)
-    
+
     Returns:
         List of matching funds with code, name, type, and company
     """
@@ -551,16 +555,16 @@ async def get_backtest_stats(request: Request):
             FROM intelligence
             WHERE urgency_score >= %(min_score)s
               AND (sentiment::text ~* %(keywords)s)
-              AND gold_price_snapshot IS NOT NULL 
+              AND gold_price_snapshot IS NOT NULL
               AND {outcome_col} IS NOT NULL
         ),
         deduplicated_events AS (
             SELECT * FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL 
+            WHERE prev_timestamp IS NULL
                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         ),
         qualified_events AS (
-            SELECT 
+            SELECT
                 gold_price_snapshot as entry,
                 {outcome_col} as exit,
                 clustering_score,
@@ -570,20 +574,20 @@ async def get_backtest_stats(request: Request):
                 gvz_snapshot
             FROM deduplicated_events
         )
-        SELECT 
+        SELECT
             COUNT(*) as count,
             COUNT(CASE WHEN {win_condition} THEN 1 END) as wins,
             AVG((exit - entry) / entry) * 100 as avg_change_pct,
             AVG(clustering_score) as avg_clustering,
             AVG(exhaustion_score) as avg_exhaustion,
-            
+
             -- Correlation Stats
             AVG(dxy_snapshot) as avg_dxy,
             AVG(us10y_snapshot) as avg_us10y,
             AVG(gvz_snapshot) as avg_gvz,
-            
+
             -- Adjusted Win Rate: Exclude noise
-            COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float / 
+            COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float /
             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
         FROM qualified_events;
         """
@@ -596,19 +600,19 @@ async def get_backtest_stats(request: Request):
             FROM intelligence
             WHERE urgency_score >= %(min_score)s
               AND (sentiment::text ~* %(keywords)s)
-              AND gold_price_snapshot IS NOT NULL 
+              AND gold_price_snapshot IS NOT NULL
               AND {outcome_col} IS NOT NULL
         ),
         deduplicated_events AS (
             SELECT * FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL 
+            WHERE prev_timestamp IS NULL
                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         ),
         returns AS (
             SELECT ((CAST({outcome_col} AS FLOAT) - gold_price_snapshot) / gold_price_snapshot) * 100 as ret
             FROM deduplicated_events
         )
-        SELECT 
+        SELECT
             floor(ret / 0.5) * 0.5 as bin,
             COUNT(*) as count
         FROM returns
@@ -624,23 +628,23 @@ async def get_backtest_stats(request: Request):
             FROM intelligence
             WHERE urgency_score >= %(min_score)s
               AND (sentiment::text ~* %(keywords)s)
-              AND gold_price_snapshot IS NOT NULL 
+              AND gold_price_snapshot IS NOT NULL
               AND {outcome_col} IS NOT NULL
               AND market_session IS NOT NULL
         ),
         deduplicated_events AS (
             SELECT * FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL 
+            WHERE prev_timestamp IS NULL
                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         ),
         qualified_events AS (
-            SELECT 
+            SELECT
                 market_session,
                 gold_price_snapshot as entry,
                 {outcome_col} as exit
             FROM deduplicated_events
         )
-        SELECT 
+        SELECT
             market_session,
             COUNT(*) as count,
             COUNT(CASE WHEN {win_condition} THEN 1 END) as wins,
@@ -658,23 +662,23 @@ async def get_backtest_stats(request: Request):
             FROM intelligence
             WHERE urgency_score >= %(min_score)s
               AND (sentiment::text ~* %(keywords)s)
-              AND gold_price_snapshot IS NOT NULL 
+              AND gold_price_snapshot IS NOT NULL
               AND {outcome_col} IS NOT NULL
               AND dxy_snapshot IS NOT NULL
         ),
         deduplicated_events AS (
             SELECT * FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL 
+            WHERE prev_timestamp IS NULL
                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         ),
         qualified AS (
-            SELECT 
+            SELECT
                 gold_price_snapshot as entry,
                 {outcome_col} as exit,
                 dxy_snapshot
             FROM deduplicated_events, stats
         )
-        SELECT 
+        SELECT
             CASE WHEN dxy_snapshot > (SELECT mid FROM stats) THEN 'DXY_STRONG' ELSE 'DXY_WEAK' END as env,
             COUNT(*) as count,
             COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
@@ -690,25 +694,25 @@ async def get_backtest_stats(request: Request):
             FROM intelligence
             WHERE urgency_score >= %(min_score)s
               AND (sentiment::text ~* %(keywords)s)
-              AND gold_price_snapshot IS NOT NULL 
+              AND gold_price_snapshot IS NOT NULL
               AND {outcome_col} IS NOT NULL
         ),
         deduplicated_events AS (
             SELECT * FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL 
+            WHERE prev_timestamp IS NULL
                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         ),
         qualified AS (
-            SELECT 
+            SELECT
                 i.gold_price_snapshot as entry,
                 i.{outcome_col} as exit,
-                (SELECT percentile FROM market_indicators 
-                 WHERE indicator_name = 'COT_GOLD_NET' AND timestamp <= i.timestamp 
+                (SELECT percentile FROM market_indicators
+                 WHERE indicator_name = 'COT_GOLD_NET' AND timestamp <= i.timestamp
                  ORDER BY timestamp DESC LIMIT 1) as cot_pct
             FROM deduplicated_events i
         )
-        SELECT 
-            CASE 
+        SELECT
+            CASE
                 WHEN cot_pct >= 85 THEN 'OVERCROWDED_LONG'
                 WHEN cot_pct <= 15 THEN 'OVERCROWDED_SHORT'
                 else 'NEUTRAL_POSITION'
@@ -728,23 +732,23 @@ async def get_backtest_stats(request: Request):
             FROM intelligence
             WHERE urgency_score >= %(min_score)s
               AND (sentiment::text ~* %(keywords)s)
-              AND gold_price_snapshot IS NOT NULL 
+              AND gold_price_snapshot IS NOT NULL
               AND {outcome_col} IS NOT NULL
               AND gvz_snapshot IS NOT NULL
         ),
         deduplicated_events AS (
             SELECT * FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL 
+            WHERE prev_timestamp IS NULL
                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         ),
         qualified AS (
-            SELECT 
+            SELECT
                 gold_price_snapshot as entry,
                 {outcome_col} as exit,
                 gvz_snapshot
             FROM deduplicated_events
         )
-        SELECT 
+        SELECT
             CASE WHEN gvz_snapshot > 25 THEN 'HIGH_VOL' ELSE 'LOW_VOL' END as env,
             COUNT(*) as count,
             COUNT(CASE WHEN {win_condition} THEN 1 END) as wins
@@ -760,25 +764,25 @@ async def get_backtest_stats(request: Request):
             FROM intelligence
             WHERE urgency_score >= %(min_score)s
               AND (sentiment::text ~* %(keywords)s)
-              AND gold_price_snapshot IS NOT NULL 
+              AND gold_price_snapshot IS NOT NULL
               AND {outcome_col} IS NOT NULL
         ),
         deduplicated_events AS (
             SELECT * FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL 
+            WHERE prev_timestamp IS NULL
                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         ),
         qualified AS (
-            SELECT 
+            SELECT
                 i.gold_price_snapshot as entry,
                 i.{outcome_col} as exit,
-                (SELECT value FROM market_indicators 
-                 WHERE indicator_name = 'FED_REGIME' AND timestamp <= i.timestamp 
+                (SELECT value FROM market_indicators
+                 WHERE indicator_name = 'FED_REGIME' AND timestamp <= i.timestamp
                  ORDER BY timestamp DESC LIMIT 1) as fed_val
             FROM deduplicated_events i
         )
-        SELECT 
-            CASE 
+        SELECT
+            CASE
                 WHEN fed_val > 0 THEN 'DOVISH_REGIME'
                 WHEN fed_val < 0 THEN 'HAWKISH_REGIME'
                 ELSE 'NEUTRAL_REGIME'
@@ -797,16 +801,16 @@ async def get_backtest_stats(request: Request):
             FROM intelligence
             WHERE urgency_score >= %(min_score)s
               AND (sentiment::text ~* %(keywords)s)
-              AND gold_price_snapshot IS NOT NULL 
+              AND gold_price_snapshot IS NOT NULL
               AND {outcome_col} IS NOT NULL
         ),
         deduplicated_events AS (
             SELECT * FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL 
+            WHERE prev_timestamp IS NULL
                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         ),
         raw_items AS (
-            SELECT 
+            SELECT
                 id,
                 summary as title,
                 timestamp,
@@ -815,7 +819,7 @@ async def get_backtest_stats(request: Request):
                 {outcome_col} as exit
             FROM deduplicated_events
         )
-        SELECT 
+        SELECT
             *,
             CASE WHEN {win_condition} THEN true ELSE false END as is_win,
             ((CAST(exit AS FLOAT) - entry) / entry) * 100 as change_pct
@@ -907,9 +911,9 @@ async def get_24h_alerts_count():
         cursor = conn.cursor()
 
         query = """
-        SELECT COUNT(*) 
-        FROM intelligence 
-        WHERE urgency_score >= 8 
+        SELECT COUNT(*)
+        FROM intelligence
+        WHERE urgency_score >= 8
         AND timestamp > NOW() - INTERVAL '24 hours'
         """
 
@@ -1053,7 +1057,8 @@ async def v1_fund_valuations_stream(
     db = IntelligenceDB()
     meta_map = db.get_fund_metadata_batch(code_list)
 
-    def infer_region(fund_code: str) -> str:
+    def infer_region(fund_code:
+        str) -> str:
         meta = meta_map.get(fund_code, {})
         name = str(meta.get("name", ""))
         f_type = str(meta.get("type", ""))
@@ -1276,7 +1281,7 @@ async def get_market_data(symbol: str = "GC=F", range: str = "1d", interval: str
                     "timestamp": ts,
                     "price": price_val
                 })
-            except:
+            except Exception:
                 continue
 
         return {"symbol": symbol, "data": results}

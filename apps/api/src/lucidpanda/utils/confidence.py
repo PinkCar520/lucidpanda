@@ -47,7 +47,8 @@ def calc_confidence_score(
     return round(max(0.0, min(100.0, score)), 1)
 
 
-def _confidence_time_decay(timestamp: Any) -> float:
+def _confidence_time_decay(timestamp:
+    Any) -> float:
     """
     confidence 的跨时间衰减：
       <=6h   : 1.00
@@ -78,7 +79,8 @@ def _confidence_time_decay(timestamp: Any) -> float:
         return 1.0
 
 
-def calc_confidence_level(score: Any) -> str:
+def calc_confidence_level(score:
+    Any) -> str:
     """将置信度分值映射为可读等级。"""
     try:
         value = float(score)

@@ -30,7 +30,8 @@ class LLMFactory:
     """LLM 工厂类，根据提供商名称创建对应的 LLM 实例"""
 
     @staticmethod
-    def create(provider_name: str):
+    def create(provider_name:
+        str):
         """根据提供商名称创建 LLM 实例"""
         provider_name = provider_name.lower()
 
@@ -44,18 +45,19 @@ class LLMFactory:
             raise ValueError(f"未知的 LLM 提供商：{provider_name}")
 
     @staticmethod
-    def get_fallback_provider(primary: str) -> str:
+    def get_fallback_provider(primary:
+        str) -> str:
         """
         获取备用提供商
-        
+
         从配置读取降级顺序，返回第一个可用的备用提供商。
-        
+
         Args:
             primary: 主力提供商名称
-            
+
         Returns:
             备用提供商名称
-            
+
         Note:
             降级顺序可在 .env.ai 中通过 LLM_FALLBACK_ORDER 配置
         """
@@ -73,7 +75,7 @@ class LLMFactory:
         return fallback_order[0] if fallback_order else "qwen"
 
 
-from src.lucidpanda.core.di_container import EngineDependencies
+from src.lucidpanda.core.di_container import EngineDependencies  # noqa: E402
 
 
 class AlphaEngine:
@@ -81,23 +83,24 @@ class AlphaEngine:
     AI 分析消费者。
     不再负责采集，只消费 intelligence 表中 status=PENDING 的记录。
     RSS 采集由独立的 RSSCollector（run_collector.py）负责。
-    
+
     使用依赖注入容器管理所有依赖，实现：
     - 依赖解耦
     - 单元测试友好
     - 按需初始化（节省内存）
     """
-    def __init__(self, deps: EngineDependencies | None = None):
+    def __init__(self, deps:
+        EngineDependencies | None = None):
         """
         初始化 AlphaEngine
-        
+
         Args:
             deps: 依赖容器（可选，默认自动创建）
-            
+
         Example:
             # 使用默认依赖
             engine = AlphaEngine()
-            
+
             # 使用自定义依赖（测试场景）
             deps = EngineDependencies(db=mock_db)
             engine = AlphaEngine(deps=deps)
@@ -427,7 +430,8 @@ class AlphaEngine:
             analysis_result.setdefault("agent_trace", agent_trace)
         return analysis_result
 
-    def _extract_tool_calls(self, plan_response: Any) -> list[dict[str, Any]]:
+    def _extract_tool_calls(self, plan_response:
+        Any) -> list[dict[str, Any]]:
         if not isinstance(plan_response, dict):
             return []
         tool_calls = plan_response.get("tool_calls") or []
@@ -468,7 +472,8 @@ class AlphaEngine:
         tasks = [_call_one(call) for call in tool_calls]
         return await asyncio.gather(*tasks) if tasks else []
 
-    def _build_agent_plan_prompt(self, raw_data: dict[str, Any]) -> str:
+    def _build_agent_plan_prompt(self, raw_data:
+        dict[str, Any]) -> str:
         """委托 prompts/analysis_v1.py 构建 Agent 规划 Prompt。"""
         max_calls = max(1, int(getattr(settings, "AGENT_TOOL_MAX_CALLS", 3)))
         return build_agent_plan_prompt(raw_data, self.tool_summaries, max_tool_calls=max_calls)
@@ -597,7 +602,7 @@ class AlphaEngine:
             if isinstance(sentiment_json, str):
                 try:
                     data = json.loads(sentiment_json.replace("'", '"'))
-                except:
+                except Exception:
                     data = {'en': sentiment_json}
             else:
                 data = sentiment_json
@@ -608,7 +613,7 @@ class AlphaEngine:
             if 'bearish' in text or 'negative' in text or 'downward' in text or 'pressure' in text:
                 return 'Short'
             return 'Neutral'
-        except:
+        except Exception:
             return 'Neutral'
 
     def _format_message(self, data):
@@ -625,10 +630,12 @@ class AlphaEngine:
             market_impact_str = str(market_implication)
 
         summary = data.get('summary', '')
-        if isinstance(summary, dict): summary = summary.get('zh') or summary.get('en')
+        if isinstance(summary, dict):
+            summary = summary.get('zh') or summary.get('en')
 
         advice = data.get('actionable_advice', '')
-        if isinstance(advice, dict): advice = advice.get('zh') or advice.get('en')
+        if isinstance(advice, dict):
+            advice = advice.get('zh') or advice.get('en')
 
         return f"""
 🚨 【LucidPanda 投资快报】

@@ -67,14 +67,16 @@ class NewsDeduplicator:
         vec = np.array(text_vector).reshape(1, -1)
 
         for v in self.vec_history:
-            if v is None: continue
+            if v is None:
+                continue
             v_2d = np.array(v).reshape(1, -1)
             score = cosine_similarity(vec, v_2d)[0][0]
             if score > self.semantic_threshold:
                 return True
         return False
 
-    def is_early_duplicate(self, news_url, exclude_id: int = None) -> dict:
+    def is_early_duplicate(self, news_url, exclude_id:
+        int = None) -> dict:
         """轻量级初始查重，仅阻挡 URL。"""
         if self.db and news_url:
             return self.db.is_url_duplicate(news_url, exclude_id=exclude_id)

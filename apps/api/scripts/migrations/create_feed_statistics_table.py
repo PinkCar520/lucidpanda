@@ -6,13 +6,15 @@
 import os
 import sys
 
+from psycopg.extras import execute_values
+
 # 确保项目根目录在 path 中
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.core.logger import logger
-from src.lucidpanda.db.base import DBBase
+from src.lucidpanda.core.logger import logger  # noqa: E402
+from src.lucidpanda.db.base import DBBase  # noqa: E402
 
 
 def create_feed_statistics_table():
@@ -25,33 +27,33 @@ def create_feed_statistics_table():
         feed_name VARCHAR(255) PRIMARY KEY,
         feed_url TEXT,
         category VARCHAR(50),
-        
+
         -- 动态间隔控制
         current_interval INTEGER DEFAULT 120,  -- 当前间隔 (秒)
         min_interval INTEGER DEFAULT 30,       -- 最小间隔
         max_interval INTEGER DEFAULT 1800,     -- 最大间隔
-        
+
         -- 统计指标
         consecutive_empty_count INTEGER DEFAULT 0,
         total_fetches INTEGER DEFAULT 0,
         total_new_items INTEGER DEFAULT 0,
         last_fetch_at TIMESTAMPTZ,
         last_new_item_at TIMESTAMPTZ,
-        
+
         -- 元数据
         updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-        
+
         CONSTRAINT chk_current_interval CHECK (current_interval > 0),
         CONSTRAINT chk_consecutive_empty CHECK (consecutive_empty_count >= 0),
         CONSTRAINT chk_total_fetches CHECK (total_fetches >= 0),
         CONSTRAINT chk_total_new_items CHECK (total_new_items >= 0)
     );
-    
+
     -- 创建索引
     CREATE INDEX IF NOT EXISTS idx_feed_category ON feed_statistics(category);
     CREATE INDEX IF NOT EXISTS idx_feed_last_fetch ON feed_statistics(last_fetch_at);
     CREATE INDEX IF NOT EXISTS idx_feed_updated_at ON feed_statistics(updated_at);
-    
+
     -- 创建注释
     COMMENT ON TABLE feed_statistics IS 'RSS 信源统计表 - 用于动态自适应间隔';
     COMMENT ON COLUMN feed_statistics.current_interval IS '当前采集间隔 (秒)';
@@ -71,11 +73,6 @@ def create_feed_statistics_table():
         # 初始化所有信源的统计记录
         from src.lucidpanda.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
 
-        init_data_sql = """
-        INSERT INTO feed_statistics (feed_name, feed_url, category, current_interval)
-        VALUES %s
-        ON CONFLICT (feed_name) DO NOTHING
-        """
 
         # 使用 execute_values 批量插入
 

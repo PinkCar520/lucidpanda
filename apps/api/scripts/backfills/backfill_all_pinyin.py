@@ -14,12 +14,14 @@ from pypinyin import Style, pinyin
 from src.lucidpanda.db.base import DBBase
 
 
-def to_pinyin_full(name: str) -> str:
+def to_pinyin_full(name:
+    str) -> str:
     if not name:
         return ''
     return ''.join([item[0].lower() for item in pinyin(name, style=Style.NORMAL)])
 
-def to_pinyin_shorthand(name: str) -> str:
+def to_pinyin_shorthand(name:
+    str) -> str:
     if not name:
         return ''
     letters = pinyin(name, style=Style.FIRST_LETTER)

@@ -32,7 +32,8 @@ _FUSED_CACHE_NAMESPACE = "web:fused:v1"
 _fused_cache_store = None
 
 
-def _with_confidence(item: Intelligence) -> dict[str, Any]:
+def _with_confidence(item:
+    Intelligence) -> dict[str, Any]:
     payload = v1_prepare_json(item)
     confidence_score = calc_confidence_score(
         payload.get("corroboration_count"),
@@ -45,7 +46,8 @@ def _with_confidence(item: Intelligence) -> dict[str, Any]:
     return payload
 
 
-def _fused_cache_key(limit: int, before_timestamp: str | None) -> str:
+def _fused_cache_key(limit:
+    int, before_timestamp: str | None) -> str:
     return fused_cache_key(limit, before_timestamp)
 
 
@@ -65,7 +67,8 @@ def _get_fused_redis_client():
         return None
 
 
-def _fused_cache_redis_key(limit: int, before_timestamp: str | None) -> str:
+def _fused_cache_redis_key(limit:
+    int, before_timestamp: str | None) -> str:
     return f"{_FUSED_CACHE_NAMESPACE}:{_fused_cache_key(limit, before_timestamp)}"
 
 
@@ -80,7 +83,8 @@ def _get_fused_cache_store() -> FusedCacheStore:
     return _fused_cache_store
 
 
-def _get_fused_cache(limit: int, before_timestamp: str | None) -> dict[str, Any] | None:
+def _get_fused_cache(limit:
+    int, before_timestamp: str | None) -> dict[str, Any] | None:
     cached = _get_fused_cache_store().get(limit, before_timestamp)
     if cached is not None:
         return cached
@@ -94,7 +98,8 @@ def _get_fused_cache(limit: int, before_timestamp: str | None) -> dict[str, Any]
     return local_cached["payload"]
 
 
-def _set_fused_cache(limit: int, before_timestamp: str | None, payload: dict[str, Any]) -> None:
+def _set_fused_cache(limit:
+    int, before_timestamp: str | None, payload: dict[str, Any]) -> None:
     key = _fused_cache_key(limit, before_timestamp)
     _fused_cache[key] = {"ts": time.time(), "payload": payload}
     _get_fused_cache_store().set(limit, before_timestamp, payload)
@@ -193,7 +198,7 @@ async def get_web_intelligence_full(
     results = db.exec(statement).all()
     return {"data": [_with_confidence(item) for item in results]}
 
-from pydantic import BaseModel
+from pydantic import BaseModel  # noqa: E402
 
 
 class WatchlistItemDTO(BaseModel):
@@ -850,15 +855,15 @@ async def get_web_backtest_stats(
             FROM intelligence
             WHERE urgency_score >= :min_score
               AND (sentiment::text ~* :keywords)
-              AND gold_price_snapshot IS NOT NULL 
+              AND gold_price_snapshot IS NOT NULL
               AND {outcome_col} IS NOT NULL
         ),
         deduplicated_events AS (
-            SELECT *, 
-                   gold_price_snapshot as entry, 
+            SELECT *,
+                   gold_price_snapshot as entry,
                    {outcome_col} as exit
             FROM filtered_intelligence
-            WHERE prev_timestamp IS NULL 
+            WHERE prev_timestamp IS NULL
                OR timestamp > prev_timestamp + INTERVAL '{cluster_window}'
         )
         """
@@ -870,7 +875,7 @@ async def get_web_backtest_stats(
             AVG((exit - entry) / entry) * 100 as avg_change_pct,
             AVG(clustering_score) as avg_clustering, AVG(exhaustion_score) as avg_exhaustion,
             AVG(dxy_snapshot) as avg_dxy, AVG(us10y_snapshot) as avg_us10y, AVG(gvz_snapshot) as avg_gvz,
-            COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float / 
+            COUNT(CASE WHEN {win_condition} AND clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END)::float /
             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
         FROM deduplicated_events;
         """

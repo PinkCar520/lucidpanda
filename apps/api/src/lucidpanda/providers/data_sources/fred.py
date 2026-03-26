@@ -28,7 +28,8 @@ class FredDataSource:
         "DEXUSEU": "美元兑欧元汇率快照",
     }
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key:
+        str = None):
         self.api_key = api_key or getattr(settings, "FRED_API_KEY", None)
         if not self.api_key:
             logger.warning("⚠️ 缺失 FRED_API_KEY，美联储结构化大盘数据服务将无法使用！")
@@ -86,7 +87,7 @@ class FredDataSource:
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         dashboard = {}
-        for series_id, res in zip(self.MACRO_INDICATORS.keys(), results):
+        for series_id, res in zip(self.MACRO_INDICATORS.keys(), results, strict=False):
             if isinstance(res, Exception):
                 logger.error(f"⚠️ 获取宏观指标 {series_id} 出现异常：{res}")
                 dashboard[series_id] = None

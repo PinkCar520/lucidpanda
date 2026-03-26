@@ -56,8 +56,8 @@ def migrate_gvz():
             )
 
             cursor.execute("""
-                UPDATE intelligence 
-                SET gvz_snapshot = %s 
+                UPDATE intelligence
+                SET gvz_snapshot = %s
                 WHERE id = %s
             """, (gvz, record_id))
             updated_count += 1

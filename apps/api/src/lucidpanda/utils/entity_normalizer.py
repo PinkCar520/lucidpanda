@@ -105,14 +105,16 @@ CANONICAL_TYPE_MAP = {
 }
 
 
-def _canonical_key(name: str) -> str:
+def _canonical_key(name:
+    str) -> str:
     text = unicodedata.normalize("NFKC", (name or "").strip())
     text = text.replace("\u2019", "'")
     text = re.sub(r"\s+", " ", text)
     return text.lower()
 
 
-def normalize_entity_name(name: str) -> str:
+def normalize_entity_name(name:
+    str) -> str:
     """将实体名称归一化为标准形式（解决别名碎片化）。"""
     clean_name = (name or "").strip()
     if not clean_name:
@@ -121,7 +123,8 @@ def normalize_entity_name(name: str) -> str:
     return ALIAS_MAP.get(canonical_key, clean_name)
 
 
-def normalize_fund_name(name: str) -> str:
+def normalize_fund_name(name:
+    str) -> str:
     """
     针对 A 股基金名称的特殊预处理。
     去除：联接A/C, 混合, ETF, 增强, 行业/主题等冗余后缀。
@@ -149,7 +152,8 @@ def normalize_fund_name(name: str) -> str:
     return name.strip()
 
 
-def normalize_entity_type(name: str, llm_type: str) -> str:
+def normalize_entity_type(name:
+    str, llm_type: str) -> str:
     """
     返回实体的规范化类型。
     对于已知实体（Gold/Trump/Fed 等），忽略 LLM 输出的 'unknown'，
