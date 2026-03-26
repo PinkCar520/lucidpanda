@@ -20,9 +20,12 @@ import { Badge } from '@/components/ui/Badge';
 import { useRouter } from '@/i18n/navigation';
 import { Intelligence } from '@/lib/db';
 
+type LocalizedText = string | Record<string, unknown> | null | undefined;
+
 export default function IntelligenceDetailPage() {
     const params = useParams();
-    const id = params?.id;
+    const idParam = params?.id;
+    const id = Array.isArray(idParam) ? idParam[0] : idParam;
     const locale = useLocale();
     const router = useRouter();
     const t = useTranslations('IntelligenceDetail');
@@ -55,18 +58,30 @@ export default function IntelligenceDetailPage() {
         fetchItem();
     }, [id, t]);
 
-    const getLocalizedText = (textSource: any) => {
+    const getLocalizedText = (textSource: LocalizedText): string => {
         if (!textSource) return '';
-        let data = textSource;
+        let data: LocalizedText = textSource;
         if (typeof textSource === 'string') {
             try {
-                data = JSON.parse(textSource);
+                data = JSON.parse(textSource) as LocalizedText;
             } catch {
                 return textSource;
             }
         }
-        if (typeof data === 'object' && data !== null) {
-            return data[locale] || data['en'] || data['zh'] || Object.values(data)[0] || '';
+        if (typeof data === 'object') {
+            const localizedData = data as Record<string, unknown>;
+            const pickString = (value: unknown): string | null => (
+                typeof value === 'string' ? value : null
+            );
+            const firstValue = Object.values(localizedData).find((value) => typeof value === 'string');
+
+            return (
+                pickString(localizedData[locale]) ??
+                pickString(localizedData.en) ??
+                pickString(localizedData.zh) ??
+                pickString(firstValue) ??
+                ''
+            );
         }
         return String(data || '');
     };

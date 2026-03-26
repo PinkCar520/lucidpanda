@@ -8,7 +8,9 @@ Pydantic 配置验证
 4. IDE 自动补全
 """
 
-from pydantic import BaseModel, Field, field_validator
+import os
+
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -116,6 +118,41 @@ class Settings(BaseSettings):
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     runtime: RuntimeSettings = Field(default_factory=RuntimeSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+
+    @model_validator(mode='before')
+    @classmethod
+    def apply_legacy_env_overrides(cls, data: object) -> object:
+        """兼容旧版扁平环境变量（如 AI_PROVIDER / LLM_CONCURRENCY_LIMIT）"""
+        if not isinstance(data, dict):
+            data = {}
+
+        payload = dict(data)
+        llm_data = dict(payload.get('llm') or {})
+        runtime_data = dict(payload.get('runtime') or {})
+
+        legacy_mapping: list[tuple[str, dict[str, str]]] = [
+            ('AI_PROVIDER', {'section': 'llm', 'field': 'ai_provider'}),
+            ('LLM_CONCURRENCY_LIMIT', {'section': 'runtime', 'field': 'llm_concurrency_limit'}),
+            ('LLM_FALLBACK_ORDER', {'section': 'llm', 'field': 'llm_fallback_order'}),
+        ]
+
+        for env_key, target in legacy_mapping:
+            env_value = os.getenv(env_key)
+            if env_value is None:
+                continue
+
+            if target['section'] == 'llm' and target['field'] not in llm_data:
+                if target['field'] == 'llm_fallback_order':
+                    llm_data[target['field']] = [item.strip() for item in env_value.split(',') if item.strip()]
+                else:
+                    llm_data[target['field']] = env_value
+
+            if target['section'] == 'runtime' and target['field'] not in runtime_data:
+                runtime_data[target['field']] = env_value
+
+        payload['llm'] = llm_data
+        payload['runtime'] = runtime_data
+        return payload
 
     # 快捷访问（兼容旧代码）
     @property
