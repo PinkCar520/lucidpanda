@@ -4,12 +4,14 @@
 只回填有历史数据可匹配的记录（Sina 只提供约 7 天历史）
 """
 import sys
+
 sys.path.insert(0, '.')
 
-from src.lucidpanda.core.database import IntelligenceDB
-from src.lucidpanda.core.backtest import BacktestEngine
-from datetime import datetime, timedelta
+from datetime import timedelta
+
 import pytz
+from src.lucidpanda.core.backtest import BacktestEngine
+from src.lucidpanda.core.database import IntelligenceDB
 
 # 配置：只回填最近 5 天的数据
 DAYS_TO_REPLAY = 5
@@ -68,18 +70,18 @@ for record_id, record_time in records:
     try:
         if record_time.tzinfo is None:
             record_time = pytz.utc.localize(record_time)
-        
+
         outcomes = {}
         for col, delta in windows.items():
             target_time = record_time + delta
             idx = hist.index.searchsorted(target_time)
-            
+
             if idx < len(hist):
                 matched_time = hist.index[idx]
                 # 容错：3 天内
                 if (matched_time - target_time).total_seconds() <= 3 * 86400:
                     outcomes[col] = round(float(hist.iloc[idx]['Close']), 2)
-        
+
         if outcomes:
             set_clause = ', '.join([f'{k} = %s' for k in outcomes.keys()])
             values = list(outcomes.values()) + [record_id]
@@ -87,13 +89,13 @@ for record_id, record_time in records:
             success_count += 1
         else:
             failed_count += 1
-    except Exception as e:
+    except Exception:
         failed_count += 1
 
 conn.commit()
 conn.close()
 
-print(f'\n✅ 回填完成')
+print('\n✅ 回填完成')
 print(f'   成功：{success_count} 条')
 print(f'   失败：{failed_count} 条 (历史数据范围外)')
 print('='*70)

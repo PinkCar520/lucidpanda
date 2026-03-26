@@ -1,24 +1,23 @@
-from fastapi import APIRouter, Depends, Query, Request, HTTPException
-from sqlmodel import Session, select, text
-from typing import List, Dict, Any, Optional
-from datetime import datetime
-import json
-import time
-import os
-import redis
 import logging
-from src.lucidpanda.infra.database.connection import get_session
-from src.lucidpanda.models.fund import FundMetadata, FundValuationArchive
-from src.lucidpanda.models.intelligence import Intelligence
+import os
+import time
+from datetime import datetime
+from typing import Any
+
+import redis
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session, select, text
 from src.lucidpanda.auth.dependencies import get_current_user
 from src.lucidpanda.auth.models import User
-from src.lucidpanda.core.fund_engine import FundEngine
 from src.lucidpanda.core.database import IntelligenceDB
+from src.lucidpanda.core.fund_engine import FundEngine
 from src.lucidpanda.core.logger import logger
+from src.lucidpanda.infra.database.connection import get_session
+from src.lucidpanda.models.intelligence import Intelligence
 from src.lucidpanda.utils import v1_prepare_json
-from src.lucidpanda.utils.confidence import calc_confidence_score, calc_confidence_level
+from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
 from src.lucidpanda.utils.fusion import merge_entities
-from src.lucidpanda.utils.graph_reasoning import BULLISH_RELATIONS, BEARISH_RELATIONS
+from src.lucidpanda.utils.graph_reasoning import BEARISH_RELATIONS, BULLISH_RELATIONS
 from src.lucidpanda.utils.web_graph_ops import (
     FusedCacheStore,
     build_graph_quality_alerts,
@@ -33,7 +32,7 @@ _FUSED_CACHE_NAMESPACE = "web:fused:v1"
 _fused_cache_store = None
 
 
-def _with_confidence(item: Intelligence) -> Dict[str, Any]:
+def _with_confidence(item: Intelligence) -> dict[str, Any]:
     payload = v1_prepare_json(item)
     confidence_score = calc_confidence_score(
         payload.get("corroboration_count"),
@@ -46,7 +45,7 @@ def _with_confidence(item: Intelligence) -> Dict[str, Any]:
     return payload
 
 
-def _fused_cache_key(limit: int, before_timestamp: Optional[str]) -> str:
+def _fused_cache_key(limit: int, before_timestamp: str | None) -> str:
     return fused_cache_key(limit, before_timestamp)
 
 
@@ -66,7 +65,7 @@ def _get_fused_redis_client():
         return None
 
 
-def _fused_cache_redis_key(limit: int, before_timestamp: Optional[str]) -> str:
+def _fused_cache_redis_key(limit: int, before_timestamp: str | None) -> str:
     return f"{_FUSED_CACHE_NAMESPACE}:{_fused_cache_key(limit, before_timestamp)}"
 
 
@@ -81,7 +80,7 @@ def _get_fused_cache_store() -> FusedCacheStore:
     return _fused_cache_store
 
 
-def _get_fused_cache(limit: int, before_timestamp: Optional[str]) -> Optional[Dict[str, Any]]:
+def _get_fused_cache(limit: int, before_timestamp: str | None) -> dict[str, Any] | None:
     cached = _get_fused_cache_store().get(limit, before_timestamp)
     if cached is not None:
         return cached
@@ -95,13 +94,13 @@ def _get_fused_cache(limit: int, before_timestamp: Optional[str]) -> Optional[Di
     return local_cached["payload"]
 
 
-def _set_fused_cache(limit: int, before_timestamp: Optional[str], payload: Dict[str, Any]) -> None:
+def _set_fused_cache(limit: int, before_timestamp: str | None, payload: dict[str, Any]) -> None:
     key = _fused_cache_key(limit, before_timestamp)
     _fused_cache[key] = {"ts": time.time(), "payload": payload}
     _get_fused_cache_store().set(limit, before_timestamp, payload)
 
 
-def _invalidate_fused_cache() -> Dict[str, int]:
+def _invalidate_fused_cache() -> dict[str, int]:
     local_size = len(_fused_cache)
     _fused_cache.clear()
     store_removed = _get_fused_cache_store().invalidate()
@@ -110,7 +109,7 @@ def _invalidate_fused_cache() -> Dict[str, int]:
         "redis_removed": int(store_removed.get("redis_removed") or 0),
     }
 
-@router.get("/watchlist", response_model=Dict[str, Any])
+@router.get("/watchlist", response_model=dict[str, Any])
 async def get_web_watchlist(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
@@ -123,9 +122,9 @@ async def get_web_watchlist(
     rows = db_legacy.get_watchlist(str(current_user.id))
     return v1_prepare_json({"data": [{"code": r['fund_code'], "name": r['fund_name']} for r in rows]})
 
-@router.get("/funds/batch-valuation", response_model=Dict[str, Any])
+@router.get("/funds/batch-valuation", response_model=dict[str, Any])
 async def get_web_batch_valuations(
-    codes: str, 
+    codes: str,
     mode: str = "full",
     current_user: User = Depends(get_current_user)
 ):
@@ -134,24 +133,24 @@ async def get_web_batch_valuations(
     """
     if not codes:
         return {"data": []}
-    
+
     code_list = [c.strip() for c in codes.split(',') if c.strip()]
     engine = FundEngine()
-    
+
     results = engine.calculate_batch_valuation(code_list, summary=(mode == "summary"))
-    
+
     # Enrich with stats
     db_legacy = IntelligenceDB()
     stats_map = db_legacy.get_fund_stats(code_list)
-    
+
     for res in results:
         f_code = res.get('fund_code')
         if f_code in stats_map:
             res['stats'] = stats_map[f_code]
-            
+
     return v1_prepare_json({"data": results})
 
-@router.get("/funds/{code}/valuation", response_model=Dict[str, Any])
+@router.get("/funds/{code}/valuation", response_model=dict[str, Any])
 async def get_web_fund_valuation(code: str, current_user: User = Depends(get_current_user)):
     """
     Detailed single fund valuation for Web.
@@ -166,14 +165,14 @@ async def get_web_fund_valuation(code: str, current_user: User = Depends(get_cur
         return v1_prepare_json(results[0])
     return {"error": "Valuation failed"}
 
-@router.get("/funds/{code}/history", response_model=Dict[str, Any])
+@router.get("/funds/{code}/history", response_model=dict[str, Any])
 async def get_web_fund_history(code: str, limit: int = 30, current_user: User = Depends(get_current_user)):
     """
     Historical performance for Web.
     """
     db_legacy = IntelligenceDB()
     history = db_legacy.get_valuation_history(code, limit)
-    
+
     formatted_history = []
     for h in history:
         item = dict(h)
@@ -182,7 +181,7 @@ async def get_web_fund_history(code: str, limit: int = 30, current_user: User = 
         formatted_history.append(item)
     return v1_prepare_json({"data": formatted_history})
 
-@router.get("/intelligence/full", response_model=Dict[str, Any])
+@router.get("/intelligence/full", response_model=dict[str, Any])
 async def get_web_intelligence_full(
     limit: int = 50,
     db: Session = Depends(get_session)
@@ -196,11 +195,12 @@ async def get_web_intelligence_full(
 
 from pydantic import BaseModel
 
+
 class WatchlistItemDTO(BaseModel):
     code: str
     name: str
 
-@router.post("/watchlist", response_model=Dict[str, Any])
+@router.post("/watchlist", response_model=dict[str, Any])
 async def add_web_watchlist(
     item: WatchlistItemDTO,
     current_user: User = Depends(get_current_user)
@@ -210,7 +210,7 @@ async def add_web_watchlist(
     success = db_legacy.add_to_watchlist(item.code, item.name, str(current_user.id))
     return {"success": success}
 
-@router.delete("/watchlist/{code}", response_model=Dict[str, Any])
+@router.delete("/watchlist/{code}", response_model=dict[str, Any])
 async def remove_web_watchlist(
     code: str,
     current_user: User = Depends(get_current_user)
@@ -220,10 +220,10 @@ async def remove_web_watchlist(
     success = db_legacy.remove_from_watchlist(code, str(current_user.id))
     return {"success": success}
 
-@router.get("/intelligence/fused", response_model=Dict[str, Any])
+@router.get("/intelligence/fused", response_model=dict[str, Any])
 async def get_web_fused_intelligence(
     limit: int = 30,
-    before_timestamp: Optional[str] = None,
+    before_timestamp: str | None = None,
     force_refresh: bool = False,
     db: Session = Depends(get_session)
 ):
@@ -307,7 +307,7 @@ async def get_web_fused_intelligence(
     return response_payload
 
 
-@router.post("/intelligence/fused/cache/invalidate", response_model=Dict[str, Any])
+@router.post("/intelligence/fused/cache/invalidate", response_model=dict[str, Any])
 async def invalidate_web_fused_cache(current_user: User = Depends(get_current_user)):
     del current_user
     removed = _invalidate_fused_cache()
@@ -318,7 +318,7 @@ async def invalidate_web_fused_cache(current_user: User = Depends(get_current_us
     })
 
 
-@router.get("/graph/event/{cluster_id}", response_model=Dict[str, Any])
+@router.get("/graph/event/{cluster_id}", response_model=dict[str, Any])
 async def get_web_event_graph(cluster_id: str):
     """按事件 cluster 返回知识图谱。"""
     db_legacy = IntelligenceDB()
@@ -333,7 +333,7 @@ async def get_web_event_graph(cluster_id: str):
     })
 
 
-@router.get("/graph/entity/{entity_name}", response_model=Dict[str, Any])
+@router.get("/graph/entity/{entity_name}", response_model=dict[str, Any])
 async def get_web_entity_graph(entity_name: str, limit: int = 100):
     """按实体返回邻接子图。"""
     db_legacy = IntelligenceDB()
@@ -341,14 +341,14 @@ async def get_web_entity_graph(entity_name: str, limit: int = 100):
     return v1_prepare_json(graph)
 
 
-@router.get("/graph/path", response_model=Dict[str, Any])
+@router.get("/graph/path", response_model=dict[str, Any])
 async def get_web_graph_path(
     from_entity: str,
     to_entity: str,
     max_hops: int = 2,
     min_confidence: float = 0.0,
-    relation: Optional[str] = None,
-    event_cluster_id: Optional[str] = None,
+    relation: str | None = None,
+    event_cluster_id: str | None = None,
 ):
     """查找两个实体之间的1~2跳路径。"""
     db_legacy = IntelligenceDB()
@@ -371,7 +371,7 @@ async def get_web_graph_path(
     })
 
 
-@router.get("/graph/quality", response_model=Dict[str, Any])
+@router.get("/graph/quality", response_model=dict[str, Any])
 async def get_web_graph_quality(
     days: int = 14,
     baseline_days: int = 14,
@@ -596,7 +596,7 @@ async def get_web_graph_quality(
     })
 
 
-@router.get("/sources/dashboard", response_model=Dict[str, Any])
+@router.get("/sources/dashboard", response_model=dict[str, Any])
 async def get_web_sources_dashboard(
     days: int = 14,
     limit: int = 15,
@@ -744,7 +744,7 @@ async def get_web_sources_dashboard(
         "generated_at": datetime.utcnow(),
     })
 
-@router.get("/intelligence/{item_id}", response_model=Dict[str, Any])
+@router.get("/intelligence/{item_id}", response_model=dict[str, Any])
 async def get_web_intelligence_item(
     item_id: int,
     db: Session = Depends(get_session)
@@ -757,7 +757,7 @@ async def get_web_intelligence_item(
     return _with_confidence(result)
 
 
-@router.get("/funds/search", response_model=Dict[str, Any])
+@router.get("/funds/search", response_model=dict[str, Any])
 async def search_web_funds(q: str = "", limit: int = 20):
     """Search for funds via Web BFF."""
     engine = FundEngine()
@@ -768,27 +768,27 @@ async def search_web_funds(q: str = "", limit: int = 20):
         "query": q
     })
 
-@router.get("/market", response_model=Dict[str, Any])
+@router.get("/market", response_model=dict[str, Any])
 async def get_web_market_data(
-    symbol: str = "GC=F", 
-    range: str = "1d", 
+    symbol: str = "GC=F",
+    range: str = "1d",
     interval: str = "5m"
 ):
     """Fetch market data and indicators via Web BFF."""
+
     import akshare as ak
-    from datetime import datetime
     from src.lucidpanda.services.market_service import market_service
-    
+
     try:
         # 1. Fetch Chart Data
         if symbol == "GC=F":
             df = ak.futures_global_hist_em(symbol="GC00Y")
         else:
             df = ak.stock_zh_a_hist(symbol=symbol.replace("sh", "").replace("sz", ""), period="daily", adjust="qfq")
-            
+
         if df.empty:
             return {"symbol": symbol, "data": [], "indicators": None}
-            
+
         quotes = []
         for _, row in df.tail(100).iterrows():
             date_str = str(row.get('日期') or row.get('date'))
@@ -801,14 +801,14 @@ async def get_web_market_data(
                 "close": float(row.get('收盘') or row.get('最新价') or 0),
                 "volume": float(row.get('成交量') or row.get('总量') or 0)
             })
-            
+
         # 2. Fetch Calculated Indicators (Parity, Spread)
         indicators = None
         if symbol == "GC=F":
             indicators = market_service.get_gold_indicators()
-            
+
         return v1_prepare_json({
-            "symbol": symbol, 
+            "symbol": symbol,
             "quotes": quotes,
             "indicators": indicators
         })
@@ -817,7 +817,7 @@ async def get_web_market_data(
         logging.exception("Error fetching market data for symbol %s", symbol)
         return {"error": "Failed to fetch market data. Please try again later."}
 
-@router.get("/stats", response_model=Dict[str, Any])
+@router.get("/stats", response_model=dict[str, Any])
 async def get_web_backtest_stats(
     window: str = "1h",
     min_score: int = 8,
@@ -832,7 +832,7 @@ async def get_web_backtest_stats(
         # Determine columns based on window
         window_map = {"15m": "price_15m", "1h": "price_1h", "4h": "price_4h", "12h": "price_12h", "24h": "price_24h"}
         outcome_col = window_map.get(window, "price_1h")
-        
+
         # Define keywords and win condition
         if sentiment == 'bearish':
             keywords = "鹰|利空|下跌|风险|Bearish|Hawkish|Risk|Negative|Pressure"
@@ -842,7 +842,7 @@ async def get_web_backtest_stats(
             win_condition = "exit > entry"
 
         cluster_window = "30 minutes"
-        
+
         # Prepare Common SQL Fragments
         base_cte = f"""
         WITH filtered_intelligence AS (
@@ -874,7 +874,7 @@ async def get_web_backtest_stats(
             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
         FROM deduplicated_events;
         """
-        
+
         # 2. Session Stats
         query_session = f"""
         {base_cte}
@@ -952,11 +952,11 @@ async def get_web_backtest_stats(
 
         # Execute all queries
         params = {'keywords': keywords, 'min_score': min_score}
-        
+
         res_global = db.execute(text(query_global), params).mappings().first()
         if not res_global or res_global['count'] == 0:
             return {"count": 0, "winRate": 0, "avgDrop": 0}
-            
+
         res_sessions = db.execute(text(query_session), params).mappings().all()
         res_corr = db.execute(text(query_correlation), params).mappings().all()
         res_pos = db.execute(text(query_positioning), params).mappings().all()
@@ -1013,13 +1013,13 @@ async def get_web_backtest_stats(
             "sessionStats": session_stats,
             "items": res_items
         })
-        
+
     except Exception as e:
         import traceback
         print(f"[API] Stats error: {traceback.format_exc()}")
         return {"error": str(e)}
 
-@router.get("/admin/monitor", response_model=Dict[str, Any])
+@router.get("/admin/monitor", response_model=dict[str, Any])
 async def get_web_monitor_stats(current_user: User = Depends(get_current_user)):
     """
     Admin stats for Web monitor page.
@@ -1031,9 +1031,9 @@ async def get_web_monitor_stats(current_user: User = Depends(get_current_user)):
 
 class ReconcileTriggerDTO(BaseModel):
     trade_date: str
-    fund_code: Optional[str] = None
+    fund_code: str | None = None
 
-@router.post("/admin/reconcile/trigger", response_model=Dict[str, Any])
+@router.post("/admin/reconcile/trigger", response_model=dict[str, Any])
 async def trigger_reconciliation(
     payload: ReconcileTriggerDTO,
     current_user: User = Depends(get_current_user)
@@ -1042,21 +1042,21 @@ async def trigger_reconciliation(
     Trigger manual reconciliation for a specific date or fund.
     Allows administrators to fix data quality issues in real-time.
     """
-    
+
     logger.info(f"🚀 Manual reconciliation triggered by user {current_user.id} for {payload.trade_date} (Code: {payload.fund_code or 'ALL'})")
-    
+
     try:
         dt = datetime.strptime(payload.trade_date, "%Y-%m-%d").date()
         engine = FundEngine()
-        
+
         codes = [payload.fund_code] if payload.fund_code else []
-        
+
         # Call the core engine reconciliation logic
         # synchronous call here as it's typically < 5s for a single day/fund
         result_count = engine.reconcile_official_valuations(target_date=dt, fund_codes=codes)
-        
+
         return v1_prepare_json({
-            "success": True, 
+            "success": True,
             "matched_count": result_count,
             "message": f"Successfully matched {result_count} funds for {payload.trade_date}"
         })

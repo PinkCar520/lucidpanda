@@ -12,7 +12,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.lucidpanda.core.ontology import CORE_ENTITIES, TAXONOMY
 from src.lucidpanda.db.ontology_repo import OntologyRepo
-from src.lucidpanda.config import settings
 
 # 使用默认配置 (由环境变量覆盖)
 pass
@@ -20,7 +19,7 @@ pass
 async def seed_data():
     print("🌱 正在初始化系统本体数据 (Ontology Seeding)...")
     repo = OntologyRepo()
-    
+
     # 1. 迁移分类体系 (Taxonomy)
     print("\n[1/2] 迁移分类体系...")
     for dimension, values in TAXONOMY.items():
@@ -37,7 +36,7 @@ async def seed_data():
             entity_type=data["type"]
         )
         print(f"  - 🏢 Entity: {cid} ({data['name']})")
-        
+
         for alias in data.get("aliases", []):
             repo.add_alias(cid, alias)
             print(f"    - 🔗 Alias: {alias}")

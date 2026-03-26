@@ -1,8 +1,10 @@
-import pandas_market_calendars as mcal
-from datetime import datetime, date, timedelta
-from zoneinfo import ZoneInfo
 import threading
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
+import pandas_market_calendars as mcal
 from src.lucidpanda.core.logger import logger
+
 
 class MarketCalendar:
     _instance = None
@@ -12,7 +14,7 @@ class MarketCalendar:
     def __new__(cls):
         with cls._lock:
             if cls._instance is None:
-                cls._instance = super(MarketCalendar, cls).__new__(cls)
+                cls._instance = super().__new__(cls)
             return cls._instance
 
     def _get_calendar(self, market_code):
@@ -39,7 +41,7 @@ class MarketCalendar:
             target_date = date.today()
         elif isinstance(target_date, datetime):
             target_date = target_date.date()
-        
+
         # Mapping region/type to Exchange code
         region_map = {
             'CN': 'SSE',
@@ -48,7 +50,7 @@ class MarketCalendar:
             'GOLD': 'CMEGlobex_GC'
         }
         market_code = region_map.get(region, 'SSE')
-        
+
         cal = self._get_calendar(market_code)
         if cal is None:
             # Fallback to weekday check if calendar failed to load
@@ -56,11 +58,11 @@ class MarketCalendar:
 
         # Check if target_date is in the list of valid market days
         try:
-            # CME Globex Gold is usually open 24/5. 
+            # CME Globex Gold is usually open 24/5.
             # We check if it's a trading day first.
             schedule = cal.schedule(start_date=target_date, end_date=target_date)
             return not schedule.empty
-        except:
+        except Exception:
             return target_date.weekday() < 5
 
 # Global helpers
@@ -75,7 +77,7 @@ def was_market_open_last_night(region='US', target_date=None):
     """Specific for QDII: check if US/HK was open on the previous trading session relative to target_date."""
     if target_date is None:
         target_date = date.today()
-    
+
     # Yesterday relative to our 15:00 check
     yesterday = target_date - timedelta(days=1)
     return is_market_open(region, yesterday)
@@ -130,7 +132,7 @@ def get_market_status(region='CN', target_dt=None):
         return "CLOSED"
 
     if region_upper == 'GOLD':
-        # CME Globex Gold: 
+        # CME Globex Gold:
         # Sunday - Friday 6:00 p.m. – 5:00 p.m. ET
         # (18:00 - 17:00 next day)
         # Daily break: 17:00 - 18:00 ET

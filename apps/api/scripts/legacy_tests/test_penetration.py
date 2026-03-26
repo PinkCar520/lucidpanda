@@ -1,8 +1,8 @@
 
-import akshare as ak
-import pandas as pd
 import os
 import re
+
+import akshare as ak
 
 # Disable proxies
 os.environ['HTTP_PROXY'] = ''
@@ -28,8 +28,8 @@ def find_master_etf():
         {"code": "021534", "name": "华夏有色金属ETF联接D"},
         {"code": "020274", "name": "富国中证细分化工产业主题ETF联接A"} # Assuming full name structure
     ]
-    
-    # We need to search. 
+
+    # We need to search.
     # Use ak.fund_name_em() to get the big list of all funds/ETFs?
     print("📋 Downloading full fund list to simulate search...")
     try:
@@ -49,21 +49,21 @@ def find_master_etf():
         print(f"\n🔍 Processing Feeder: {f['name']} ({f['code']})")
         target_name = extract_potential_master_name(f['name'])
         print(f"   Target Name key: '{target_name}'")
-        
+
         # Search exact match or contains
-        # Rules: 
+        # Rules:
         # 1. Must contain target_name
         # 2. Must be an ETF (Code start with 51, 15, 56, 58?)
         # 3. Ideally name is shorter or equal (Master is clean)
-        
+
         mask = all_funds[name_col].str.contains(target_name, regex=False)
         candidates = all_funds[mask]
-        
+
         found = None
         for _, row in candidates.iterrows():
             c_code = str(row[code_col])
             c_name = str(row[name_col])
-            
+
             # Simple ETF filter for China market
             # SH ETFs: 51xxxx, 56xxxx, 58xxxx
             # SZ ETFs: 15xxxx
@@ -71,7 +71,7 @@ def find_master_etf():
                 print(f"   ✅ Candidate ETF Found: {c_name} ({c_code})")
                 found = c_code
                 break # Take first likely one
-        
+
         if not found:
             print("   ❌ No ETF parent found.")
 

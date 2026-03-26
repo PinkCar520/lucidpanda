@@ -3,6 +3,7 @@ import os
 import sys
 import time
 from datetime import date
+
 from dotenv import load_dotenv
 
 # 确保能导入 src
@@ -14,23 +15,23 @@ ai_env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env.ai"
 load_dotenv(env_path)
 load_dotenv(ai_env_path, override=True)
 
-from src.lucidpanda.core.engine import AlphaEngine
 from src.lucidpanda.config import settings
+from src.lucidpanda.core.engine import AlphaEngine
 from src.lucidpanda.db.base import close_global_pool
 
 # 强制本地数据库与开启所有组件 (已在 docker-compose 中暴露 6379)
 # 使用默认配置 (由环境变量从 Docker Compose 注入)
 pass
-settings.ENABLE_AGENT_TOOLS = False 
+settings.ENABLE_AGENT_TOOLS = False
 
 async def test_full_factor_flow():
     print("🚀 开始全链路因子聚合 (Full Flow) 测试...")
-    
+
     # 1. 初始化引擎
     engine = AlphaEngine()
     # 模拟禁用通知通道，防止测试时报错
     engine.channels = []
-    
+
     # 2. 构造测试数据
     source_id = f"test_factor_full_{int(time.time())}"
     raw_data = {
@@ -61,18 +62,18 @@ async def test_full_factor_flow():
     # 内部流程: LLM -> EntityResolver -> DB Save -> FactorService Update
     print("🤖 启动 AlphaEngine 处理逻辑 (包含 LLM 分析)...")
     await engine._process_single_item_async(raw_data)
-    
+
     # 3. 验证结果
     print("\n🧐 验证数据库中的因子变化...")
     trend = await engine.factor_service.get_entity_trend_async("ent_fed_powell", days=1)
-    
+
     if trend:
         metric = trend[0]
-        print(f"✅ 成功命中因子更新!")
-        print(f"  - Canonical ID: ent_fed_powell")
+        print("✅ 成功命中因子更新!")
+        print("  - Canonical ID: ent_fed_powell")
         print(f"  - 平均分 (avg_sentiment): {metric['avg_sentiment']:.4f}")
         print(f"  - 提及次数 (mention_count): {metric['mention_count']}")
-        
+
         if metric['mention_count'] >= 1:
             print("\n🌟 全链路验证 (LLM -> Factor) 100% 通过！")
         else:

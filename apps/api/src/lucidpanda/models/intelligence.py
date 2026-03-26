@@ -1,48 +1,51 @@
-from typing import Optional, Dict, Any, List
 from datetime import datetime
-from sqlmodel import SQLModel, Field, Column, JSON
-from sqlalchemy.dialects.postgresql import JSONB
-class IntelligenceBase(SQLModel):
-    source_id: Optional[str] = Field(default=None, unique=True)
-    author: Optional[str] = None
-    content: Optional[str] = None
-    urgency_score: Optional[int] = 0
-    url: Optional[str] = None
-    category: str = Field(default="macro_gold", index=True) # macro_gold | equity_cn | equity_us
-    
-    # Complex fields using JSONB for performance and Web requirements
-    summary: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
-    sentiment: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
-    market_implication: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
-    actionable_advice: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
-    entities: Optional[Any] = Field(default=None, sa_column=Column(JSONB))
-    tags: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSONB))
-    relation_triples: Optional[Any] = Field(default=None, sa_column=Column(JSONB))
-    agent_trace: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
+from typing import Any
 
-    gold_price_snapshot: Optional[float] = None
-    price_15m: Optional[float] = None
-    price_1h: Optional[float] = None
-    price_4h: Optional[float] = None
-    price_12h: Optional[float] = None
-    price_24h: Optional[float] = None
-    market_session: Optional[str] = None
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Column, Field, SQLModel
+
+
+class IntelligenceBase(SQLModel):
+    source_id: str | None = Field(default=None, unique=True)
+    author: str | None = None
+    content: str | None = None
+    urgency_score: int | None = 0
+    url: str | None = None
+    category: str = Field(default="macro_gold", index=True) # macro_gold | equity_cn | equity_us
+
+    # Complex fields using JSONB for performance and Web requirements
+    summary: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    sentiment: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    market_implication: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    actionable_advice: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    entities: Any | None = Field(default=None, sa_column=Column(JSONB))
+    tags: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSONB))
+    relation_triples: Any | None = Field(default=None, sa_column=Column(JSONB))
+    agent_trace: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+
+    gold_price_snapshot: float | None = None
+    price_15m: float | None = None
+    price_1h: float | None = None
+    price_4h: float | None = None
+    price_12h: float | None = None
+    price_24h: float | None = None
+    market_session: str | None = None
     clustering_score: int = 0
     exhaustion_score: float = 0.0
-    dxy_snapshot: Optional[float] = None
-    us10y_snapshot: Optional[float] = None
-    gvz_snapshot: Optional[float] = None
+    dxy_snapshot: float | None = None
+    us10y_snapshot: float | None = None
+    gvz_snapshot: float | None = None
     corroboration_count: int = 1
-    source_credibility_score: Optional[float] = None
-    alpha_return: Optional[float] = None
-    expectation_gap: Optional[float] = None
+    source_credibility_score: float | None = None
+    alpha_return: float | None = None
+    expectation_gap: float | None = None
 
 class Intelligence(IntelligenceBase, table=True):
     __tablename__ = "intelligence"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    status: Optional[str] = Field(default="PENDING", index=True)
-    last_error: Optional[str] = None
+    status: str | None = Field(default="PENDING", index=True)
+    last_error: str | None = None
 
 class IntelligenceRead(IntelligenceBase):
     id: int
@@ -57,17 +60,17 @@ class IntelligenceMobileRead(SQLModel):
     content: str           # Full content for peek sheet
     urgency_score: int
     sentiment_label: str   # Derived for mobile
-    gold_price_snapshot: Optional[float] = None
-    dxy_snapshot: Optional[float] = None
-    us10y_snapshot: Optional[float] = None
-    oil_snapshot: Optional[float] = None
-    price_15m: Optional[float] = None
-    price_1h: Optional[float] = None
-    price_4h: Optional[float] = None
-    price_12h: Optional[float] = None
-    price_24h: Optional[float] = None
+    gold_price_snapshot: float | None = None
+    dxy_snapshot: float | None = None
+    us10y_snapshot: float | None = None
+    oil_snapshot: float | None = None
+    price_15m: float | None = None
+    price_1h: float | None = None
+    price_4h: float | None = None
+    price_12h: float | None = None
+    price_24h: float | None = None
     corroboration_count: int = 1
     confidence_score: float = 0.0
     confidence_level: str = "LOW"
-    alpha_return: Optional[float] = None
-    expectation_gap: Optional[float] = None
+    alpha_return: float | None = None
+    expectation_gap: float | None = None

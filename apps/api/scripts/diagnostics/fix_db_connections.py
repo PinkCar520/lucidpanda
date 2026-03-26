@@ -1,25 +1,26 @@
 import os
 import re
 
+
 def fix_file(filepath):
-    with open(filepath, 'r') as f:
+    with open(filepath) as f:
         content = f.read()
 
     # We will use regex to find blocks of `conn = self._get_conn()` and `cursor = conn.cursor(...)`
     # and replace them with `with self._get_conn() as conn:` and `with conn.cursor(...) as cursor:`
     # We will then indent all subsequent lines in that block until `except Exception as e:` or `return` or `finally:`
-    
+
     # Since regex is too hard for python scopes, let's do line by line state machine.
     lines = content.split('\n')
     new_lines = []
-    
+
     i = 0
     in_conn_block = False
     conn_indent = 0
-    
+
     while i < len(lines):
         line = lines[i]
-        
+
         # Match `conn = self._get_conn()`
         match_conn = re.match(r'^(\s*)conn\s*=\s*self\._get_conn\(\)\s*$', line)
         if match_conn:
@@ -27,7 +28,7 @@ def fix_file(filepath):
             conn_indent = len(match_conn.group(1))
             new_lines.append(match_conn.group(1) + "with self._get_conn() as conn:")
             new_lines.append(match_conn.group(1) + "    with conn.cursor() as cursor:")  # we default to standard cursor, but let's check next line
-            
+
             # Check if next line is a cursor def
             i += 1
             if i < len(lines):
@@ -45,7 +46,7 @@ def fix_file(filepath):
                         new_lines.append(next_line)
             i += 1
             continue
-            
+
         if in_conn_block:
             # Check if we exited the try block or hit except/finally
             if re.match(r'^\s*(except|finally).*:', line) and len(line) - len(line.lstrip()) <= conn_indent:
@@ -67,7 +68,7 @@ def fix_file(filepath):
                         new_lines.append(line)
         else:
             new_lines.append(line)
-            
+
         i += 1
 
     with open(filepath, 'w') as f:

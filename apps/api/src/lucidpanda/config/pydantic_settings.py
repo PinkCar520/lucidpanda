@@ -7,7 +7,7 @@ Pydantic 配置验证
 3. 清晰的错误信息
 4. IDE 自动补全
 """
-from typing import List
+
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,11 +15,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMSettings(BaseModel):
     """LLM 相关配置"""
     ai_provider: str = Field(default="qwen", description="主力 AI 提供商")
-    llm_fallback_order: List[str] = Field(
+    llm_fallback_order: list[str] = Field(
         default=["qwen", "deepseek", "gemini"],
         description="LLM 降级顺序"
     )
-    
+
     # Qwen
     qwen_api_key: str | None = Field(default=None, description="Qwen API Key")
     qwen_model: str = Field(default="qwen3.5-flash", description="Qwen 模型")
@@ -27,18 +27,18 @@ class LLMSettings(BaseModel):
         default="https://dashscope.aliyuncs.com/compatible-mode/v1",
         description="Qwen API 基础 URL"
     )
-    
+
     # Gemini
     gemini_api_key: str | None = Field(default=None, description="Gemini API Key")
     gemini_model: str = Field(default="gemini-2.5-flash", description="Gemini 模型")
     gemini_batch_model: str = Field(default="gemini-2.0-flash-lite")
     gemini_embedding_model: str = Field(default="models/gemini-embedding-001")
-    
+
     # DeepSeek
     deepseek_api_key: str | None = Field(default=None)
     deepseek_base_url: str = Field(default="https://api.deepseek.com")
     deepseek_model: str = Field(default="deepseek-chat")
-    
+
     @field_validator('llm_fallback_order')
     @classmethod
     def validate_fallback_order(cls, v):
@@ -53,12 +53,12 @@ class LLMSettings(BaseModel):
 class EmbeddingSettings(BaseModel):
     """Embedding 相关配置"""
     embedding_provider: str = Field(default="dashscope")
-    
+
     # DashScope
     dashscope_api_key: str | None = Field(default=None)
     dashscope_embedding_model: str = Field(default="text-embedding-v3")
     dashscope_embedding_dimensions: int = Field(default=768, ge=64, le=2048)
-    
+
     @field_validator('dashscope_embedding_dimensions')
     @classmethod
     def validate_dimensions(cls, v):
@@ -99,113 +99,113 @@ class Settings(BaseSettings):
         print(settings.AI_PROVIDER)  # qwen
         print(settings.LLM_CONCURRENCY_LIMIT)  # 5
     """
-    
+
     model_config = SettingsConfigDict(
         env_file=['.env', '.env.ai'],
         env_file_encoding='utf-8',
         case_sensitive=False,
         extra='ignore'  # 忽略未定义的字段
     )
-    
+
     # 基础配置
     simulation_mode: bool = Field(default=False)
     check_interval_minutes: int = Field(default=2)
-    
+
     # 子配置
     llm: LLMSettings = Field(default_factory=LLMSettings)
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     runtime: RuntimeSettings = Field(default_factory=RuntimeSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
-    
+
     # 快捷访问（兼容旧代码）
     @property
     def AI_PROVIDER(self) -> str:
         return self.llm.ai_provider
-    
+
     @property
-    def LLM_FALLBACK_ORDER(self) -> List[str]:
+    def LLM_FALLBACK_ORDER(self) -> list[str]:
         return self.llm.llm_fallback_order
-    
+
     @property
     def LLM_CONCURRENCY_LIMIT(self) -> int:
         return self.runtime.llm_concurrency_limit
-    
+
     @property
     def AGENT_TOOL_MAX_CALLS(self) -> int:
         return self.runtime.agent_tool_max_calls
-    
+
     @property
     def AGENT_TOOL_TIMEOUT_SECONDS(self) -> int:
         return self.runtime.agent_tool_timeout_seconds
-    
+
     @property
     def ENABLE_AGENT_TOOLS(self) -> bool:
         return self.runtime.enable_agent_tools
-    
+
     @property
     def ENABLE_SEMANTIC_DEDUPE(self) -> bool:
         return self.runtime.enable_semantic_dedupe
-    
+
     @property
     def QWEN_API_KEY(self) -> str | None:
         return self.llm.qwen_api_key
-    
+
     @property
     def QWEN_MODEL(self) -> str:
         return self.llm.qwen_model
-    
+
     @property
     def QWEN_BASE_URL(self) -> str:
         return self.llm.qwen_base_url
-    
+
     @property
     def GEMINI_API_KEY(self) -> str | None:
         return self.llm.gemini_api_key
-    
+
     @property
     def GEMINI_MODEL(self) -> str:
         return self.llm.gemini_model
-    
+
     @property
     def DEEPSEEK_API_KEY(self) -> str | None:
         return self.llm.deepseek_api_key
-    
+
     @property
     def DEEPSEEK_MODEL(self) -> str:
         return self.llm.deepseek_model
-    
+
     @property
     def DEEPSEEK_BASE_URL(self) -> str:
         return self.llm.deepseek_base_url
-    
+
     @property
     def DASHSCOPE_API_KEY(self) -> str | None:
         return self.embedding.dashscope_api_key
-    
+
     @property
     def DASHSCOPE_EMBEDDING_MODEL(self) -> str:
         return self.embedding.dashscope_embedding_model
-    
+
     @property
     def DASHSCOPE_EMBEDDING_DIMENSIONS(self) -> int:
         return self.embedding.dashscope_embedding_dimensions
-    
+
     @property
     def POSTGRES_USER(self) -> str:
         return self.database.postgres_user
-    
+
     @property
     def POSTGRES_PASSWORD(self) -> str:
         return self.database.postgres_password
-    
+
     @property
     def POSTGRES_HOST(self) -> str:
         return self.database.postgres_host
-    
+
     @property
     def POSTGRES_PORT(self) -> int:
         return self.database.postgres_port
-    
+
     @property
     def POSTGRES_DB(self) -> str:
         return self.database.postgres_db

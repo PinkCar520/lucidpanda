@@ -9,7 +9,7 @@ import {
     Loader2, ChevronRight, RefreshCw, Zap, Network
 } from 'lucide-react';
 import { useRouter } from '@/i18n/navigation';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { atomicSignOut } from '@/lib/auth-cleanup';
 
@@ -27,11 +27,13 @@ export default function CommandMenu() {
     const [loading, setLoading] = useState(false);
     
     const router = useRouter();
-    useSession();
+    const { data: session } = useSession();
+    const locale = useLocale();
     
     const tCommand = useTranslations('CommandMenu'); // New namespace
     const tApp = useTranslations('App');
     const tAuth = useTranslations('Auth'); // For Sign Out
+    const tSettings = useTranslations('Settings');
     // Toggle the menu when ⌘K is pressed
     useEffect(() => {
         const down = (e: KeyboardEvent) => {

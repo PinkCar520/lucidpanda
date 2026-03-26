@@ -1,6 +1,6 @@
 import asyncio
-import sys
 import os
+import sys
 
 # 确保项目根目录在 path 中
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -8,8 +8,9 @@ if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
 from src.lucidpanda.config import settings
-from src.lucidpanda.core.logger import logger
 from src.lucidpanda.core.engine import AlphaEngine
+from src.lucidpanda.core.logger import logger
+
 
 async def main_loop():
     logger.info("==========================================")
@@ -36,9 +37,9 @@ async def main_loop():
             await engine.run_once_async()
         except Exception as e:
             logger.error(f"主循环异常: {e}")
-        
+
         logger.info(f"📡 等候新数据事件(Redis) 或 {fallback_timeout}s 兜底自动轮询...")
-        
+
         try:
             # 阻塞等待 Redis 消息，或超时自动唤醒
             if pubsub:
@@ -58,9 +59,9 @@ async def main_loop():
                 pass
             pubsub = None
             redis_client = None
-            
+
             await asyncio.sleep(fallback_timeout)
-            
+
             # 兜底重建 Redis 连接
             try:
                 import redis.asyncio as redis_module

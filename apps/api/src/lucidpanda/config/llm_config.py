@@ -3,16 +3,15 @@ LLM 提供商配置模块
 统一管理所有 LLM 提供商的配置信息
 """
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class LLMProviderConfig:
     """LLM 提供商配置"""
     name: str
-    api_key: Optional[str] = None
-    model: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    model: str | None = None
+    base_url: str | None = None
     enabled: bool = True
 
 
@@ -20,8 +19,8 @@ class LLMProviderConfig:
 class EmbeddingProviderConfig:
     """Embedding 提供商配置"""
     name: str
-    api_key: Optional[str] = None
-    model: Optional[str] = None
+    api_key: str | None = None
+    model: str | None = None
     dimensions: int = 768
     enabled: bool = True
 
@@ -31,21 +30,21 @@ class LLMConfigManager:
     LLM 配置管理器
     提供统一的配置访问接口
     """
-    
+
     # 支持的 LLM 提供商
     GEMINI = "gemini"
     DEEPSEEK = "deepseek"
     QWEN = "qwen"
-    
+
     # 支持的 Embedding 提供商
     DASHSCOPE = "dashscope"
     GEMINI_EMBEDDING = "gemini"
-    
+
     @staticmethod
     def get_llm_providers() -> dict[str, LLMProviderConfig]:
         """获取所有 LLM 提供商配置"""
         from src.lucidpanda.config import settings
-        
+
         return {
             LLMConfigManager.GEMINI: LLMProviderConfig(
                 name=LLMConfigManager.GEMINI,
@@ -69,7 +68,7 @@ class LLMConfigManager:
                 enabled=bool(settings.QWEN_API_KEY)
             ),
         }
-    
+
     @staticmethod
     def get_embedding_providers() -> dict[str, EmbeddingProviderConfig]:
         """获取所有 Embedding 提供商配置"""
@@ -91,7 +90,7 @@ class LLMConfigManager:
                 enabled=bool(settings.GEMINI_API_KEY)
             ),
         }
-    
+
     @staticmethod
     def get_active_llm(provider_name: str) -> LLMProviderConfig:
         """获取指定 LLM 提供商配置"""
@@ -99,7 +98,7 @@ class LLMConfigManager:
         if provider_name not in providers:
             raise ValueError(f"未知的 LLM 提供商：{provider_name}")
         return providers[provider_name]
-    
+
     @staticmethod
     def get_active_embedding(provider_name: str) -> EmbeddingProviderConfig:
         """获取指定 Embedding 提供商配置"""
@@ -107,13 +106,13 @@ class LLMConfigManager:
         if provider_name not in providers:
             raise ValueError(f"未知的 Embedding 提供商：{provider_name}")
         return providers[provider_name]
-    
+
     @staticmethod
     def get_available_llms() -> list[str]:
         """获取可用的 LLM 提供商列表"""
         providers = LLMConfigManager.get_llm_providers()
         return [name for name, config in providers.items() if config.enabled]
-    
+
     @staticmethod
     def get_available_embeddings() -> list[str]:
         """获取可用的 Embedding 提供商列表"""

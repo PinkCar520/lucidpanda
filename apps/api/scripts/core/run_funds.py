@@ -1,19 +1,21 @@
-import schedule
-import time
-import sys
 import os
+import sys
+import time
 from datetime import datetime
+
+import schedule
 
 # 确保项目根目录在 path 中
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.core.logger import logger
-from src.lucidpanda.core.fund_engine import FundEngine
+from scripts.backfills.sync_fund_metadata import sync_all_funds
 from scripts.backfills.sync_stock_industries import IndustrySyncer
 from scripts.daily_tasks.calc_fund_stats import StatsEngine
-from scripts.backfills.sync_fund_metadata import sync_all_funds
+from src.lucidpanda.core.fund_engine import FundEngine
+from src.lucidpanda.core.logger import logger
+
 
 def run_snapshot():
     logger.info("⏰ [SCHEDULE] Triggering 15:00 Valuation Snapshot...")
@@ -38,7 +40,7 @@ def run_daily_sync():
         # Sync stocks
         syncer = IndustrySyncer()
         syncer.run()
-        
+
         # Sync funds
         logger.info("⏰ [SCHEDULE] Triggering Daily Fund Metadata Sync...")
         sync_all_funds()
@@ -82,19 +84,19 @@ def main():
     # Define Schedule
     # Snapshot at 15:05 (A-share closed, give a few mins for final prices to settle)
     schedule.every().day.at("15:05").do(run_snapshot)
-    
+
     # Reconciliation at 22:30 (Most funds published NAV by this time)
     schedule.every().day.at("22:30").do(run_reconciliation)
-    
+
     # Full Sync at 01:00
     schedule.every().day.at("01:00").do(run_daily_sync)
 
     # Stats calculation at 01:30
     schedule.every().day.at("01:30").do(run_stats_calc)
-    
+
     # Macroeconomic Calendar Sync at 02:00
     schedule.every().day.at("02:00").do(run_macro_sync)
-    
+
     # Market Holiday Sync at 02:05
     schedule.every().day.at("02:05").do(run_holiday_sync)
 
@@ -106,7 +108,7 @@ def main():
         last_heartbeat = 0
         while True:
             schedule.run_pending()
-            
+
             # Every 1 hour, print a heartbeat and next runs
             if time.time() - last_heartbeat > 3600:
                 logger.info(f"💓 Heartbeat: System Time is {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

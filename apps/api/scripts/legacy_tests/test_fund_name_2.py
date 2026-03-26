@@ -1,6 +1,8 @@
 
-import akshare as ak
 import datetime
+
+import akshare as ak
+
 
 def check_cols(code):
     try:

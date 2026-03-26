@@ -1,11 +1,12 @@
 import json
-import requests
 import re
+
+import requests
 from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.logger import logger
 
 try:
-    from pypinyin import pinyin, Style
+    from pypinyin import Style, pinyin
     HAS_PYPINYIN = True
 except Exception:
     HAS_PYPINYIN = False
@@ -25,11 +26,11 @@ def sync_all_funds():
     logger.info("🚀 Starting full fund metadata sync...")
     if not HAS_PYPINYIN:
         logger.warning("⚠️ pypinyin is not installed, fallback to legacy shorthand from data source.")
-    
+
     # Market fund list interface
     # FORMAT: ["000001","HXCZHH","华夏成长混合","混合型","HUAXIACHENGZHANGHUNHE"]
     url = "http://fund.eastmoney.com/js/fundcode_search.js"
-    
+
     try:
         response = requests.get(url, timeout=30)
         # Extract the JSON-like array from the JS variable
@@ -47,17 +48,17 @@ def sync_all_funds():
 
         # We will sync basics first
         # fund_metadata (fund_code, fund_name, pinyin_shorthand, investment_type)
-        
+
         count = 0
         for fund in fund_list:
             code = fund[0]
             shorthand_legacy = fund[1] # Legacy acronym
             name = fund[2]
             f_type = fund[3]
-            
+
             # Prefer generated pinyin initials, fallback to legacy shorthand when needed.
             pinyin_idx = get_pinyin_shorthand(name) or (shorthand_legacy or "")
-            
+
             cursor.execute("""
                 INSERT INTO fund_metadata (fund_code, fund_name, pinyin_shorthand, investment_type)
                 VALUES (%s, %s, %s, %s)
@@ -67,7 +68,7 @@ def sync_all_funds():
                     investment_type = EXCLUDED.investment_type,
                     last_full_sync = CURRENT_TIMESTAMP
             """, (code, name, pinyin_idx, f_type))
-            
+
             count += 1
             if count % 1000 == 0:
                 conn.commit()
@@ -76,7 +77,7 @@ def sync_all_funds():
         conn.commit()
         conn.close()
         logger.info(f"✨ Successfully synced total {count} funds to database.")
-        
+
     except Exception as e:
         logger.error(f"❌ Fund sync failed: {e}")
 

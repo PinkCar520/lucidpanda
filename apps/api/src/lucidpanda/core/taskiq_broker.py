@@ -4,10 +4,10 @@ TaskIQ Broker Configuration for LucidPanda
 Replaces the old Celery setup with a lightweight, native asyncio TaskIQ broker
 using Redis as the message transport and Result Backend.
 """
-from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
+from src.lucidpanda.config import settings
 from taskiq import TaskiqScheduler
 from taskiq.schedule_sources import LabelScheduleSource
-from src.lucidpanda.config import settings
+from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
 
 # 1. 配置结果后端 (Result Backend) - 可选，如果我们不需要保留任务结果，可以用 Dummy
 redis_result_backend = RedisAsyncResultBackend(
@@ -27,7 +27,6 @@ scheduler = TaskiqScheduler(
 )
 
 # IMPORTANT: Import tasks here to ensure they are registered with the broker/scheduler
-import src.lucidpanda.tasks.collector_tasks
 
 # 当 FastAPI 或独立的 Worker 启动时，需要初始化这些东西
 @broker.on_event("startup")

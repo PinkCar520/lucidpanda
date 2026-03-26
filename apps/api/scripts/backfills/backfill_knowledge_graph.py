@@ -20,11 +20,11 @@ scripts/backfill_knowledge_graph.py
   --batch-size  每批处理数量（默认 50）
   --min-urgency Step B 最低紧急度门槛（默认 7）
 """
-import sys
-import os
-import time
 import argparse
 import logging
+import os
+import sys
+import time
 
 # 确保能找到 src 模块
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -61,7 +61,7 @@ def step_a_backfill(db, batch_size: int, dry_run: bool) -> int:
     Step A：对已有 entities 的记录，提取关系写入图谱。
     不需要调用任何外部 API，完全从本地数据库读取。
     """
-    
+
 
     logger.info("=" * 60)
     logger.info("Step A：从现有 entities JSONB 回填图谱边")
@@ -133,7 +133,7 @@ def step_b_backfill(db, llm, batch_size: int, min_urgency: int,
     Step B：对 entities IS NULL 的高价值记录，重新调 LLM 补齐 entities，再写图谱。
     有 API 调用成本，建议先通过 --dry-run 确认数量。
     """
-    
+
 
     logger.info("=" * 60)
     logger.info(f"Step B：重新 LLM 提取 entities（urgency >= {min_urgency}）")
@@ -251,8 +251,9 @@ def main():
 
     if args.step in ('b', 'all'):
         if args.llm == 'gemini':
-            from src.lucidpanda.providers.llm.gemini import GeminiLLM
             import os
+
+            from src.lucidpanda.providers.llm.gemini import GeminiLLM
             # 批量任务优先使用 gemini-2.0-flash-lite（无每日上限），避免占用实时分析配额
             if not os.environ.get("GEMINI_MODEL"):
                 os.environ["GEMINI_MODEL"] = os.environ.get("GEMINI_BATCH_MODEL", "gemini-2.0-flash-lite")

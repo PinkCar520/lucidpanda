@@ -3,16 +3,17 @@ db/intelligence.py — 情报域
 ============================
 情报 CRUD、去重（URL/pg_trgm/pgvector）、向量嵌入、信源可信度。
 """
-from typing import Any, Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+
 import pytz
-import psycopg
 from psycopg.types.json import Jsonb
-from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
 from src.lucidpanda.utils.confidence import calc_confidence_score
-from src.lucidpanda.utils.entity_normalizer import normalize_entity_name, normalize_entity_type
+from src.lucidpanda.utils.entity_normalizer import (
+    normalize_entity_name,
+    normalize_entity_type,
+)
 from src.lucidpanda.utils.graph_reasoning import infer_event_chains, relation_signal
 
 
@@ -359,25 +360,25 @@ class IntelligenceRepo(DBBase):
                              LIMIT 1
                          """, (vec_list, vec_list))
                     row = cursor.fetchone()
-                    
+
                     if not row:
                         return {"status": "NEW", "sim": 0.0}
-                    
+
                     sim = row['sim']
                     lead_sentiment = row['sentiment_score']
-                    
+
                     if sim > threshold:
                         # 检查是否有重大的情绪反转
                         if sentiment is not None and lead_sentiment is not None:
                             if abs(lead_sentiment - sentiment) > 0.5:
                                 return {"status": "SENTIMENT_REVERSAL", "sim": sim, "lead_id": row['source_id']}
-                        
+
                         # 确定性重复阈值
                         if sim > 0.95:
                             return {"status": "DUP", "sim": sim, "lead_id": row['source_id']}
                         else:
                             return {"status": "SUSPECTED", "sim": sim, "lead_id": row['source_id'], "lead_summary": row['summary']}
-                    
+
                     return {"status": "NEW", "sim": sim}
         except Exception as e:
             logger.error(f"Semantic Duplicate Check Failed: {e}")
@@ -531,7 +532,9 @@ class IntelligenceRepo(DBBase):
         try:
             news_time = None
             if raw_data.get('timestamp'):
-                import dateutil.parser, calendar
+                import calendar
+
+                import dateutil.parser
                 try:
                     if isinstance(raw_data['timestamp'], str):
                         news_time = dateutil.parser.parse(raw_data['timestamp'])
@@ -554,19 +557,19 @@ class IntelligenceRepo(DBBase):
 
             # Use pre-fetched snapshots if available, otherwise fetch (cached)
             snaps = market_snapshots or {}
-            
+
             dxy = raw_data.get('dxy_snapshot') or snaps.get("DX-Y.NYB")
             if dxy is None: dxy = self.get_market_snapshot("DX-Y.NYB", news_time)
-            
+
             us10y = raw_data.get('us10y_snapshot') or snaps.get("^TNX")
             if us10y is None: us10y = self.get_market_snapshot("^TNX", news_time)
-            
+
             gvz = raw_data.get('gvz_snapshot') or snaps.get("^GVZ")
             if gvz is None: gvz = self.get_market_snapshot("^GVZ", news_time)
-            
+
             gold = raw_data.get('gold_price_snapshot') or snaps.get("GC=F")
             if gold is None: gold = self.get_market_snapshot("GC=F", news_time)
-            
+
             oil = raw_data.get('oil_price_snapshot') or snaps.get("CL=F")
             if oil is None: oil = self.get_market_snapshot("CL=F", news_time)
 
@@ -628,7 +631,7 @@ class IntelligenceRepo(DBBase):
         """批量保存原始情报，共享数据库连接和市场快照。"""
         if not items:
             return 0
-        
+
         saved_count = 0
         try:
             # 1. 预解析当前的全局市场快照（利用刚才加的 Redis 缓存）
@@ -640,7 +643,7 @@ class IntelligenceRepo(DBBase):
                 "GC=F": self.get_market_snapshot("GC=F", now),
                 "CL=F": self.get_market_snapshot("CL=F", now),
             }
-            
+
             # 2. 使用单一连接批量处理
             with self._get_conn() as conn:
                 for item in items:
@@ -650,13 +653,13 @@ class IntelligenceRepo(DBBase):
                             saved_count += 1
                     except Exception as e:
                         logger.error(f"Batch item save failed: {e}")
-            
+
             return saved_count
         except Exception as e:
             logger.error(f"Batch Save Failed: {e}")
             return 0
 
-    def get_intelligence_analysis(self, source_id: str) -> Optional[dict]:
+    def get_intelligence_analysis(self, source_id: str) -> dict | None:
         """获取单条情报的分析结果 (将散列字段组装成 dict)"""
         try:
             with self._get_conn() as conn:
@@ -681,7 +684,7 @@ class IntelligenceRepo(DBBase):
             def _to_jsonb(val):
                 if val is None: return None
                 return Jsonb(val)
-                
+
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     # 仅更新需要演化的核心分析字段
@@ -845,7 +848,9 @@ class IntelligenceRepo(DBBase):
         try:
             news_time = None
             if raw_data.get('timestamp'):
-                import dateutil.parser, calendar
+                import calendar
+
+                import dateutil.parser
                 try:
                     if isinstance(raw_data['timestamp'], str):
                         news_time = dateutil.parser.parse(raw_data['timestamp'])
@@ -1023,7 +1028,7 @@ class IntelligenceRepo(DBBase):
                 with conn.cursor() as cursor:
                     if exclude_id:
                         cursor.execute(
-                            "SELECT id FROM intelligence WHERE url = %s AND id != %s LIMIT 1", 
+                            "SELECT id FROM intelligence WHERE url = %s AND id != %s LIMIT 1",
                             (new_url, exclude_id)
                         )
                     else:
@@ -1122,7 +1127,7 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"mark_clustered 失败: {e}")
 
-    def get_story_id_by_source_id(self, source_id: str) -> Optional[str]:
+    def get_story_id_by_source_id(self, source_id: str) -> str | None:
         """Fetch story_id for a given intelligence record (source_id)."""
         try:
             with self._get_conn() as conn:
@@ -1140,12 +1145,12 @@ class IntelligenceRepo(DBBase):
             return None
 
     # ── 实体未命中监控 (Entity Miss Logging) ──────────────────────────────
-    
+
     def log_entity_miss_batch(self, source_id: str, missing_names: list) -> None:
         """记录实体提取中未对齐（查无此人）的名称，用于后续人工审核补全"""
         if not missing_names:
             return
-            
+
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -1644,7 +1649,7 @@ class IntelligenceRepo(DBBase):
                     node_map = {}
                     for n in nodes_data:
                         node_map[n["node_id"]] = dict(n)
-                        
+
                     for edge in edges:
                         node_map[edge["from_node_id"]] = {
                             "node_id": edge["from_node_id"],

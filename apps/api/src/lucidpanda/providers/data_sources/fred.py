@@ -1,9 +1,16 @@
-import httpx
-from datetime import datetime, timezone
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from src.lucidpanda.core.logger import logger
-from src.lucidpanda.config import settings
 import asyncio
+from datetime import datetime, timezone
+
+import httpx
+from src.lucidpanda.config import settings
+from src.lucidpanda.core.logger import logger
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
 
 class FredDataSource:
     """
@@ -45,14 +52,14 @@ class FredDataSource:
         }
 
         response = await client.get(self.BASE_URL, params=params, timeout=10.0)
-        
+
         if response.status_code != 200:
             logger.error(f"❌ FRED抓取失败 [{series_id}]: HTTP {response.status_code} - {response.text}")
             return None
 
         data = response.json()
         observations = data.get("observations", [])
-        
+
         results = []
         for obs in observations:
             results.append({
@@ -62,7 +69,7 @@ class FredDataSource:
                 "value": obs.get("value"),
                 "ingested_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             })
-            
+
         return results
 
     async def fetch_macro_dashboard(self) -> dict:
@@ -71,13 +78,13 @@ class FredDataSource:
         """
         if not self.api_key:
             return {}
-            
+
         logger.info("🇺🇸 开始调用美联储 FRED 官方接口拉取大盘快照...")
-        
+
         async with httpx.AsyncClient(verify=True) as client:
             tasks = [self.fetch_series(client, series_id) for series_id in self.MACRO_INDICATORS.keys()]
             results = await asyncio.gather(*tasks, return_exceptions=True)
-            
+
         dashboard = {}
         for series_id, res in zip(self.MACRO_INDICATORS.keys(), results):
             if isinstance(res, Exception):
@@ -85,6 +92,6 @@ class FredDataSource:
                 dashboard[series_id] = None
             elif res and len(res) > 0:
                 dashboard[series_id] = res[0]
-                
+
         logger.info(f"✅ 美联储宏观快照获取完毕，成功获取 {len([k for k,v in dashboard.items() if v])} 项指标。")
         return dashboard

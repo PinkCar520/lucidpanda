@@ -112,6 +112,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     console.error('[SSE] Connection error:', err);
   }, []);
 
+  const tApp = useTranslations('App');
+
   const isLoading = marketLoading || intelLoading;
 
   // SSE Connection for real-time updates
@@ -242,13 +244,13 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
           {/* Middle: Live Market Snapshot (Mini Charts) */}
           <div className="lg:col-span-5 h-full flex items-center overflow-x-auto no-scrollbar gap-4 px-2">
-             <TradingViewTickerTape />
-             <TradingViewMiniCharts />
+             <TradingViewTickerTape locale={locale} t={tApp} />
+             <TradingViewMiniCharts locale={locale} t={tApp} />
           </div>
 
           {/* Right: Global Ops / Status / Time */}
           <div className="lg:col-span-3 h-full flex items-center justify-end gap-3 pr-2">
-             <SystemStatus />
+             <SystemStatus t={tApp} isConnected={true} />
              <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
              <LanguageSwitcher />
           </div>
@@ -360,7 +362,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
       {/* Global Alerts for High Urgency Items */}
       {globalHighUrgency > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md animate-in slide-in-from-bottom-4">
-            <Alert variant="destructive" className="animate-bounce border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400 shadow-2xl">
+            <Alert variant="error" className="animate-bounce border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400 shadow-2xl">
               <AlertTriangle className="h-4 w-4" />
               <div className="flex justify-between items-center w-full">
                 <span>{t('highUrgencyAlert', { count: globalHighUrgency })}</span>

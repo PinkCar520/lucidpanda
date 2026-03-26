@@ -1,9 +1,10 @@
-import re
 import logging
+import re
+
 # from sklearn.metrics.pairwise import cosine_similarity  # 延迟导入
 import numpy as np
-from src.lucidpanda.services.embedding_service import embedding_service
 from src.lucidpanda.config import settings
+from src.lucidpanda.services.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ class NewsDeduplicator:
     def __init__(self, db=None):
         self.semantic_threshold = settings.NEWS_SIMILARITY_THRESHOLD
         self.db = db  # IntelligenceDB 实例，用于 pgvector 语义查询
-        
+
         # 内存向量历史（仅当 db=None 时用作降级方案）
         self.vec_history = []
         self.id_history = []
@@ -34,13 +35,13 @@ class NewsDeduplicator:
         """
         if not text:
             return ""
-            
+
         # Strip HTML tags
         text = re.sub(r'<[^>]+>', '', text)
-            
+
         # Remove date patterns like (2024/01/01 ...)
         text = re.sub(r"\d{4}/\d{2}/\d{2}.*?\)", "", text)
-        
+
         # Remove full-width/half-width parentheses
         text = re.sub(r"[（）()]", "", text)
 
@@ -51,7 +52,7 @@ class NewsDeduplicator:
         ]
         for n in noise:
             text = text.replace(n, "")
-            
+
         return text.strip()
 
 
@@ -59,12 +60,12 @@ class NewsDeduplicator:
         """BERT semantic vector reranking. Returns True if duplicate found in history."""
         if not self.vec_history:
             return False
-            
+
         from sklearn.metrics.pairwise import cosine_similarity
-        
+
         # Ensure text_vector is 2D
         vec = np.array(text_vector).reshape(1, -1)
-        
+
         for v in self.vec_history:
             if v is None: continue
             v_2d = np.array(v).reshape(1, -1)
@@ -103,8 +104,8 @@ class NewsDeduplicator:
                     return {"is_duplicate": True, "status": "DUP", "lead_id": result.get("lead_id")}
                 elif result["status"] in ["SUSPECTED", "SENTIMENT_REVERSAL"]:
                     return {
-                        "is_duplicate": False, 
-                        "status": result["status"], 
+                        "is_duplicate": False,
+                        "status": result["status"],
                         "lead_id": result.get("lead_id"),
                         "lead_summary": result.get("lead_summary")
                     }

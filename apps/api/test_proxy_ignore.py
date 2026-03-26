@@ -1,8 +1,8 @@
-import asyncio
-import httpx
-from openai import OpenAI
 import os
+
+import httpx
 from dotenv import load_dotenv
+from openai import OpenAI
 
 env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
 ai_env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env.ai")
@@ -10,6 +10,7 @@ load_dotenv(env_path)
 load_dotenv(ai_env_path, override=True)
 
 from src.lucidpanda.config import settings
+
 
 def test():
     client = OpenAI(

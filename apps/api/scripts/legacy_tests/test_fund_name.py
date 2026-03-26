@@ -1,6 +1,7 @@
 
+
 import akshare as ak
-import sys
+
 
 def get_name(code):
     try:

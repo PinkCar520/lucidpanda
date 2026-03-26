@@ -1,18 +1,16 @@
-import sys
 import os
-import psycopg
+import sys
 
-from datetime import datetime
-import json
+import psycopg
 
 # Add project path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.lucidpanda.config import settings
-from src.lucidpanda.core.logger import logger
+
 
 def diagnose():
-    conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
+    conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
         host=settings.POSTGRES_HOST,
         port=settings.POSTGRES_PORT,
         user=settings.POSTGRES_USER,
@@ -37,7 +35,7 @@ def diagnose():
     for target in targets:
         print(f"📍 核心阶段: {target['desc']}")
         print(f"📅 时间范围: {target['start']} 至 {target['end']}")
-        
+
         # Query intelligence records for this range
         query = """
             SELECT 
@@ -62,13 +60,13 @@ def diagnose():
             # Format Analysis Result
             summary = row['summary'].get('zh', row['summary']) if isinstance(row['summary'], dict) else row['summary']
             advice = row['actionable_advice'].get('zh', row['actionable_advice']) if isinstance(row['actionable_advice'], dict) else row['actionable_advice']
-            
+
             # Outcome Calculation
             change_1h = ((row['price_1h'] - row['gold_price_snapshot']) / row['gold_price_snapshot'] * 100) if row['price_1h'] and row['gold_price_snapshot'] else 0
             change_24h = ((row['price_24h'] - row['gold_price_snapshot']) / row['gold_price_snapshot'] * 100) if row['price_24h'] and row['gold_price_snapshot'] else 0
-            
+
             fed_status = "Dovish (降息)" if (row['fed_regime'] or 0) > 0 else "Hawkish (加息)" if (row['fed_regime'] or 0) < 0 else "Neutral"
-            
+
             print(f"\n  [{i+1}] 情报标题: {row['content'][:80]}...")
             print(f"      🔹 维度 A (密度/枯竭): Clustering={row['clustering_score']}, Exhaustion={row['exhaustion_score']:.1f}")
             print(f"      🔹 维度 B (筹码拥挤): COT Percentile={row['cot_pct']}% ({'OVERCROWDED' if (row['cot_pct'] or 0) > 85 else 'CLEARING'})")

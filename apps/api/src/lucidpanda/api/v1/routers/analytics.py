@@ -1,7 +1,7 @@
+
 from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional, Dict, Any
-from src.lucidpanda.services.factor_service import FactorService
 from src.lucidpanda.core.logger import logger
+from src.lucidpanda.services.factor_service import FactorService
 
 router = APIRouter()
 factor_service = FactorService()
@@ -22,7 +22,7 @@ async def get_entity_trend(
                 "trend": [],
                 "message": "No data found for this entity in the given period."
             }
-        
+
         return {
             "canonical_id": canonical_id,
             "display_name": trend[0].get("display_name") if trend else None,

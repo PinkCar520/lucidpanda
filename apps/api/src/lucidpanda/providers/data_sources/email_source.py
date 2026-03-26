@@ -1,20 +1,21 @@
-import os
-import imaplib
-import email
-from email.header import decode_header
 import asyncio
+import email
+import imaplib
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
-from src.lucidpanda.core.logger import logger
+from email.header import decode_header
+from typing import Any
+
 from src.lucidpanda.config import settings
+from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.data_sources.base import BaseDataSource
+
 
 class EmailDataSource(BaseDataSource):
     """
     基于 IMAP 的情报摄入源。
     专门监听来自白宫、美联储等官方域名的邮件通知。
     """
-    
+
     OFFICIAL_DOMAINS = {
         "who.eop.gov": "White House",
         "frb.gov": "Federal Reserve",
@@ -41,7 +42,7 @@ class EmailDataSource(BaseDataSource):
             return value.decode("utf-8", errors="ignore")
         return str(s)
 
-    def _fetch_emails_sync(self) -> List[Dict[str, Any]]:
+    def _fetch_emails_sync(self) -> list[dict[str, Any]]:
         """深度重构的同步抓取逻辑，完全适配网易 163 邮箱开发者规范。"""
         items = []
         if not all([self.server, self.user, self.password]):
@@ -52,7 +53,7 @@ class EmailDataSource(BaseDataSource):
         try:
             # 1. 建立 SSL 连接
             mail = imaplib.IMAP4_SSL(self.server, self.port)
-            
+
             # 2. 【关键】网易 163 要求 ID 指令声明身份
             try:
                 mail.xatom('ID', '("name" "ios")')
@@ -61,7 +62,7 @@ class EmailDataSource(BaseDataSource):
 
             # 3. 登录
             mail.login(self.user, self.password)
-            
+
             # 登录后再发一次 ID 指令
             try:
                 mail.xatom('ID', '("name" "ios")')
@@ -77,22 +78,22 @@ class EmailDataSource(BaseDataSource):
 
             # 4. 扫描文件夹
             target_folders = ["INBOX", "&dcVr0mWHTvZZOQ-", "&V4NXPpCuTvY-"]
-            
+
             for folder in target_folders:
                 try:
                     status, _ = mail.select(folder)
                     if status != 'OK':
                         status, _ = mail.select(f'"{folder}"')
-                    
+
                     if status != 'OK':
                         logger.info(f"ℹ️ 无法选择文件夹 {folder}: {status}")
                         continue
-                    
+
                     _, unseen_msg = mail.search(None, 'UNSEEN')
                     if not unseen_msg[0]:
                         logger.info(f"📂 正在检查文件夹 [{folder}]: 未读=0")
                         continue
-                    
+
                     unseen_ids = unseen_msg[0].split()
                     logger.info(f"📂 正在检查文件夹 [{folder}]: 未读={len(unseen_ids)}")
 
@@ -103,10 +104,10 @@ class EmailDataSource(BaseDataSource):
 
                         raw_content = msg_data[0][1]
                         msg = email.message_from_bytes(raw_content)
-                        
+
                         sender_raw = self._decode_str(msg.get("From", ""))
                         subject = self._decode_str(msg.get("Subject", ""))
-                        
+
                         sender_addr = ""
                         if "<" in sender_raw:
                             sender_addr = sender_raw.split("<")[-1].split(">")[0].lower()
@@ -120,7 +121,7 @@ class EmailDataSource(BaseDataSource):
                                 source_label = label
                                 is_verified = True
                                 break
-                        
+
                         if not is_verified: continue
 
                         content_body = ""
@@ -163,14 +164,14 @@ class EmailDataSource(BaseDataSource):
                 except:
                     pass
             logger.info(f"✅ 邮件巡检完毕: 发现并录入 {len(items)} 条新通稿。")
-            
+
         return items
 
-    async def fetch_async(self) -> List[Dict[str, Any]] | None:
+    async def fetch_async(self) -> list[dict[str, Any]] | None:
         """异步包装，在线程池中运行同步 IMAP 逻辑。"""
         items = await asyncio.to_thread(self._fetch_emails_sync)
         return items if items else None
 
-    def fetch(self) -> List[Dict[str, Any]] | None:
+    def fetch(self) -> list[dict[str, Any]] | None:
         """同步调用入口。"""
         return asyncio.run(self.fetch_async())

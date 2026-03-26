@@ -1,6 +1,8 @@
 import os
+
+from pypinyin import Style, pinyin
 from sqlalchemy import create_engine, text
-from pypinyin import pinyin, Style
+
 
 def get_pinyin_shorthand(name):
     if not name: return ""
@@ -12,11 +14,11 @@ def update_pinyin():
     db_pass = os.getenv("POSTGRES_PASSWORD", "secure_password")
     db_host = os.getenv("POSTGRES_HOST", "db")
     db_name = os.getenv("POSTGRES_DB", "lucidpanda_core")
-    
+
     url = f"postgresql+psycopg://{db_user}:{db_pass}@{db_host}:5432/{db_name}"
     print(f"Connecting to database: {url}")
     engine = create_engine(url)
-    
+
     with engine.connect() as conn:
         result = conn.execute(text("SELECT stock_code, stock_name FROM stock_metadata LIMIT 5"))
         stocks = result.fetchall()

@@ -41,9 +41,6 @@ services:
       - redis_data:/data
     ports:
       - "6379:6379"
-    sysctls:
-      - net.core.somaxconn=1024
-      - vm.overcommit_memory=1
     deploy:
       resources:
         limits:

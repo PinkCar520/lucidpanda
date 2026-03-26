@@ -1,8 +1,9 @@
 import json
-import asyncio
+
 import redis.asyncio as redis
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
+
 
 class RealtimeHub:
     """
@@ -21,9 +22,9 @@ class RealtimeHub:
     async def publish(self, channel: str, message: dict):
         """Publish a message to a specific Redis channel."""
         await self.connect()
-        
+
         def json_serial(obj):
-            from datetime import datetime, date
+            from datetime import date, datetime
             if isinstance(obj, (datetime, date)):
                 return obj.isoformat()
             if isinstance(obj, (bytes, memoryview)):
@@ -38,7 +39,7 @@ class RealtimeHub:
         await self.connect()
         pubsub = self.redis.pubsub()
         await pubsub.subscribe(channel)
-        
+
         try:
             async for message in pubsub.listen():
                 if message['type'] == 'message':

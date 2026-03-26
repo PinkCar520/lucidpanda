@@ -1,12 +1,11 @@
 import akshare as ak
-import pandas as pd
 import pytest
 
 
 @pytest.mark.parametrize("code", ["001618"])
 def test_sources(code):
     print(f"--- Testing {code} ---")
-    
+
     # Source 1: EastMoney (Current)
     try:
         df_em = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")

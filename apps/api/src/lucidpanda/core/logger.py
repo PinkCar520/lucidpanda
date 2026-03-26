@@ -1,8 +1,10 @@
-import sys
-import os
 import logging
+import os
+import sys
 from logging.handlers import TimedRotatingFileHandler
+
 from src.lucidpanda.config import settings
+
 
 def setup_logger(name="LucidPanda"):
     logger = logging.getLogger(name)
@@ -28,7 +30,7 @@ def setup_logger(name="LucidPanda"):
     # 1. Console Handler (Text for readability in Dev, JSON in Prod if needed)
     # Check env var for preferring JSON logs in console (e.g. for Docker)
     use_json_console = os.getenv('LOG_FORMAT', 'text').lower() == 'json'
-    
+
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(json_formatter if use_json_console else text_formatter)
     logger.addHandler(console_handler)
@@ -36,7 +38,7 @@ def setup_logger(name="LucidPanda"):
     # 2. File Handler (Always JSON for easy parsing/aggregation)
     if not os.path.exists(settings.LOG_DIR):
         os.makedirs(settings.LOG_DIR)
-        
+
     file_handler = TimedRotatingFileHandler(
         os.path.join(settings.LOG_DIR, "app.json.log"), # Changed extension to indicate JSON
         when="midnight",

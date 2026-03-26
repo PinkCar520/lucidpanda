@@ -10,9 +10,9 @@ src.lucidpanda/db/__init__.py
     └── FundRepo          (基金 / 持仓 / 估值 / 自选单)
 """
 
+from src.lucidpanda.db.fund import FundRepo
 from src.lucidpanda.db.intelligence import IntelligenceRepo
 from src.lucidpanda.db.market import MarketRepo
-from src.lucidpanda.db.fund import FundRepo
 
 
 class IntelligenceDB(IntelligenceRepo, MarketRepo, FundRepo):

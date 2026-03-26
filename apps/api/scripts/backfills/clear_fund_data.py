@@ -1,12 +1,13 @@
 import os
-import redis
+
 import psycopg
-from src.lucidpanda.config import settings
+import redis
+
 
 def clear_postgres():
     print("--- Clearing PostgreSQL Valuation History ---")
     try:
-        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
             host="localhost",
             port="5432",
             user="lucidpanda",
@@ -15,11 +16,11 @@ def clear_postgres():
             connect_timeout=3
         )
         cursor = conn.cursor()
-        
+
         cursor.execute("DELETE FROM fund_valuation;")
         deleted_count = cursor.rowcount
         print(f"Successfully deleted {deleted_count} records from fund_valuation.")
-        
+
         conn.commit()
         conn.close()
     except Exception as e:

@@ -1,27 +1,30 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from sqlmodel import Session, select
-
+from src.lucidpanda.core.backtest import BacktestEngine
+from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.infra.database.connection import engine
 from src.lucidpanda.models.macro_event import MacroEvent
-from src.lucidpanda.services.quant_skills import calculate_alpha_return, compute_expectation_gap
-from src.lucidpanda.core.database import IntelligenceDB
-from src.lucidpanda.core.backtest import BacktestEngine
+from src.lucidpanda.services.quant_skills import (
+    calculate_alpha_return,
+    compute_expectation_gap,
+)
 
 
 @dataclass(frozen=True)
 class ToolSpec:
     name: str
     description: str
-    input_schema: Dict[str, Any]
-    handler: Callable[..., Dict[str, Any]]
+    input_schema: dict[str, Any]
+    handler: Callable[..., dict[str, Any]]
 
 
-def _parse_float(value: Optional[str]) -> Optional[float]:
+def _parse_float(value: str | None) -> float | None:
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -42,24 +45,24 @@ def _parse_float(value: Optional[str]) -> Optional[float]:
         return None
 
 
-def get_historical_perf(keywords: str) -> Dict[str, Any]:
+def get_historical_perf(keywords: str) -> dict[str, Any]:
     """
     查询历史上包含特定关键词的新闻发布后 1h 的胜率与平均收益。
     """
     if not keywords:
         return {"error": "keywords are required"}
-    
+
     db = IntelligenceDB()
     bt = BacktestEngine(db)
     stats = bt.get_confidence_stats(keywords)
-    
+
     if not stats:
         return {
             "keywords": keywords,
             "count": 0,
             "message": "历史上未发现包含该关键词的交易信号。"
         }
-    
+
     return {
         "keywords": keywords,
         "count": stats["count"],
@@ -69,20 +72,20 @@ def get_historical_perf(keywords: str) -> Dict[str, Any]:
     }
 
 
-def get_market_positioning(indicator_name: str = "COT_GOLD_NET") -> Dict[str, Any]:
+def get_market_positioning(indicator_name: str = "COT_GOLD_NET") -> dict[str, Any]:
     """
     获取市场持仓情绪指标（如 COT 黄金净持仓分位数）。
     """
     db = IntelligenceDB()
     # 备注：IntelligenceDB 组合了 MarketRepo 的方法
     indicator = db.get_latest_indicator(indicator_name)
-    
+
     if not indicator:
         return {"error": f"No data found for indicator: {indicator_name}"}
-    
+
     percentile = indicator.get("percentile")
     value = indicator.get("value")
-    
+
     sentiment = "NEUTRAL"
     if percentile is not None:
         if percentile > 85:
@@ -104,23 +107,23 @@ def get_market_positioning(indicator_name: str = "COT_GOLD_NET") -> Dict[str, An
     }
 
 
-def get_entity_influence(entity_name: str) -> Dict[str, Any]:
+def get_entity_influence(entity_name: str) -> dict[str, Any]:
     """
     查询特定实体在知识图谱中的中心度及其关联影响。
     """
     if not entity_name:
         return {"error": "entity_name is required"}
-    
+
     db = IntelligenceDB()
     graph = db.get_entity_graph(entity_name, limit=50)
-    
+
     if not graph or not graph.get("center"):
         return {"error": f"Entity '{entity_name}' not found in knowledge graph."}
-    
+
     edges = graph.get("edges") or []
     # 统计活跃度：关联边的总数
     activity_count = len(edges)
-    
+
     # 分析主要关联对象及其强度
     relations = []
     for e in edges:
@@ -131,10 +134,10 @@ def get_entity_influence(entity_name: str) -> Dict[str, Any]:
             "strength": e["strength"],
             "confidence": e["confidence_score"]
         })
-    
+
     # 按强度排序取前 5
     top_relations = sorted(relations, key=lambda x: x["strength"], reverse=True)[:5]
-    
+
     return {
         "entity": entity_name,
         "type": graph["center"].get("entity_type"),
@@ -144,7 +147,7 @@ def get_entity_influence(entity_name: str) -> Dict[str, Any]:
     }
 
 
-def query_macro_expectation(event_title: str, date_str: Optional[str] = None) -> Dict[str, Any]:
+def query_macro_expectation(event_title: str, date_str: str | None = None) -> dict[str, Any]:
     """
     Enhanced macro event matching with cross-lingual aliasing and time-window tolerance.
     """
@@ -164,34 +167,34 @@ def query_macro_expectation(event_title: str, date_str: Optional[str] = None) ->
         "interest rate": ["利率"],
         "retail sales": ["零售销售"],
     }
-    
+
     clean_title = event_title.lower()
     search_terms = [event_title]
     for key, vals in ALIASES.items():
         if key in clean_title:
             search_terms.extend(vals)
 
-    target_date: Optional[date] = None
+    target_date: date | None = None
     if date_str:
         try:
             target_date = date.fromisoformat(date_str[:10])
         except Exception:
             pass # Fallback to wider search if date is mangled
 
-    matches: List[Dict[str, Any]] = []
+    matches: list[dict[str, Any]] = []
     with Session(engine) as session:
         # 2. Multi-term OR search
         from sqlalchemy import or_
         filters = [MacroEvent.title.ilike(f"%{t}%") for t in search_terms]
         statement = select(MacroEvent).where(or_(*filters))
-        
+
         # 3. 48-hour time window tolerance (T-1 to T+1)
         if target_date:
             from datetime import timedelta
             date_min = target_date - timedelta(days=1)
             date_max = target_date + timedelta(days=1)
             statement = statement.where(MacroEvent.release_date.between(date_min, date_max))
-            
+
         statement = statement.order_by(MacroEvent.release_date.desc()).limit(10)
         rows = session.exec(statement).all()
 
@@ -201,7 +204,7 @@ def query_macro_expectation(event_title: str, date_str: Optional[str] = None) ->
         previous = _parse_float(row.previous_value)
         # Z-Score logic placeholder: assuming 0.1 as default std if historical data missing
         surprise = (actual - forecast) if actual is not None and forecast is not None else None
-        
+
         matches.append({
             "id": str(row.id),
             "title": row.title,
@@ -218,7 +221,7 @@ def query_macro_expectation(event_title: str, date_str: Optional[str] = None) ->
     }
 
 
-TOOLS: List[ToolSpec] = [
+TOOLS: list[ToolSpec] = [
     ToolSpec(
         name="query_macro_expectation",
         description="获取特定宏观指标的预期值、前值及 Surprise 强度",
@@ -300,10 +303,10 @@ TOOLS: List[ToolSpec] = [
 ]
 
 
-TOOL_REGISTRY: Dict[str, ToolSpec] = {tool.name: tool for tool in TOOLS}
+TOOL_REGISTRY: dict[str, ToolSpec] = {tool.name: tool for tool in TOOLS}
 
 
-def list_tool_summaries() -> List[Dict[str, Any]]:
+def list_tool_summaries() -> list[dict[str, Any]]:
     return [
         {
             "name": tool.name,
@@ -314,7 +317,7 @@ def list_tool_summaries() -> List[Dict[str, Any]]:
     ]
 
 
-def call_tool(name: str, args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def call_tool(name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     tool = TOOL_REGISTRY.get(name)
     if not tool:
         return {"error": f"Unknown tool: {name}"}

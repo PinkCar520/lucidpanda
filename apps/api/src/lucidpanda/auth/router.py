@@ -1,24 +1,57 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Header
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from src.lucidpanda.auth.schemas import (
-    UserCreate, UserOut, Token, TokenRefresh, RefreshTokenRequest, LogoutRequest,
-    ForgotPasswordRequest, ResetPasswordRequest, MessageResponse,
-    UserUpdate, UsernameUpdate, PasswordChangeRequest, EmailChangeInitiateRequest, EmailChangeVerifyRequest,
-    AvatarUploadResponse, SessionOut, PhoneNumberPayload, PhoneVerificationPayload,
-    TwoFASetupResponse, TwoFAVerifyPayload, NotificationPreferencesOut, NotificationPreferencesUpdate,
-    InSiteMessageOut, APIKeyCreate, APIKeyOut, APIKeyUpdate, APIKeyCreateResponse,
-    AssetOverviewOut, AuditLogOut,
-    PasskeyRegistrationVerify, PasskeyAuthenticationVerify, PasskeyOut
-)
-from src.lucidpanda.auth.service import AuthService
-from src.lucidpanda.auth.dependencies import get_db, get_current_user
-from src.lucidpanda.config import settings
-from src.lucidpanda.core.logger import logger
-from typing import List, Any, Optional
 import os
 import uuid
-import shutil
+from typing import Any
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+from src.lucidpanda.auth.dependencies import get_current_user, get_db
+from src.lucidpanda.auth.schemas import (
+    APIKeyCreate,
+    APIKeyCreateResponse,
+    APIKeyOut,
+    APIKeyUpdate,
+    AssetOverviewOut,
+    AuditLogOut,
+    AvatarUploadResponse,
+    EmailChangeInitiateRequest,
+    EmailChangeVerifyRequest,
+    ForgotPasswordRequest,
+    InSiteMessageOut,
+    LogoutRequest,
+    MessageResponse,
+    NotificationPreferencesOut,
+    NotificationPreferencesUpdate,
+    PasskeyAuthenticationVerify,
+    PasskeyOut,
+    PasskeyRegistrationVerify,
+    PasswordChangeRequest,
+    PhoneNumberPayload,
+    PhoneVerificationPayload,
+    RefreshTokenRequest,
+    ResetPasswordRequest,
+    SessionOut,
+    Token,
+    TokenRefresh,
+    TwoFASetupResponse,
+    TwoFAVerifyPayload,
+    UserCreate,
+    UsernameUpdate,
+    UserOut,
+    UserUpdate,
+)
+from src.lucidpanda.auth.service import AuthService
+from src.lucidpanda.config import settings
+from src.lucidpanda.core.logger import logger
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -27,8 +60,8 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 @router.post("/passkeys/register/options", response_model=Any)
 def get_passkey_registration_options(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> Any:
     auth_service = AuthService(db)
     return auth_service.generate_registration_options(str(current_user.id))
 
@@ -37,15 +70,16 @@ def verify_passkey_registration(
     request: Request,
     body: PasskeyRegistrationVerify,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> PasskeyOut:
     auth_service = AuthService(db)
     try:
+        client_host = request.client.host if request.client else "unknown"
         passkey = auth_service.verify_registration_response(
-            str(current_user.id), 
-            body.registration_data, 
+            str(current_user.id),
+            body.registration_data,
             body.name,
-            ip_address=request.client.host
+            ip_address=client_host
         )
         return passkey
     except ValueError as e:
@@ -54,7 +88,7 @@ def verify_passkey_registration(
 @router.post("/passkeys/login/options", response_model=Any)
 def get_passkey_login_options(
     db: Session = Depends(get_db)
-):
+) -> Any:
     auth_service = AuthService(db)
     return auth_service.generate_authentication_options()
 
@@ -63,19 +97,20 @@ def verify_passkey_login(
     request: Request,
     body: PasskeyAuthenticationVerify,
     db: Session = Depends(get_db)
-):
+) -> dict[str, Any]:
     auth_service = AuthService(db)
-    user = auth_service.verify_authentication_response(body.auth_data, body.state, ip_address=request.client.host)
+    client_host = request.client.host if request.client else "unknown"
+    user = auth_service.verify_authentication_response(body.auth_data, body.state, ip_address=client_host)
     if not user:
         raise HTTPException(status_code=400, detail="Invalid passkey authentication")
-    
+
     access_token, refresh_token = auth_service.create_session(
         user_id=str(user.id),
         device_name=request.headers.get("user-agent"),
-        ip_address=request.client.host,
+        ip_address=client_host,
         user_agent=request.headers.get("user-agent")
     )
-    
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -84,11 +119,11 @@ def verify_passkey_login(
         "user": user
     }
 
-@router.get("/passkeys/me", response_model=List[PasskeyOut])
+@router.get("/passkeys/me", response_model=list[PasskeyOut])
 def list_my_passkeys(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> list[PasskeyOut]:
     auth_service = AuthService(db)
     return auth_service.get_user_passkeys(str(current_user.id))
 
@@ -96,8 +131,8 @@ def list_my_passkeys(
 def delete_my_passkey(
     passkey_id: str,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     auth_service = AuthService(db)
     if auth_service.delete_passkey(str(current_user.id), passkey_id):
         return {"message": "Passkey deleted successfully"}
@@ -107,36 +142,36 @@ def delete_my_passkey(
 def update_username(
     body: UsernameUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, Any]:
     auth_service = AuthService(db)
     success, message = auth_service.update_username(str(current_user.id), body.username)
     if not success:
         raise HTTPException(status_code=400, detail=message)
     return {"message": message}
 
-@router.get("/audit-log", response_model=List[AuditLogOut])
+@router.get("/audit-log", response_model=list[AuditLogOut])
 def get_audit_log(
     limit: int = 50,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> list[AuditLogOut]:
     auth_service = AuthService(db)
     return auth_service.get_audit_logs(str(current_user.id), limit=limit)
 
 @router.get("/assets/me/overview", response_model=AssetOverviewOut)
 def get_asset_overview(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> AssetOverviewOut:
     auth_service = AuthService(db)
     return auth_service.get_asset_overview(str(current_user.id))
 
-@router.get("/api-keys/me", response_model=List[APIKeyOut])
+@router.get("/api-keys/me", response_model=list[APIKeyOut])
 def get_api_keys(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> list[APIKeyOut]:
     auth_service = AuthService(db)
     return auth_service.get_user_api_keys(str(current_user.id))
 
@@ -144,14 +179,14 @@ def get_api_keys(
 def create_api_key(
     body: APIKeyCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> Any:
     auth_service = AuthService(db)
     api_key, secret = auth_service.generate_api_key(
-        str(current_user.id), 
-        body.name, 
-        body.permissions, 
-        body.ip_whitelist, 
+        str(current_user.id),
+        body.name,
+        body.permissions,
+        body.ip_whitelist,
         body.expires_at
     )
     return {**api_key.__dict__, "secret": secret}
@@ -161,8 +196,8 @@ def update_api_key(
     key_id: str,
     body: APIKeyUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> APIKeyOut:
     auth_service = AuthService(db)
     key = auth_service.update_api_key(str(current_user.id), key_id, **body.dict(exclude_unset=True))
     if not key:
@@ -173,19 +208,19 @@ def update_api_key(
 def revoke_api_key(
     key_id: str,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     auth_service = AuthService(db)
     if auth_service.revoke_api_key(str(current_user.id), key_id):
         return {"message": "API Key revoked successfully"}
     raise HTTPException(status_code=404, detail="API Key not found")
 
-@router.get("/notifications/me/inbox", response_model=List[InSiteMessageOut])
+@router.get("/notifications/me/inbox", response_model=list[InSiteMessageOut])
 def get_inbox(
     limit: int = 50,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> list[InSiteMessageOut]:
     auth_service = AuthService(db)
     return auth_service.get_in_site_messages(str(current_user.id), limit=limit)
 
@@ -193,8 +228,8 @@ def get_inbox(
 def mark_message_read(
     message_id: str,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     auth_service = AuthService(db)
     if auth_service.mark_message_as_read(str(current_user.id), message_id):
         return {"message": "Message marked as read"}
@@ -203,8 +238,8 @@ def mark_message_read(
 @router.get("/notifications/me/preferences", response_model=NotificationPreferencesOut)
 def get_notification_preferences(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> NotificationPreferencesOut:
     auth_service = AuthService(db)
     return auth_service.get_notification_preferences(str(current_user.id))
 
@@ -212,16 +247,16 @@ def get_notification_preferences(
 def update_notification_preferences(
     body: NotificationPreferencesUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> NotificationPreferencesOut:
     auth_service = AuthService(db)
     return auth_service.update_notification_preferences(str(current_user.id), **body.dict(exclude_unset=True))
 
 @router.post("/2fa/setup", response_model=TwoFASetupResponse)
 def setup_2fa(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, Any]:
     auth_service = AuthService(db)
     secret, qr_url = auth_service.setup_2fa(str(current_user.id))
     return {"secret": secret, "qr_code_url": qr_url}
@@ -230,8 +265,8 @@ def setup_2fa(
 def verify_2fa(
     body: TwoFAVerifyPayload,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, Any]:
     auth_service = AuthService(db)
     success, message = auth_service.verify_and_enable_2fa(str(current_user.id), body.secret, body.code)
     if not success:
@@ -241,8 +276,8 @@ def verify_2fa(
 @router.delete("/2fa", response_model=MessageResponse)
 def disable_2fa(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     auth_service = AuthService(db)
     if auth_service.disable_2fa(str(current_user.id)):
         return {"message": "2FA disabled successfully"}
@@ -252,8 +287,8 @@ def disable_2fa(
 def request_phone_verification(
     body: PhoneNumberPayload,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, Any]:
     auth_service = AuthService(db)
     success, message = auth_service.request_phone_verification(str(current_user.id), body.phone_number)
     if not success:
@@ -275,19 +310,19 @@ def verify_phone_binding(
 @router.delete("/phone", response_model=MessageResponse)
 def unbind_phone(
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     auth_service = AuthService(db)
     if auth_service.unbind_phone(str(current_user.id)):
         return {"message": "Phone number unbound successfully"}
     raise HTTPException(status_code=400, detail="Failed to unbind phone")
 
-@router.get("/sessions", response_model=List[SessionOut])
+@router.get("/sessions", response_model=list[SessionOut])
 def get_sessions(
-    x_refresh_token: Optional[str] = Header(default=None, alias="X-Refresh-Token"),
+    x_refresh_token: str | None = Header(default=None, alias="X-Refresh-Token"),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> list[dict[str, Any]]:
     auth_service = AuthService(db)
     current_token_hash = auth_service.hash_refresh_token(x_refresh_token) if x_refresh_token else None
     sessions = auth_service.get_active_sessions(str(current_user.id))
@@ -307,8 +342,8 @@ def get_sessions(
 def revoke_session(
     session_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     auth_service = AuthService(db)
     success = auth_service.revoke_session(str(current_user.id), session_id)
     if not success:
@@ -320,27 +355,28 @@ def logout(
     request: Request,
     body: LogoutRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     auth_service = AuthService(db)
+    client_host = request.client.host if request.client else "unknown"
     auth_service.revoke_session_by_refresh_token(
         str(current_user.id),
         body.refresh_token,
-        ip_address=request.client.host,
+        ip_address=client_host,
         user_agent=request.headers.get("user-agent")
     )
     return {"message": "Logged out successfully"}
 
 @router.post("/register", response_model=UserOut)
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
+def register(user_in: UserCreate, db: Session = Depends(get_db)) -> Any:
     auth_service = AuthService(db)
-    
+
     if auth_service.get_user_by_email(user_in.email):
         raise HTTPException(
             status_code=400,
             detail="The user with this email already exists in the system.",
         )
-        
+
     if auth_service.get_user_by_username(user_in.username):
         raise HTTPException(
             status_code=400,
@@ -359,25 +395,26 @@ def login(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
-):
+) -> dict[str, Any]:
     auth_service = AuthService(db)
+    client_host = request.client.host if request.client else "unknown"
     user = auth_service.authenticate_user(form_data.username, form_data.password)
     if not user:
-        auth_service.log_audit(None, "FAILED_LOGIN", request.client.host, details={"identifier": form_data.username})
+        auth_service.log_audit(None, "FAILED_LOGIN", client_host, details={"identifier": form_data.username})
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect identifier or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token, refresh_token = auth_service.create_session(
         user_id=str(user.id),
         device_name=request.headers.get("user-agent"),
-        ip_address=request.client.host,
+        ip_address=client_host,
         user_agent=request.headers.get("user-agent")
     )
-    
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -391,12 +428,13 @@ def refresh_token(
     request: Request,
     refresh_in: RefreshTokenRequest,
     db: Session = Depends(get_db)
-):
+) -> dict[str, Any]:
     auth_service = AuthService(db)
+    client_host = request.client.host if request.client else "unknown"
     try:
         tokens = auth_service.refresh_session(
             refresh_in.refresh_token,
-            ip_address=request.client.host,
+            ip_address=client_host,
             user_agent=request.headers.get("user-agent")
         )
     except Exception as e:
@@ -405,13 +443,13 @@ def refresh_token(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal authentication error during session refresh"
         )
-        
+
     if not tokens:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token",
         )
-    
+
     access_token, refresh_token = tokens
     return {
         "access_token": access_token,
@@ -421,18 +459,18 @@ def refresh_token(
     }
 
 @router.get("/me", response_model=UserOut)
-def get_me(current_user=Depends(get_current_user)):
+def get_me(current_user: Any = Depends(get_current_user)) -> Any:
     return current_user
 
 @router.patch("/me", response_model=UserOut)
 def update_profile(
     body: UserUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> UserOut:
     auth_service = AuthService(db)
     user = auth_service.update_user(
-        str(current_user.id), 
+        str(current_user.id),
         name=body.name,
         nickname=body.nickname,
         gender=body.gender,
@@ -450,56 +488,57 @@ def update_profile(
 async def upload_avatar(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG, PNG, and WebP are allowed.")
-    
-    from PIL import Image
+
     import io
+
+    from PIL import Image
 
     upload_dir = os.path.join(settings.BASE_DIR, "uploads", "avatars")
     os.makedirs(upload_dir, exist_ok=True)
-    
+
     # Use .webp extension for optimized storage
     filename = f"{current_user.id}_{uuid.uuid4()}.webp"
     file_path = os.path.join(upload_dir, filename)
-    
+
     try:
         # Read the uploaded file into memory
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
-        
+
         # Convert to RGB if necessary (e.g. for RGBA PNGs to WebP)
         if image.mode in ("RGBA", "P"):
             image = image.convert("RGB")
-            
+
         # Resize using Lanczos for high quality
         # Standard profile size 256x256 is plenty for UI display
         image.thumbnail((256, 256), Image.Resampling.LANCZOS)
-        
+
         # Save as WebP with optimized quality
         image.save(file_path, "WEBP", quality=85, optimize=True)
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Could not process image: {str(e)}")
-        
-    avatar_url = f"/static/avatars/{filename}" 
+
+    avatar_url = f"/static/avatars/{filename}"
     auth_service = AuthService(db)
     auth_service.update_avatar(str(current_user.id), avatar_url)
-    
+
     return {"avatar_url": avatar_url}
 
 @router.post("/password/change", response_model=MessageResponse)
 def change_password(
     body: PasswordChangeRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     auth_service = AuthService(db)
     success, message = auth_service.change_password(
-        str(current_user.id), 
-        body.current_password, 
+        str(current_user.id),
+        body.current_password,
         body.new_password
     )
     if not success:
@@ -510,8 +549,8 @@ def change_password(
 def initiate_email_change(
     body: EmailChangeInitiateRequest,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user)
-):
+    current_user: Any = Depends(get_current_user)
+) -> dict[str, str]:
     auth_service = AuthService(db)
     success, message = auth_service.initiate_email_change(
         str(current_user.id),
@@ -526,7 +565,7 @@ def initiate_email_change(
 def verify_email_change(
     body: EmailChangeVerifyRequest,
     db: Session = Depends(get_db)
-):
+) -> dict[str, str]:
     auth_service = AuthService(db)
     success, message = auth_service.verify_email_change(body.token)
     if not success:
@@ -534,13 +573,13 @@ def verify_email_change(
     return {"message": message}
 
 @router.post("/forgot-password", response_model=MessageResponse)
-def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)) -> dict[str, str]:
     auth_service = AuthService(db)
     raw_token = auth_service.generate_password_reset_token(body.email)
     return {"message": "If an account with that email exists, a password reset link has been sent."}
 
 @router.post("/reset-password", response_model=MessageResponse)
-def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
+def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)) -> dict[str, str]:
     auth_service = AuthService(db)
     success = auth_service.reset_password(body.token, body.new_password)
     if not success:

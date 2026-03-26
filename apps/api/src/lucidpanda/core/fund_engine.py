@@ -1,20 +1,25 @@
+import json
 import os
 import threading
+from datetime import datetime, timedelta
+
 import akshare as ak
 import pandas as pd
-import json
 import redis
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
 from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.utils.market_calendar import is_market_open, was_market_open_last_night, get_market_status
 from src.lucidpanda.utils import format_iso8601
+from src.lucidpanda.utils.market_calendar import (
+    get_market_status,
+    is_market_open,
+    was_market_open_last_night,
+)
+
 
 class FundEngine:
     def __init__(self, db: IntelligenceDB = None):
         self.db = db if db else IntelligenceDB()
-        
+
         # Init Redis
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         try:
@@ -43,7 +48,7 @@ class FundEngine:
             return "HK"
         return "US"
 
-    def _market_day_progress(self, region: str, now_utc: Optional[datetime] = None) -> float:
+    def _market_day_progress(self, region: str, now_utc: datetime | None = None) -> float:
         """
         Return elapsed fraction [0, 1] for the current trading day.
         Used to apportion daily fee drag intraday.
@@ -131,13 +136,13 @@ class FundEngine:
     def update_fund_holdings(self, fund_code):
         """Fetch latest holdings from Market Provider and save to DB."""
         logger.info(f"🔍 Fetching holdings for fund: {fund_code}")
-        
+
         # Temporary disable proxy for data fetching (some sources often fail with proxies)
         original_http = os.environ.get('HTTP_PROXY')
         original_https = os.environ.get('HTTPS_PROXY')
         os.environ['HTTP_PROXY'] = ''
         os.environ['HTTPS_PROXY'] = ''
-        
+
         try:
             # 1. Try last year first (most common case)
             last_year = str(datetime.now().year - 1)
@@ -145,27 +150,27 @@ class FundEngine:
                 df = ak.fund_portfolio_hold_em(symbol=fund_code, date=last_year)
             except:
                 df = pd.DataFrame()
-            
+
             if df.empty:
                 current_year = str(datetime.now().year)
                 try:
                     df = ak.fund_portfolio_hold_em(symbol=fund_code, date=current_year)
                 except:
                     pass
-                
+
             if df.empty:
                 logger.warning(f"No holdings found for {fund_code}")
                 return []
-            
+
             # 2. Sort by quarter to get truly latest
             all_quarters = df['季度'].unique()
             if len(all_quarters) == 0: return []
-            
+
             latest_quarter = sorted(all_quarters, reverse=True)[0]
             logger.info(f"📅 Latest Report: {latest_quarter}")
-            
+
             latest_df = df[df['季度'] == latest_quarter]
-            
+
             holdings = []
             for _, row in latest_df.iterrows():
                 holdings.append({
@@ -174,11 +179,11 @@ class FundEngine:
                     'weight': float(row['占净值比例']),
                     'report_date': latest_quarter
                 })
-                
+
             # Save to DB
             self.db.save_fund_holdings(fund_code, holdings)
             return holdings
-            
+
         except Exception as e:
             logger.error(f"Update Holdings Failed: {e}")
             return []
@@ -196,7 +201,7 @@ class FundEngine:
         """
         if not fund_name or "联接" not in fund_name:
             return None
-            
+
         import re
         # 1. Clean the name to find the core ETF name
         # Remove suffixes like '发起式联接', '发起联接', '联接', 'A/C/D', '式'
@@ -206,11 +211,11 @@ class FundEngine:
         for p in patterns:
             core_name = re.sub(p, '', core_name)
         core_name = core_name.strip()
-        
+
         if not core_name: return None
-        
+
         logger.info(f"🧩 Feeder Detected: '{fund_name}' -> Core: '{core_name}'")
-        
+
         # 2. Search local DB for this core name in fund_metadata
         try:
             conn = self.db.get_connection()
@@ -234,7 +239,7 @@ class FundEngine:
             logger.error(f"Shadow identification DB error: {e}")
         finally:
             if 'conn' in locals() and conn: conn.close()
-            
+
         return None
 
     def _identify_index_proxy(self, fund_code, fund_name):
@@ -244,7 +249,7 @@ class FundEngine:
         """
         if not fund_name or "指数" not in fund_name:
             return None, 0.95
-            
+
         # Avoid 'enhanced' (增强) index funds as they deviate from benchmark
         if "增强" in fund_name:
             return None, 0.95
@@ -277,7 +282,7 @@ class FundEngine:
                 # Save relationship
                 self.db.save_fund_relationship(fund_code, index_code, "INDEX_PROXY", ratio=0.95)
                 return index_code, 0.95
-                
+
         return None, 0.95
 
     def _get_fund_name(self, fund_code):
@@ -285,26 +290,26 @@ class FundEngine:
         if self.redis:
             cached_name = self.redis.get(f"fund:name:{fund_code}")
             if cached_name: return cached_name
-            
+
         fund_name = ""
         try:
             # 1. Try local DB first (Fastest fallback)
             names = self.db.get_fund_names([fund_code])
             if names.get(fund_code):
                 fund_name = names[fund_code]
-            
+
             # 2. Only if DB missing, try Public API
             if not fund_name:
                 # Force disable proxy for reliability
                 if "HTTP_PROXY" in os.environ: del os.environ["HTTP_PROXY"]
                 if "HTTPS_PROXY" in os.environ: del os.environ["HTTPS_PROXY"]
-                
+
                 info_df = ak.fund_individual_basic_info_xq(symbol=fund_code)
                 fund_name = info_df[info_df.iloc[:,0] == '基金简称'].iloc[0,1]
-            
+
             if self.redis and fund_name:
                 self.redis.setex(f"fund:name:{fund_code}", 86400 * 7, fund_name) # 7 days
-                
+
         except:
             pass
         return fund_name or fund_code
@@ -317,15 +322,15 @@ class FundEngine:
         """
         if not stock_codes: return {}
         if not self.redis: return {}
-        
+
         # 1. Try Fetch from Redis
         try:
             # Redis stores JSON string: "{'l1':..., 'l2':...}"
             raw_data = self.redis.hmget("stock:industry:full", stock_codes)
-            
+
             result = {}
             missing_codes = []
-            
+
             for code, raw_json in zip(stock_codes, raw_data):
                 if raw_json:
                     try:
@@ -334,11 +339,11 @@ class FundEngine:
                         missing_codes.append(code)
                 else:
                     missing_codes.append(code)
-            
+
             # If all found, return
             if not missing_codes:
                 return result
-                
+
             # 2. Fetch missing from DB
             if missing_codes:
                 conn = self.db.get_connection()
@@ -351,31 +356,31 @@ class FundEngine:
                             WHERE stock_code = ANY(%s)
                         """, (missing_codes,))
                         rows = cursor.fetchall()
-                        
+
                         db_updates = {}
                         for r in rows:
                             val = {'l1': r[1] or "其他", 'l2': r[2] or "其他"}
                             db_updates[r[0]] = json.dumps(val)
                             result[r[0]] = val
-                        
+
                         # Cache found ones back to Redis
                         if db_updates:
                             pipeline.hset("stock:industry:full", mapping=db_updates)
-                            
+
                         # Mark unknowns
                         unknowns = set(missing_codes) - set(result.keys())
                         if unknowns:
                              unknown_val = {'l1': "其他", 'l2': "其他"}
                              unknown_json = json.dumps(unknown_val)
-                             unknown_map = {c: unknown_json for c in unknowns}
+                             unknown_map = dict.fromkeys(unknowns, unknown_json)
                              pipeline.hset("stock:industry:full", mapping=unknown_map)
                              for c in unknowns: result[c] = unknown_val
                     pipeline.execute() # Execute pipeline
                 finally:
                     conn.close()
-                    
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Industry map fetch failed: {e}")
             return {}
@@ -388,41 +393,41 @@ class FundEngine:
             if cached_val:
                 logger.info(f"⚡️ Using cached valuation for {fund_code}")
                 return json.loads(cached_val)
-        
+
         # --- NEW: Shadow Mapping Logic ---
         # 1. Check if this is a feeder fund with a mapped shadow ETF
         fund_name = self._get_fund_name(fund_code)
         single_meta = self.db.get_fund_metadata_batch([fund_code]).get(fund_code, {})
         relationship = self.db.get_fund_relationship(fund_code)
-        
+
         if not relationship:
             # Try to identify it heuristically
             parent_code = self._identify_shadow_etf(fund_code, fund_name)
             if parent_code:
                 relationship = {"parent_code": parent_code, "ratio": 0.95}
-        
+
         if relationship:
             parent_code = relationship['parent_code']
             rel_type = relationship.get('relation_type', 'ETF_FEEDER')
             ratio = relationship.get('ratio', 0.95)
             logger.info(f"🕶️ Using {rel_type} for {fund_code}: Parent {parent_code}")
-            
+
             # Fetch parent ETF/Index price (using efficient SecID logic)
             secid = None
-            if parent_code.startswith(('5', '9', '000', 'sh')): 
+            if parent_code.startswith(('5', '9', '000', 'sh')):
                 if parent_code.startswith('sh'): secid = parent_code
                 else: secid = f"sh{parent_code}"
             elif parent_code.startswith(('sz', 'hk')):
                 secid = parent_code
-            else: 
+            else:
                 secid = f"sz{parent_code}"
-            
+
             try:
                 import requests
                 url = f"http://qt.gtimg.cn/q={secid}"
                 res = requests.get(url, timeout=3)
                 content = res.content.decode('gbk', errors='ignore')
-                
+
                 if '=' in content:
                     val_part = content.split('=', 1)[1].strip('"')
                     parts = val_part.split('~')
@@ -430,7 +435,7 @@ class FundEngine:
                         price = float(parts[3])
                         pct = float(parts[32])
                         est_growth = pct * ratio
-                        
+
                         # --- Dynamic Auto-Calibration for Shadow/Proxy ---
                         dynamic_bias = self.db.get_recent_bias(fund_code, days=7)
                         calibration_note = ""
@@ -446,7 +451,7 @@ class FundEngine:
                                 currency = "HKD/CNY"
                             elif any(k in fund_name for k in ["日", "东京", "东证"]):
                                 currency = "JPY/CNY"
-                            
+
                             fx_change = self.db.get_fx_rate_change(currency)
                             fx_impact = fx_change * 0.9
                             est_growth += fx_impact
@@ -488,7 +493,7 @@ class FundEngine:
                         return result
             except Exception as e:
                 logger.error(f"Shadow/Proxy price fetch failed: {e}")
-        
+
         # 2. If no relationship, try Index Proxy heuristic
         p_code, ratio = self._identify_index_proxy(fund_code, fund_name)
         if p_code:
@@ -507,16 +512,16 @@ class FundEngine:
         try:
             # 1. Get Holdings from DB
             holdings = self.db.get_fund_holdings(fund_code)
-            
+
             # If no holdings in DB, try to fetch in background to avoid blocking
             if not holdings:
                 sync_key = f"syncing:holdings:{fund_code}"
                 is_syncing = self.redis.get(sync_key) if self.redis else False
-                
+
                 if not is_syncing:
                     if self.redis: self.redis.setex(sync_key, 300, "1")
                     threading.Thread(target=self.update_fund_holdings, args=(fund_code,), daemon=True).start()
-                
+
                 return {
                     "fund_code": fund_code,
                     "fund_name": self._get_fund_name(fund_code),
@@ -528,19 +533,19 @@ class FundEngine:
                     "message": "Holdings missing. Syncing in background...",
                     "source": "System"
                 }
-                    
+
             logger.info(f"📈 Calculating valuation for {fund_code} ({len(holdings)} stocks) using Market Data")
 
             # 2. Identify Markets (A-Share vs HK)
             need_ashare = False
             need_hk = False
             holding_codes = set()
-            
+
             for h in holdings:
                 code = h.get('stock_code') or h.get('code')
                 if not code: continue
                 holding_codes.add(code)
-                if len(code) == 6 or (len(code) == 5 and code.startswith("0") and not code.startswith("00")): 
+                if len(code) == 6 or (len(code) == 5 and code.startswith("0") and not code.startswith("00")):
                     need_ashare = True
                 elif len(code) == 5:
                     need_hk = True
@@ -553,19 +558,19 @@ class FundEngine:
                 if self.redis:
                     c = self.redis.get(cache_key)
                     if c: return pd.read_json(c)
-                
+
                 if market_type == 'a':
                     df = ak.stock_zh_a_spot_em()
                 else:
                     df = ak.stock_hk_spot_em()
-                
+
                 # Cache for 60s
                 if self.redis and not df.empty:
                     self.redis.setex(cache_key, 60, df.to_json())
                 return df
 
-            quote_map = {} 
-            
+            quote_map = {}
+
             # Fetch A-Shares
             if need_ashare:
                 try:
@@ -574,7 +579,7 @@ class FundEngine:
                     code_col = next((c for c in df_a.columns if '代码' in c), None)
                     price_col = next((c for c in df_a.columns if '最新价' in c), None)
                     change_col = next((c for c in df_a.columns if '涨跌幅' in c), None)
-                    
+
                     if code_col and price_col and change_col:
                         for _, row in df_a.iterrows():
                             c_code = str(row[code_col])
@@ -595,7 +600,7 @@ class FundEngine:
                     code_col = next((c for c in df_hk.columns if '代码' in c), None)
                     price_col = next((c for c in df_hk.columns if '最新价' in c), None)
                     change_col = next((c for c in df_hk.columns if '涨跌幅' in c), None)
-                    
+
                     if code_col and price_col and change_col:
                         for _, row in df_hk.iterrows():
                             c_code = str(row[code_col])
@@ -613,7 +618,7 @@ class FundEngine:
             # If holdings contain very few stocks or weight is low, check if it's an ETF feeder
             is_feeder = False
             target_etf = None
-            
+
             # Simple heuristic: if name contains "联接" or "ETF", try to find master ETF
             fund_name = self._get_fund_name(fund_code)
             if "联接" in fund_name or "ETF" in fund_name:
@@ -622,13 +627,13 @@ class FundEngine:
                 clean_name = re.sub(r'[A-Za-z]+$', '', fund_name)
                 clean_name = clean_name.replace('联接', '').replace('发起式', '').replace('发起', '')
                 clean_name = re.sub(r'\(.*?\)', '', clean_name).strip()
-                
+
                 # Check directly if we have a mapped ETF in cache or map
                 # For now, let's try to map via name search if we don't have it
                 # Optimization: In a real system, we'd have a mapping table.
-                # Here we do a quick name check against holdings? 
+                # Here we do a quick name check against holdings?
                 # Better: Check if any holding IS an ETF code (51/15/56/58 start)
-                
+
                 for h in holdings:
                     c = h.get('stock_code') or h.get('code')
                     if c and c.startswith(('51', '15', '56', '58')):
@@ -637,7 +642,7 @@ class FundEngine:
                          target_etf = c
                          logger.info(f"🧩 Feeder Fund detected: {fund_code} holds ETF {target_etf}")
                          break
-            
+
             if is_feeder and target_etf:
                 # Calculate based on ETF price ONLY (simplify)
                 # Need to fetch ETF price. It's an A-share usually.
@@ -645,7 +650,7 @@ class FundEngine:
                     # Reuse quote_map logic, but we need to ensure we fetched this ETF
                     # If we missed it in A-share snapshot (unlikely if it's in holdings), fetch it now
                     etf_quote = quote_map.get(target_etf)
-                    
+
                     if not etf_quote:
                          # Try single fetch
                          try:
@@ -660,7 +665,7 @@ class FundEngine:
                     if etf_quote:
                         # 100% weight on ETF for estimation
                         est_growth = etf_quote['change_pct']
-                        
+
                         result = {
                             "fund_code": fund_code,
                             "fund_name": fund_name,
@@ -689,31 +694,31 @@ class FundEngine:
             total_impact = 0.0
             total_weight = 0.0
             components = []
-            
+
             # Init Sector Map
-            sector_stats = {} 
-            
+            sector_stats = {}
+
             # Bulk fetch industry mapping
             holding_codes = [h.get('stock_code') or h.get('code') for h in holdings]
             industry_map = self._get_industry_map(holding_codes)
-            
+
             for h in holdings:
                 code = h.get('stock_code') or h.get('code')
                 weight = h['weight']
                 name = h.get('stock_name') or h.get('name') or code
-                
+
                 quote = quote_map.get(code)
                 current_impact = 0.0
-                
+
                 if quote:
                     price = quote['price']
                     pct = quote['change_pct']
                     impact = pct * (weight / 100.0)
                     current_impact = impact
-                    
+
                     total_impact += impact
                     total_weight += weight
-                    
+
                     components.append({
                         "code": code,
                         "name": name,
@@ -732,21 +737,21 @@ class FundEngine:
                         "weight": weight,
                         "note": "No Quote"
                     })
-                
+
                 # Sector Aggregation
                 ind_info = industry_map.get(code, {'l1': "其他", 'l2': "其他"})
                 l1 = ind_info.get('l1') or "其他"
                 l2 = ind_info.get('l2') or "其他"
-                
+
                 if l1 not in sector_stats:
                     sector_stats[l1] = {"impact": 0.0, "weight": 0.0, "sub": {}}
-                
+
                 sector_stats[l1]["impact"] += current_impact
                 sector_stats[l1]["weight"] += weight
-                
+
                 if l2 not in sector_stats[l1]["sub"]:
                     sector_stats[l1]["sub"][l2] = {"impact": 0.0, "weight": 0.0}
-                
+
                 sector_stats[l1]["sub"][l2]["impact"] += current_impact
                 sector_stats[l1]["sub"][l2]["weight"] += weight
 
@@ -754,7 +759,7 @@ class FundEngine:
             final_est = 0.0
             if total_weight > 0:
                 final_est = total_impact * (100 / total_weight)
-            
+
             # Fetch Fund Name
             fund_name = self._get_fund_name(fund_code)
 
@@ -778,7 +783,7 @@ class FundEngine:
                     currency = "HKD/CNY"
                 elif any(k in fund_name for k in ["日", "东京", "东证"]):
                     currency = "JPY/CNY"
-                
+
                 fx_change = self.db.get_fx_rate_change(currency)
                 # Assume 90% exposure to FX
                 fx_impact = fx_change * 0.9
@@ -809,26 +814,27 @@ class FundEngine:
                     "day_progress": round(day_progress, 6)
                 }
             }
-            
+
             # Save to DB history
             try:
                 self.db.save_fund_valuation(fund_code, final_est, result)
             except: pass
-            
+
             # Set Cache (180s)
             if self.redis:
                 self.redis.setex(f"fund:valuation:{fund_code}", 180, json.dumps(result))
-            
+
             # --- V1 Production Broadcast ---
             try:
                 import asyncio
+
                 from src.lucidpanda.infra.stream.broadcaster import hub
                 # Fire and forget publication
                 asyncio.create_task(hub.publish("fund_updates", result))
             except: pass
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Valuation Calc Failed: {e}")
             # Return a generic error message to avoid exposing internal details
@@ -849,7 +855,7 @@ class FundEngine:
 
         # 2. Inference: Logic based on investment_type
         f_type = str(fund_meta.get('type', ''))
-        
+
         # Mapping Rules
         if any(k in f_type for k in ["货币", "理财", "避险"]):
             return "R1"
@@ -861,7 +867,7 @@ class FundEngine:
             return "R4"
         if any(k in f_type for k in ["QDII", "商品", "分级", "海外股票", "进取型"]):
             return "R5"
-            
+
         # Default fallback
         return "R3"
 
@@ -876,7 +882,7 @@ class FundEngine:
         mae = perf['avg_mae']
         acc_score = 0
         reasons = []
-        
+
         # --- NEW: Portfolio Drift Detection ---
         recent_history = self.db.get_recent_tracking_statuses(fund_code, limit=3)
         is_suspected_rebalance = False
@@ -889,16 +895,16 @@ class FundEngine:
                 is_suspected_rebalance = True
                 reasons.append("portfolio_drift")
 
-        if mae is None: 
+        if mae is None:
             acc_score = 40 # Neutral for new funds
             reasons.append("new_fund")
-        elif mae < 0.2: 
+        elif mae < 0.2:
             acc_score = 60
             reasons.append("accuracy_high")
-        elif mae < 0.5: 
+        elif mae < 0.5:
             acc_score = 45
             reasons.append("accuracy_medium")
-        elif mae < 1.0: 
+        elif mae < 1.0:
             acc_score = 20
             reasons.append("accuracy_low")
         else:
@@ -934,11 +940,11 @@ class FundEngine:
         final_score = acc_score + cov_score + type_score
         if is_suspected_rebalance:
             final_score = max(0, final_score - 30) # Heavy penalty
-        
+
         level = "medium"
         if final_score >= 80: level = "high"
         elif final_score < 50: level = "low"
-        
+
         return {
             "level": level,
             "score": final_score,
@@ -952,12 +958,12 @@ class FundEngine:
         summary: If True, skip components and sector stats for speed.
         """
         import requests
-        
+
         # 0. Pre-fetch Fund Metadata in Bulk (Avoid serial DB/API calls)
         fund_meta_map = {}
         fund_name_map = {}
         missing_meta_codes = []
-        
+
         if self.redis:
             cached_meta = self.redis.mget([f"fund:meta:{c}" for c in fund_codes])
             for code, meta_json in zip(fund_codes, cached_meta):
@@ -972,25 +978,25 @@ class FundEngine:
                     missing_meta_codes.append(code)
         else:
             missing_meta_codes = fund_codes
-            
+
         if missing_meta_codes:
             db_meta = self.db.get_fund_metadata_batch(missing_meta_codes)
             for c, m in db_meta.items():
                 fund_meta_map[c] = m
                 fund_name_map[c] = m['name']
-                if self.redis: 
+                if self.redis:
                     self.redis.setex(f"fund:meta:{c}", 86400 * 7, json.dumps(m))
                     # Legacy support for name cache
                     self.redis.setex(f"fund:name:{c}", 86400 * 7, m['name'])
-        
+
         # 1. Fetch Holdings for ALL funds
         # Use DB first, then fetch missing
         # To avoid sequential fetching of missing holdings, we just do best effort for now or simple loop
         # Optimizing holding fetch is secondary, usually they are in DB.
-        
+
         all_holdings = {}
         stock_map = {} # code -> market_id needed
-        
+
         # --- NEW: Batch Relationship Check ---
         shadow_map = {} # fund_code -> relationship object
         for f_code in fund_codes:
@@ -998,51 +1004,51 @@ class FundEngine:
             if not rel:
                 # 1. Try shadow ETF heuristic
                 p_code = self._identify_shadow_etf(f_code, fund_name_map.get(f_code))
-                if p_code: 
+                if p_code:
                     rel = {"parent_code": p_code, "ratio": 0.95, "relation_type": "ETF_FEEDER"}
                 else:
                     # 2. Try index proxy heuristic
                     p_code, ratio = self._identify_index_proxy(f_code, fund_name_map.get(f_code))
                     if p_code:
                         rel = {"parent_code": p_code, "ratio": ratio, "relation_type": "INDEX_PROXY"}
-            
+
             if rel:
                 shadow_map[f_code] = rel
                 # Add parent ETF/Index to stock_map for batch quoting
                 p_code = rel['parent_code']
                 secid = None
-                if p_code.startswith(('5', '9', '000', 'sh')): 
+                if p_code.startswith(('5', '9', '000', 'sh')):
                     if p_code.startswith('sh'): secid = p_code
                     else: secid = f"sh{p_code}"
                 elif p_code.startswith(('sz', 'hk')):
                     secid = p_code
-                else: 
+                else:
                     secid = f"sz{p_code}"
                 stock_map[p_code] = secid
 
         # Collect holdings for NON-shadow funds
         for f_code in fund_codes:
             if f_code in shadow_map: continue
-            
+
             holdings = self.db.get_fund_holdings(f_code)
             if not holdings:
                 # Start background update and mark as syncing
                 sync_key = f"syncing:holdings:{f_code}"
                 is_syncing = self.redis.get(sync_key) if self.redis else False
-                
+
                 if not is_syncing:
                     if self.redis: self.redis.setex(sync_key, 300, "1")
                     threading.Thread(target=self.update_fund_holdings, args=(f_code,), daemon=True).start()
-                
+
                 all_holdings[f_code] = None # Mark as syncing
                 continue
-            
+
             all_holdings[f_code] = holdings
-            
+
             for h in holdings:
                 s_code = h.get('stock_code') or h.get('code')
                 if not s_code: continue
-                
+
                 # Determine SecID for Market API
                 # Logic: sh6xxxx, sz0xxxx/3xxxx, bj8xxxx/4xxxx, hk0xxxx, usXXXX
                 secid = None
@@ -1057,7 +1063,7 @@ class FundEngine:
                 else:
                     # Non-numeric codes are treated as US stocks
                     secid = f"us{s_code}"
-                    
+
                 if secid:
                     stock_map[s_code] = secid
 
@@ -1087,57 +1093,57 @@ class FundEngine:
         secids_list = list(set(stock_map.values()))
         chunk_size = 60 # Handle more, but keep safe
         quotes = {} # code -> {price, change_pct}
-        
+
         for i in range(0, len(secids_list), chunk_size):
             chunk = secids_list[i:i+chunk_size]
             url = f"http://qt.gtimg.cn/q={','.join(chunk)}"
-            
+
             try:
                 # Market Node doesn't need complex headers
                 res = requests.get(url, timeout=3)
                 # Response is GBK
                 content = res.content.decode('gbk', errors='ignore')
-                
+
                 # Parse: v_sh600519="1~Name~Code~Price~LastClose~Open~...~...~PCT~..."
                 for line in content.split(';'):
                     line = line.strip()
                     if not line: continue
-                    
+
                     # line: v_sh600519="1~..."
                     if '=' not in line: continue
-                    
+
                     key_part, val_part = line.split('=', 1)
                     # key_part: v_sh600519 -> code is sh600519 (remove v_)
                     actual_market_code = key_part.replace('v_', '').strip()
-                    
+
                     val_part = val_part.strip('"')
                     parts = val_part.split('~')
-                    
+
                     if len(parts) > 32:
                         try:
                             # Price and Percentage
                             real_name = parts[1]
                             price = float(parts[3])
                             pct = float(parts[32])
-                            
+
                             # Store by both pure code and market code for maximum compatibility
                             t_code = parts[2] # e.g. 600519 or NVDA.OQ
                             quotes[t_code] = {'price': price, 'change_pct': pct, 'name': real_name}
                             quotes[actual_market_code] = {'price': price, 'change_pct': pct, 'name': real_name}
-                            
+
                             # --- US Stock Compatibility ---
                             # US stocks from Tencent API often have suffixes like .OQ (Nasdaq), .N (NYSE)
                             # but holdings DB often just stores the base code 'NVDA'
                             if '.' in t_code and actual_market_code.startswith('us'):
                                 base_us_code = t_code.split('.')[0]
                                 quotes[base_us_code] = {'price': price, 'change_pct': pct, 'name': real_name}
-                            
+
                             # General market-prefix removal for fallback (sh600519 -> 600519)
                             if len(actual_market_code) > 2 and actual_market_code[:2] in ['sh', 'sz', 'hk', 'us']:
                                 base_code = actual_market_code[2:]
                                 if base_code not in quotes:
                                     quotes[base_code] = {'price': price, 'change_pct': pct, 'name': real_name}
-                        except: 
+                        except:
                             pass
             except Exception as e:
                 logger.error(f"Batch quote fetch failed: {e}")
@@ -1145,7 +1151,7 @@ class FundEngine:
         # 3. Calculate Valuations
         results = []
         tz_cn = datetime.now().astimezone().replace(tzinfo=None) # simple local time
-        
+
         # Pre-fetch industry mappings (Skip if summary)
         industry_map = {}
         if not summary:
@@ -1165,10 +1171,10 @@ class FundEngine:
                 rel_type = rel.get('relation_type', 'ETF_FEEDER')
                 ratio = rel.get('ratio', 0.95)
                 q = quotes.get(p_code)
-                
+
                 if q:
                     est_growth = q['change_pct'] * ratio
-                    
+
                     # --- Dynamic Auto-Calibration for Shadow/Proxy Batch ---
                     dynamic_bias = self.db.get_recent_bias(f_code, days=7)
                     calibration_note = ""
@@ -1185,7 +1191,7 @@ class FundEngine:
                             currency = "HKD/CNY"
                         elif any(k in f_name_check for k in ["日", "东京", "东证"]):
                             currency = "JPY/CNY"
-                        
+
                         fx_change = self.db.get_fx_rate_change(currency)
                         fx_impact = fx_change * 0.9
                         est_growth += fx_impact
@@ -1212,9 +1218,9 @@ class FundEngine:
                         "risk_level": risk_level,
                         "market_status": get_market_status(infer_market_region(f_code)),
                         "components": [] if summary else [{
-                            "code": p_code, 
-                            "name": q.get('name', p_code), 
-                            "price": q['price'], 
+                            "code": p_code,
+                            "name": q.get('name', p_code),
+                            "price": q['price'],
                             "change_pct": q['change_pct'], "impact": est_growth, "weight": ratio * 100
                         }],
                         "sector_attribution": {},
@@ -1234,7 +1240,7 @@ class FundEngine:
 
             # B. Standard Holdings Logic
             holdings = all_holdings.get(f_code)
-            
+
             if holdings is None:
                 # This fund is syncing
                 results.append({
@@ -1254,9 +1260,9 @@ class FundEngine:
 
             if not holdings:
                 results.append({
-                    "fund_code": f_code, 
+                    "fund_code": f_code,
                     "fund_name": fund_name_map.get(f_code, f_code),
-                    "estimated_growth": 0, 
+                    "estimated_growth": 0,
                     "total_weight": 0,
                     "components": [],
                     "sector_attribution": {},
@@ -1265,17 +1271,17 @@ class FundEngine:
                     "error": "No holdings data available"
                 })
                 continue
-                
+
             total_impact = 0.0
             total_weight = 0.0
             components = []
             sector_stats = {}
-            
+
             for h in holdings:
                 code = h.get('stock_code') or h.get('code')
                 name = h.get('stock_name') or h.get('name') or code
                 weight = h['weight']
-                
+
                 q = quotes.get(code)
                 current_impact = 0.0
                 if q:
@@ -1285,51 +1291,51 @@ class FundEngine:
                     current_impact = impact
                     total_impact += impact
                     total_weight += weight
-                    
+
                     if not summary:
                         components.append({
-                            "code": code, "name": name, "price": price, 
+                            "code": code, "name": name, "price": price,
                             "change_pct": pct, "impact": impact, "weight": weight
                         })
                 else:
                     if not summary:
                         components.append({
-                            "code": code, "name": name, "price": 0, 
+                            "code": code, "name": name, "price": 0,
                             "change_pct": 0, "impact": 0, "weight": weight, "note": "No Quote"
                         })
-                
+
                 # Sector Aggregation (Skip if summary)
                 if not summary:
                     ind_info = industry_map.get(code, {'l1': "其他", 'l2': "其他"})
                     l1 = ind_info.get('l1') or "其他"
                     l2 = ind_info.get('l2') or "其他"
-                    
+
                     if l1 not in sector_stats:
                         sector_stats[l1] = {"impact": 0.0, "weight": 0.0, "sub": {}}
-                    
+
                     sector_stats[l1]["impact"] += current_impact
                     sector_stats[l1]["weight"] += weight
-                    
+
                     if l2 not in sector_stats[l1]["sub"]:
                         sector_stats[l1]["sub"][l2] = {"impact": 0.0, "weight": 0.0}
-                    
+
                     sector_stats[l1]["sub"][l2]["impact"] += current_impact
                     sector_stats[l1]["sub"][l2]["weight"] += weight
-            
+
             final_est = 0.0
             if total_weight > 0:
                 final_est = total_impact * (100 / total_weight)
-                
+
             # Get cached name
             fund_name = fund_name_map.get(f_code, f_code)
-            
+
             # --- Dynamic Auto-Calibration ---
             dynamic_bias = self.db.get_recent_bias(f_code, days=7)
             calibration_note = ""
             if abs(dynamic_bias) > 0.001:
                 final_est -= dynamic_bias
                 calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
-            
+
             # --- FX Compensation for QDII ---
             fx_note = ""
             if "QDII" in fund_name:
@@ -1338,7 +1344,7 @@ class FundEngine:
                     currency = "HKD/CNY"
                 elif any(k in fund_name for k in ["日", "东京", "东证"]):
                     currency = "JPY/CNY"
-                
+
                 fx_change = self.db.get_fx_rate_change(currency)
                 fx_impact = fx_change * 0.9
                 final_est += fx_impact
@@ -1375,13 +1381,13 @@ class FundEngine:
                     "day_progress": round(day_progress, 6)
                 }
             }
-            
+
             # Update cache
             if self.redis:
                 self.redis.setex(f"fund:valuation:{f_code}", 180, json.dumps(res_obj))
-                
+
             results.append(res_obj)
-            
+
         return results
 
     def search_funds(self, query: str, limit: int = 20):
@@ -1391,11 +1397,11 @@ class FundEngine:
         q_strip = query.strip()
         if not q_strip:
             return []
-        
+
         # 1. Try local database first (Extremely fast, 10ms level)
         try:
             local_results = self.db.search_funds_metadata(q_strip, limit)
-            
+
             # If we found ANYTHING locally, trust it and return immediately.
             if local_results:
                 logger.info(f"🚀 [Local Hit] Found {len(local_results)} funds for query: {q_strip}")
@@ -1420,28 +1426,28 @@ class FundEngine:
         if not codes:
             logger.info("No funds in watchlist to snapshot.")
             return
-        
+
         # 2. Pre-fetch Metadata to identify QDII markets
         db_meta = self.db.get_fund_metadata_batch(codes)
-        
+
         logger.info(f"📸 Starting 15:00 Valuation Snapshot for {len(codes)} funds...")
-        
+
         # We can use batch valuation for speed
         valuations = self.calculate_batch_valuation(codes)
-        
+
         trade_date = datetime.now().date()
-        
+
         count = 0
         for val in valuations:
             if 'error' in val: continue
-            
+
             f_code = val['fund_code']
-            
+
             # --- CONSERVATIVE QDII GATEKEEPING ---
             meta = db_meta.get(f_code, {})
             f_name = meta.get('name', '')
             f_type = meta.get('type', '')
-            
+
             if "QDII" in f_type or "QDII" in f_name:
                 # Identify Primary Market
                 region = 'US' # Default for global/tech QDII
@@ -1449,12 +1455,12 @@ class FundEngine:
                     region = 'HK'
                 elif any(k in f_name for k in ["日", "东京", "东证"]):
                     region = 'JP' # We could add JP calendar later, default to US for now
-                
+
                 # Check if the primary market was open last session
                 if not was_market_open_last_night(region):
                     logger.info(f"🛌 Skipping QDII {f_code} because {region} market was closed last session.")
                     continue
-            
+
             self.db.save_valuation_snapshot(
                 trade_date=trade_date,
                 fund_code=f_code,
@@ -1463,7 +1469,7 @@ class FundEngine:
                 sector_json=val.get('sector_attribution')
             )
             count += 1
-            
+
         logger.info(f"✅ Successfully archived {count} snapshots for {trade_date}")
 
     def _ensure_archive_placeholders_exist(self, days_lookback=7):
@@ -1472,7 +1478,8 @@ class FundEngine:
         records for all funds in the watchlist.
         Returns the list of missing trade dates that were backfilled.
         """
-        from datetime import date, timedelta
+        from datetime import date
+
         from src.lucidpanda.utils.market_calendar import is_market_open
 
         today = date.today()
@@ -1483,11 +1490,11 @@ class FundEngine:
         backfilled_dates = []
         for i in range(1, days_lookback + 1):
             check_date = today - timedelta(days=i)
-            
+
             # Skip if market was closed (weekends, holidays)
             if not is_market_open('CN', check_date):
                 continue
-            
+
             # Check if we have ANY records for this date in the archive
             # Using a simple check via the repo
             try:
@@ -1502,7 +1509,7 @@ class FundEngine:
                     if cursor.fetchone():
                         has_records = True
                 conn.close()
-                
+
                 if not has_records:
                     logger.info(f"🕯️ Missed snapshot detected for {check_date}. Creating {len(codes)} placeholders...")
                     for code in codes:
@@ -1516,10 +1523,10 @@ class FundEngine:
                     backfilled_dates.append(check_date)
             except Exception as e:
                 logger.error(f"Failed to check/create placeholders for {check_date}: {e}")
-        
+
         return backfilled_dates
 
-    def reconcile_official_valuations(self, target_date=None, fund_codes: Optional[List[str]] = None):
+    def reconcile_official_valuations(self, target_date=None, fund_codes: list[str] | None = None):
         """
         Fetch real growth for specific funds in the archive by looking up 
         their historical NAV series. Targeted and precise.
@@ -1538,17 +1545,17 @@ class FundEngine:
             with conn.cursor(row_factory=tuple_row) as cursor:
                 sql_where = "WHERE official_growth IS NULL "
                 params = []
-                
+
                 if target_date:
                     sql_where += "AND trade_date = %s "
                     params.append(target_date)
                 else:
                     sql_where += "AND trade_date >= '2026-03-01' "
-                
+
                 if fund_codes:
                     sql_where += "AND fund_code = ANY(%s) "
                     params.append(fund_codes)
-                
+
                 query = f"SELECT trade_date, fund_code FROM fund_valuation_archive {sql_where} ORDER BY trade_date DESC LIMIT 500"
                 cursor.execute(query, tuple(params))
                 pending_tasks = cursor.fetchall()
@@ -1563,7 +1570,7 @@ class FundEngine:
         # 2. Mature Zombie Cleanup: Filter out non-trading days (Weekends & Holidays)
         unique_dates = sorted(list(set(d for d, c in pending_tasks)), reverse=True)
         zombie_dates = [d for d in unique_dates if not is_market_open(d)]
-        
+
         if zombie_dates:
             cleaned_count = self.db.delete_valuation_records_by_dates(zombie_dates)
             logger.info(f"🧹 Cleaned up {cleaned_count} zombie records across {len(zombie_dates)} non-trading dates: {zombie_dates}")
@@ -1588,35 +1595,36 @@ class FundEngine:
 
         logger.info(f"⚖️ Starting Targeted Reconciliation for {len(pending_tasks)} tasks across {len(tasks_by_date)} dates...")
 
-        import time
         import random
-        import requests
         import re
+        import time
+
+        import requests
 
         for trade_date, codes in tasks_by_date.items():
             logger.info(f"📅 Processing reconciliation for {trade_date} ({len(codes)} funds)...")
-            
+
             # --- 1. Batch Optimization: Try stealth list first for recent dates ---
             is_recent = (datetime.now().date() - trade_date).days <= 3
             batch_results = {}
             if is_recent:
                 try:
                     logger.info(f"🚀 Attempting batch reconciliation (Stealth Mode) for {trade_date}...")
-                    
+
                     # EastMoney Daily NAV API with proper Referer
                     url = f"http://fund.eastmoney.com/Data/Fund_JJJZ_Data.aspx?t=1&page=1,20000&dt={int(time.time()*1000)}"
                     headers = {
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                         "Referer": "http://fund.eastmoney.com/fund.html"
                     }
-                    
+
                     resp = requests.get(url, headers=headers, timeout=20)
                     if resp.status_code == 200:
                         # SECURITY: Verify the data date matches our target trade_date
                         # EastMoney API uses showDate: "YYYY-MM-DD"
                         show_date_match = re.search(r'showDate\s*:\s*"(.*?)"', resp.text)
                         api_date_str = show_date_match.group(1) if show_date_match else None
-                        
+
                         if api_date_str == trade_date.strftime('%Y-%m-%d'):
                             # Extract data from JS structure: ["001618","...", "nav", "acc_nav", "last_nav", "last_acc", "growth_val", "growth_rate", ...]
                             data_rows = re.findall(r'\["(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)",', resp.text)
@@ -1629,30 +1637,30 @@ class FundEngine:
                                             batch_results[f_code] = float(val)
                                     except:
                                         continue
-                            
+
                             if batch_results:
                                 logger.info(f"✅ Stealth Batch matched {len(batch_results)} funds for {trade_date}.")
                         else:
                             logger.info(f"ℹ️ Stealth Batch date mismatch (API: {api_date_str}, Target: {trade_date}), skipping batch.")
-                    
+
                     # Fallback to AkShare if stealth mode failed or didn't find results
                     if not batch_results:
                         logger.info("Trying AkShare as secondary batch backup...")
                         df_daily = ak.fund_open_fund_daily_em()
                         if not df_daily.empty:
                             date_str = trade_date.strftime('%Y-%m-%d')
-                            
+
                             # AkShare 'fund_open_fund_daily_em' returns the LATEST day's snippet.
                             # We must verify if this snapshot belongs to our trade_date.
                             # Some versions have '净值日期' column, others encode it in column headers.
                             df_cols = df_daily.columns.tolist()
-                            
+
                             # 1. Try to find the date of this snapshot from the first few rows or columns
                             snapshot_date = None
                             date_col = next((c for c in df_cols if '日期' in str(c)), None)
                             if date_col and not df_daily.empty:
                                 snapshot_date = str(df_daily.iloc[0][date_col])
-                            
+
                             # 2. If no date column, see if any column header specifically matches the target DATE and '增长率'
                             elif not snapshot_date:
                                 for c in df_cols:
@@ -1670,7 +1678,7 @@ class FundEngine:
                                         if val and str(val) != 'nan':
                                             batch_results[c] = float(val)
                                     except: continue
-                                
+
                                 if batch_results:
                                     logger.info(f"✅ AkShare Batch matched {len(batch_results)} funds for {trade_date}.")
                             else:
@@ -1680,7 +1688,7 @@ class FundEngine:
 
             # --- 2. Process Remaining Codes for this date ---
             count = 0
-            
+
             # Disable proxy for market data fetching (EastMoney often blocks proxy IPs)
             original_http = os.environ.get('HTTP_PROXY')
             original_https = os.environ.get('HTTPS_PROXY')
@@ -1700,7 +1708,7 @@ class FundEngine:
                     try:
                         # Anti-crawling: Random delay between 0.5s to 1.5s
                         time.sleep(random.uniform(0.5, 1.5))
-                        
+
                         df = pd.DataFrame()
                         # Retry logic for primary source (EastMoney)
                         for attempt in range(2):
@@ -1708,7 +1716,7 @@ class FundEngine:
                                 df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
                                 if not df.empty: break
                             except Exception as req_err:
-                                if attempt == 0: 
+                                if attempt == 0:
                                     time.sleep(2)
                                     continue
                                 else:
@@ -1729,44 +1737,44 @@ class FundEngine:
                                                 count += 1
                                                 logger.info(f"🎯 Matched {code} (Backup Source): Est vs Official applied.")
                                                 # Mark as found to skip the standard df processing below
-                                                df = pd.DataFrame([{'done': True}]) 
+                                                df = pd.DataFrame([{'done': True}])
                                                 break
                                     except Exception as backup_err:
                                         logger.error(f"Backup source also failed for {code}: {backup_err}")
                                         raise req_err
-                        
+
                         if df.empty:
                             logger.warning(f"No NAV history found for {code}")
                             continue
-                        
+
                         # If df was marked as 'done' by backup, move to next fund
                         if 'done' in df.columns: continue
-                        
+
                         # df usually has columns: ['净值日期', '单位净值', '日增长率', ...]
                         # Convert '净值日期' to date objects for comparison
                         df['净值日期'] = pd.to_datetime(df['净值日期']).dt.date
-                        
+
                         # 3. Find the record matching our trade_date
                         match = df[df['净值日期'] == trade_date]
-                        
+
                         if not match.empty:
                             # '日增长率' is usually a string like "1.23" or "0.00"
                             official_growth = float(match.iloc[0]['日增长率'])
-                            
+
                             # 4. Update the archive with the official value and trigger grading
                             self.db.update_official_nav(trade_date, code, official_growth)
                             count += 1
                             logger.info(f"🎯 Matched {code}: Est vs Official applied.")
                         else:
                             logger.info(f"⏳ NAV for {code} on {trade_date} not yet released by fund company.")
-                            
+
                     except Exception as e:
                         logger.error(f"Failed to reconcile {code}: {e}")
             finally:
                 # Restore proxy settings
                 if original_http: os.environ['HTTP_PROXY'] = original_http
                 if original_https: os.environ['HTTPS_PROXY'] = original_https
-                
+
             logger.info(f"✨ Session for {trade_date} finished. {count}/{len(codes)} updated.")
-            
+
         return count

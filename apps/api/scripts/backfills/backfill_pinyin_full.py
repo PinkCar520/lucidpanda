@@ -5,11 +5,12 @@ One-time migration script:
 2. Backfill pinyin_full for all records using pypinyin
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from pypinyin import pinyin, Style
+from pypinyin import Style, pinyin
 from src.lucidpanda.db.base import DBBase
 
 

@@ -1,16 +1,16 @@
 import json
-from typing import Optional, List, Any
+
 from openai import OpenAI
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.providers.llm.base import BaseLLM
 from src.lucidpanda.core.ontology import TAXONOMY
+from src.lucidpanda.providers.llm.base import BaseLLM
 
 # 内容截断上限
 CONTENT_MAX_CHARS = 800
 
 class DeepSeekLLM(BaseLLM):
-    async def analyze_async(self, raw_data, taxonomy: Optional[dict] = None):
+    async def analyze_async(self, raw_data, taxonomy: dict | None = None):
         """异步版本的分析方法"""
         import asyncio
         return await asyncio.to_thread(self.analyze, raw_data, taxonomy)
@@ -19,18 +19,18 @@ class DeepSeekLLM(BaseLLM):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data, taxonomy: Optional[dict] = None):
+    def analyze(self, raw_data, taxonomy: dict | None = None):
         import time
         try:
             client = OpenAI(
-                api_key=settings.DEEPSEEK_API_KEY, 
+                api_key=settings.DEEPSEEK_API_KEY,
                 base_url=settings.DEEPSEEK_BASE_URL
             )
-            
+
             prompt = self._get_prompt(raw_data, taxonomy)
-            
+
             logger.info(f"📤 [DeepSeek] 发起请求 -> Base: {settings.DEEPSEEK_BASE_URL} | Model: {settings.DEEPSEEK_MODEL}")
-            
+
             start_time = time.time()
             response = client.chat.completions.create(
                 model=settings.DEEPSEEK_MODEL,
@@ -39,12 +39,12 @@ class DeepSeekLLM(BaseLLM):
                 temperature=0.3
             )
             elapsed = time.time() - start_time
-            
+
             raw_text = response.choices[0].message.content
             logger.info(f"📥 [DeepSeek] 响应成功 (耗时: {elapsed:.2f}s)。")
-            
+
             return json.loads(raw_text)
-            
+
         except Exception as e:
             logger.error(f"DeepSeek 分析失败: {e}")
             raise e
@@ -67,42 +67,42 @@ class DeepSeekLLM(BaseLLM):
             logger.error(f"DeepSeek JSON 生成失败: {e}")
             raise e
 
-    def analyze_batch(self, news_items, taxonomy: Optional[dict] = None):
+    def analyze_batch(self, news_items, taxonomy: dict | None = None):
         """批量分析"""
         try:
             client = OpenAI(
-                api_key=settings.DEEPSEEK_API_KEY, 
+                api_key=settings.DEEPSEEK_API_KEY,
                 base_url=settings.DEEPSEEK_BASE_URL
             )
-            
+
             # 使用 Gemini 的逻辑获取批量 prompt
             from src.lucidpanda.providers.llm.gemini import GeminiLLM
             prompt = GeminiLLM()._get_batch_prompt(news_items, taxonomy)
-            
+
             response = client.chat.completions.create(
                 model=settings.DEEPSEEK_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
                 temperature=0.3
             )
-            
+
             results = json.loads(response.choices[0].message.content)
-            
+
             if len(results) != len(news_items):
                 logger.warning(f"批量分析返回数量不匹配: 期望 {len(news_items)}, 实际 {len(results)}")
-            
+
             return results
-            
+
         except Exception as e:
             logger.error(f"DeepSeek 批量分析失败: {e}")
             raise e
 
-    def _get_prompt(self, raw_data, taxonomy: Optional[dict] = None):
+    def _get_prompt(self, raw_data, taxonomy: dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         content = raw_data.get('content', '')
         if len(content) > CONTENT_MAX_CHARS:
             content = content[:CONTENT_MAX_CHARS] + "...（已截断）"
-            
+
         return f"""
 你是一个华尔街顶级宏观策略分析师。请分析以下内容并提取投资信号。
 分析目标：识别该事件对【黄金 (Gold/XAU)】及相关市场的影响。

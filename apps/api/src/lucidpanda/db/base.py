@@ -7,10 +7,6 @@ db/base.py — 数据库基础设施层
   - _global_pool / _db_initialized: 全局单例
 """
 
-import json
-import logging
-from datetime import datetime, timedelta
-import pytz
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 
@@ -487,7 +483,7 @@ class DBBase:
                 );
                 CREATE INDEX IF NOT EXISTS idx_fund_rel_parent ON fund_relationships(parent_code);
             """)
-            
+
             # ── 实体舆情因子时序表 (Factor Indexing) ───────────────────────
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS entity_metrics (
@@ -540,7 +536,7 @@ class DBBase:
                     UNIQUE(dimension, value)
                 );
             """)
-            
+
             # ── 实体未命中监控表 (Entity Miss Log) ────────────────────────
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS entity_miss_log (

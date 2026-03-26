@@ -1,22 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional, Dict, Any
-from uuid import UUID
-from sqlmodel import Session, select, text
-from datetime import datetime, timedelta, timezone
-import json
 import asyncio
-from src.lucidpanda.infra.database.connection import get_session
+import json
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlmodel import Session, text
 from src.lucidpanda.auth.dependencies import get_current_user
 from src.lucidpanda.auth.models import User
-from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.fund_engine import FundEngine
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.utils import v1_prepare_json
-from src.lucidpanda.services.market_terminal_service import market_terminal_service
 from src.lucidpanda.infra.cache import get_cached, set_cached
-from src.lucidpanda.utils.entity_normalizer import normalize_fund_name
+from src.lucidpanda.infra.database.connection import get_session
 from src.lucidpanda.services.embedding_service import embedding_service
-from pydantic import BaseModel, Field
+from src.lucidpanda.services.market_terminal_service import market_terminal_service
+from src.lucidpanda.utils import v1_prepare_json
+from src.lucidpanda.utils.entity_normalizer import normalize_fund_name
 
 router = APIRouter(prefix="/watchlist", tags=["watchlist-v2"])
 
@@ -29,63 +28,63 @@ class WatchlistGroupCreate(BaseModel):
     sort_index: int = 0
 
 class WatchlistGroupUpdate(BaseModel):
-    name: Optional[str] = None
-    icon: Optional[str] = None
-    color: Optional[str] = None
-    sort_index: Optional[int] = None
+    name: str | None = None
+    icon: str | None = None
+    color: str | None = None
+    sort_index: int | None = None
 
 class WatchlistGroupReorderItem(BaseModel):
-    group_id: Optional[str] = None
-    id: Optional[str] = None
+    group_id: str | None = None
+    id: str | None = None
     sort_index: int
 
     def resolved_group_id(self) -> str:
         return (self.group_id or self.id or "").strip()
 
 class WatchlistGroupReorderRequest(BaseModel):
-    items: List[WatchlistGroupReorderItem]
-    client_updated_at: Optional[datetime] = None
+    items: list[WatchlistGroupReorderItem]
+    client_updated_at: datetime | None = None
     merge_strategy: str = "server_wins"
 
 class WatchlistItemMove(BaseModel):
-    group_id: Optional[str] = None
+    group_id: str | None = None
 
 class WatchlistReorderItem(BaseModel):
     fund_code: str
     sort_index: int
 
 class WatchlistReorderRequest(BaseModel):
-    items: List[WatchlistReorderItem]
-    client_updated_at: Optional[datetime] = None
+    items: list[WatchlistReorderItem]
+    client_updated_at: datetime | None = None
     merge_strategy: str = "server_wins"
 
 class WatchlistBatchItem(BaseModel):
     code: str
     name: str
-    group_id: Optional[str] = None
+    group_id: str | None = None
 
 class WatchlistBatchAddRequest(BaseModel):
-    items: List[WatchlistBatchItem]
+    items: list[WatchlistBatchItem]
 
 class WatchlistBatchRemoveRequest(BaseModel):
-    codes: List[str]
+    codes: list[str]
 
 class SyncOperation(BaseModel):
     operation_type: str
     fund_code: str
-    fund_name: Optional[str] = None
-    group_id: Optional[str] = None
-    sort_index: Optional[int] = None
+    fund_name: str | None = None
+    group_id: str | None = None
+    sort_index: int | None = None
     client_timestamp: datetime
-    device_id: Optional[str] = "iOS"
+    device_id: str | None = "iOS"
 
 class SyncRequest(BaseModel):
-    operations: List[SyncOperation]
-    last_sync_time: Optional[datetime] = None
+    operations: list[SyncOperation]
+    last_sync_time: datetime | None = None
 
 # ==================== 分组管理 ====================
 
-@router.get("/groups", response_model=Dict[str, Any])
+@router.get("/groups", response_model=dict[str, Any])
 async def get_watchlist_groups(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
@@ -100,19 +99,19 @@ async def get_watchlist_groups(
         """)
         results = db.execute(statement, {"user_id": str(current_user.id)}).mappings().all()
         groups = [dict(row) for row in results]
-        
+
         # 格式化日期
         for group in groups:
             if 'created_at' in group and hasattr(group['created_at'], 'isoformat'):
                 group['created_at'] = group['created_at'].isoformat()
             if 'updated_at' in group and hasattr(group['updated_at'], 'isoformat'):
                 group['updated_at'] = group['updated_at'].isoformat()
-        
+
         return v1_prepare_json({"data": groups})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/groups", response_model=Dict[str, Any])
+@router.post("/groups", response_model=dict[str, Any])
 async def create_watchlist_group(
     group_data: WatchlistGroupCreate,
     current_user: User = Depends(get_current_user),
@@ -125,7 +124,7 @@ async def create_watchlist_group(
             VALUES (gen_random_uuid(), :user_id, :name, :icon, :color, :sort_index)
             RETURNING id, user_id, name, icon, color, sort_index, created_at, updated_at
         """)
-        
+
         result = db.execute(insert_stmt, {
             "user_id": str(current_user.id),
             "name": group_data.name,
@@ -133,16 +132,16 @@ async def create_watchlist_group(
             "color": group_data.color,
             "sort_index": group_data.sort_index
         })
-        
+
         row = result.mappings().first()
         db.commit()
-        
+
         group = dict(row)
         if 'created_at' in group and hasattr(group['created_at'], 'isoformat'):
             group['created_at'] = group['created_at'].isoformat()
         if 'updated_at' in group and hasattr(group['updated_at'], 'isoformat'):
             group['updated_at'] = group['updated_at'].isoformat()
-        
+
         return v1_prepare_json({"data": group})
     except HTTPException:
         db.rollback()
@@ -151,7 +150,7 @@ async def create_watchlist_group(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/groups/{group_id}", response_model=Dict[str, Any])
+@router.put("/groups/{group_id}", response_model=dict[str, Any])
 async def update_watchlist_group(
     group_id: str,
     group_data: WatchlistGroupUpdate,
@@ -169,14 +168,14 @@ async def update_watchlist_group(
             "group_id": group_id,
             "user_id": str(current_user.id)
         }).first()
-        
+
         if not check_result:
             raise HTTPException(status_code=404, detail="Group not found")
-        
+
         # 构建动态更新
         updates = []
         params = {"group_id": group_id, "user_id": str(current_user.id)}
-        
+
         if group_data.name is not None:
             updates.append("name = :name")
             params["name"] = group_data.name
@@ -189,7 +188,7 @@ async def update_watchlist_group(
         if group_data.sort_index is not None:
             updates.append("sort_index = :sort_index")
             params["sort_index"] = group_data.sort_index
-        
+
         if updates:
             updates.append("updated_at = CURRENT_TIMESTAMP")
             update_stmt = text(f"""
@@ -198,19 +197,19 @@ async def update_watchlist_group(
                 WHERE id = :group_id AND user_id = :user_id
                 RETURNING id, user_id, name, icon, color, sort_index, created_at, updated_at
             """)
-            
+
             result = db.execute(update_stmt, params)
             row = result.mappings().first()
             db.commit()
-            
+
             group = dict(row)
             if 'created_at' in group and hasattr(group['created_at'], 'isoformat'):
                 group['created_at'] = group['created_at'].isoformat()
             if 'updated_at' in group and hasattr(group['updated_at'], 'isoformat'):
                 group['updated_at'] = group['updated_at'].isoformat()
-            
+
             return v1_prepare_json({"data": group})
-        
+
         return v1_prepare_json({"error": "No fields to update"})
     except HTTPException:
         raise
@@ -218,7 +217,7 @@ async def update_watchlist_group(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/groups/{group_id}", response_model=Dict[str, Any])
+@router.delete("/groups/{group_id}", response_model=dict[str, Any])
 async def delete_watchlist_group(
     group_id: str,
     current_user: User = Depends(get_current_user),
@@ -234,7 +233,7 @@ async def delete_watchlist_group(
         default_group = db.execute(default_group_stmt, {
             "user_id": str(current_user.id)
         }).first()
-        
+
         if default_group:
             # 将该分组的基金移至默认分组
             update_stmt = text("""
@@ -258,7 +257,7 @@ async def delete_watchlist_group(
                 "group_id": group_id,
                 "user_id": str(current_user.id)
             })
-        
+
         # 删除分组
         delete_stmt = text("""
             DELETE FROM watchlist_groups
@@ -268,7 +267,7 @@ async def delete_watchlist_group(
             "group_id": group_id,
             "user_id": str(current_user.id)
         })
-        
+
         db.commit()
         return v1_prepare_json({"success": True})
     except Exception as e:
@@ -336,7 +335,7 @@ async def _reorder_watchlist_groups_impl(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/groups/reorder", response_model=Dict[str, Any])
+@router.post("/groups/reorder", response_model=dict[str, Any])
 async def reorder_watchlist_groups(
     request: WatchlistGroupReorderRequest,
     current_user: User = Depends(get_current_user),
@@ -345,7 +344,7 @@ async def reorder_watchlist_groups(
     return await _reorder_watchlist_groups_impl(request, current_user, db)
 
 
-@router.patch("/groups/reorder", response_model=Dict[str, Any])
+@router.patch("/groups/reorder", response_model=dict[str, Any])
 async def reorder_watchlist_groups_patch(
     request: WatchlistGroupReorderRequest,
     current_user: User = Depends(get_current_user),
@@ -355,16 +354,16 @@ async def reorder_watchlist_groups_patch(
 
 # ==================== 自选列表增强 ====================
 
-@router.get("", response_model=Dict[str, Any])
+@router.get("", response_model=dict[str, Any])
 async def get_watchlist_v2(
-    group_id: Optional[str] = Query(None),
+    group_id: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
 ):
     """获取自选列表（支持分组筛选）"""
     try:
         user_id = str(current_user.id)
-        
+
         # 获取分组列表
         groups_stmt = text("""
             SELECT id, user_id, name, icon, color, sort_index, created_at, updated_at
@@ -374,14 +373,14 @@ async def get_watchlist_v2(
         """)
         groups_result = db.execute(groups_stmt, {"user_id": user_id}).mappings().all()
         groups = [dict(row) for row in groups_result]
-        
+
         # 格式化分组日期
         for group in groups:
             if 'created_at' in group and hasattr(group['created_at'], 'isoformat'):
                 group['created_at'] = group['created_at'].isoformat()
             if 'updated_at' in group and hasattr(group['updated_at'], 'isoformat'):
                 group['updated_at'] = group['updated_at'].isoformat()
-        
+
         # 获取自选列表
         if group_id:
             items_stmt = text("""
@@ -402,7 +401,7 @@ async def get_watchlist_v2(
                 ORDER BY sort_index ASC
             """)
             items_result = db.execute(items_stmt, {"user_id": user_id}).mappings().all()
-        
+
         items = []
         for row in items_result:
             item = dict(row)
@@ -411,7 +410,7 @@ async def get_watchlist_v2(
             if 'updated_at' in item and hasattr(item['updated_at'], 'isoformat'):
                 item['updated_at'] = item['updated_at'].isoformat()
             items.append(item)
-        
+
         return v1_prepare_json({
             "data": items,
             "groups": groups,
@@ -420,7 +419,7 @@ async def get_watchlist_v2(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/batch-add", response_model=Dict[str, Any])
+@router.post("/batch-add", response_model=dict[str, Any])
 async def batch_add_to_watchlist(
     request: WatchlistBatchAddRequest,
     current_user: User = Depends(get_current_user),
@@ -430,7 +429,7 @@ async def batch_add_to_watchlist(
     try:
         user_id = str(current_user.id)
         results = []
-        
+
         for item in request.items:
             try:
                 # 获取当前最大 sort_index
@@ -440,7 +439,7 @@ async def batch_add_to_watchlist(
                     WHERE user_id = :user_id
                 """)
                 max_index = db.execute(max_index_stmt, {"user_id": user_id}).scalar() or -1
-                
+
                 insert_stmt = text("""
                     INSERT INTO fund_watchlist (user_id, fund_code, fund_name, group_id, sort_index)
                     VALUES (:user_id, :code, :name, :group_id, :sort_index)
@@ -451,7 +450,7 @@ async def batch_add_to_watchlist(
                         updated_at = CURRENT_TIMESTAMP
                     RETURNING id, fund_code, fund_name
                 """)
-                
+
                 result = db.execute(insert_stmt, {
                     "user_id": user_id,
                     "code": item.code,
@@ -459,7 +458,7 @@ async def batch_add_to_watchlist(
                     "group_id": item.group_id,
                     "sort_index": max_index + 1
                 })
-                
+
                 row = result.mappings().first()
                 results.append({
                     "code": item.code,
@@ -472,14 +471,14 @@ async def batch_add_to_watchlist(
                     "success": False,
                     "error": str(e)
                 })
-        
+
         db.commit()
         return v1_prepare_json({"results": results})
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/batch-remove", response_model=Dict[str, Any])
+@router.post("/batch-remove", response_model=dict[str, Any])
 async def batch_remove_from_watchlist(
     request: WatchlistBatchRemoveRequest,
     current_user: User = Depends(get_current_user),
@@ -489,7 +488,7 @@ async def batch_remove_from_watchlist(
     try:
         user_id = str(current_user.id)
         results = []
-        
+
         for code in request.codes:
             try:
                 update_stmt = text("""
@@ -504,14 +503,14 @@ async def batch_remove_from_watchlist(
                 results.append({"code": code, "success": True})
             except Exception as e:
                 results.append({"code": code, "success": False, "error": str(e)})
-        
+
         db.commit()
         return v1_prepare_json({"results": results})
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/reorder", response_model=Dict[str, Any])
+@router.post("/reorder", response_model=dict[str, Any])
 async def reorder_watchlist(
     request: WatchlistReorderRequest,
     current_user: User = Depends(get_current_user),
@@ -544,7 +543,7 @@ async def reorder_watchlist(
                         "conflicts": [dict(row) for row in conflicts],
                     },
                 )
-        
+
         for item in request.items:
             update_stmt = text("""
                 UPDATE fund_watchlist
@@ -556,14 +555,14 @@ async def reorder_watchlist(
                 "user_id": user_id,
                 "fund_code": item.fund_code
             })
-        
+
         db.commit()
         return v1_prepare_json({"success": True})
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/{code}/group", response_model=Dict[str, Any])
+@router.put("/{code}/group", response_model=dict[str, Any])
 async def move_fund_to_group(
     code: str,
     request: WatchlistItemMove,
@@ -573,7 +572,7 @@ async def move_fund_to_group(
     """移动基金到分组"""
     try:
         user_id = str(current_user.id)
-        
+
         update_stmt = text("""
             UPDATE fund_watchlist
             SET group_id = :group_id, updated_at = CURRENT_TIMESTAMP
@@ -584,7 +583,7 @@ async def move_fund_to_group(
             "user_id": user_id,
             "fund_code": code
         })
-        
+
         db.commit()
         return v1_prepare_json({"success": True})
     except Exception as e:
@@ -593,16 +592,16 @@ async def move_fund_to_group(
 
 # ==================== 同步接口 ====================
 
-@router.get("/sync", response_model=Dict[str, Any])
+@router.get("/sync", response_model=dict[str, Any])
 async def sync_watchlist(
-    since: Optional[str] = Query(None),
+    since: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
 ):
     """增量同步：获取指定时间后的变更"""
     try:
         user_id = str(current_user.id)
-        
+
         # 解析时间
         since_dt = None
         if since:
@@ -610,7 +609,7 @@ async def sync_watchlist(
                 since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
             except:
                 since_dt = None
-        
+
         # 获取变更的自选项
         if since_dt:
             items_stmt = text("""
@@ -625,7 +624,7 @@ async def sync_watchlist(
                 "user_id": user_id,
                 "since": since_dt
             }).mappings().all()
-            
+
             # 获取变更的分组
             groups_stmt = text("""
                 SELECT id, user_id, name, icon, color, sort_index, created_at, updated_at
@@ -647,7 +646,7 @@ async def sync_watchlist(
                 ORDER BY sort_index ASC
             """)
             items_result = db.execute(items_stmt, {"user_id": user_id}).mappings().all()
-            
+
             groups_stmt = text("""
                 SELECT id, user_id, name, icon, color, sort_index, created_at, updated_at
                 FROM watchlist_groups
@@ -655,7 +654,7 @@ async def sync_watchlist(
                 ORDER BY sort_index ASC
             """)
             groups_result = db.execute(groups_stmt, {"user_id": user_id}).mappings().all()
-        
+
         # 格式化结果
         items = []
         for row in items_result:
@@ -665,7 +664,7 @@ async def sync_watchlist(
             if 'updated_at' in item and hasattr(item['updated_at'], 'isoformat'):
                 item['updated_at'] = item['updated_at'].isoformat()
             items.append(item)
-        
+
         groups = []
         for row in groups_result:
             group = dict(row)
@@ -674,7 +673,7 @@ async def sync_watchlist(
             if 'updated_at' in group and hasattr(group['updated_at'], 'isoformat'):
                 group['updated_at'] = group['updated_at'].isoformat()
             groups.append(group)
-        
+
         return v1_prepare_json({
             "data": items,
             "groups": groups,
@@ -683,7 +682,7 @@ async def sync_watchlist(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/sync", response_model=Dict[str, Any])
+@router.post("/sync", response_model=dict[str, Any])
 async def submit_sync_operations(
     request: SyncRequest,
     current_user: User = Depends(get_current_user),
@@ -693,7 +692,7 @@ async def submit_sync_operations(
     try:
         user_id = str(current_user.id)
         results = []
-        
+
         for op in request.operations:
             try:
                 # 记录同步日志
@@ -713,7 +712,7 @@ async def submit_sync_operations(
                     "device_id": op.device_id,
                     "client_ts": op.client_timestamp
                 })
-                
+
                 # 执行操作
                 if op.operation_type == "ADD":
                     # 幂等添加
@@ -723,7 +722,7 @@ async def submit_sync_operations(
                         WHERE user_id = :user_id
                     """)
                     max_index = db.execute(max_index_stmt, {"user_id": user_id}).scalar() or -1
-                    
+
                     insert_stmt = text("""
                         INSERT INTO fund_watchlist (user_id, fund_code, fund_name, group_id, sort_index)
                         VALUES (:user_id, :code, :name, :group_id, :sort_index)
@@ -740,7 +739,7 @@ async def submit_sync_operations(
                         "group_id": op.group_id,
                         "sort_index": op.sort_index if op.sort_index is not None else max_index + 1
                     })
-                
+
                 elif op.operation_type == "REMOVE":
                     # 软删除
                     delete_stmt = text("""
@@ -752,7 +751,7 @@ async def submit_sync_operations(
                         "user_id": user_id,
                         "code": op.fund_code
                     })
-                
+
                 elif op.operation_type == "REORDER":
                     if op.sort_index is not None:
                         reorder_stmt = text("""
@@ -765,7 +764,7 @@ async def submit_sync_operations(
                             "user_id": user_id,
                             "code": op.fund_code
                         })
-                
+
                 elif op.operation_type == "MOVE_GROUP":
                     move_stmt = text("""
                         UPDATE fund_watchlist
@@ -777,13 +776,13 @@ async def submit_sync_operations(
                         "user_id": user_id,
                         "code": op.fund_code
                     })
-                
+
                 results.append({
                     "operation": op.operation_type,
                     "fund_code": op.fund_code,
                     "success": True
                 })
-                
+
             except Exception as e:
                 results.append({
                     "operation": op.operation_type,
@@ -791,7 +790,7 @@ async def submit_sync_operations(
                     "success": False,
                     "error": str(e)
                 })
-        
+
         db.commit()
         return v1_prepare_json({"results": results})
     except Exception as e:
@@ -801,7 +800,7 @@ async def submit_sync_operations(
 
 # ==================== 基金 AI 分析 ====================
 
-@router.get("/{fund_code}/ai_analysis", response_model=Dict[str, Any])
+@router.get("/{fund_code}/ai_analysis", response_model=dict[str, Any])
 async def get_fund_ai_analysis(
     fund_code: str,
     current_user: User = Depends(get_current_user),
@@ -830,7 +829,7 @@ async def get_fund_ai_analysis(
     if not row:
         raise HTTPException(status_code=404, detail="基金不在自选列表中")
     fund_name: str = row[0]
-    
+
     # 规范化基金名，提取核心标的 (如: "华夏沪深300ETF" -> "沪深300")
     core_name = normalize_fund_name(fund_name)
 
@@ -841,7 +840,7 @@ async def get_fund_ai_analysis(
 
     # 2. 混合检索关联情报 (Hybrid Search: Keyword + Semantic)
     since_7d = datetime.now(timezone.utc) - timedelta(days=7)
-    
+
     # 2.1 关键词检索 (Keyword Search)
     kw_raw = db.execute(
         text("""
@@ -859,9 +858,9 @@ async def get_fund_ai_analysis(
             LIMIT 5
         """),
         {
-            "since": since_7d, 
+            "since": since_7d,
             "cats": preferred_categories,
-            "kw_full": f"%{fund_name}%", 
+            "kw_full": f"%{fund_name}%",
             "kw_core": f"%{core_name}%",
             "json_full": json.dumps([{"name": fund_name}]),
             "json_core": json.dumps([{"name": core_name}])
@@ -900,7 +899,7 @@ async def get_fund_ai_analysis(
         if row["id"] not in seen_ids:
             merged_raw.append(row)
             seen_ids.add(row["id"])
-    
+
     # 重新按紧急度和时间排序，取 Top 5
     merged_raw.sort(key=lambda x: (x["urgency_score"], x["timestamp"] or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
     related_raw = merged_raw[:5]
@@ -908,13 +907,13 @@ async def get_fund_ai_analysis(
     # --- 2.4 智能降级逻辑 (Smart Fallback) ---
     is_fallback = False
     fallback_source = None
-    
+
     if not related_raw:
         try:
             # 1. 获取基金所属板块 (从 FundEngine 获取实时估值快照/缓存)
             engine = FundEngine()
             valuation = await asyncio.to_thread(engine.calculate_realtime_valuation, fund_code)
-            
+
             # 2. 提取权重最高的 L2 或 L1 板块
             sectors = []
             if valuation and "sector_attribution" in valuation:
@@ -926,10 +925,10 @@ async def get_fund_ai_analysis(
                     for l2, sub_info in info.get("sub", {}).items():
                         if l2 != "其他":
                             flat_sectors.append({"name": l2, "weight": sub_info["weight"], "level": "L2"})
-                
+
                 flat_sectors.sort(key=lambda x: x["weight"], reverse=True)
                 sectors = [s["name"] for s in flat_sectors[:2]] # 取前两个权重最高的板块
-            
+
             # 3. 如果有板块信息，尝试搜索板块相关情报
             if sectors:
                 fallback_kw = sectors[0]
@@ -946,12 +945,12 @@ async def get_fund_ai_analysis(
                     """),
                     {"since": since_7d, "kw": f"%{fallback_kw}%", "cats": preferred_categories},
                 ).mappings().all()
-                
+
                 if fallback_raw:
                     related_raw = fallback_raw
                     is_fallback = True
                     fallback_source = f"行业视角: {fallback_kw}"
-            
+
             # 4. 极致降级：如果依然没有，搜索 "A股" 或 "市场" 整体宏观情报
             if not related_raw:
                 macro_raw = db.execute(

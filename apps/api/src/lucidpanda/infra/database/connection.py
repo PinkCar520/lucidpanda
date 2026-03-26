@@ -1,4 +1,4 @@
-from sqlmodel import create_engine, Session
+from sqlmodel import Session, create_engine
 from src.lucidpanda.config import settings
 
 # Production-grade database connection management

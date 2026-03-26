@@ -11,7 +11,7 @@
 """
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ def _get_client():
     return _redis_client
 
 
-def get_cached(key: str) -> Optional[Any]:
+def get_cached(key: str) -> Any | None:
     """从 Redis 读取缓存，反序列化为 Python 对象。不可用时返回 None。"""
     try:
         client = _get_client()

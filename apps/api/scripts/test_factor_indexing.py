@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 from datetime import date
+
 from dotenv import load_dotenv
 
 # 确保能导入 src
@@ -14,23 +15,21 @@ load_dotenv(env_path)
 load_dotenv(ai_env_path, override=True)
 
 from src.lucidpanda.core.engine import AlphaEngine
-from src.lucidpanda.services.factor_service import FactorService
-from src.lucidpanda.config import settings
 
 # 使用默认配置 (由环境变量从 Docker Compose 注入)
 pass
 
 async def test_factor_indexing():
     print("🚀 开始因子聚合 (Factor Indexing) 功能测试...")
-    
+
     # 1. 初始化引擎（这会触发 DBBase._init_db()，确保表已创建）
     engine = AlphaEngine()
     factor_service = engine.factor_service
-    
+
     # 2. 清理今日测试数据，确保测试幂等性
     target_id = "ent_fed_powell"
     today = date.today()
-    
+
     try:
         conn = factor_service.get_connection()
         with conn:
@@ -46,13 +45,13 @@ async def test_factor_indexing():
         {"cid": target_id, "score": 0.4, "urgency": 2},
         {"cid": target_id, "score": -0.6, "urgency": 1},
     ]
-    
+
     print(f"📊 模拟输入 {len(test_cases)} 条情绪数据...")
-    
+
     for case in test_cases:
         await factor_service.update_entity_factor_async(
-            case["cid"], 
-            case["score"], 
+            case["cid"],
+            case["score"],
             case["urgency"]
         )
         print(f"  - 注入: score={case['score']}, urgency={case['urgency']}")
@@ -61,18 +60,18 @@ async def test_factor_indexing():
     # 期望: (0.8 + 0.4 - 0.6) / 3 = 0.2
     # 期望: mention_count = 3
     # 期望: urgency_sum = 6
-    
+
     print("\n🧐 从数据库读取聚合结果进行验证...")
     trend = await factor_service.get_entity_trend_async(target_id, days=1)
-    
+
     if trend:
         metric = trend[0]
-        print(f"✅ 聚合结果:")
+        print("✅ 聚合结果:")
         print(f"  - 实体: {target_id}")
         print(f"  - 平均情绪 (avg_sentiment): {metric['avg_sentiment']:.4f}")
         print(f"  - 提及次数 (mention_count): {metric['mention_count']}")
         print(f"  - 紧迫度总和 (urgency_sum): {metric['urgency_sum']}")
-        
+
         expected_avg = (0.8 + 0.4 - 0.6) / 3
         if abs(metric['avg_sentiment'] - expected_avg) < 0.0001:
             print("\n🌟 验证成功: 因子计算逻辑准确！")

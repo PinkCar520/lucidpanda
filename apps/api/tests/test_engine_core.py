@@ -1,6 +1,6 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-import asyncio
-from unittest.mock import MagicMock, AsyncMock, patch
 
 
 @pytest.fixture

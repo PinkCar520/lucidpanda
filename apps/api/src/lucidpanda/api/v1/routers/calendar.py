@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, Query
-from typing import List, Optional, Dict, Any
-from datetime import date, datetime, timedelta
-from pydantic import BaseModel
-from enum import Enum
-from sqlmodel import Session, text, select
 import asyncio
-from src.lucidpanda.models.macro_event import MacroEvent
+from datetime import date, datetime, timedelta
+from enum import Enum
+from typing import Any
+
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
+from sqlmodel import Session, select, text
 from src.lucidpanda.auth.dependencies import get_current_user
 from src.lucidpanda.auth.models import User
 from src.lucidpanda.infra.database.connection import get_session
+from src.lucidpanda.models.macro_event import MacroEvent
 
 try:
     import pandas as pd  # type: ignore
@@ -26,31 +27,31 @@ class EventPeriod(str, Enum):
     UNKNOWN = "unknown"
 
 class MacroDetails(BaseModel):
-    actual: Optional[float] = None
-    forecast: Optional[float] = None
-    previous: Optional[float] = None
-    unit: Optional[str] = None
+    actual: float | None = None
+    forecast: float | None = None
+    previous: float | None = None
+    unit: str | None = None
 
 class CalendarEventSchema(BaseModel):
     id: str
     date: str           # "YYYY-MM-DD"
-    time: Optional[str] = None   # "HH:MM" or None (all-day)
+    time: str | None = None   # "HH:MM" or None (all-day)
     type: str           # earnings | dividend | ipo | economic | announcement
     title: str
-    description: Optional[str] = None
+    description: str | None = None
     impact: str         # high | medium | low
-    related_symbols: List[str] = []
+    related_symbols: list[str] = []
     is_watchlist_related: bool = False
     period: EventPeriod = EventPeriod.UNKNOWN
-    macro_details: Optional[MacroDetails] = None
+    macro_details: MacroDetails | None = None
 
 class CalendarResponse(BaseModel):
-    events: List[CalendarEventSchema]
-    date_range: Dict[str, str]
+    events: list[CalendarEventSchema]
+    date_range: dict[str, str]
 
 # ==================== Data Sources (P2) ====================
 
-def _get_user_watchlist_codes(current_user: User, db: Session, limit: int = 50) -> List[str]:
+def _get_user_watchlist_codes(current_user: User, db: Session, limit: int = 50) -> list[str]:
     rows = db.execute(
         text(
             """
@@ -70,7 +71,7 @@ def _date_in_window(d: date, date_from: date, date_to: date) -> bool:
     return date_from <= d <= date_to
 
 
-def _as_date(value: Any) -> Optional[date]:
+def _as_date(value: Any) -> date | None:
     if value is None:
         return None
     if isinstance(value, date) and not isinstance(value, datetime):
@@ -92,7 +93,7 @@ def _as_date(value: Any) -> Optional[date]:
     return None
 
 
-def _extract_yfinance_calendar_dates(cal_df: Any) -> Dict[str, Any]:
+def _extract_yfinance_calendar_dates(cal_df: Any) -> dict[str, Any]:
     """
     yfinance `Ticker.calendar` format is not stable; normalize a few known fields.
     Returns mapping: {"earnings": {"date": date, "period": EventPeriod}, ...}
@@ -102,7 +103,7 @@ def _extract_yfinance_calendar_dates(cal_df: Any) -> Dict[str, Any]:
     if pd is not None and isinstance(cal_df, pd.DataFrame) and cal_df.empty:
         return {}
 
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
 
     try:
         if pd is not None and isinstance(cal_df, pd.DataFrame):
@@ -117,7 +118,7 @@ def _extract_yfinance_calendar_dates(cal_df: Any) -> Dict[str, Any]:
                         value = raw.iloc[0] if len(raw) else None
                     else:
                         value = raw
-                    
+
                     d = _as_date(value)
                     if d:
                         period = EventPeriod.UNKNOWN
@@ -126,7 +127,7 @@ def _extract_yfinance_calendar_dates(cal_df: Any) -> Dict[str, Any]:
                             h = value.hour
                             if h < 12: period = EventPeriod.PRE_MARKET
                             elif h >= 16: period = EventPeriod.AFTER_HOURS
-                        
+
                         result[out_key] = {"date": d, "period": period}
     except Exception:
         return result
@@ -134,7 +135,7 @@ def _extract_yfinance_calendar_dates(cal_df: Any) -> Dict[str, Any]:
     return result
 
 
-def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> List[CalendarEventSchema]:
+def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> list[CalendarEventSchema]:
     """
     Synchronous per-symbol fetch — runs inside run_in_executor.
     Safe to call from a thread.
@@ -148,7 +149,7 @@ def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> Lis
     if not sym:
         return []
 
-    events: List[CalendarEventSchema] = []
+    events: list[CalendarEventSchema] = []
     try:
         ticker = yf.Ticker(sym)
         cal = getattr(ticker, "calendar", None)
@@ -196,8 +197,8 @@ def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> Lis
 
 
 async def _build_yfinance_events(
-    symbols: List[str], date_from: date, date_to: date
-) -> List[CalendarEventSchema]:
+    symbols: list[str], date_from: date, date_to: date
+) -> list[CalendarEventSchema]:
     """
     Async wrapper — fetches each symbol concurrently via run_in_executor
     so the FastAPI event loop is never blocked.
@@ -212,7 +213,7 @@ async def _build_yfinance_events(
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    events: List[CalendarEventSchema] = []
+    events: list[CalendarEventSchema] = []
     for result in results:
         if isinstance(result, list):
             events.extend(result)
@@ -228,8 +229,8 @@ def _is_a_share(code: str) -> bool:
 
 
 def _fetch_akshare_dividends(
-    a_share_codes: List[str], date_from: date, date_to: date
-) -> List[CalendarEventSchema]:
+    a_share_codes: list[str], date_from: date, date_to: date
+) -> list[CalendarEventSchema]:
     """Fetch A-share ex-dividend dates. Runs in a thread."""
     if not a_share_codes:
         return []
@@ -238,7 +239,7 @@ def _fetch_akshare_dividends(
     except Exception:
         return []
 
-    events: List[CalendarEventSchema] = []
+    events: list[CalendarEventSchema] = []
     for code in a_share_codes:
         try:
             df = ak.stock_zh_a_ex_right_date_sina(symbol=code)
@@ -273,14 +274,14 @@ def _fetch_akshare_dividends(
     return events
 
 
-def _fetch_akshare_ipos(date_from: date, date_to: date) -> List[CalendarEventSchema]:
+def _fetch_akshare_ipos(date_from: date, date_to: date) -> list[CalendarEventSchema]:
     """Fetch upcoming A-share IPO dates. Runs in a thread."""
     try:
         import akshare as ak  # type: ignore
     except Exception:
         return []
 
-    events: List[CalendarEventSchema] = []
+    events: list[CalendarEventSchema] = []
     try:
         df = ak.stock_zh_a_new_financial_analysis_sina()
         if df is None:
@@ -313,8 +314,8 @@ def _fetch_akshare_ipos(date_from: date, date_to: date) -> List[CalendarEventSch
 
 
 async def _build_akshare_events(
-    watchlist_codes: List[str], date_from: date, date_to: date
-) -> List[CalendarEventSchema]:
+    watchlist_codes: list[str], date_from: date, date_to: date
+) -> list[CalendarEventSchema]:
     """Async wrapper — fetch dividend + IPO concurrently."""
     a_share_codes = [c for c in watchlist_codes if _is_a_share(c)]
     loop = asyncio.get_event_loop()
@@ -323,7 +324,7 @@ async def _build_akshare_events(
         loop.run_in_executor(None, _fetch_akshare_ipos, date_from, date_to),
         return_exceptions=True,
     )
-    events: List[CalendarEventSchema] = []
+    events: list[CalendarEventSchema] = []
     for r in results:
         if isinstance(r, list):
             events.extend(r)
@@ -334,10 +335,10 @@ async def _build_akshare_events(
 
 @router.get("/events", response_model=CalendarResponse)
 async def get_calendar_events(
-    date_from: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    date_to: Optional[str]   = Query(None, description="YYYY-MM-DD"),
+    date_from: str | None = Query(None, description="YYYY-MM-DD"),
+    date_to: str | None   = Query(None, description="YYYY-MM-DD"),
     watchlist_only: bool      = Query(False),
-    types: Optional[str]      = Query(None, description="Comma-separated: earnings,dividend,ipo,economic,announcement"),
+    types: str | None      = Query(None, description="Comma-separated: earnings,dividend,ipo,economic,announcement"),
     current_user: User        = Depends(get_current_user),
     db: Session               = Depends(get_session),
 ):
@@ -359,7 +360,7 @@ async def get_calendar_events(
         _build_yfinance_events(watchlist_codes, from_dt, to_dt),
         _build_akshare_events(watchlist_codes, from_dt, to_dt),
     )
-    
+
     # Fetch Macro Events from local DB (Instant synchronous query)
     macro_events = []
     try:
@@ -372,9 +373,9 @@ async def get_calendar_events(
             if m.previous_value: desc_parts.append(f"前:{m.previous_value}")
             if m.forecast_value: desc_parts.append(f"预:{m.forecast_value}")
             if m.actual_value:   desc_parts.append(f"今:{m.actual_value}")
-            
+
             # Try to parse string values to floats for macro_details
-            def _try_float(v: Optional[str]) -> Optional[float]:
+            def _try_float(v: str | None) -> float | None:
                 if not v: return None
                 try:
                     # Clean common symbols like %, $, K, M
@@ -389,7 +390,7 @@ async def get_calendar_events(
                 previous=_try_float(m.previous_value),
                 unit="%" if m.actual_value and "%" in m.actual_value else None
             )
-            
+
             macro_events.append(CalendarEventSchema(
                 id=str(m.id),
                 date=m.release_date.strftime("%Y-%m-%d"),
@@ -406,11 +407,11 @@ async def get_calendar_events(
     except Exception:
         pass
 
-    events: List[CalendarEventSchema] = list(yf_events) + list(ak_events) + macro_events
+    events: list[CalendarEventSchema] = list(yf_events) + list(ak_events) + macro_events
 
     # Deduplicate by (symbols, type, date, title)
     seen: set = set()
-    deduped: List[CalendarEventSchema] = []
+    deduped: list[CalendarEventSchema] = []
     for e in events:
         key = (tuple(sorted(e.related_symbols)), e.type, e.date, e.title)
         if key not in seen:

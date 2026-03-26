@@ -1,10 +1,11 @@
 import re
 import time
 import urllib.parse
+
 import feedparser
-import dateparser
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.data_sources.base import BaseDataSource
+
 
 class GoogleNewsSource(BaseDataSource):
     """
@@ -13,7 +14,7 @@ class GoogleNewsSource(BaseDataSource):
     # Quant-Grade Source Tiering
     SOURCE_TIERS = {
         'TIER_1': [ # Market Movers (Instant Alpha)
-            'Bloomberg', 'Reuters', 'Wall Street Journal', 'WSJ', 'Financial Times', 'CNBC', 
+            'Bloomberg', 'Reuters', 'Wall Street Journal', 'WSJ', 'Financial Times', 'CNBC',
             'Dow Jones', 'Barron\'s', 'Fox Business'
         ],
         'TIER_2': [ # Reliable Context (Confirmation)
@@ -68,7 +69,7 @@ class GoogleNewsSource(BaseDataSource):
         try:
             # 1. Build Search Query with Date Restrictions
             search_query = query
-            
+
             # Google News RSS supports 'after:YYYY-MM-DD' and 'before:YYYY-MM-DD'
             def format_date_for_rss(date_str):
                 if not date_str: return None
@@ -89,9 +90,9 @@ class GoogleNewsSource(BaseDataSource):
             # 2. Encode URL
             encoded_query = urllib.parse.quote(search_query)
             rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
-            
+
             logger.info(f"Fetching Google News RSS: {rss_url}")
-            
+
             # 3. Parse RSS Feed with Retries and requests for stability
             import requests
             content = None
@@ -107,7 +108,7 @@ class GoogleNewsSource(BaseDataSource):
                 except Exception as e:
                     logger.warning(f"Attempt {attempt+1}/3 failed to fetch Google News RSS: {e}")
                     if attempt < 2: time.sleep(2)
-            
+
             if not content:
                 logger.error("Failed to fetch Google News RSS after 3 attempts.")
                 return None
@@ -121,7 +122,7 @@ class GoogleNewsSource(BaseDataSource):
             for entry in feed.entries:
                 title = entry.get('title', '')
                 link = entry.get('link', '')
-                
+
                 # Google News RSS title format is usually "Title - Source"
                 source_name = "Unknown"
                 clean_title = title
@@ -129,11 +130,11 @@ class GoogleNewsSource(BaseDataSource):
                     parts = title.rsplit(" - ", 1)
                     clean_title = parts[0]
                     source_name = parts[1]
-                
+
                 # --- FILTER 1: Source Quality Check ---
                 tier, multiplier = self._get_source_rank(source_name)
                 if tier == -1: continue
-                    
+
                 # --- FILTER 2: Content Type Check ---
                 if any(x in clean_title for x in self.NOISE_TITLES): continue
 
@@ -159,10 +160,10 @@ class GoogleNewsSource(BaseDataSource):
                     "source_tier": tier,
                     "urgency_multiplier": multiplier
                 })
-            
+
             logger.info(f"Discovery: Found {len(new_items)} potential new items from Google News.")
             return new_items
-            
+
         except Exception as e:
             logger.error(f"Failed to fetch Google News RSS: {e}")
             import traceback

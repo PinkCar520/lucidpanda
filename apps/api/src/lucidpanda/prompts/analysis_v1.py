@@ -11,7 +11,7 @@ analysis_v1.py — 主分析 Agent Prompt
 """
 
 import json
-from typing import Dict, List, Optional, Any
+from typing import Any
 
 VERSION = "v1"
 
@@ -30,8 +30,8 @@ _ENTITY_HINT_EXAMPLES = [
 
 
 def build_agent_plan_prompt(
-    raw_data: Dict[str, Any],
-    tool_summaries: List[Dict[str, Any]],
+    raw_data: dict[str, Any],
+    tool_summaries: list[dict[str, Any]],
     max_tool_calls: int = 3,
 ) -> str:
     """
@@ -81,11 +81,11 @@ JSON 结构：
 
 
 def build_agent_final_prompt(
-    raw_data: Dict[str, Any],
-    tool_results: List[Dict[str, Any]],
-    plan_response: Optional[Dict[str, Any]],
-    taxonomy: Optional[Dict[str, List[str]]] = None,
-    macro_context: Optional[Dict[str, Any]] = None,
+    raw_data: dict[str, Any],
+    tool_results: list[dict[str, Any]],
+    plan_response: dict[str, Any] | None,
+    taxonomy: dict[str, list[str]] | None = None,
+    macro_context: dict[str, Any] | None = None,
 ) -> str:
     """
     构建 Agent 最终分析 Prompt（输出结构化 JSON）。
@@ -106,7 +106,7 @@ def build_agent_final_prompt(
     content = raw_data.get("content", "")
     context = raw_data.get("context", "无")
     tools_json = json.dumps(tool_results, ensure_ascii=False)
-    
+
     # 格式化宏观背景
     macro_info = "无"
     if macro_context:

@@ -1,7 +1,9 @@
-import httpx
 import asyncio
 import re
+
+import httpx
 from src.lucidpanda.core.logger import logger
+
 
 class AsyncRichCrawler:
     """
@@ -55,7 +57,7 @@ class AsyncRichCrawler:
             tasks = []
             for item in items:
                 tasks.append(self._fetch_single(client, item['url'], item.get('id')))
-            
+
             results = await asyncio.gather(*tasks)
 
             processed_count = 0
@@ -66,6 +68,6 @@ class AsyncRichCrawler:
                     processed_count += 1
                 else:
                     items[i]['extraction_method'] = "RSS_SUMMARY"
-            
+
             logger.info(f"✅ 全文提取任务完成: {processed_count}/{len(items)} 成功获取全文。")
         return items

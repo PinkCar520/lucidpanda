@@ -1,7 +1,8 @@
 import os
-import redis
+
 import psycopg
-from src.lucidpanda.config import settings
+import redis
+
 
 def check_postgres():
     print("--- Checking PostgreSQL ---")
@@ -10,10 +11,10 @@ def check_postgres():
         {"user": "lucidpanda", "pass": "secure_password", "db": "lucidpanda_core"},
         {"user": "postgres", "pass": "postgres", "db": "lucidpanda"}
     ]
-    
+
     for cred in creds:
         try:
-            conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
+            conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
                 host="localhost",
                 port="5432",
                 user=cred["user"],
@@ -22,16 +23,16 @@ def check_postgres():
                 connect_timeout=3
             )
             cursor = conn.cursor()
-            
+
             cursor.execute("SELECT count(*) FROM fund_holdings;")
             holdings_count = cursor.fetchone()[0]
             print(f"Success with {cred['user']}@{cred['db']}")
             print(f"fund_holdings count: {holdings_count}")
-            
+
             cursor.execute("SELECT count(*) FROM fund_valuation;")
             valuation_count = cursor.fetchone()[0]
             print(f"fund_valuation count: {valuation_count}")
-            
+
             conn.close()
             return
         except Exception as e:

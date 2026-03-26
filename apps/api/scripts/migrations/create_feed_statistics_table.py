@@ -3,8 +3,8 @@
 =========================
 用于 Celery 动态自适应间隔功能
 """
-import sys
 import os
+import sys
 
 # 确保项目根目录在 path 中
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,9 +17,9 @@ from src.lucidpanda.db.base import DBBase
 
 def create_feed_statistics_table():
     """创建 feed_statistics 表"""
-    
+
     db = DBBase()
-    
+
     create_table_sql = """
     CREATE TABLE IF NOT EXISTS feed_statistics (
         feed_name VARCHAR(255) PRIMARY KEY,
@@ -59,32 +59,32 @@ def create_feed_statistics_table():
     COMMENT ON COLUMN feed_statistics.total_fetches IS '总采集次数';
     COMMENT ON COLUMN feed_statistics.total_new_items IS '总新增情报数';
     """
-    
+
     try:
         with db.get_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(create_table_sql)
                 conn.commit()
-        
+
         logger.info("✅ feed_statistics 表创建成功")
-        
+
         # 初始化所有信源的统计记录
         from src.lucidpanda.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG
-        
+
         init_data_sql = """
         INSERT INTO feed_statistics (feed_name, feed_url, category, current_interval)
         VALUES %s
         ON CONFLICT (feed_name) DO NOTHING
         """
-        
+
         # 使用 execute_values 批量插入
-        
-        
+
+
         values = [
             (feed['name'], feed['url'], feed['category'], 120)
             for feed in TIER1_FEEDS_CONFIG
         ]
-        
+
         with db.get_connection() as conn:
             with conn.cursor() as cursor:
                 execute_values(
@@ -97,9 +97,9 @@ def create_feed_statistics_table():
                     values
                 )
                 conn.commit()
-        
+
         logger.info(f"✅ 已初始化 {len(TIER1_FEEDS_CONFIG)} 个信源的统计记录")
-        
+
     except Exception as e:
         logger.error(f"❌ 创建 feed_statistics 表失败：{e}")
         raise
