@@ -39,6 +39,7 @@ export default function VirtualizedStrategyTable({
   const colStrategy = "flex-[0_0_250px] px-4 py-3";
   const colGold = "flex-[0_0_100px] px-4 py-3 text-right font-mono";
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: hasNextPage ? items.length + 1 : items.length,
     getScrollElement: () => parentRef.current,

@@ -1,16 +1,15 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { authenticatedFetch } from '@/lib/api-client';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 
 import Chart from '@/components/Chart';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Alert } from '@/components/Alert'; // Add this line
+import { Alert } from '@/components/Alert';
 import { Intelligence } from '@/lib/db';
-import { AlertTriangle, Radio, ExternalLink, Zap, Search, Filter, X } from 'lucide-react';
+import { Radio, Zap, Search, X, Terminal, AlertTriangle } from 'lucide-react';
 
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import AINarrativeTicker from '@/components/AINarrativeTicker';
@@ -21,9 +20,7 @@ import BacktestStats from '@/components/BacktestStats';
 import { useSSE } from '@/hooks/useSSE';
 import VirtualizedIntelligenceList from '@/components/VirtualizedIntelligenceList';
 import VirtualizedStrategyTable from '@/components/VirtualizedStrategyTable';
-import Paginator from '@/components/Paginator';
 import { Link } from '@/i18n/navigation';
-import { Settings, Terminal } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useIntelligenceInfiniteQuery } from '@/hooks/api/use-intelligence-query';
 import { useStrategyInfiniteQuery } from '@/hooks/api/use-strategy-query';
@@ -34,7 +31,7 @@ import { intelligenceKeys } from '@/lib/query-keys';
 
 export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = React.use(params);
-  const { data: session } = useSession();
+  useSession();
   const searchParams = useSearchParams();
   const focusedCode = searchParams.get('code');
   const queryClient = useQueryClient();
@@ -42,7 +39,6 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   const t = useTranslations('Dashboard');
   const tTable = useTranslations('Table');
   const tSentiment = useTranslations('Sentiment');
-  const tApp = useTranslations('App');
 
   // Sidebar Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,8 +48,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   const {
     data: infiniteIntelData,
     fetchNextPage: fetchNextIntelPage,
-    hasNextPage: hasNextIntelPage,
-    isFetchingNextPage: isFetchingNextIntelPage,
+    hasNextPage,
+    isFetchingNextPage,
     isLoading: intelLoading
   } = useIntelligenceInfiniteQuery({ mode: filterMode, search: searchQuery });
 
@@ -79,14 +75,9 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     return infiniteStrategyData?.pages.flatMap(page => page.data) || [];
   }, [infiniteStrategyData]);
 
-  const [loading, setLoading] = useState(true);
   const [globalHighUrgency, setGlobalHighUrgency] = useState(0);
 
   const [activeTab, setActiveTab] = useState<'feed' | 'charts'>('feed');
-
-  // --- Scroll Position Persistence ---
-  // We use this for the intelligence feed container
-  const isDataLoaded = !!infiniteIntelData && !intelLoading;
 
   // SSE callbacks - memoized to prevent infinite reconnection loop
   const handleSSEMessage = useCallback((newItems: Intelligence[]) => {
@@ -115,16 +106,18 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
       console.log(`[SSE] Received ${newItems.length} new intelligence items`);
     }
-  }, [queryClient, filterMode, searchQuery]);
+  }, [queryClient, filterMode, searchQuery, setGlobalHighUrgency]);
 
   const handleSSEError = useCallback((err: Event) => {
     console.error('[SSE] Connection error:', err);
   }, []);
 
+  const isLoading = marketLoading || intelLoading;
+
   // SSE Connection for real-time updates
-  const { isConnected, error: sseError } = useSSE({
+  useSSE({
     url: '/api/v1/intelligence/stream',
-    enabled: !loading, // Only connect after initial load
+    enabled: !isLoading, // Only connect after initial load
     onMessage: handleSSEMessage,
     onError: handleSSEError
   });
@@ -137,7 +130,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     if (typeof input === 'string') {
       try {
         data = JSON.parse(input);
-      } catch (e) {
+      } catch {
         return input;
       }
     }
@@ -165,22 +158,6 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     return bearishKeywords.some(keyword => sentimentStr.includes(keyword));
   }, []);
 
-
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-
-  // Derive loading state from query states
-  const isLoading = marketLoading || intelLoading;
-
-  // Manual retry function
-  const handleRetry = useCallback(() => {
-    setError(null);
-    setRetryCount(0);
-    // Trigger re-fetch for all major data sources
-    queryClient.invalidateQueries({ queryKey: ['market'] });
-    queryClient.invalidateQueries({ queryKey: intelligenceKeys.all });
-  }, [queryClient]);
-
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#020617]">
       <div className="flex flex-col items-center gap-6">
@@ -193,10 +170,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     </div>
   );
 
-  // const highUrgencyCount = liveIntelligence.filter(i => i.urgency_score >= 8).length; // 不再实时计算，使用全局状态
-
   return (
-    <div className="p-4 md:p-6 lg:p-8 flex flex-col gap-6">
+    <div className="p-4 md:p-6 lg:p-8 flex flex-col gap-6 h-screen overflow-hidden">
       
       {focusedCode && (
           <div className="animate-in slide-in-from-top-4 duration-500">
@@ -258,56 +233,46 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
           {/* Left: Alerts + System Status */}
           <div className="hidden lg:flex lg:col-span-4 h-full items-stretch gap-2">
-              {/* 1. Alert Counter */}
-              <div className="px-6 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/50 rounded-xl flex flex-col items-center justify-center shrink-0 min-w-[140px]">
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-1">{t('activeAlerts')}</span>
-                <span className={`text-2xl font-black font-mono tracking-tighter ${globalHighUrgency > 0 ? 'text-rose-600 dark:text-rose-500 animate-pulse' : 'text-slate-300 dark:text-slate-600'}`}>
-                  {globalHighUrgency}
-                </span>
-              </div>
-              
-              {/* 2. Connection Status & Time */}
-              <div className="flex-1 flex items-center">
-                <SystemStatus isConnected={isConnected} t={tApp} hideBackground />
-              </div>
+            <AINarrativeTicker 
+                items={allIntelligence} 
+                locale={locale}
+                getLocalizedText={getLocalizedText}
+            />
           </div>
 
-          {/* Right: TradingView Mini Charts */}
-          <div className="hidden lg:block lg:col-span-8 h-full">
-            <div className="h-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800/50 bg-slate-50 dark:bg-slate-900/20 px-2">
-              <TradingViewMiniCharts locale={locale} t={tApp} />
-            </div>
+          {/* Middle: Live Market Snapshot (Mini Charts) */}
+          <div className="lg:col-span-5 h-full flex items-center overflow-x-auto no-scrollbar gap-4 px-2">
+             <TradingViewTickerTape />
+             <TradingViewMiniCharts />
           </div>
+
+          {/* Right: Global Ops / Status / Time */}
+          <div className="lg:col-span-3 h-full flex items-center justify-end gap-3 pr-2">
+             <SystemStatus />
+             <div className="w-px h-6 bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+             <LanguageSwitcher />
+          </div>
+
         </div>
       </div>
 
-      {/* 2. Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-        {/* Left: Intelligence Stream (Sticky Sidebar) */}
-        {/* Adjusted top offset (~130px) because the Sticky Header (Widgets) is ~100px. */}
-        <div className={`lg:col-span-3 lg:sticky lg:top-[130px] flex flex-col gap-4 h-[calc(100vh-140px)] overflow-hidden pr-2 ${activeTab === 'feed' ? 'flex' : 'hidden lg:flex'
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
+        {/* Left Sidebar: Feed Filters & Stats */}
+        <div className={`lg:col-span-3 flex flex-col gap-4 min-h-0 ${activeTab === 'feed' ? 'flex' : 'hidden lg:flex'
           }`}>
-
-          {/* Sidebar Header: Search & Filter */}
-          <div className="flex flex-col gap-3 mb-2 bg-white dark:bg-[#020617] z-10 pb-2 border-b border-slate-200 dark:border-slate-800/50 flex-shrink-0">
-
-            {/* Search Bar */}
+          <div className="bg-slate-50/50 dark:bg-slate-900/20 rounded-xl p-3 border border-slate-200/60 dark:border-slate-800/60 flex flex-col gap-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input
                 type="text"
                 placeholder={t('searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-md py-2 pl-9 pr-8 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 dark:focus:border-emerald-500/50 transition-colors shadow-sm dark:shadow-none"
+                className="w-full pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
               />
               {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                >
-                  <X className="w-3 h-3" />
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+                  <X className="w-3 h-3 text-slate-400" />
                 </button>
               )}
             </div>
@@ -354,8 +319,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           {/* Virtualized Infinite List */}
           <VirtualizedIntelligenceList
             items={allIntelligence}
-            hasNextPage={hasNextIntelPage}
-            isFetchingNextPage={isFetchingNextIntelPage}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
             fetchNextPage={fetchNextIntelPage}
             locale={locale}
             getLocalizedText={getLocalizedText}
@@ -391,7 +356,21 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
           </Card>
         </div>
       </div>
+
+      {/* Global Alerts for High Urgency Items */}
+      {globalHighUrgency > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md animate-in slide-in-from-bottom-4">
+            <Alert variant="destructive" className="animate-bounce border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400 shadow-2xl">
+              <AlertTriangle className="h-4 w-4" />
+              <div className="flex justify-between items-center w-full">
+                <span>{t('highUrgencyAlert', { count: globalHighUrgency })}</span>
+                <button onClick={() => setGlobalHighUrgency(0)} className="p-1 hover:bg-rose-500/20 rounded-full">
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            </Alert>
+        </div>
+      )}
     </div>
   );
 }
-

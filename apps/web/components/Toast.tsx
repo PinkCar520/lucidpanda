@@ -105,17 +105,17 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
 
 // Helper functions for easier usage
 export const toast = {
-    success: (message: string, duration?: number) => {
+    success: (message: string) => {
         // This will be replaced by the actual context function
         console.log('[Toast] Success:', message);
     },
-    error: (message: string, duration?: number) => {
+    error: (message: string) => {
         console.error('[Toast] Error:', message);
     },
-    warning: (message: string, duration?: number) => {
+    warning: (message: string) => {
         console.warn('[Toast] Warning:', message);
     },
-    info: (message: string, duration?: number) => {
+    info: (message: string) => {
         console.info('[Toast] Info:', message);
     }
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { useTransition, useState, useRef, useEffect } from 'react';
 import { Globe, Check, ChevronDown, ChevronUp } from 'lucide-react';
@@ -48,7 +48,6 @@ export default function LanguageSwitcher() {
     }, []);
 
     const currentName = localeNames[locale as keyof typeof localeNames];
-    const tApp = useTranslations('App'); // Assuming 'App' namespace is appropriate for global UI elements
 
     return (
         <div 

@@ -4,16 +4,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Command } from 'cmdk';
 import { 
     Search, Terminal, BarChart3, Activity, 
-    User, Settings, Key, Shield, Bell, 
-    LogOut, Globe, Command as CommandIcon,
-    Loader2, TrendingUp, ChevronRight, RefreshCw, Zap, Network
+    User, Settings, Key, Shield, 
+    LogOut, 
+    Loader2, ChevronRight, RefreshCw, Zap, Network
 } from 'lucide-react';
-import { useRouter, usePathname, Link } from '@/i18n/navigation';
-import { useParams } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { atomicSignOut } from '@/lib/auth-cleanup';
-import { authenticatedFetch } from '@/lib/api-client';
 
 interface FundResult {
     code: string;
@@ -29,14 +27,10 @@ export default function CommandMenu() {
     const [loading, setLoading] = useState(false);
     
     const router = useRouter();
-    const { locale } = useParams();
-    const pathname = usePathname();
-    const { data: session } = useSession();
+    useSession();
     
     const tCommand = useTranslations('CommandMenu'); // New namespace
     const tApp = useTranslations('App');
-    const tSettings = useTranslations('Settings');
-    const tFunds = useTranslations('Funds');
     const tAuth = useTranslations('Auth'); // For Sign Out
     // Toggle the menu when ⌘K is pressed
     useEffect(() => {

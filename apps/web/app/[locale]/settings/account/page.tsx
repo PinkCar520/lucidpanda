@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useTranslations, useLocale } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { Link } from '@/i18n/navigation';
 import { Card } from '@/components/ui/Card';
@@ -30,13 +30,7 @@ export default function AccountOverviewPage() {
   const [overview, setOverview] = useState<AssetOverview | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (sessionData) {
-        fetchOverview();
-    }
-  }, [sessionData]);
-
-  const fetchOverview = async () => {
+  const fetchOverview = useCallback(async () => {
     try {
         const res = await authenticatedFetch('/api/v1/auth/assets/me/overview', sessionData);
         if (res.ok) {
@@ -48,7 +42,13 @@ export default function AccountOverviewPage() {
     } finally {
         setLoading(false);
     }
-  };
+  }, [sessionData]);
+
+  useEffect(() => {
+    if (sessionData) {
+        fetchOverview();
+    }
+  }, [sessionData, fetchOverview]);
 
   if (loading) {
       return (

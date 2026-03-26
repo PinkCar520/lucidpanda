@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, TrendingUp, Clock, Plus } from 'lucide-react';
+import { Search, X, Clock, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { authenticatedFetch } from '@/lib/api-client';

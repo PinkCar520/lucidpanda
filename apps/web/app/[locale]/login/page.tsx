@@ -85,7 +85,7 @@ export default function LoginPage() {
         router.push(`/${locale}`);
         router.refresh();
       }
-    } catch (err) {
+    } catch {
       setError(t('unexpectedError'));
     } finally {
       setLoading(false);
