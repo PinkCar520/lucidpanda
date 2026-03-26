@@ -5,7 +5,7 @@ import pandas as pd
 import json
 import redis
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.utils.market_calendar import is_market_open, was_market_open_last_night, get_market_status
@@ -1519,7 +1519,7 @@ class FundEngine:
         
         return backfilled_dates
 
-    def reconcile_official_valuations(self, target_date=None):
+    def reconcile_official_valuations(self, target_date=None, fund_codes: Optional[List[str]] = None):
         """
         Fetch real growth for specific funds in the archive by looking up 
         their historical NAV series. Targeted and precise.
@@ -1536,28 +1536,29 @@ class FundEngine:
             # IMPORTANT: force tuple rows for legacy reconciliation code path
             from psycopg.rows import tuple_row
             with conn.cursor(row_factory=tuple_row) as cursor:
+                sql_where = "WHERE official_growth IS NULL "
+                params = []
+                
                 if target_date:
-                    cursor.execute("""
-                        SELECT trade_date, fund_code FROM fund_valuation_archive 
-                        WHERE trade_date = %s AND official_growth IS NULL
-                    """, (target_date,))
+                    sql_where += "AND trade_date = %s "
+                    params.append(target_date)
                 else:
-                    # SLIDING WINDOW: Look back 5 days to catch QDII and missed A-shares
-                    cursor.execute("""
-                        SELECT trade_date, fund_code FROM fund_valuation_archive 
-                        WHERE official_growth IS NULL 
-                        AND trade_date >= '2026-03-01'
-                        ORDER BY trade_date DESC
-                        LIMIT 500
-                    """)
+                    sql_where += "AND trade_date >= '2026-03-01' "
+                
+                if fund_codes:
+                    sql_where += "AND fund_code = ANY(%s) "
+                    params.append(fund_codes)
+                
+                query = f"SELECT trade_date, fund_code FROM fund_valuation_archive {sql_where} ORDER BY trade_date DESC LIMIT 500"
+                cursor.execute(query, tuple(params))
                 pending_tasks = cursor.fetchall()
         finally:
             conn.close()
 
         if not pending_tasks:
-            d_str = str(target_date) if target_date else "the last 5 days"
+            d_str = str(target_date) if target_date else "the historical gap (since 2026-03-01)"
             logger.info(f"No pending reconciliation found for {d_str}")
-            return
+            return 0
 
         # 2. Mature Zombie Cleanup: Filter out non-trading days (Weekends & Holidays)
         unique_dates = sorted(list(set(d for d, c in pending_tasks)), reverse=True)
@@ -1767,3 +1768,5 @@ class FundEngine:
                 if original_https: os.environ['HTTPS_PROXY'] = original_https
                 
             logger.info(f"✨ Session for {trade_date} finished. {count}/{len(codes)} updated.")
+            
+        return count

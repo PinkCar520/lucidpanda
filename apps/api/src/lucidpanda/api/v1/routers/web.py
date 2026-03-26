@@ -14,6 +14,7 @@ from src.lucidpanda.auth.dependencies import get_current_user
 from src.lucidpanda.auth.models import User
 from src.lucidpanda.core.fund_engine import FundEngine
 from src.lucidpanda.core.database import IntelligenceDB
+from src.lucidpanda.core.logger import logger
 from src.lucidpanda.utils import v1_prepare_json
 from src.lucidpanda.utils.confidence import calc_confidence_score, calc_confidence_level
 from src.lucidpanda.utils.fusion import merge_entities
@@ -1041,8 +1042,6 @@ async def trigger_reconciliation(
     Trigger manual reconciliation for a specific date or fund.
     Allows administrators to fix data quality issues in real-time.
     """
-    from src.lucidpanda.core.fund_engine import FundEngine
-    from datetime import datetime
     
     logger.info(f"🚀 Manual reconciliation triggered by user {current_user.id} for {payload.trade_date} (Code: {payload.fund_code or 'ALL'})")
     

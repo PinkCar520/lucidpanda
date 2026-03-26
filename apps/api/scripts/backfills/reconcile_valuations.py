@@ -33,7 +33,7 @@ def main():
                 return
         
         if not target_date:
-            logger.info("⚖️ Triggering Sliding Window Reconciliation (with Auto-Backfill for missed dates)...")
+            logger.info("🕵️ Triggering Gap Scan Reconciliation (Automated self-healing since 2026-03-01)...")
         else:
             logger.info(f"⚖️ Triggering Official Reconciliation Task for {target_date}...")
             
