@@ -1611,7 +1611,8 @@ class FundEngine:
                     resp = requests.get(url, headers=headers, timeout=20)
                     if resp.status_code == 200:
                         # SECURITY: Verify the data date matches our target trade_date
-                        show_date_match = re.search(r'showDate:"(.*?)"', resp.text)
+                        # EastMoney API uses showDate: "YYYY-MM-DD"
+                        show_date_match = re.search(r'showDate\s*:\s*"(.*?)"', resp.text)
                         api_date_str = show_date_match.group(1) if show_date_match else None
                         
                         if api_date_str == trade_date.strftime('%Y-%m-%d'):
@@ -1622,7 +1623,7 @@ class FundEngine:
                                 if f_code in codes:
                                     try:
                                         val = row[7] # index 7 is growth rate
-                                        if val and val != "":
+                                        if val and val != "" and val != "nan":
                                             batch_results[f_code] = float(val)
                                     except:
                                         continue
@@ -1638,7 +1639,27 @@ class FundEngine:
                         df_daily = ak.fund_open_fund_daily_em()
                         if not df_daily.empty:
                             date_str = trade_date.strftime('%Y-%m-%d')
-                            if any(date_str in col for col in df_daily.columns):
+                            
+                            # AkShare 'fund_open_fund_daily_em' returns the LATEST day's snippet.
+                            # We must verify if this snapshot belongs to our trade_date.
+                            # Some versions have '净值日期' column, others encode it in column headers.
+                            df_cols = df_daily.columns.tolist()
+                            
+                            # 1. Try to find the date of this snapshot from the first few rows or columns
+                            snapshot_date = None
+                            date_col = next((c for c in df_cols if '日期' in str(c)), None)
+                            if date_col and not df_daily.empty:
+                                snapshot_date = str(df_daily.iloc[0][date_col])
+                            
+                            # 2. If no date column, see if any column header specifically matches the target DATE and '增长率'
+                            elif not snapshot_date:
+                                for c in df_cols:
+                                    if date_str in str(c) and ('增长率' in str(c) or '净值' in str(c)) and '前' not in str(c):
+                                        snapshot_date = date_str
+                                        break
+
+                            # 3. Only proceed if the snapshot date matches our target trade_date
+                            if snapshot_date and date_str in snapshot_date:
                                 df_match = df_daily[df_daily['基金代码'].isin(codes)]
                                 for _, row in df_match.iterrows():
                                     c = row['基金代码']
@@ -1647,7 +1668,11 @@ class FundEngine:
                                         if val and str(val) != 'nan':
                                             batch_results[c] = float(val)
                                     except: continue
-                                logger.info(f"✅ AkShare Batch matched {len(batch_results)} funds for {trade_date}.")
+                                
+                                if batch_results:
+                                    logger.info(f"✅ AkShare Batch matched {len(batch_results)} funds for {trade_date}.")
+                            else:
+                                logger.info(f"ℹ️ AkShare Batch date mismatch (Snapshot: {snapshot_date}, Target: {trade_date}), skipping batch.")
                 except Exception as e:
                     logger.warning(f"Batch reconciliation failed for {trade_date}: {e}")
 
