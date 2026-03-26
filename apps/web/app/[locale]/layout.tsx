@@ -8,6 +8,7 @@ import Shell from '@/components/Shell';
 import NextTopLoader from 'nextjs-toploader';
 import QueryProvider from '@/components/providers/QueryProvider';
 import { AuthManager } from '@/components/auth/AuthManager';
+import { Toaster } from 'sonner';
 
 export async function generateMetadata({
     params
@@ -55,6 +56,7 @@ export default async function LocaleLayout({
                             <AuthManager>
                                 <Shell>
                                     {children}
+                                    <Toaster richColors closeButton position="top-right" />
                                 </Shell>
                             </AuthManager>
                         </QueryProvider>
