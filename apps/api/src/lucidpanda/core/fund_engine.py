@@ -4,13 +4,13 @@ from typing import Any
 import redis
 from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.fund.holdings import update_fund_holdings
-from src.lucidpanda.core.fund.valuation import (
-    calculate_batch_valuation,
-    calculate_realtime_valuation,
-)
 from src.lucidpanda.core.fund.reconciler import (
     reconcile_official_valuations,
     take_all_funds_snapshot,
+)
+from src.lucidpanda.core.fund.valuation import (
+    calculate_batch_valuation,
+    calculate_realtime_valuation,
 )
 from src.lucidpanda.core.logger import logger
 

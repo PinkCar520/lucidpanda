@@ -1,16 +1,14 @@
-import json
 import logging
+import os
 import random
 import re
-import os
 import time
-from datetime import datetime, timedelta, date, timezone
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import akshare as ak
 import pandas as pd
 import requests
-
 from src.lucidpanda.core.fund.valuation import calculate_batch_valuation
 from src.lucidpanda.utils.market_calendar import (
     is_market_open,
@@ -39,7 +37,7 @@ def take_all_funds_snapshot(db: Any, redis_client: Any) -> int:
         if 'error' in val: continue
         f_code = val['fund_code']
         meta = db_meta.get(f_code, {})
-        
+
         # QDII Gatekeeping
         if "QDII" in str(meta.get('type', '')) or "QDII" in str(meta.get('name', '')):
             region = 'US'
@@ -69,7 +67,7 @@ def ensure_archive_placeholders_exist(db: Any, days_lookback: int = 7) -> list[d
     for i in range(1, days_lookback + 1):
         check_date = today - timedelta(days=i)
         if not is_market_open('CN', check_date): continue
-        
+
         conn = db.get_connection()
         try:
             with conn.cursor() as cursor:
@@ -101,7 +99,7 @@ def reconcile_official_valuations(db: Any, target_date: Any = None, fund_codes: 
                 sql_where += "AND trade_date >= '2026-03-01' "
             if fund_codes:
                 sql_where += "AND fund_code = ANY(%s) "; params.append(fund_codes)
-            
+
             cursor.execute(f"SELECT trade_date, fund_code FROM fund_valuation_archive {sql_where} LIMIT 500", tuple(params))
             pending_tasks = cursor.fetchall()
     finally:

@@ -113,7 +113,7 @@ def get_fund_name(db: Any, redis_client: Any, fund_code: str) -> str:
             orig_https = os.environ.get('HTTPS_PROXY')
             if orig_http: del os.environ['HTTP_PROXY']
             if orig_https: del os.environ['HTTPS_PROXY']
-            
+
             try:
                 info_df = ak.fund_individual_basic_info_xq(symbol=fund_code)
                 fund_name = info_df[info_df.iloc[:,0] == '基金简称'].iloc[0,1]
