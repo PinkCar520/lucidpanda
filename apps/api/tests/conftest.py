@@ -1,6 +1,8 @@
 # ruff: noqa
 import os
+import sqlite3
 import unittest.mock as mock
+from datetime import date, datetime, timezone
 
 # Aggressive global mocking for environment without Postgres
 mock.patch("psycopg.connect").start()
@@ -23,6 +25,20 @@ from src.lucidpanda.config import settings
 from sqlmodel import SQLModel
 
 TEST_USER_ID = "408ba5ca-598d-4ee8-a5be-4352ab5f7918"
+
+
+def _adapt_datetime_sqlite(value: datetime) -> str:
+    if value.tzinfo is not None:
+        value = value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value.isoformat(sep=" ")
+
+
+def _adapt_date_sqlite(value: date) -> str:
+    return value.isoformat()
+
+
+sqlite3.register_adapter(datetime, _adapt_datetime_sqlite)
+sqlite3.register_adapter(date, _adapt_date_sqlite)
 
 
 @compiles(INET, "sqlite")

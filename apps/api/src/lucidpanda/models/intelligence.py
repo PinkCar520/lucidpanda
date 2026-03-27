@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.dialects.postgresql import JSONB
@@ -53,7 +53,7 @@ class IntelligenceBase(SQLModel):
 class Intelligence(IntelligenceBase, table=True):
     __tablename__ = "intelligence"
     id: int | None = Field(default=None, primary_key=True)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     status: str | None = Field(default="PENDING", index=True)
     last_error: str | None = None
 

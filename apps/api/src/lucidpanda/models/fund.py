@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy.dialects.postgresql import JSONB
@@ -22,7 +22,7 @@ class FundMetadataBase(SQLModel):
 class FundMetadata(FundMetadataBase, table=True):
     __tablename__ = "fund_metadata"
     last_full_sync: datetime | None = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class FundValuationArchive(SQLModel, table=True):
@@ -41,7 +41,7 @@ class FundValuationArchive(SQLModel, table=True):
     deviation: float | None = None
     tracking_status: str | None = None
     applied_bias_offset: float = 0.0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # Mobile Optimized DTO
