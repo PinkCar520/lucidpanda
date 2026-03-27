@@ -84,8 +84,6 @@ export function optionalAuth(request: Request): { authenticated: boolean; warnin
     return { authenticated: isAuthenticated };
 }
 
-import * as crypto from 'crypto';
-
 /**
  * Generate a secure API key
  * Usage: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -95,6 +93,7 @@ export function generateApiKey(): string {
         throw new Error('generateApiKey should only be called on the server');
     }
 
+    const crypto = require('crypto');
     return crypto.randomBytes(32).toString('hex');
 }
 

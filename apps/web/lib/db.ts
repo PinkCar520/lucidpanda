@@ -13,12 +13,12 @@ export interface Intelligence {
   timestamp: string;
   source_id: string;
   author: string;
-  content: string | Record<string, unknown>;
-  summary: string | Record<string, unknown>;
-  sentiment: string | Record<string, unknown>;
+  content: string | any;
+  summary: string | any;
+  sentiment: string | any;
   urgency_score: number;
-  market_implication: string | Record<string, unknown>;
-  actionable_advice: string | Record<string, unknown>;
+  market_implication: string | any;
+  actionable_advice: string | any;
   url: string;
   gold_price_snapshot: number | null;
   price_15m: number | null;

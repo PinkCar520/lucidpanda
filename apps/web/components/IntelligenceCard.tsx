@@ -10,7 +10,7 @@ interface IntelligenceCardProps {
     item: Intelligence;
     style?: React.CSSProperties;
     locale: string;
-    getLocalizedText: (jsonString: unknown, locale: string) => string;
+    getLocalizedText: (jsonString: string, locale: string) => string;
     t: (key: string) => string;
     tSentiment: (key: string) => string;
     isBearish: boolean;
@@ -25,6 +25,7 @@ const IntelligenceCard = memo(function IntelligenceCard({
     tSentiment,
     isBearish
 }: IntelligenceCardProps) {
+    const td = useTranslations('DimensionD');
     const badgeVariant = isBearish ? 'bearish' : 'bullish';
     const corroborationCount = Math.max(1, item.corroboration_count ?? 1);
     const confidenceStars = Math.min(5, corroborationCount);
@@ -34,19 +35,9 @@ const IntelligenceCard = memo(function IntelligenceCard({
     // Trigger highlight when content or summary changes
     const highlightClass = useHighlight(item.id); 
 
-    const [hoursOld, setHoursOld] = React.useState(() => {
-        const timeDiff = Date.now() - new Date(item.timestamp).getTime();
-        return timeDiff / (1000 * 60 * 60);
-    });
-
-    React.useEffect(() => {
-        const update = () => {
-            const timeDiff = Date.now() - new Date(item.timestamp).getTime();
-            setHoursOld(timeDiff / (1000 * 60 * 60));
-        };
-        const interval = setInterval(update, 60000);
-        return () => clearInterval(interval);
-    }, [item.timestamp]);
+    // Time Decay Logic (Quant Standard)
+    const timeDiff = Date.now() - new Date(item.timestamp).getTime();
+    const hoursOld = timeDiff / (1000 * 60 * 60);
 
     let decayClass = 'opacity-100';
     if (hoursOld > 12) {

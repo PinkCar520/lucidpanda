@@ -17,51 +17,7 @@ export interface WatchlistItem {
   source?: string;
   confidence?: FundConfidence;
   risk_level?: string;
-  stats?: FundStats;
-}
-
-export interface SubSectorStat {
-  impact: number;
-  weight: number;
-}
-
-export interface SectorStat {
-  impact: number;
-  weight: number;
-  sub: Record<string, SubSectorStat>;
-}
-
-export interface ComponentStock {
-  code: string;
-  name: string;
-  price: number;
-  change_pct: number;
-  impact: number;
-  weight: number;
-}
-
-export interface FundStats {
-  return_1w: number;
-  return_1m: number;
-  return_3m: number;
-  return_1y: number;
-  sharpe_ratio: number;
-  sharpe_grade: string;
-  max_drawdown: number;
-  drawdown_grade: string;
-  volatility: number;
-  sparkline_data: number[];
-}
-
-export interface ValuationHistory {
-  trade_date: string;
-  frozen_est_growth: number;
-  official_growth: number;
-  deviation: number;
-  tracking_status: string;
-  sector_attribution?: Record<string, SectorStat>;
-  timestamp: string;
-  source?: string;
+  stats?: any;
 }
 
 export interface FundValuation {
@@ -74,49 +30,11 @@ export interface FundValuation {
   risk_level?: string;
   status?: string;
   message?: string;
-  components: ComponentStock[];
-  sector_attribution?: Record<string, SectorStat>;
+  components: any[];
+  sector_attribution?: any;
   timestamp: string;
   source?: string;
-  stats?: FundStats;
-}
-
-export interface Anomaly {
-  fund_code: string;
-  trade_date: string;
-  deviation: number;
-  frozen_est_growth: number;
-  official_growth: number;
-  tracking_status: string;
-  frozen_sector_attribution?: Record<string, number>;
-}
-
-export interface DailyStat {
-  trade_date: string;
-  total_count: number;
-  reconciled_count: number;
-  avg_mae: number;
-}
-
-export interface HeatmapItem {
-  trade_date: string;
-  category: string;
-  mae: number;
-}
-
-export interface MonitorStats {
-  health: {
-    score: number;
-    components: {
-      coverage: number;
-      accuracy: number;
-      anomaly: number;
-    };
-  };
-  daily: DailyStat[];
-  heatmap: HeatmapItem[];
-  anomalies: Anomaly[];
-  updated_at: string;
+  stats?: any;
 }
 
 const V1_BASE = '/api/v1/web';
@@ -138,7 +56,7 @@ export const fundService = {
   /**
    * Fetch batch valuation for multiple funds
    */
-  async getBatchValuation(codes: string[], session: Session | null): Promise<FundValuation[]> {
+  async getBatchValuation(codes: string[], session: Session | null): Promise<any[]> {
     if (!codes.length) return [];
     const res = await authenticatedFetch(`${V1_BASE}/funds/batch-valuation?codes=${codes.join(',')}&mode=summary`, session);
     if (!res.ok) throw new Error('Failed to fetch batch valuation');
@@ -160,7 +78,7 @@ export const fundService = {
   /**
    * Fetch history for a single fund
    */
-  async getFundHistory(code: string, session: Session | null): Promise<ValuationHistory[]> {
+  async getFundHistory(code: string, session: Session | null): Promise<any[]> {
     if (!code) return [];
     const res = await authenticatedFetch(`${V1_BASE}/funds/${code}/history`, session);
     if (!res.ok) throw new Error(`Failed to fetch history for ${code}`);
@@ -171,7 +89,7 @@ export const fundService = {
   /**
    * Add a fund to watchlist
    */
-  async addToWatchlist(code: string, name: string, session: Session | null): Promise<{success: boolean}> {
+  async addToWatchlist(code: string, name: string, session: Session | null): Promise<any> {
     const res = await authenticatedFetch(`${V1_BASE}/watchlist`, session, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -184,7 +102,7 @@ export const fundService = {
   /**
    * Remove a fund from watchlist
    */
-  async removeFromWatchlist(code: string, session: Session | null): Promise<{success: boolean}> {
+  async removeFromWatchlist(code: string, session: Session | null): Promise<any> {
     const res = await authenticatedFetch(`${V1_BASE}/watchlist/${code}`, session, {
       method: 'DELETE',
     });
@@ -195,7 +113,7 @@ export const fundService = {
   /**
    * Fetch admin monitor stats
    */
-  async getMonitorStats(session: Session | null): Promise<MonitorStats> {
+  async getMonitorStats(session: Session | null): Promise<any> {
     const res = await authenticatedFetch(`${V1_BASE}/admin/monitor`, session);
     if (!res.ok) throw new Error('Failed to fetch monitor stats');
     return await res.json();
@@ -204,7 +122,7 @@ export const fundService = {
   /**
    * Trigger manual reconciliation for a date/fund
    */
-  async triggerReconciliation(payload: { trade_date: string, fund_code?: string }, session: Session | null): Promise<{success: boolean, matched_count?: number, error?: string}> {
+  async triggerReconciliation(payload: { trade_date: string, fund_code?: string }, session: Session | null): Promise<any> {
     const res = await authenticatedFetch(`${V1_BASE}/admin/reconcile/trigger`, session, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

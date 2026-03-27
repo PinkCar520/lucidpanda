@@ -6,30 +6,10 @@ import { Card } from './ui/Card';
 import { useTranslations } from 'next-intl';
 import { Intelligence } from '@/lib/db';
 
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as unknown as React.ComponentType<Record<string, unknown>>;
-
-export interface Quote {
-  date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume?: number;
-}
-
-export interface Indicators {
-  spread: number;
-  spread_pct: number;
-  domestic_spot: number;
-}
-
-export interface MarketData {
-  quotes: Quote[];
-  indicators?: Indicators;
-}
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as any;
 
 interface ChartProps {
-  marketData: MarketData | null;
+  marketData: any;
   intelligence: Intelligence[];
   onRangeChange: (range: string, interval: string) => void;
 }
@@ -125,21 +105,17 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
 
         {/* Skeleton: Chart area with candlestick-like bars */}
         <div className="flex-1 flex items-end justify-around gap-1 px-4">
-          {[...Array(20)].map((_, i) => {
-            const height = ((i * 13) % 60) + 20;
-            const opacity = 0.3 + ((i * 7) % 40) / 100;
-            return (
-              <div
-                key={i}
-                className="bg-slate-200/50 dark:bg-slate-800/50 rounded-sm"
-                style={{
-                  height: `${height}%`,
-                  width: '3%',
-                  opacity: opacity
-                }}
-              ></div>
-            );
-          })}
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="bg-slate-200/50 dark:bg-slate-800/50 rounded-sm"
+              style={{
+                height: `${Math.random() * 60 + 20}%`,
+                width: '3%',
+                opacity: 0.3 + Math.random() * 0.4
+              }}
+            ></div>
+          ))}
         </div>
 
         {/* Skeleton: X-axis labels */}
@@ -152,24 +128,20 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
     </Card>
   );
 
-  // Helper to check sentiment from string or object
-  const checkSentiment = (sentiment: string | Record<string, unknown>, pattern: RegExp) => {
-    const str = typeof sentiment === 'string' ? sentiment : JSON.stringify(sentiment);
-    return pattern.test(str);
-  };
-
-  const bearishPattern = /鹰|利空|下跌|风险|Bearish|Hawkish|Pressure/;
-
   // Prepare data for Plotly
   const traces = [
     // Candlestick trace
     {
-      x: marketData.quotes.map((q: Quote) => q.date),
-      close: marketData.quotes.map((q: Quote) => q.close),
-      high: marketData.quotes.map((q: Quote) => q.high),
-      low: marketData.quotes.map((q: Quote) => q.low),
-      open: marketData.quotes.map((q: Quote) => q.open),
+      x: marketData.quotes.map((q: any) => q.date),
+      close: marketData.quotes.map((q: any) => q.close),
+      high: marketData.quotes.map((q: any) => q.high),
+      low: marketData.quotes.map((q: any) => q.low),
+      open: marketData.quotes.map((q: any) => q.open),
 
+      // increasing: { line: { color: '#10B981', width: 1 }, fillcolor: '#10B981' },
+      // decreasing: { line: { color: '#F43F5E', width: 1 }, fillcolor: '#F43F5E' },
+      // increasing: { line: { color: '#EF4444' } }, // Red (Up)
+      // decreasing: { line: { color: '#10B981' } }, // Green (Down)
       increasing: { line: { color: '#EF4444' } },
       decreasing: { line: { color: '#10B981' } },
 
@@ -181,31 +153,25 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
     },
     // Markers for Bullish Events
     {
-      x: intelligence.filter(i => !checkSentiment(i.sentiment, bearishPattern)).map(i => i.timestamp),
-      y: intelligence.filter(i => !checkSentiment(i.sentiment, bearishPattern)).map(i => i.gold_price_snapshot || (marketData.quotes.length > 0 ? marketData.quotes[marketData.quotes.length - 1].close : 0)), // Fallback price
+      x: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => i.timestamp),
+      y: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => i.gold_price_snapshot || marketData.quotes[marketData.quotes.length - 1].close), // Fallback price
       mode: 'markers',
       type: 'scatter',
       name: 'Bullish Signal',
       marker: { symbol: 'triangle-up', size: 10, color: '#EF4444' }, // Red 500 (Up)
       hoverinfo: 'text',
-      text: intelligence.filter(i => !checkSentiment(i.sentiment, bearishPattern)).map(i => {
-        const summaryStr = typeof i.summary === 'string' ? i.summary : JSON.stringify(i.summary);
-        return `${summaryStr} (Score: ${i.urgency_score})`;
-      }),
+      text: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => `${i.summary} (Score: ${i.urgency_score})`),
     },
     // Markers for Bearish Events
     {
-      x: intelligence.filter(i => checkSentiment(i.sentiment, bearishPattern)).map(i => i.timestamp),
-      y: intelligence.filter(i => checkSentiment(i.sentiment, bearishPattern)).map(i => i.gold_price_snapshot || (marketData.quotes.length > 0 ? marketData.quotes[marketData.quotes.length - 1].close : 0)),
+      x: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => i.timestamp),
+      y: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => i.gold_price_snapshot || marketData.quotes[marketData.quotes.length - 1].close),
       mode: 'markers',
       type: 'scatter',
       name: 'Bearish Signal',
       marker: { symbol: 'triangle-down', size: 10, color: '#10B981' }, // Emerald 500 (Down)
       hoverinfo: 'text',
-      text: intelligence.filter(i => checkSentiment(i.sentiment, bearishPattern)).map(i => {
-        const summaryStr = typeof i.summary === 'string' ? i.summary : JSON.stringify(i.summary);
-        return `${summaryStr} (Score: ${i.urgency_score})`;
-      }),
+      text: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => `${i.summary} (Score: ${i.urgency_score})`),
     }
   ];
 

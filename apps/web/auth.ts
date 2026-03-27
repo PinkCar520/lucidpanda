@@ -1,16 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { JWT } from "next-auth/jwt";
 
 import { API_INTERNAL_URL as API_URL } from "@/lib/constants";
-
-type LucidPandaCredentials = {
-  email?: string;
-  password?: string;
-  action?: string;
-  auth_data?: string;
-  state?: string;
-}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -27,13 +18,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials) return null;
         
-        const creds = credentials as LucidPandaCredentials;
+        // Cast to any to access dynamic Passkey fields safely
+        const creds = credentials as any;
 
         try {
           let res;
           if (creds.action === 'passkey') {
             // WebAuthn Passkey Login
-            if (!creds.auth_data || !creds.state) return null;
             res = await fetch(`${API_URL}/api/v1/auth/passkeys/login/verify`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -47,8 +38,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             if (!creds.email || !creds.password) return null;
             
             const formData = new URLSearchParams();
-            formData.append("username", creds.email);
-            formData.append("password", creds.password);
+            formData.append("username", creds.email as string);
+            formData.append("password", creds.password as string);
 
             res = await fetch(`${API_URL}/api/v1/auth/login`, {
               method: "POST",
@@ -85,7 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             };
           }
           return null;
-        } catch (error: unknown) {
+        } catch (error) {
           console.error("Auth Error:", error);
           return null;
         }
@@ -126,23 +117,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Handle session update
       if (trigger === "update" && session?.user) {
         console.log("[AUTH] JWT Update Triggered:", session.user);
-        const newToken: JWT = {
+        const newToken = {
           ...token,
           user: {
-            ...token.user,
+            ...(token.user as any),
             ...session.user,
           }
         };
         // If we are updating the session, we should probably clear any error
-        if (newToken.error) {
-           delete newToken.error;
-        }
+        delete (newToken as any).error;
         return newToken;
       }
 
       // Return previous token if the access token has not expired yet
       // Use a 30-second buffer to avoid race conditions near expiry
-      if (typeof token.accessTokenExpires === 'number' && Date.now() < token.accessTokenExpires - 30000) {
+      if (Date.now() < (token.accessTokenExpires as number) - 30000) {
         return token;
       }
 
@@ -158,7 +147,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
         session.accessToken = token.accessToken as string;
         if (token.error) {
-          session.error = token.error as string;
+          (session as any).error = token.error;
         }
       }
       return session;
@@ -169,7 +158,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
-async function refreshAccessToken(token: JWT): Promise<JWT> {
+async function refreshAccessToken(token: any) {
   try {
     const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
       method: "POST",
@@ -189,7 +178,7 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
       accessTokenExpires: Date.now() + refreshedTokens.expires_in * 1000,
       refreshToken: refreshedTokens.refresh_token ?? token.refreshToken, // Fallback to old refresh token
     };
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("RefreshAccessTokenError", error);
     return {
       ...token,

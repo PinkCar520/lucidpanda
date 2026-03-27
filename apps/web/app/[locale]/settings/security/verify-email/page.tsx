@@ -17,12 +17,13 @@ export default function VerifyEmailPage() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    if (!token) {
+      setStatus('error');
+      setMessage(t('missingToken'));
+      return;
+    }
+
     const verify = async () => {
-      if (!token) {
-        setStatus('error');
-        setMessage(t('missingToken'));
-        return;
-      }
       try {
         const res = await fetch('/api/v1/auth/email/verify-change', {
           method: 'POST',

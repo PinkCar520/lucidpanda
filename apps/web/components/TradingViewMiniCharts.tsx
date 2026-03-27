@@ -15,7 +15,7 @@ function TradingViewMiniCharts({ locale, t }: TradingViewMiniChartsProps) {
     useEffect(() => {
         // Initial Theme Check
         const isDark = document.documentElement.classList.contains('dark');
-        setTimeout(() => setTheme(isDark ? 'dark' : 'light'), 0);
+        setTheme(isDark ? 'dark' : 'light');
 
         // Observer for Theme Changes
         const observer = new MutationObserver((mutations) => {

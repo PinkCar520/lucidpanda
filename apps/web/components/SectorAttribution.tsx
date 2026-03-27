@@ -4,9 +4,18 @@ import { useTranslations } from 'next-intl';
 import { X, TrendingUp, TrendingDown } from 'lucide-react';
 
 // Dynamically import Plotly to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as unknown as React.ComponentType<Record<string, unknown>>;
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as any;
 
-import { SectorStat } from '@/lib/services/fund-service';
+interface SubSectorStat {
+  impact: number;
+  weight: number;
+}
+
+interface SectorStat {
+  impact: number;
+  weight: number;
+  sub: Record<string, SubSectorStat>;
+}
 
 interface Props {
   data: Record<string, SectorStat>;
@@ -16,12 +25,7 @@ export function SectorAttribution({ data }: Props) {
   const t = useTranslations('Funds');
   const tApp = useTranslations('App');
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
-  const [chartData, setChartData] = useState<Record<string, unknown>[]>([]);
-
-  interface CustomData {
-    impact: number;
-    weight: number;
-  }
+  const [chartData, setChartData] = useState<any[]>([]);
 
   // Prepare Data for Plotly Treemap
   useEffect(() => {
@@ -31,7 +35,7 @@ export function SectorAttribution({ data }: Props) {
     const parents: string[] = [];
     const values: number[] = []; // Weight
     const colors: number[] = []; // Impact (for coloring)
-    const customdata: CustomData[] = []; // Store extra data (impact display)
+    const customdata: any[] = []; // Store extra data (impact display)
 
     // Root
     const rootId = 'Portfolio';
@@ -61,8 +65,7 @@ export function SectorAttribution({ data }: Props) {
 
     // Add dummy root value (sum of weights)
     values[0] = values.slice(1).reduce((a, b) => a + b, 0);
-    
-    setTimeout(() => {
+
     setChartData([{
       type: 'treemap',
       ids: ids,
@@ -101,9 +104,8 @@ export function SectorAttribution({ data }: Props) {
       textfont: { family: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', color: '#1e293b' },
       tiling: { packing: 'squarify', pad: 2 }
     }]);
-    }, 0);
 
-  }, [data, t, tApp]);
+  }, [data, t]);
 
 
   // Detail Panel Logic
@@ -180,7 +182,7 @@ export function SectorAttribution({ data }: Props) {
               }}
               style={{ width: '100%', height: '100%' }}
               config={{ displayModeBar: false, responsive: true }}
-              onClick={(e: Readonly<{ points: ReadonlyArray<{ label: string }> }>) => {
+              onClick={(e: any) => {
                 if (e.points && e.points[0]) {
                   const label = e.points[0].label;
                   if (label !== 'Portfolio') {

@@ -92,7 +92,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   const handleSSEMessage = useCallback((newItems: Intelligence[]) => {
     if (newItems.length > 0) {
       // 1. Update Intelligence Stream Cache
-      queryClient.setQueryData(intelligenceKeys.infinite({ mode: filterMode, search: searchQuery }), (old: { pages: { data: Intelligence[] }[] } | undefined) => {
+      queryClient.setQueryData(intelligenceKeys.infinite({ mode: filterMode, search: searchQuery }), (old: any) => {
         if (!old || !old.pages || old.pages.length === 0) return old;
         const newPages = [...old.pages];
         newPages[0] = { ...newPages[0], data: [...newItems, ...newPages[0].data] };
@@ -100,7 +100,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
       });
 
       // 2. Update Strategy Matrix Cache
-      queryClient.setQueryData(['intelligence', 'strategy-matrix', 'infinite'], (old: { pages: { data: Intelligence[] }[] } | undefined) => {
+      queryClient.setQueryData(['intelligence', 'strategy-matrix', 'infinite'], (old: any) => {
         if (!old || !old.pages || old.pages.length === 0) return old;
         const newPages = [...old.pages];
         newPages[0] = { ...newPages[0], data: [...newItems, ...newPages[0].data] };
@@ -130,7 +130,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   });
 
   // Helper function to extract localized text from JSON strings or objects
-  const getLocalizedText = useCallback((input: unknown, currentLocale: string) => {
+  const getLocalizedText = useCallback((input: any, currentLocale: string) => {
     let data = input;
 
     // If input is string, try to parse it (compatibility for SQLite/legacy)
@@ -144,15 +144,14 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
 
     // If it's already an object (Postgres JSONB), or successfully parsed
     if (typeof data === 'object' && data !== null) {
-      const records = data as Record<string, string>;
-      return records[currentLocale] || records['en'] || records['zh'] || Object.values(records)[0] || '';
+      return data[currentLocale] || data['en'] || data['zh'] || Object.values(data)[0] || '';
     }
 
     return String(data || '');
   }, []);
 
   // Helper function to detect bearish sentiment (language-agnostic)
-  const isBearishSentiment = useCallback((sentimentInput: unknown) => {
+  const isBearishSentiment = useCallback((sentimentInput: any) => {
     const bearishKeywords = ['鹰', '利空', '下跌', 'Bearish', 'Hawkish', 'Pressure'];
 
     let sentimentStr = '';
@@ -169,19 +168,24 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Derive loading state from query states
-  const isLoading = marketLoading || intelLoading;
+  // Sync global loading state
+  useEffect(() => {
+    if (!marketLoading && !intelLoading) {
+      setLoading(false);
+    }
+  }, [marketLoading, intelLoading]);
 
   // Manual retry function
   const handleRetry = useCallback(() => {
     setError(null);
     setRetryCount(0);
+    setLoading(true);
     // Trigger re-fetch for all major data sources
     queryClient.invalidateQueries({ queryKey: ['market'] });
     queryClient.invalidateQueries({ queryKey: intelligenceKeys.all });
   }, [queryClient]);
 
-  if (isLoading) return (
+  if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#020617]">
       <div className="flex flex-col items-center gap-6">
         <div className="relative">

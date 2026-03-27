@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useSession, signIn } from "next-auth/react"
+import { useSession, signIn, signOut } from "next-auth/react"
 import { subscribeReauth, processQueue, setRefreshing } from "@/lib/auth-events"
 import { atomicSignOut } from "@/lib/auth-cleanup"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/Dialog"
@@ -11,7 +11,7 @@ import { Lock, LogOut, RefreshCw } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 export function AuthManager({ children }: { children: React.ReactNode }) {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [showModal, setShowModal] = React.useState(false)
   const [password, setPassword] = React.useState("")
   const [isLoading, setIsLoading] = React.useState(false)
@@ -81,7 +81,7 @@ export function AuthManager({ children }: { children: React.ReactNode }) {
           setError(t("unexpectedError"))
         }
       }
-    } catch {
+    } catch (err) {
       setError(t("unexpectedError"))
     } finally {
       setIsLoading(false)

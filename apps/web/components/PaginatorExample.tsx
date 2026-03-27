@@ -8,10 +8,9 @@
 
 import { useState, useEffect } from 'react';
 import Paginator from '@/components/Paginator';
-import { Intelligence } from '@/lib/db';
 
 export default function TacticalMatrixExample() {
-    const [intelligence, setIntelligence] = useState<Intelligence[]>([]);
+    const [intelligence, setIntelligence] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
     const [totalItems, setTotalItems] = useState(0);
@@ -59,7 +58,7 @@ export default function TacticalMatrixExample() {
                 {loading ? (
                     <div className="text-center py-8">加载中...</div>
                 ) : (
-                    intelligence.map((item) => (
+                    intelligence.map((item: any) => (
                         <div key={item.id} className="border rounded-lg p-4">
                             {/* 您的情报卡片内容 */}
                             <h3>{item.content}</h3>

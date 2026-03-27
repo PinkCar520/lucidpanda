@@ -1,22 +1,19 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface TickerItem {
-    summary?: string | Record<string, unknown>;
-    content?: string | Record<string, unknown>;
-    timestamp: string | number | Date;
-    urgency_score?: number;
-    sentiment?: string | Record<string, unknown>;
-    [key: string]: unknown;
+    summary?: any;
+    content?: any;
+    [key: string]: any;
 }
 
 interface AINarrativeTickerProps {
     items?: TickerItem[];
     locale: string;
-    getLocalizedText: (input: unknown, locale: string) => string;
+    getLocalizedText: (input: any, locale: string) => string;
 }
 
 
@@ -26,17 +23,10 @@ export default function AINarrativeTicker({
     getLocalizedText
 }: AINarrativeTickerProps) {
     const t = useTranslations('AIInsights');
-    const [now, setNow] = useState(() => Date.now());
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setNow(Date.now());
-        }, 60000); // Update every minute
-        return () => clearInterval(interval);
-    }, []);
 
     // AI Insight Optimization: Ticker/Rapid Stream Logic
     const urgentRecentItems = useMemo(() => {
+        const now = Date.now();
         const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
 
         return items.filter(item => {
@@ -47,7 +37,7 @@ export default function AINarrativeTicker({
 
             return isUrgent && isRecent;
         });
-    }, [items, now]);
+    }, [items]);
 
     // Construct display items with metadata for dots
     const displayItems = useMemo(() => {
@@ -77,7 +67,7 @@ export default function AINarrativeTicker({
             urgency: 0,
             sentiment: 'neutral'
         }];
-    }, [urgentRecentItems, locale, getLocalizedText, t]);
+    }, [urgentRecentItems, locale, getLocalizedText]);
 
     const narratives = displayItems;
     const getDotClass = (urgency: number, sentiment: string) => {

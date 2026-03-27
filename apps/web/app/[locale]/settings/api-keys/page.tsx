@@ -78,9 +78,8 @@ export default function APIKeysPage() {
               setToast({ message: t('apiKeyCreated'), type: 'success' });
               setFormData({ name: '', permissions: ['read_only'], ip_whitelist: '', expires_at: '' });
           }
-      } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'An unknown error occurred';
-          setToast({ message, type: 'error' });
+      } catch (error: any) {
+          setToast({ message: error.message, type: 'error' });
       } finally {
           setCreating(false);
       }
@@ -96,9 +95,8 @@ export default function APIKeysPage() {
               setKeys(keys.filter(k => k.id !== keyId));
               setToast({ message: t('apiKeyRevoked'), type: 'success' });
           }
-      } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'An unknown error occurred';
-          setToast({ message, type: 'error' });
+      } catch (error: any) {
+          setToast({ message: error.message, type: 'error' });
       }
   };
 

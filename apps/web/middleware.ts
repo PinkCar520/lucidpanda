@@ -2,14 +2,13 @@ import { auth } from "@/auth";
 import createIntlMiddleware from 'next-intl/middleware';
 import { locales } from './i18n/config';
 import { NextRequest } from "next/server";
-import { Session } from "next-auth";
 
 const intlMiddleware = createIntlMiddleware({
   locales,
   defaultLocale: 'en'
 });
 
-export default auth((req: NextRequest & { auth: Session | null }) => {
+export default auth((req: NextRequest & { auth: any }) => {
   const { nextUrl } = req;
   // Consider user logged in only if auth exists AND there's no error (like RefreshAccessTokenError)
   const isLoggedIn = !!req.auth && !req.auth.error;

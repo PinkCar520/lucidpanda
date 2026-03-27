@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from 'react';
  * A hook that returns a className to trigger a highlight animation
  * whenever the provided value changes.
  */
-export function useHighlight(value: unknown) {
+export function useHighlight(value: any) {
     const [highlight, setHighlight] = useState(false);
     const isFirstMount = useRef(true);
 
@@ -16,15 +16,10 @@ export function useHighlight(value: unknown) {
             return;
         }
 
-        const timerId = setTimeout(() => {
-            setHighlight(true);
-        }, 0);
+        setHighlight(true);
         const timer = setTimeout(() => setHighlight(false), 1500); // Match animation duration
 
-        return () => {
-            clearTimeout(timerId);
-            clearTimeout(timer);
-        };
+        return () => clearTimeout(timer);
     }, [value]);
 
     return highlight ? 'animate-highlight' : '';

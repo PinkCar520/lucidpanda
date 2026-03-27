@@ -3,12 +3,13 @@
 import React, { useState } from 'react';
 import {
     Terminal, BarChart3, Activity,
-    Settings, ChevronRight,
-    Command, Menu, X, Globe, Check, LogOut, FlaskConical, ShieldCheck, Network
+    Settings, HelpCircle, ChevronRight,
+    Command, Menu, X, Globe, Check, User, LogOut, ChevronLeft, FlaskConical, ShieldCheck, Network
 } from 'lucide-react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import UserMenu from './UserMenu';
 import LanguageSwitcher from './LanguageSwitcher';
 import CommandMenu from './CommandMenu';
