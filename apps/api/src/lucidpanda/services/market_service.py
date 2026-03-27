@@ -19,36 +19,6 @@ class MarketService:
         self._cache: dict[str, Any] = {}
         self._cache_ttl: int = 60  # 1 minute
 
-    def get_market_quotes(self, symbol: str = "GC=F") -> list[dict[str, Any]]:
-        """Fetch and format market quotes for charting."""
-        try:
-            if symbol == "GC=F":
-                df = ak.futures_global_hist_em(symbol="GC00Y")
-            else:
-                # Basic A-share extraction
-                clean_symbol = symbol.replace("sh", "").replace("sz", "")
-                df = ak.stock_zh_a_hist(symbol=clean_symbol, period="daily", adjust="qfq")
-
-            if df.empty:
-                return []
-
-            quotes = []
-            # Take last 100 days for standard chart
-            for _, row in df.tail(100).iterrows():
-                date_str = str(row.get('日期') or row.get('date'))
-                quotes.append({
-                    "date": date_str,
-                    "open": float(row.get('开盘') or 0),
-                    "high": float(row.get('最高') or 0),
-                    "low": float(row.get('最低') or 0),
-                    "close": float(row.get('收盘') or row.get('最新价') or 0),
-                    "volume": float(row.get('成交量') or row.get('总量') or 0)
-                })
-            return quotes
-        except Exception as e:
-            logger.error(f"Failed to fetch market quotes for {symbol}: {e}")
-            return []
-
     def get_gold_indicators(self) -> dict[str, Any] | None:
         """
         Calculate Gold Spread (CNY/g) between Domestic (AU9999) and Intl (COMEX).
@@ -71,7 +41,7 @@ class MarketService:
             # We use akshare for the latest quote
             intl_price_usd = self._fetch_intl_gold_price()
 
-            if domestic_spot is None or fx_rate is None or intl_price_usd is None:
+            if not all([domestic_spot, fx_rate, intl_price_usd]):
                 return None
 
             # Calculation: 1 troy ounce = 31.1034768 grams
@@ -79,14 +49,12 @@ class MarketService:
             spread = domestic_spot - intl_price_cny_per_gram
             spread_pct = (spread / intl_price_cny_per_gram) * 100
 
-            # At this point, type checkers should know they are not None due to the guard above
-            # but we use float() for extra safety and to satisfy strict linting.
             data = {
-                "domestic_spot": float(round(float(domestic_spot), 2)),
-                "intl_spot_cny": float(round(float(intl_price_cny_per_gram), 2)),
-                "spread": float(round(float(spread), 2)),
-                "spread_pct": float(round(float(spread_pct), 2)),
-                "fx_rate": float(round(float(fx_rate), 4)),
+                "domestic_spot": round(domestic_spot, 2),
+                "intl_spot_cny": round(intl_price_cny_per_gram, 2),
+                "spread": round(spread, 2),
+                "spread_pct": round(spread_pct, 2),
+                "fx_rate": round(fx_rate, 4),
                 "last_updated": format_iso8601(datetime.now()),
             }
 

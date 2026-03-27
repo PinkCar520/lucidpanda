@@ -13,7 +13,6 @@ from typing import Any, cast
 import pyotp
 import qrcode
 import redis
-from redis import Redis
 from sqlalchemy import and_, desc, text
 from sqlalchemy.orm import Session
 from src.lucidpanda.auth.models import (
@@ -57,9 +56,8 @@ class AuthService:
     def __init__(self, db: Session):
         self.db = db
         redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-        self.redis: Redis | None
         try:
-            self.redis = cast(Redis, redis.from_url(redis_url, decode_responses=True))
+            self.redis = redis.from_url(redis_url, decode_responses=True)
         except Exception:
             self.redis = None
 
@@ -180,7 +178,7 @@ class AuthService:
             .filter(
                 and_(
                     RefreshToken.token_hash == token_hash,
-                    RefreshToken.revoked_at.is_(None),
+                    RefreshToken.revoked_at is None,
                     RefreshToken.expires_at > datetime.utcnow(),
                 )
             )
@@ -388,9 +386,8 @@ class AuthService:
         token_hash = self._hash_token(raw_token)
         db_request = EmailChangeRequest(
             user_id=user_uuid,
-            old_email=user.email,
             new_email=new_email,
-            new_email_token_hash=token_hash,
+            token_hash=token_hash,
             expires_at=datetime.utcnow() + timedelta(minutes=60),
         )
         self.db.add(db_request)
@@ -410,7 +407,7 @@ class AuthService:
             self.db.query(EmailChangeRequest)
             .filter(
                 and_(
-                    EmailChangeRequest.new_email_token_hash == token_hash,
+                    EmailChangeRequest.token_hash == token_hash,
                     EmailChangeRequest.expires_at > datetime.utcnow(),
                 )
             )
@@ -460,7 +457,7 @@ class AuthService:
                     PhoneVerificationToken.user_id == user_uuid,
                     PhoneVerificationToken.phone_number == phone_number,
                     PhoneVerificationToken.otp_code_hash == code_hash,
-                    PhoneVerificationToken.is_used.is_(False),
+                    PhoneVerificationToken.is_used == False,  # noqa: E712
                     PhoneVerificationToken.expires_at > datetime.utcnow(),
                 )
             )
@@ -493,8 +490,6 @@ class AuthService:
         user_uuid = self._to_uuid(user_id)
         secret = pyotp.random_base32()
         user = self.db.query(User).filter(User.id == user_uuid).first()
-        if not user:
-            raise ValueError("User not found")
         provision_url = pyotp.totp.TOTP(secret).provisioning_uri(
             name=user.email, issuer_name="LucidPanda"
         )
@@ -726,7 +721,7 @@ class AuthService:
             .filter(
                 and_(
                     RefreshToken.user_id == user_uuid,
-                    RefreshToken.revoked_at.is_(None),
+                    RefreshToken.revoked_at is None,
                     RefreshToken.expires_at > datetime.utcnow(),
                 )
             )
@@ -760,7 +755,7 @@ class AuthService:
         query = self.db.query(RefreshToken).filter(
             and_(
                 RefreshToken.user_id == user_uuid,
-                RefreshToken.revoked_at.is_(None),
+                RefreshToken.revoked_at is None,
                 RefreshToken.expires_at > datetime.utcnow(),
             )
         )
@@ -781,7 +776,7 @@ class AuthService:
 
     def log_audit(
         self,
-        user_id: str | None,
+        user_id: str,
         action: str,
         ip_address: str | None = None,
         user_agent: str | None = None,

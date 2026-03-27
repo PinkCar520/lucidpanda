@@ -1,6 +1,6 @@
 import os
 import uuid
-from typing import Any, cast
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -81,7 +81,7 @@ def verify_passkey_registration(
             body.name,
             ip_address=client_host
         )
-        return cast(PasskeyOut, passkey)
+        return passkey
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -125,7 +125,7 @@ def list_my_passkeys(
     current_user: Any = Depends(get_current_user)
 ) -> list[PasskeyOut]:
     auth_service = AuthService(db)
-    return cast(list[PasskeyOut], auth_service.get_user_passkeys(str(current_user.id)))
+    return auth_service.get_user_passkeys(str(current_user.id))
 
 @router.delete("/passkeys/me/{passkey_id}", response_model=MessageResponse)
 def delete_my_passkey(
@@ -157,7 +157,7 @@ def get_audit_log(
     current_user: Any = Depends(get_current_user)
 ) -> list[AuditLogOut]:
     auth_service = AuthService(db)
-    return cast(list[AuditLogOut], auth_service.get_audit_logs(str(current_user.id), limit=limit))
+    return auth_service.get_audit_logs(str(current_user.id), limit=limit)
 
 @router.get("/assets/me/overview", response_model=AssetOverviewOut)
 def get_asset_overview(
@@ -165,7 +165,7 @@ def get_asset_overview(
     current_user: Any = Depends(get_current_user)
 ) -> AssetOverviewOut:
     auth_service = AuthService(db)
-    return cast(AssetOverviewOut, auth_service.get_asset_overview(str(current_user.id)))
+    return auth_service.get_asset_overview(str(current_user.id))
 
 @router.get("/api-keys/me", response_model=list[APIKeyOut])
 def get_api_keys(
@@ -173,7 +173,7 @@ def get_api_keys(
     current_user: Any = Depends(get_current_user)
 ) -> list[APIKeyOut]:
     auth_service = AuthService(db)
-    return cast(list[APIKeyOut], auth_service.get_user_api_keys(str(current_user.id)))
+    return auth_service.get_user_api_keys(str(current_user.id))
 
 @router.post("/api-keys/me", response_model=APIKeyCreateResponse)
 def create_api_key(
@@ -202,7 +202,7 @@ def update_api_key(
     key = auth_service.update_api_key(str(current_user.id), key_id, **body.dict(exclude_unset=True))
     if not key:
         raise HTTPException(status_code=404, detail="API Key not found")
-    return cast(APIKeyOut, key)
+    return key
 
 @router.delete("/api-keys/me/{key_id}", response_model=MessageResponse)
 def revoke_api_key(
@@ -222,10 +222,7 @@ def get_inbox(
     current_user: Any = Depends(get_current_user)
 ) -> list[InSiteMessageOut]:
     auth_service = AuthService(db)
-    return cast(
-        list[InSiteMessageOut],
-        auth_service.get_in_site_messages(str(current_user.id), limit=limit),
-    )
+    return auth_service.get_in_site_messages(str(current_user.id), limit=limit)
 
 @router.put("/notifications/me/inbox/{message_id}/read", response_model=MessageResponse)
 def mark_message_read(
@@ -244,7 +241,7 @@ def get_notification_preferences(
     current_user: Any = Depends(get_current_user)
 ) -> NotificationPreferencesOut:
     auth_service = AuthService(db)
-    return cast(NotificationPreferencesOut, auth_service.get_notification_preferences(str(current_user.id)))
+    return auth_service.get_notification_preferences(str(current_user.id))
 
 @router.put("/notifications/me/preferences", response_model=NotificationPreferencesOut)
 def update_notification_preferences(
@@ -253,10 +250,7 @@ def update_notification_preferences(
     current_user: Any = Depends(get_current_user)
 ) -> NotificationPreferencesOut:
     auth_service = AuthService(db)
-    return cast(
-        NotificationPreferencesOut,
-        auth_service.update_notification_preferences(str(current_user.id), **body.dict(exclude_unset=True)),
-    )
+    return auth_service.update_notification_preferences(str(current_user.id), **body.dict(exclude_unset=True))
 
 @router.post("/2fa/setup", response_model=TwoFASetupResponse)
 def setup_2fa(
@@ -375,7 +369,7 @@ def logout(
 
 @router.post("/register", response_model=UserOut)
 def register(user_in:
-    UserCreate, db: Session = Depends(get_db)) -> UserOut:
+    UserCreate, db: Session = Depends(get_db)) -> Any:
     auth_service = AuthService(db)
 
     if auth_service.get_user_by_email(user_in.email):
@@ -390,14 +384,11 @@ def register(user_in:
             detail="This username is already taken.",
         )
 
-    return cast(
-        UserOut,
-        auth_service.create_user(
-            email=user_in.email,
-            username=user_in.username,
-            password=user_in.password,
-            full_name=user_in.name or user_in.full_name,
-        ),
+    return auth_service.create_user(
+        email=user_in.email,
+        username=user_in.username,
+        password=user_in.password,
+        full_name=user_in.name or user_in.full_name
     )
 
 @router.post("/login", response_model=Token)
@@ -470,8 +461,8 @@ def refresh_token(
 
 @router.get("/me", response_model=UserOut)
 def get_me(current_user:
-    Any = Depends(get_current_user)) -> UserOut:
-    return cast(UserOut, current_user)
+    Any = Depends(get_current_user)) -> Any:
+    return current_user
 
 @router.patch("/me", response_model=UserOut)
 def update_profile(
@@ -493,7 +484,7 @@ def update_profile(
     )
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return cast(UserOut, user)
+    return user
 
 @router.put("/me/avatar", response_model=AvatarUploadResponse)
 async def upload_avatar(
@@ -518,11 +509,11 @@ async def upload_avatar(
     try:
         # Read the uploaded file into memory
         contents = await file.read()
-        image: Image.Image = Image.open(io.BytesIO(contents))
+        image = Image.open(io.BytesIO(contents))
 
         # Convert to RGB if necessary (e.g. for RGBA PNGs to WebP)
         if image.mode in ("RGBA", "P"):
-            image = cast(Image.Image, image.convert("RGB"))
+            image = image.convert("RGB")
 
         # Resize using Lanczos for high quality
         # Standard profile size 256x256 is plenty for UI display
