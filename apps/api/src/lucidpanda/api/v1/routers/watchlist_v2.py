@@ -138,13 +138,16 @@ async def create_watchlist_group(
     try:
         insert_stmt = text("""
             INSERT INTO watchlist_groups (id, user_id, name, icon, color, sort_index)
-            VALUES (gen_random_uuid(), :user_id, :name, :icon, :color, :sort_index)
+            VALUES (:id, :user_id, :name, :icon, :color, :sort_index)
             RETURNING id, user_id, name, icon, color, sort_index, created_at, updated_at
         """)
+
+        import uuid
 
         result = db.execute(
             insert_stmt,
             {
+                "id": str(uuid.uuid4()),
                 "user_id": str(current_user.id),
                 "name": group_data.name,
                 "icon": group_data.icon,
@@ -760,12 +763,14 @@ async def submit_sync_operations(
                     INSERT INTO watchlist_sync_log
                     (id, user_id, operation_type, fund_code, old_value, new_value,
                      device_id, client_timestamp, is_synced)
-                    VALUES (gen_random_uuid(), :user_id, :op_type, :fund_code, :old_val, :new_val,
+                    VALUES (:id, :user_id, :op_type, :fund_code, :old_val, :new_val,
                             :device_id, :client_ts, FALSE)
                 """)
+                import uuid
                 db.execute(
                     log_stmt,
                     {
+                        "id": str(uuid.uuid4()),
                         "user_id": user_id,
                         "op_type": op.operation_type,
                         "fund_code": op.fund_code,

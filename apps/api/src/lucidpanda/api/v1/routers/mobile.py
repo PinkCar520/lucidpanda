@@ -231,7 +231,11 @@ async def get_market_pulse(
         top_alerts.append(
             {
                 "id": row["id"],
-                "timestamp": row["timestamp"].isoformat() if row["timestamp"] else None,
+                "timestamp": (
+                    row["timestamp"].isoformat()
+                    if hasattr(row["timestamp"], "isoformat")
+                    else row["timestamp"]
+                ),
                 "urgency_score": row["urgency_score"],
                 "summary": summary_text,
                 "sentiment": sentiment_label,
@@ -298,7 +302,10 @@ async def get_market_pulse(
         current_h = start_hour + timedelta(hours=i)
         # 如果该小时没数据，则使用 0.0 或上一个点的值（这里采用 0.0 保持图表真实性）
         score = trend_map.get(current_h, 0.0)
-        sentiment_trend.append({"hour": current_h.isoformat(), "score": score})
+        sentiment_trend.append({
+            "hour": current_h.isoformat() if hasattr(current_h, "isoformat") else current_h,
+            "score": score
+        })
 
     # 5. 未来 48h 重要宏观事件 (Upcoming Macro Events)
     # 过滤条件：未来 48 小时，影响等级为 high 或 medium
