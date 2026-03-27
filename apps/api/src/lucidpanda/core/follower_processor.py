@@ -22,6 +22,8 @@ class FollowerProcessor:
         source_id = raw_data.get("source_id") or raw_data.get("id")
         lead_id = raw_data.get("parent_lead_id")
         story_id = raw_data.get("parent_story_id")
+        raw_content = raw_data.get("content")
+        content = raw_content if isinstance(raw_content, str) else str(raw_content or "")
 
         if not lead_id:
             logger.warning(f"⚠️ Follower {source_id} missing parent_lead_id.")
@@ -52,9 +54,7 @@ class FollowerProcessor:
                 logger.info(
                     f"⚖️ 判断 Follower ({source_id}) 对 Lead ({lead_id}) 是否有信息增量 (Story Threading)..."
                 )
-                has_delta = await self._check_delta_gain(
-                    raw_data.get("content"), lead_summary_text
-                )
+                has_delta = await self._check_delta_gain(content, lead_summary_text)
 
                 if not has_delta:
                     logger.info(f"🚫 无信息增量 (Follower): {source_id}")
@@ -66,9 +66,7 @@ class FollowerProcessor:
                     )
                 else:
                     logger.info(f"🌟 发现重要增量 (Follower): {source_id}")
-                    await self._refold_lead_summary(
-                        lead_id, raw_data.get("content"), story_id=story_id
-                    )
+                    await self._refold_lead_summary(lead_id, content, story_id=story_id)
                     await asyncio.to_thread(
                         self.db.update_intelligence_status,
                         source_id,
@@ -92,7 +90,7 @@ class FollowerProcessor:
         prompt = build_delta_check_prompt(new_content, lead_summary)
         try:
             res = await self.primary_llm.generate_json_async(prompt, temperature=0.0)
-            has_delta = res.get("has_delta", False)
+            has_delta = bool(res.get("has_delta", False))
             if has_delta:
                 logger.info(
                     f"✨ Delta Found: {res.get('reason')} | New Fact: {res.get('new_fact')}"
@@ -118,7 +116,25 @@ class FollowerProcessor:
                 logger.warning(f"Refold aborted: Lead {lead_id} analysis not found.")
                 return
 
-            prompt = build_refold_prompt(new_content, lead_analysis)
+            summary = lead_analysis.get("summary", "")
+            if isinstance(summary, dict):
+                current_summary_zh = str(summary.get("zh", ""))
+            else:
+                current_summary_zh = str(summary or "")
+
+            market_implication = lead_analysis.get("market_implication", "")
+            if isinstance(market_implication, dict):
+                current_market_implication_zh = str(
+                    market_implication.get("zh", "")
+                )
+            else:
+                current_market_implication_zh = str(market_implication or "")
+
+            prompt = build_refold_prompt(
+                current_summary_zh,
+                current_market_implication_zh,
+                new_content,
+            )
             updated_analysis = await self.primary_llm.generate_json_async(
                 prompt, temperature=0.2
             )

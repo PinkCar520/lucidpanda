@@ -13,7 +13,7 @@ from src.lucidpanda.core.logger import logger
 class BacktestEngine:
     def __init__(self, db: IntelligenceDB):
         self.db = db
-        self.current_position = None  # Initial state: No position (None)
+        self.current_position: str | None = None  # Initial state: No position (None)
         self.last_sync_attempt = datetime.min.replace(tzinfo=pytz.utc)
         self.sync_cooldown_minutes = 15  # Initial cooldown
 

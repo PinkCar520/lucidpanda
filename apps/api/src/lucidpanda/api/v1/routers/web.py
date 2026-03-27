@@ -1110,7 +1110,7 @@ async def get_web_backtest_stats(
                     "count": alpha_summary.get("count") if alpha_summary else None,
                     "avg": alpha_summary.get("avg_alpha") if alpha_summary else None,
                     "winRate": (
-                        (alpha_summary.get("wins") / alpha_summary.get("count")) * 100
+                        (alpha_summary.get("wins") or 0) / (alpha_summary.get("count") or 1) * 100
                         if alpha_summary and alpha_summary.get("count")
                         else None
                     ),

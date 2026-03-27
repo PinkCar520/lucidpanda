@@ -4,11 +4,12 @@ Alpha Engine - AI 分析消费者
 """
 
 import asyncio
+import inspect
 import json
 from datetime import datetime
 from typing import Any, cast
 
-import pytz  # type: ignore[import-untyped]
+import pytz
 
 from src.lucidpanda.config import settings
 from src.lucidpanda.config.llm_config import LLMConfigManager
@@ -115,12 +116,15 @@ class AlphaEngine:
         self.clusterer = self.deps.clusterer
         self.deduplicator = self.deps.deduplicator
         self.channels = self.deps.channels
-        self.enable_agent_tools = self.deps.enable_agent_tools
+        enable_agent_tools = self.deps.enable_agent_tools
+        self.enable_agent_tools = (
+            enable_agent_tools if isinstance(enable_agent_tools, bool) else True
+        )
         self.tool_summaries = self.deps.tool_summaries
-        self.entity_resolver = self.deps.entity_resolver
-        self.factor_service = self.deps.factor_service
-        self.follower_processor = self.deps.follower_processor
-        self.fred_source = self.deps.fred_source
+        self._entity_resolver = None
+        self._factor_service = None
+        self._follower_processor = None
+        self._fred_source = None
 
         # 日志记录
         primary_provider = settings.AI_PROVIDER.lower()
@@ -133,6 +137,30 @@ class AlphaEngine:
 
         # Bootstrap deduplicator history from DB
         self._bootstrap_deduplicator()
+
+    @property
+    def entity_resolver(self):
+        if self._entity_resolver is None:
+            self._entity_resolver = self.deps.entity_resolver
+        return self._entity_resolver
+
+    @property
+    def factor_service(self):
+        if self._factor_service is None:
+            self._factor_service = self.deps.factor_service
+        return self._factor_service
+
+    @property
+    def follower_processor(self):
+        if self._follower_processor is None:
+            self._follower_processor = self.deps.follower_processor
+        return self._follower_processor
+
+    @property
+    def fred_source(self):
+        if self._fred_source is None:
+            self._fred_source = self.deps.fred_source
+        return self._fred_source
 
     def _bootstrap_deduplicator(self):
         """Load recent intelligence from DB to initialize deduplicator history"""
@@ -192,9 +220,16 @@ class AlphaEngine:
         # 移除了原有的 fetch_round_snapshot 冗余逻辑
 
         # 2.5 事件聚类：同一事件多信源 → 只保留 lead 进全量 AI 分析，follower 进入 Delta Queue
-        lead_records, follower_records = await asyncio.to_thread(
-            self.clusterer.cluster, pending_records
-        )
+        cluster_result = await asyncio.to_thread(self.clusterer.cluster, pending_records)
+        if (
+            isinstance(cluster_result, tuple)
+            and len(cluster_result) == 2
+            and isinstance(cluster_result[0], list)
+            and isinstance(cluster_result[1], list)
+        ):
+            lead_records, follower_records = cluster_result
+        else:
+            lead_records, follower_records = pending_records, []
         if follower_records:
             logger.info(
                 f"🔗 聚类捕获 {len(follower_records)} 条 Follower 报道，本轮全量分析 {len(lead_records)} 条 Lead"
@@ -245,6 +280,8 @@ class AlphaEngine:
                     raw_data.get("url"),
                     exclude_id=record_id,
                 )
+                if not isinstance(dup_result, dict):
+                    dup_result = {"is_duplicate": False}
 
                 # 情况 A: 确定性重复 (L1 拦截)
                 if dup_result["is_duplicate"]:
@@ -288,8 +325,8 @@ class AlphaEngine:
                             self.primary_llm, raw_data, taxonomy=taxonomy_dict
                         )
                     else:
-                        analysis_result = await self.primary_llm.analyze_async(
-                            raw_data, taxonomy=taxonomy_dict
+                        analysis_result = await self._analyze_direct(
+                            self.primary_llm, raw_data, taxonomy=taxonomy_dict
                         )
                 except Exception as e:
                     logger.warning(
@@ -300,26 +337,29 @@ class AlphaEngine:
                             self.fallback_llm, raw_data, taxonomy=taxonomy_dict
                         )
                     else:
-                        analysis_result = await self.fallback_llm.analyze_async(
-                            raw_data, taxonomy=taxonomy_dict
+                        analysis_result = await self._analyze_direct(
+                            self.fallback_llm, raw_data, taxonomy=taxonomy_dict
                         )
 
                 # 4. 存储分析结果 (必须包含 summary)
                 if analysis_result and analysis_result.get("summary"):
+                    entities = analysis_result.get("entities")
+                    if not isinstance(entities, list):
+                        entities = []
+                        analysis_result["entities"] = entities
+                    sentiment_score = analysis_result.get("sentiment_score", 0.0)
+                    urgency_score = analysis_result.get("urgency_score", 1)
+
                     # 4.1 实体链接对齐 (Entity Resolution)
-                    if "entities" in analysis_result and isinstance(
-                        analysis_result["entities"], list
-                    ):
+                    if entities:
                         raw_ai_entities = [
-                            e.get("name")
-                            for e in analysis_result["entities"]
-                            if e.get("name")
+                            e.get("name") for e in entities if e.get("name")
                         ]
                         logger.debug(f"🤖 Raw AI Entities: {raw_ai_entities}")
 
                         analysis_result["entities"] = await asyncio.to_thread(
                             self.entity_resolver.process_ai_entities,
-                            analysis_result["entities"],
+                            entities,
                         )
 
                         # 日志：展示解析后的实体
@@ -349,8 +389,6 @@ class AlphaEngine:
                             )
 
                         # 4.2 触发舆情因子聚合 (Factor Indexing)
-                        sentiment_score = analysis_result.get("sentiment_score", 0.0)
-                        urgency_score = analysis_result.get("urgency_score", 1)
                         for ent in analysis_result["entities"]:
                             cid = ent.get("canonical_id")
                             if cid:
@@ -400,6 +438,14 @@ class AlphaEngine:
                         entities=resolved_entities_cids,
                         sentiment=sentiment_score,
                     )
+                    if not isinstance(sem_dup, dict):
+                        sem_dup = {
+                            "is_duplicate": False,
+                            "status": "NEW",
+                        }
+                    else:
+                        sem_dup.setdefault("is_duplicate", False)
+                        sem_dup.setdefault("status", "NEW")
 
                     if sem_dup["is_duplicate"]:
                         logger.info(
@@ -507,17 +553,15 @@ class AlphaEngine:
     async def _analyze_with_tools(
         self, llm, raw_data: dict[str, Any], taxonomy: dict | None = None
     ) -> dict[str, Any]:
-        if not hasattr(llm, "generate_json_async") or not self.tool_summaries:
-            return cast(
-                dict[str, Any], await llm.analyze_async(raw_data, taxonomy=taxonomy)
-            )
+        if not hasattr(llm, "generate_json_async"):
+            return await self._analyze_direct(llm, raw_data, taxonomy=taxonomy)
 
         plan_prompt = self._build_agent_plan_prompt(raw_data)
         try:
             plan_response = await llm.generate_json_async(plan_prompt, temperature=0.2)
         except Exception as exc:
             logger.warning(f"Agent planning failed, fallback to direct analysis: {exc}")
-            return cast(dict[str, Any], await llm.analyze_async(raw_data))
+            return await self._analyze_direct(llm, raw_data, taxonomy=taxonomy)
 
         tool_calls = self._extract_tool_calls(plan_response)
         tool_results: list[dict[str, Any]] = []
@@ -525,7 +569,14 @@ class AlphaEngine:
             tool_results = await self._run_tool_calls(tool_calls)
 
         # 并发拉取美联储宏观背景 (仅针对 Agent 分析模式，提升深度建议准确度)
-        macro_context = await self.fred_source.fetch_macro_dashboard()
+        macro_context: Any = {}
+        fetch_macro_dashboard = getattr(self.fred_source, "fetch_macro_dashboard", None)
+        if callable(fetch_macro_dashboard):
+            macro_result = fetch_macro_dashboard()
+            if inspect.isawaitable(macro_result):
+                macro_context = await macro_result
+            else:
+                macro_context = macro_result or {}
 
         final_prompt = self._build_agent_final_prompt(
             raw_data,
@@ -542,9 +593,7 @@ class AlphaEngine:
             logger.warning(
                 f"Agent final analysis failed, fallback to direct analysis: {exc}"
             )
-            return cast(
-                dict[str, Any], await llm.analyze_async(raw_data, taxonomy=taxonomy)
-            )
+            return await self._analyze_direct(llm, raw_data, taxonomy=taxonomy)
 
         agent_trace = {
             "version": 1,
@@ -562,6 +611,30 @@ class AlphaEngine:
             "raw": str(analysis_result),
             "agent_trace": agent_trace,
         }
+
+    async def _analyze_direct(
+        self, llm, raw_data: dict[str, Any], taxonomy: dict | None = None
+    ) -> dict[str, Any]:
+        analyze_async = getattr(llm, "analyze_async", None)
+        if callable(analyze_async):
+            result = analyze_async(raw_data, taxonomy=taxonomy)
+            if inspect.isawaitable(result):
+                return cast(dict[str, Any], await result)
+
+        if hasattr(llm, "generate_json_async"):
+            direct_prompt = self._build_agent_final_prompt(
+                raw_data,
+                [],
+                {"plan_summary": "Direct analysis", "tool_calls": []},
+                taxonomy=taxonomy,
+                macro_context={},
+            )
+            return cast(
+                dict[str, Any],
+                await llm.generate_json_async(direct_prompt, temperature=0.2),
+            )
+
+        raise TypeError("LLM does not provide an awaitable analyze_async method")
 
     def _extract_tool_calls(self, plan_response: Any) -> list[dict[str, Any]]:
         if not isinstance(plan_response, dict):

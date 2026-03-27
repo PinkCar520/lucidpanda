@@ -156,7 +156,7 @@ async def create_watchlist_group(
         row = result.mappings().first()
         db.commit()
 
-        group = dict(row)
+        group = dict(row) if row else {}
         if "created_at" in group and hasattr(group["created_at"], "isoformat"):
             group["created_at"] = group["created_at"].isoformat()
         if "updated_at" in group and hasattr(group["updated_at"], "isoformat"):
@@ -207,7 +207,7 @@ async def update_watchlist_group(
             params["color"] = group_data.color
         if group_data.sort_index is not None:
             updates.append("sort_index = :sort_index")
-            params["sort_index"] = group_data.sort_index
+            params["sort_index"] = str(group_data.sort_index)
 
         if updates:
             updates.append("updated_at = CURRENT_TIMESTAMP")
@@ -222,7 +222,7 @@ async def update_watchlist_group(
             row = result.mappings().first()
             db.commit()
 
-            group = dict(row)
+            group = dict(row) if row else {}
             if "created_at" in group and hasattr(group["created_at"], "isoformat"):
                 group["created_at"] = group["created_at"].isoformat()
             if "updated_at" in group and hasattr(group["updated_at"], "isoformat"):
@@ -724,7 +724,7 @@ async def sync_watchlist(
 
         groups = []
         for row in groups_result:
-            group = dict(row)
+            group = dict(row) if row else {}
             if "created_at" in group and hasattr(group["created_at"], "isoformat"):
                 group["created_at"] = group["created_at"].isoformat()
             if "updated_at" in group and hasattr(group["updated_at"], "isoformat"):

@@ -46,10 +46,10 @@ class DeepSeekLLM(BaseLLM):
             )
             elapsed = time.time() - start_time
 
-            raw_text = response.choices[0].message.content
+            raw_text = response.choices[0].message.content or ""
             logger.info(f"📥 [DeepSeek] 响应成功 (耗时: {elapsed:.2f}s)。")
 
-            return json.loads(raw_text)
+            return json.loads(raw_text or "{}")
 
         except Exception as e:
             logger.error(f"DeepSeek 分析失败: {e}")
@@ -66,8 +66,8 @@ class DeepSeekLLM(BaseLLM):
                 response_format={"type": "json_object"},
                 temperature=temperature,
             )
-            raw_text = response.choices[0].message.content
-            return json.loads(raw_text)
+            raw_text = response.choices[0].message.content or ""
+            return json.loads(raw_text or "{}")
         except Exception as e:
             logger.error(f"DeepSeek JSON 生成失败: {e}")
             raise e
@@ -91,7 +91,7 @@ class DeepSeekLLM(BaseLLM):
                 temperature=0.3,
             )
 
-            results = json.loads(response.choices[0].message.content)
+            results = json.loads(response.choices[0].message.content or "{}")
 
             if len(results) != len(news_items):
                 logger.warning(

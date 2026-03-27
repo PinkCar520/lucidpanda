@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends
-from sqlmodel import Session, func, select
+from sqlmodel import Session, col, func, select
 
 from src.lucidpanda.infra.database.connection import get_session
 from src.lucidpanda.models.intelligence import Intelligence
@@ -18,8 +18,10 @@ async def get_24h_alerts_count(db: Session = Depends(get_session)):
     """
     # SQLModel approach
     threshold_time = datetime.utcnow() - timedelta(hours=24)
-    statement = select(func.count(Intelligence.id)).where(
-        Intelligence.urgency_score >= 8, Intelligence.timestamp > threshold_time
+    statement = (
+        select(func.count(col(Intelligence.id)))
+        .where(col(Intelligence.urgency_score) >= 8)
+        .where(col(Intelligence.timestamp) > threshold_time)
     )
     count = db.exec(statement).first() or 0
 

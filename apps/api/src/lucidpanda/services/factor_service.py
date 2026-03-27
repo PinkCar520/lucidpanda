@@ -1,6 +1,6 @@
 import asyncio
 from datetime import date
-from typing import Any
+from typing import Any, cast
 
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
@@ -99,11 +99,10 @@ class FactorService(DBBase):
                     r.entity_type
                 FROM entity_metrics m
                 LEFT JOIN entity_registry r ON m.canonical_id = r.canonical_id
-                WHERE m.canonical_id = %s AND m.metric_date > CURRENT_DATE - INTERVAL '%s day'
                 ORDER BY m.metric_date ASC;
                 """
                 cursor.execute(query, (canonical_id, days))
-                return cursor.fetchall()
+                return cast(list[dict[str, Any]], cursor.fetchall())
         except Exception as e:
             logger.error(f"❌ 获取实体趋势失败 ({canonical_id}): {e}")
             return []
@@ -133,13 +132,11 @@ class FactorService(DBBase):
                     r.entity_type
                 FROM entity_metrics m
                 LEFT JOIN entity_registry r ON m.canonical_id = r.canonical_id
-                WHERE m.metric_date > CURRENT_DATE - INTERVAL '%s day'
-                GROUP BY m.canonical_id, r.display_name, r.entity_type
                 ORDER BY total_mentions DESC
                 LIMIT %s;
                 """
                 cursor.execute(query, (days, limit))
-                return cursor.fetchall()
+                return cast(list[dict[str, Any]], cursor.fetchall())
         except Exception as e:
             logger.error(f"❌ 获取全市场热点失败: {e}")
             return []

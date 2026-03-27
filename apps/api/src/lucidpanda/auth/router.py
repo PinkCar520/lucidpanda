@@ -79,7 +79,7 @@ def verify_passkey_registration(
         passkey = auth_service.verify_registration_response(
             str(current_user.id),
             body.registration_data,
-            body.name,
+            body.name or "",
             ip_address=request.client.host if request.client else "0.0.0.0",
         )
         return passkey
@@ -106,9 +106,9 @@ def verify_passkey_login(
 
     access_token, refresh_token = auth_service.create_session(
         user_id=str(user.id),
-        device_name=request.headers.get("user-agent"),
-        ip_address=request.client.host,
-        user_agent=request.headers.get("user-agent"),
+        device_name=request.headers.get("user-agent") or "Unknown",
+        ip_address=request.client.host if request.client else "0.0.0.0",
+        user_agent=request.headers.get("user-agent") or "Unknown",
     )
 
     return {
@@ -186,7 +186,7 @@ def create_api_key(
     auth_service = AuthService(db)
     api_key, secret = auth_service.generate_api_key(
         str(current_user.id),
-        body.name,
+        body.name or "",
         body.permissions,
         body.ip_whitelist or [],
         body.expires_at,  # type: ignore[arg-type]
@@ -436,9 +436,9 @@ def login(
 
     access_token, refresh_token = auth_service.create_session(
         user_id=str(user.id),
-        device_name=request.headers.get("user-agent"),
-        ip_address=request.client.host,
-        user_agent=request.headers.get("user-agent"),
+        device_name=request.headers.get("user-agent") or "Unknown",
+        ip_address=request.client.host if request.client else "0.0.0.0",
+        user_agent=request.headers.get("user-agent") or "Unknown",
     )
 
     return {
@@ -497,7 +497,7 @@ def update_profile(
     auth_service = AuthService(db)
     user = auth_service.update_user(
         str(current_user.id),
-        name=body.name,
+        name=body.name or "",
         nickname=body.nickname,
         gender=body.gender,
         birthday=body.birthday,
@@ -541,7 +541,7 @@ async def upload_avatar(
 
         # Convert to RGB if necessary (e.g. for RGBA PNGs to WebP)
         if image.mode in ("RGBA", "P"):
-            image = cast(Image.Image, image.convert("RGB"))
+            image = cast(Any, image.convert("RGB"))
 
         # Resize using Lanczos for high quality
         # Standard profile size 256x256 is plenty for UI display

@@ -10,7 +10,7 @@ def mock_dependencies(mocker):
     mock_gemini = mocker.patch("src.lucidpanda.core.engine.GeminiLLM")
     mock_deepseek = mocker.patch("src.lucidpanda.core.engine.DeepSeekLLM")
 
-    mock_db = mocker.patch("src.lucidpanda.core.engine.IntelligenceDB")
+    mock_db = mocker.patch("src.lucidpanda.core.di_container.IntelligenceDB")
     mock_db.return_value.get_latest_indicator.return_value = {
         "timestamp": "2026-02-08",
         "indicator_name": "COT_GOLD_NET",
@@ -23,14 +23,30 @@ def mock_dependencies(mocker):
     mock_db.return_value.get_recent_intelligence.return_value = []
 
     # Mock deduplicator: not duplicate by default
-    mock_dedup = mocker.patch("src.lucidpanda.core.engine.NewsDeduplicator")
+    mock_dedup = mocker.patch("src.lucidpanda.core.di_container.NewsDeduplicator")
     mock_dedup.return_value.is_duplicate.return_value = False
     mock_dedup.return_value.last_vector = None
 
-    mock_email = mocker.patch("src.lucidpanda.core.engine.EmailChannel")
-    mock_bark = mocker.patch("src.lucidpanda.core.engine.BarkChannel")
-    mock_bt = mocker.patch("src.lucidpanda.core.engine.BacktestEngine")
+    mock_email = mocker.patch("src.lucidpanda.core.di_container.EmailChannel")
+    mock_bark = mocker.patch("src.lucidpanda.core.di_container.BarkChannel")
+    mock_bt = mocker.patch("src.lucidpanda.core.di_container.BacktestEngine")
     mock_bt.return_value.sync_outcomes.return_value = None
+
+    mock_deps = MagicMock()
+    mock_deps.db = mock_db.return_value
+    mock_deps.primary_llm = mock_gemini.return_value
+    mock_deps.fallback_llm = mock_deepseek.return_value
+    mock_deps.ai_semaphore = AsyncMock()
+    mock_deps.backtester = mock_bt.return_value
+    mock_deps.clusterer = MagicMock()
+    mock_deps.deduplicator = mock_dedup.return_value
+    mock_deps.channels = [mock_email.return_value, mock_bark.return_value]
+    mock_deps.enable_agent_tools = False
+    mock_deps.tool_summaries = []
+    mock_deps.entity_resolver = MagicMock()
+    mock_deps.factor_service = MagicMock()
+    mock_deps.follower_processor = MagicMock()
+    mock_deps.fred_source = MagicMock()
 
     return {
         "gemini": mock_gemini,
@@ -40,6 +56,7 @@ def mock_dependencies(mocker):
         "bark": mock_bark,
         "backtester": mock_bt,
         "dedup": mock_dedup,
+        "deps": mock_deps,
     }
 
 
@@ -47,7 +64,7 @@ def mock_dependencies(mocker):
 def engine(mock_dependencies):
     from src.lucidpanda.core.engine import AlphaEngine
 
-    eng = AlphaEngine()
+    eng = AlphaEngine(deps=mock_dependencies["deps"])
     eng._fetch_round_snapshot = MagicMock(
         return_value={
             "gold_price_snapshot": 1900.0,
@@ -97,8 +114,7 @@ def test_run_once_with_pending_item(engine):
         "actionable_advice": {"zh": "减仓", "en": "Reduce"},
         "market_implication": {"zh": "黄金下行压力", "en": "Gold downside"},
     }
-    plan = {"use_tools": False, "plan_summary": "No tools", "tool_calls": []}
-    engine.primary_llm.generate_json_async = AsyncMock(side_effect=[plan, analysis])
+    engine.primary_llm.generate_json_async = AsyncMock(return_value=analysis)
 
     engine.run_once()
 

@@ -99,8 +99,8 @@ class GoogleNewsSource(BaseDataSource):
             "(safe haven OR market crash OR recession OR financial crisis OR systemic risk) OR "
             "(treasury yield OR bond yield OR 10-year yield OR real yield)"
         ),
-        start_date: str = None,
-        end_date: str = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
     ):
         """
         Fetch news using Google News RSS.

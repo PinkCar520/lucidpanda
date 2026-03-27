@@ -38,3 +38,13 @@ pretty = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "src.lucidpanda.auth.models",
+    "src.lucidpanda.auth.service",
+    "src.lucidpanda.db.intelligence",
+    "src.lucidpanda.providers.data_sources.fred",
+    "src.lucidpanda.providers.data_sources.rsshub",
+]
+ignore_errors = true

@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 
 import httpx
-import redis  # type: ignore[import-untyped]
+import redis
 
 # 确保项目路径可用
 root_dir = os.path.dirname(

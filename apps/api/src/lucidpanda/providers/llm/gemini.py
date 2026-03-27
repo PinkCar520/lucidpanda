@@ -1,4 +1,5 @@
 import json
+from typing import Any, cast
 
 from google import genai
 
@@ -36,11 +37,11 @@ class GeminiLLM(BaseLLM):
             prompt = self._get_prompt(raw_data, taxonomy)
 
             response = client.models.generate_content(
-                model=settings.GEMINI_MODEL, contents=prompt, config=config
+                model=settings.GEMINI_MODEL, contents=prompt, config=cast(Any, config)
             )
 
-            clean_text = response.text.replace("```json", "").replace("```", "").strip()
-            res = json.loads(clean_text)
+            clean_text = (response.text or "").replace("```json", "").replace("```", "").strip()
+            res = json.loads(clean_text or "{}")
             logger.debug(
                 f"🤖 AI Raw Analysis (Single): {json.dumps(res, ensure_ascii=False)[:200]}..."
             )
@@ -58,10 +59,10 @@ class GeminiLLM(BaseLLM):
                 "response_mime_type": "application/json",
             }
             response = client.models.generate_content(
-                model=settings.GEMINI_MODEL, contents=prompt, config=config
+                model=settings.GEMINI_MODEL, contents=prompt, config=cast(Any, config)
             )
-            clean_text = response.text.replace("```json", "").replace("```", "").strip()
-            return json.loads(clean_text)
+            clean_text = (response.text or "").replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_text or "{}")
         except Exception as e:
             logger.error(f"Gemini JSON 生成失败: {e}")
             raise e
@@ -78,11 +79,11 @@ class GeminiLLM(BaseLLM):
             prompt = self._get_batch_prompt(news_items, taxonomy)
 
             response = client.models.generate_content(
-                model=settings.GEMINI_MODEL, contents=prompt, config=config
+                model=settings.GEMINI_MODEL, contents=prompt, config=cast(Any, config)
             )
 
-            clean_text = response.text.replace("```json", "").replace("```", "").strip()
-            results = json.loads(clean_text)
+            clean_text = (response.text or "").replace("```json", "").replace("```", "").strip()
+            results = json.loads(clean_text or "[]")
 
             if len(results) != len(news_items):
                 logger.warning(
@@ -182,7 +183,7 @@ relations.relation 合法枚举（仅可选以下值）：
 - 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
 
 强约束：
-1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金 or 其驱动因子，必须至少输出 1 条 relations。
+1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金 or 其驱动因子，必须至少输出 1 条 relations.
 2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
 """
 
@@ -254,6 +255,6 @@ relations.relation 合法枚举（仅可选以下值）：
 - 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
 
 强约束：
-1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金 or 其驱动因子，必须至少输出 1 条 relations。
+1) 若新闻存在明确因果链（政策/冲突/利率/美元/收益率）且涉及黄金 or 其驱动因子，必须至少输出 1 条 relations.
 2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
 """

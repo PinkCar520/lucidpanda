@@ -1,5 +1,13 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypedDict
+
+
+class NormalizedEdge(TypedDict):
+    from_entity: str
+    to_entity: str
+    relation: str
+    strength: float
+    created_at: Any
 
 BULLISH_RELATIONS = {
     "raises_tariff",
@@ -74,7 +82,7 @@ def infer_event_chains(
     if not edges:
         return []
 
-    normalized = []
+    normalized: list[NormalizedEdge] = []
     for edge in edges:
         from_name = str(edge.get("from_entity") or "").strip()
         to_name = str(edge.get("to_entity") or "").strip()
@@ -98,24 +106,35 @@ def infer_event_chains(
         low = name.lower()
         return any(token in low for token in gold_terms)
 
-    for edge in normalized:
-        if not is_gold(edge["to_entity"]):
+    for normalized_edge in normalized:
+        if not is_gold(normalized_edge["to_entity"]):
             continue
-        signal = relation_signal(edge["relation"])
+        signal = relation_signal(normalized_edge["relation"])
         if signal == "NEUTRAL":
             continue
-        rel_weight = float((relation_weights or {}).get(edge["relation"].lower(), 1.0))
-        decay = _time_decay_factor(edge.get("created_at"))
+        rel_weight = float(
+            (relation_weights or {}).get(normalized_edge["relation"].lower(), 1.0)
+        )
+        decay = _time_decay_factor(normalized_edge.get("created_at"))
         confidence = round(
-            max(35.0, min(95.0, (45.0 + edge["strength"] * 35.0) * rel_weight * decay)),
+            max(
+                35.0,
+                min(
+                    95.0,
+                    (45.0 + normalized_edge["strength"] * 35.0) * rel_weight * decay,
+                ),
+            ),
             1,
         )
         results.append(
             {
                 "hops": 1,
-                "chain": [edge],
+                "chain": [normalized_edge],
                 "conclusion": signal,
-                "explanation": f"{edge['from_entity']} -> {edge['to_entity']} ({edge['relation']})",
+                "explanation": (
+                    f"{normalized_edge['from_entity']} -> "
+                    f"{normalized_edge['to_entity']} ({normalized_edge['relation']})"
+                ),
                 "confidence": confidence,
             }
         )

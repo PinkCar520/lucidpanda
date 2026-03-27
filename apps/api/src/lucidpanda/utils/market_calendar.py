@@ -1,5 +1,6 @@
 import threading
 from datetime import UTC, date, datetime, timedelta
+from typing import Any, ClassVar
 from zoneinfo import ZoneInfo
 
 import pandas_market_calendars as mcal
@@ -8,9 +9,9 @@ from src.lucidpanda.core.logger import logger
 
 
 class MarketCalendar:
-    _instance = None
-    _lock = threading.Lock()
-    _calendars = {}
+    _instance: ClassVar["MarketCalendar | None"] = None
+    _lock: ClassVar[threading.Lock] = threading.Lock()
+    _calendars: ClassVar[dict[str, Any]] = {}
 
     def __new__(cls):
         with cls._lock:

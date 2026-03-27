@@ -1,7 +1,7 @@
 import logging
 import re
+from typing import Any, cast
 
-# from sklearn.metrics.pairwise import cosine_similarity  # 延迟导入
 import numpy as np
 
 from src.lucidpanda.config import settings
@@ -81,10 +81,10 @@ class NewsDeduplicator:
                 return True
         return False
 
-    def is_early_duplicate(self, news_url, exclude_id: int = None) -> dict:
+    def is_early_duplicate(self, news_url: str | None, exclude_id: int | None = None) -> dict[str, Any]:
         """轻量级初始查重，仅阻挡 URL。"""
         if self.db and news_url:
-            return self.db.is_url_duplicate(news_url, exclude_id=exclude_id)
+            return cast(dict[str, Any], self.db.is_url_duplicate(news_url, exclude_id=exclude_id))
         return {"is_duplicate": False, "status": "NEW"}
 
     def is_semantic_duplicate(

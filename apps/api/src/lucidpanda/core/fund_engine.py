@@ -2,6 +2,7 @@ import json
 import os
 import threading
 from datetime import datetime, timedelta
+from typing import Any, cast
 
 import akshare as ak
 import pandas as pd
@@ -18,7 +19,7 @@ from src.lucidpanda.utils.market_calendar import (
 
 
 class FundEngine:
-    def __init__(self, db: IntelligenceDB = None):
+    def __init__(self, db: IntelligenceDB | None = None):
         self.db = db if db else IntelligenceDB()
 
         # Init Redis
@@ -28,7 +29,7 @@ class FundEngine:
             # Lightweight check (optional)
         except Exception as e:
             logger.warning(f"Redis connection failed: {e}")
-            self.redis = None
+            self.redis = cast(Any, None)
 
     def _safe_fee_rate(self, value) -> float:
         """Normalize a fee value into annual percentage (e.g. 1.2 => 1.2%)."""
@@ -40,7 +41,7 @@ class FundEngine:
             return 0.0
 
     def _infer_market_region_from_meta(
-        self, fund_code: str, meta: dict = None, fallback_name: str = ""
+        self, fund_code: str, meta: dict[str, Any] | None = None, fallback_name: str = ""
     ) -> str:
         meta = meta or {}
         fund_name = str(meta.get("name") or fallback_name or "")
@@ -98,7 +99,7 @@ class FundEngine:
         return max(0.0, min(1.0, elapsed_minutes / total_minutes))
 
     def _calc_fee_drag_pct(
-        self, fund_code: str, fund_meta: dict = None, fund_name: str = ""
+        self, fund_code: str, fund_meta: dict[str, Any] | None = None, fund_name: str = ""
     ):
         """
         Convert annual fee rates to daily drag and return the currently applied drag (%).
@@ -372,7 +373,7 @@ class FundEngine:
         # 1. Try Fetch from Redis
         try:
             # Redis stores JSON string: "{'l1':..., 'l2':...}"
-            raw_data = self.redis.hmget("stock:industry:full", stock_codes)
+            raw_data = cast(list[Any], self.redis.hmget("stock:industry:full", stock_codes))
 
             result = {}
             missing_codes = []
@@ -529,7 +530,7 @@ class FundEngine:
                             "fund_code": fund_code,
                             "fund_name": fund_name,
                             "status": "active",
-                            "estimated_growth": round(est_growth, 4),
+                            "estimated_growth": round(float(est_growth), 4),
                             "total_weight": ratio * 100,
                             "components": [
                                 {
@@ -545,10 +546,10 @@ class FundEngine:
                             "timestamp": format_iso8601(datetime.now()),
                             "source": f"{rel_type} ({parent_code}){calibration_note}{fx_note}",
                             "fee_drag": {
-                                "annual_fee_pct": round(annual_fee, 6),
-                                "daily_fee_pct": round(daily_fee, 6),
-                                "applied_drag_pct": round(fee_drag, 6),
-                                "day_progress": round(day_progress, 6),
+                                "annual_fee_pct": round(float(annual_fee), 6),
+                                "daily_fee_pct": round(float(daily_fee), 6),
+                                "applied_drag_pct": round(float(fee_drag), 6),
+                                "day_progress": round(float(day_progress), 6),
                             },
                         }
                         if self.redis:
@@ -762,7 +763,7 @@ class FundEngine:
                         result = {
                             "fund_code": fund_code,
                             "fund_name": fund_name,
-                            "estimated_growth": round(est_growth, 4),
+                            "estimated_growth": round(float(est_growth), 4),
                             "total_weight": 95.0,  # Assumed heavy weight
                             "components": [
                                 {
@@ -793,7 +794,7 @@ class FundEngine:
             components = []
 
             # Init Sector Map
-            sector_stats = {}
+            sector_stats: dict[str, Any] = {}
 
             # Bulk fetch industry mapping
             holding_codes = [h.get("stock_code") or h.get("code") for h in holdings]
@@ -916,10 +917,10 @@ class FundEngine:
                 "timestamp": datetime.now(tz_cn).isoformat(),
                 "source": "System Engine" + calibration_note + fx_note,
                 "fee_drag": {
-                    "annual_fee_pct": round(annual_fee, 6),
-                    "daily_fee_pct": round(daily_fee, 6),
-                    "applied_drag_pct": round(fee_drag, 6),
-                    "day_progress": round(day_progress, 6),
+                    "annual_fee_pct": round(float(annual_fee), 6),
+                    "daily_fee_pct": round(float(daily_fee), 6),
+                    "applied_drag_pct": round(float(fee_drag), 6),
+                    "day_progress": round(float(day_progress), 6),
                 },
             }
 
@@ -1081,7 +1082,7 @@ class FundEngine:
         missing_meta_codes = []
 
         if self.redis:
-            cached_meta = self.redis.mget([f"fund:meta:{c}" for c in fund_codes])
+            cached_meta = cast(list, self.redis.mget([f"fund:meta:{c}" for c in fund_codes]))
             for code, meta_json in zip(fund_codes, cached_meta, strict=False):
                 if meta_json:
                     try:
@@ -1110,7 +1111,7 @@ class FundEngine:
         # To avoid sequential fetching of missing holdings, we just do best effort for now or simple loop
         # Optimizing holding fetch is secondary, usually they are in DB.
 
-        all_holdings = {}
+        all_holdings: dict[str, Any] = {}
         stock_map = {}  # code -> market_id needed
 
         # --- NEW: Batch Relationship Check ---
@@ -1374,7 +1375,7 @@ class FundEngine:
                     res_obj = {
                         "fund_code": f_code,
                         "fund_name": fund_name_map.get(f_code, f_code),
-                        "estimated_growth": round(est_growth, 4),
+                        "estimated_growth": round(float(est_growth), 4),
                         "total_weight": ratio * 100,
                         "is_qdii": "QDII"
                         in str(fund_meta_map.get(f_code, {}).get("type", "")),
@@ -1397,10 +1398,10 @@ class FundEngine:
                         "timestamp": format_iso8601(datetime.now()),
                         "source": f"{'Shadow' if rel_type == 'ETF_FEEDER' else 'Proxy'} Batch ({p_code}){calibration_note}{fx_note}",
                         "fee_drag": {
-                            "annual_fee_pct": round(annual_fee, 6),
-                            "daily_fee_pct": round(daily_fee, 6),
-                            "applied_drag_pct": round(fee_drag, 6),
-                            "day_progress": round(day_progress, 6),
+                            "annual_fee_pct": round(float(annual_fee), 6),
+                            "daily_fee_pct": round(float(daily_fee), 6),
+                            "applied_drag_pct": round(float(fee_drag), 6),
+                            "day_progress": round(float(day_progress), 6),
                         },
                     }
                     if self.redis:
@@ -1451,7 +1452,7 @@ class FundEngine:
             total_impact = 0.0
             total_weight = 0.0
             components = []
-            sector_stats = {}
+            sector_stats: dict[str, Any] = {}
 
             for h in holdings:
                 code = h.get("stock_code") or h.get("code")
@@ -1461,8 +1462,8 @@ class FundEngine:
                 q = quotes.get(code)
                 current_impact = 0.0
                 if q:
-                    price = q["price"]
-                    pct = q["change_pct"]
+                    price = float(q["price"])
+                    pct = float(q["change_pct"])
                     impact = pct * (weight / 100.0)
                     current_impact = impact
                     total_impact += impact
@@ -1566,10 +1567,10 @@ class FundEngine:
                 "timestamp": format_iso8601(datetime.now()),
                 "source": "System Batch" + calibration_note + fx_note,
                 "fee_drag": {
-                    "annual_fee_pct": round(annual_fee, 6),
-                    "daily_fee_pct": round(daily_fee, 6),
-                    "applied_drag_pct": round(fee_drag, 6),
-                    "day_progress": round(day_progress, 6),
+                    "annual_fee_pct": round(float(annual_fee), 6),
+                    "daily_fee_pct": round(float(daily_fee), 6),
+                    "applied_drag_pct": round(float(fee_drag), 6),
+                    "day_progress": round(float(day_progress), 6),
                 },
             }
 
@@ -1792,7 +1793,7 @@ class FundEngine:
                 return
 
         # 3. Group by date for efficient processing
-        tasks_by_date = {}
+        tasks_by_date: dict[str, Any] = {}
         for d, c in pending_tasks:
             # Defensive conversion in case upstream SQL/cursor config changes again
             if isinstance(d, str):
@@ -1820,8 +1821,19 @@ class FundEngine:
                 f"📅 Processing reconciliation for {trade_date} ({len(codes)} funds)..."
             )
 
+            # trade_date is string "YYYY-MM-DD"
+            try:
+                trade_date_obj = (
+                    datetime.strptime(str(trade_date), "%Y-%m-%d").date()
+                    if isinstance(trade_date, str)
+                    else trade_date
+                )
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid trade_date format: {trade_date}")
+                continue
+
             # --- 1. Batch Optimization: Try stealth list first for recent dates ---
-            is_recent = (datetime.now().date() - trade_date).days <= 3
+            is_recent = (datetime.now().date() - trade_date_obj).days <= 3
             batch_results = {}
             if is_recent:
                 try:
@@ -1847,7 +1859,7 @@ class FundEngine:
                             show_date_match.group(1) if show_date_match else None
                         )
 
-                        if api_date_str == trade_date.strftime("%Y-%m-%d"):
+                        if api_date_str == trade_date_obj.strftime("%Y-%m-%d"):
                             # Extract data from JS structure: ["001618","...", "nav", "acc_nav", "last_nav", "last_acc", "growth_val", "growth_rate", ...]
                             data_rows = re.findall(
                                 r'\["(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)","(.*?)",',
@@ -1877,7 +1889,7 @@ class FundEngine:
                         logger.info("Trying AkShare as secondary batch backup...")
                         df_daily = ak.fund_open_fund_daily_em()
                         if not df_daily.empty:
-                            date_str = trade_date.strftime("%Y-%m-%d")
+                            date_str = trade_date_obj.strftime("%Y-%m-%d")
 
                             # AkShare 'fund_open_fund_daily_em' returns the LATEST day's snippet.
                             # We must verify if this snapshot belongs to our trade_date.
@@ -1983,7 +1995,7 @@ class FundEngine:
                                             )
                                             # We also need to check the date
                                             api_date = back_json["Datas"].get("FSRQ")
-                                            if api_date == trade_date.strftime(
+                                            if api_date == trade_date_obj.strftime(
                                                 "%Y-%m-%d"
                                             ):
                                                 self.db.update_official_nav(

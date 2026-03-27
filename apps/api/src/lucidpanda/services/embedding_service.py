@@ -23,8 +23,33 @@ Embedding Service - 文本向量化服务
 import logging
 import time
 from http import HTTPStatus
+from typing import Any, cast
 
 from src.lucidpanda.config import settings
+
+dashscope: Any | None
+try:
+    import dashscope as _dashscope
+
+    dashscope = _dashscope
+except ImportError:
+    dashscope = None
+
+TextEmbedding: Any | None
+try:
+    from dashscope import TextEmbedding as _TextEmbedding
+
+    TextEmbedding = _TextEmbedding
+except ImportError:
+    TextEmbedding = None
+
+genai: Any | None
+try:
+    from google import genai as _genai
+
+    genai = _genai
+except ImportError:
+    genai = None
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +94,8 @@ class EmbeddingService:
 
         for attempt in range(max_retries + 1):
             try:
-                from google import genai
-
+                if genai is None:
+                    raise RuntimeError("google-genai is not installed")
                 client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
                 res = client.models.embed_content(
@@ -78,7 +103,9 @@ class EmbeddingService:
                     contents=text,
                     config={"output_dimensionality": 768},
                 )
-                return res.embeddings[0].values
+                if res and res.embeddings and len(res.embeddings) > 0:
+                    return cast(list[float], res.embeddings[0].values)
+                return []
 
             except Exception as e:
                 if attempt < max_retries:
@@ -89,6 +116,7 @@ class EmbeddingService:
                 else:
                     logger.error(f"❌ Gemini Embedding API 彻底失败：{e}")
                     raise e
+        return []
 
     @classmethod
     def _encode_dashscope(cls, text: str) -> list[float]:
@@ -113,9 +141,8 @@ class EmbeddingService:
 
         for attempt in range(max_retries + 1):
             try:
-                import dashscope
-                from dashscope import TextEmbedding
-
+                if dashscope is None or TextEmbedding is None:
+                    raise RuntimeError("dashscope is not installed")
                 # 显式设置 API Key
                 dashscope.api_key = settings.DASHSCOPE_API_KEY
 
@@ -125,8 +152,8 @@ class EmbeddingService:
                     dimension=settings.DASHSCOPE_EMBEDDING_DIMENSIONS,
                 )
 
-                if res.status_code == HTTPStatus.OK:
-                    return res.output["embeddings"][0]["embedding"]
+                if res.status_code == HTTPStatus.OK and res.output and "embeddings" in res.output:
+                    return cast(list[float], res.output["embeddings"][0]["embedding"])
                 else:
                     raise Exception(f"DashScope API error: {res.code} - {res.message}")
 
@@ -139,6 +166,7 @@ class EmbeddingService:
                 else:
                     logger.error(f"❌ DashScope Embedding API 彻底失败：{e}")
                     raise e
+        return []
 
     @classmethod
     def encode(cls, text: str) -> list[float]:

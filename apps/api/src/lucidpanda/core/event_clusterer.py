@@ -83,7 +83,7 @@ class EventClusterer:
             follower_items — 注入了 parent_lead_id 的跟进报道，用于提取 Delta
         """
         if len(pending_items) < 2:
-            return pending_items, 0
+            return pending_items, []
 
         source_ids = [item.get("source_id") or item.get("id") for item in pending_items]
 
@@ -94,8 +94,8 @@ class EventClusterer:
             time_window_hours=self.TIME_WINDOW_HOURS,
         )
 
-        if not pairs:
-            return pending_items, 0
+        if not isinstance(pairs, list) or not pairs:
+            return pending_items, []
 
         logger.info(f"🔍 事件聚类：发现 {len(pairs)} 对相似情报，开始分组...")
 
@@ -106,7 +106,7 @@ class EventClusterer:
 
         clusters = uf.groups()  # {root: [sid1, sid2, ...]}
         if not clusters:
-            return pending_items, 0
+            return pending_items, []
 
         # Step 3: 为每个 cluster 选 lead，将其余标记为 CLUSTERED
         # 建 sid → record 查找表

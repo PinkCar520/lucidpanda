@@ -36,15 +36,19 @@ class EmailDataSource(BaseDataSource):
         if s is None:
             return ""
         if isinstance(s, bytes):
+            s = s.decode("utf-8", errors="ignore")
+        if isinstance(s, str):
             value, charset = decode_header(s)[0]
-            if charset:
-                return value.decode(charset)
-            return value.decode("utf-8", errors="ignore")
+            if isinstance(value, bytes):
+                if charset:
+                    return value.decode(charset)
+                return value.decode("utf-8", errors="ignore")
+            return str(value)
         return str(s)
 
     def _fetch_emails_sync(self) -> list[dict[str, Any]]:
         """深度重构的同步抓取逻辑，完全适配网易 163 邮箱开发者规范。"""
-        items = []
+        items: list[dict[str, Any]] = []
         if not all([self.server, self.user, self.password]):
             logger.warning("⚠️ IMAP 配置不完整，跳过采集。")
             return items
@@ -72,8 +76,13 @@ class EmailDataSource(BaseDataSource):
             # --- 诊断：列出该账户所有可用的文件夹 ---
             try:
                 _, folders = mail.list()
+                folder_names = [
+                    f.decode(errors="ignore")
+                    for f in folders
+                    if isinstance(f, bytes)
+                ]
                 logger.info(
-                    f"📁 您的 163 邮箱可用文件夹: {[f.decode() for f in folders]}"
+                    f"📁 您的 163 邮箱可用文件夹: {folder_names}"
                 )
             except Exception:
                 pass
@@ -104,7 +113,15 @@ class EmailDataSource(BaseDataSource):
                         if res != "OK":
                             continue
 
+                        if (
+                            not msg_data
+                            or not isinstance(msg_data[0], tuple)
+                            or len(msg_data[0]) < 2
+                        ):
+                            continue
                         raw_content = msg_data[0][1]
+                        if not isinstance(raw_content, bytes):
+                            continue
                         msg = email.message_from_bytes(raw_content)
 
                         sender_raw = self._decode_str(msg.get("From", ""))
@@ -137,14 +154,18 @@ class EmailDataSource(BaseDataSource):
                                 if part.get_content_type() == "text/plain":
                                     payload = part.get_payload(decode=True)
                                     charset = part.get_content_charset() or "utf-8"
-                                    content_body = payload.decode(
-                                        charset, errors="ignore"
-                                    )
+                                    if isinstance(payload, bytes):
+                                        content_body = payload.decode(
+                                            charset, errors="ignore"
+                                        )
                                     break
                         else:
                             payload = msg.get_payload(decode=True)
                             charset = msg.get_content_charset() or "utf-8"
-                            content_body = payload.decode(charset, errors="ignore")
+                            if isinstance(payload, bytes):
+                                content_body = payload.decode(
+                                    charset, errors="ignore"
+                                )
 
                         ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
                         msg_id = msg.get("Message-ID", f"manual_{num.decode()}")

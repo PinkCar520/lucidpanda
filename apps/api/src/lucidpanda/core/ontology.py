@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.services.embedding_service import embedding_service
@@ -149,7 +149,7 @@ class EntityResolver:
     def alias_map(self) -> dict[str, str]:
         """按需获取当前的别名映射"""
         if self.registry_service:
-            return self.registry_service.get_entity_mappings()
+            return cast(dict[str, str], self.registry_service.get_entity_mappings())
         return self._local_alias_map
 
     def resolve_name(self, raw_entity_name: str) -> str | None:
@@ -180,7 +180,7 @@ class EntityResolver:
                 canonical_id = self.registry_service.find_closest_entity(vec)
                 if canonical_id:
                     logger.debug(f"🧲 向量兜底命中: [{clean_name}] -> {canonical_id}")
-                    return canonical_id
+                    return cast(str | None, canonical_id)
             except Exception as e:
                 logger.warning(f"⚠️ 实体兜底向量化处理失败 [{clean_name}]: {e}")
 

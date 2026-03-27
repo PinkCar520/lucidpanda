@@ -154,7 +154,7 @@ def _fetch_single_symbol_events(
     Safe to call from a thread.
     """
     try:
-        import yfinance as yf  # type: ignore
+        import yfinance as yf
     except Exception:
         return []
 
@@ -249,7 +249,7 @@ def _fetch_akshare_dividends(
     if not a_share_codes:
         return []
     try:
-        import akshare as ak  # type: ignore
+        import akshare as ak
     except Exception:
         return []
 
@@ -298,7 +298,7 @@ def _fetch_akshare_dividends(
 def _fetch_akshare_ipos(date_from: date, date_to: date) -> list[CalendarEventSchema]:
     """Fetch upcoming A-share IPO dates. Runs in a thread."""
     try:
-        import akshare as ak  # type: ignore
+        import akshare as ak
     except Exception:
         return []
 

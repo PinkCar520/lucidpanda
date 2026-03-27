@@ -1,6 +1,7 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import Any, cast
 
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
@@ -50,7 +51,7 @@ def send_email_via_resend(to_email: str, subject: str, body: str):
             "subject": subject,
             "html": body,
         }
-        resend.Emails.send(params)
+        resend.Emails.send(cast(Any, params))
         return True
     except Exception as e:
         logger.error(f"Resend API Failed: {e}")

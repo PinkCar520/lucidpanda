@@ -1,10 +1,5 @@
-"""
-db/intelligence.py — 情报域
-============================
-情报 CRUD、去重（URL/pg_trgm/pgvector）、向量嵌入、信源可信度。
-"""
-
 from datetime import datetime
+from typing import Any, cast
 
 import pytz
 from psycopg.types.json import Jsonb
@@ -20,6 +15,13 @@ from src.lucidpanda.utils.graph_reasoning import infer_event_chains, relation_si
 
 
 class IntelligenceRepo(DBBase):
+    def get_market_snapshot(self, ticker_symbol: str, target_time: datetime) -> float | None:
+        """Delegate to MarketRepo or return None if unavailable."""
+        from src.lucidpanda.db.market import MarketRepo
+
+        market = MarketRepo()
+        return market.get_market_snapshot(ticker_symbol, target_time)
+
     @staticmethod
     def _parse_float(value):
         if value is None:
@@ -997,6 +999,9 @@ class IntelligenceRepo(DBBase):
         gold_price_snapshot=None,
         price_1h=None,
         price_24h=None,
+        dxy_snapshot=None,
+        us10y_snapshot=None,
+        gvz_snapshot=None,
     ):
         """Save fully-analyzed intelligence to PostgreSQL using JSONB."""
         try:
@@ -1214,7 +1219,7 @@ class IntelligenceRepo(DBBase):
         except Exception:
             return False
 
-    def is_url_duplicate(self, new_url: str, exclude_id: int = None) -> dict:
+    def is_url_duplicate(self, new_url: str, exclude_id: int | None = None) -> dict:
         """只依据 URL 进行短路直接排重。如果指定了 exclude_id，则排除该记录自身。"""
         if not new_url:
             return {"is_duplicate": False, "status": "NEW"}
@@ -1363,7 +1368,7 @@ class IntelligenceRepo(DBBase):
                     row = cursor.fetchone()
                     if not row:
                         return None
-                    return row.get("story_id")
+                    return cast(str | None, row.get("story_id"))
         except Exception as e:
             logger.error(f"get_story_id_by_source_id failed: {e}")
             return None
@@ -1548,6 +1553,21 @@ class IntelligenceRepo(DBBase):
         tnx_id = self._upsert_entity_node(cursor, "US10Y", "asset")
         oil_id = self._upsert_entity_node(cursor, "Oil", "asset")
 
+        if (
+            gold_id is None
+            or dxy_id is None
+            or tnx_id is None
+            or oil_id is None
+            or intelligence_id is None
+        ):
+            logger.warning(
+                f"⚠️ Skipping cross-asset edges for {source_id} due to missing node IDs."
+            )
+            return
+
+        # Ensure intelligence_id is int for Mypy
+        intelligence_id_int = cast(int, intelligence_id)
+
         if signal < -0.1:
             dxy_relation = "usd_strength"
             tnx_relation = "real_yield_up"
@@ -1570,7 +1590,7 @@ class IntelligenceRepo(DBBase):
             confidence_score,
             cluster_id,
             source_id,
-            intelligence_id,
+            intelligence_id_int,
             {"source": "cross_asset_heuristic", "asset": "DXY"},
         )
         self._upsert_graph_edge(
@@ -1583,7 +1603,7 @@ class IntelligenceRepo(DBBase):
             confidence_score,
             cluster_id,
             source_id,
-            intelligence_id,
+            intelligence_id_int,
             {"source": "cross_asset_heuristic", "asset": "US10Y"},
         )
         self._upsert_graph_edge(
@@ -1596,7 +1616,7 @@ class IntelligenceRepo(DBBase):
             confidence_score,
             cluster_id,
             source_id,
-            intelligence_id,
+            intelligence_id_int,
             {"source": "cross_asset_heuristic", "asset": "Oil"},
         )
         self._upsert_graph_edge(
@@ -1609,7 +1629,7 @@ class IntelligenceRepo(DBBase):
             confidence_score,
             cluster_id,
             source_id,
-            intelligence_id,
+            intelligence_id_int,
             {"source": "cross_asset_heuristic"},
         )
         self._upsert_graph_edge(
@@ -1622,7 +1642,7 @@ class IntelligenceRepo(DBBase):
             confidence_score,
             cluster_id,
             source_id,
-            intelligence_id,
+            intelligence_id_int,
             {"source": "cross_asset_heuristic", "reverse": True},
         )
         self._upsert_graph_edge(
@@ -1635,7 +1655,7 @@ class IntelligenceRepo(DBBase):
             confidence_score,
             cluster_id,
             source_id,
-            intelligence_id,
+            intelligence_id_int,
             {"source": "cross_asset_heuristic"},
         )
 
@@ -1679,9 +1699,10 @@ class IntelligenceRepo(DBBase):
                         node_id = self._upsert_entity_node(
                             cursor, entity_name, entity_type
                         )
-                        node_ids[
-                            (entity_name.strip().lower(), entity_type.strip().lower())
-                        ] = node_id
+                        if node_id is not None:
+                            node_ids[
+                                (entity_name.strip().lower(), entity_type.strip().lower())
+                            ] = node_id
 
                     for relation in relations:
                         sub_name = relation["subject"]
@@ -1692,45 +1713,58 @@ class IntelligenceRepo(DBBase):
                         obj_key = (obj_name.strip().lower(), obj_type)
 
                         if sub_key not in node_ids:
-                            node_ids[sub_key] = self._upsert_entity_node(
+                            sub_node_id = self._upsert_entity_node(
                                 cursor, sub_name, sub_type
                             )
+                            if sub_node_id is not None:
+                                node_ids[sub_key] = sub_node_id
                         if obj_key not in node_ids:
-                            node_ids[obj_key] = self._upsert_entity_node(
+                            obj_node_id = self._upsert_entity_node(
                                 cursor, obj_name, obj_type
                             )
+                            if obj_node_id is not None:
+                                node_ids[obj_key] = obj_node_id
 
                         metadata = {
                             "source_id": source_id,
                             "predicate": relation["predicate"],
                             "source": "llm_relation_extract",
                         }
+                        sub_id = node_ids.get(sub_key)
+                        obj_id = node_ids.get(obj_key)
+                        if (
+                            sub_id is None
+                            or obj_id is None
+                            or context.get("id") is None
+                        ):
+                            continue
+
                         self._upsert_graph_edge(
                             cursor,
-                            node_ids[sub_key],
-                            node_ids[obj_key],
+                            sub_id,
+                            obj_id,
                             relation["predicate"],
                             relation["direction"],
                             relation["strength"],
                             confidence_score,
                             cluster_id,
                             source_id,
-                            context.get("id"),
+                            cast(int, context.get("id")),
                             metadata,
                         )
 
                         if relation["direction"] == "bidirectional":
                             self._upsert_graph_edge(
                                 cursor,
-                                node_ids[obj_key],
-                                node_ids[sub_key],
+                                obj_id,
+                                sub_id,
                                 relation["predicate"],
                                 relation["direction"],
                                 relation["strength"],
                                 confidence_score,
                                 cluster_id,
                                 source_id,
-                                context.get("id"),
+                                cast(int, context.get("id")),
                                 {**metadata, "reverse": True},
                             )
 
@@ -1916,7 +1950,11 @@ class IntelligenceRepo(DBBase):
                     )
                     edges = [dict(row) for row in cursor.fetchall()]
                     relation_weights = self.get_relation_rule_weights(
-                        [edge.get("relation") for edge in edges]
+                        [
+                            cast(str, edge.get("relation"))
+                            for edge in edges
+                            if edge.get("relation")
+                        ]
                     )
 
                     cursor.execute(
@@ -2064,7 +2102,7 @@ class IntelligenceRepo(DBBase):
                         JOIN entity_nodes tn ON e.to_node_id = tn.node_id
                         WHERE e.confidence_score >= %s
                     """
-                    params = [max(0.0, float(min_confidence or 0.0))]
+                    params: list[Any] = [max(0.0, float(min_confidence or 0.0))]
                     if relation:
                         sql += " AND e.relation = %s"
                         params.append(relation.strip().lower())

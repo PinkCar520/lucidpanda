@@ -8,6 +8,8 @@ Pydantic 配置验证
 4. IDE 自动补全
 """
 
+import os
+
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -121,6 +123,16 @@ class Settings(BaseSettings):
     embedding: EmbeddingSettings = Field(default_factory=EmbeddingSettings)
     runtime: RuntimeSettings = Field(default_factory=RuntimeSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+
+    def model_post_init(self, __context) -> None:
+        """支持旧版平铺环境变量，兼容现有测试和调用方。"""
+        ai_provider = os.getenv("AI_PROVIDER")
+        if ai_provider:
+            self.llm.ai_provider = ai_provider
+
+        llm_concurrency_limit = os.getenv("LLM_CONCURRENCY_LIMIT")
+        if llm_concurrency_limit:
+            self.runtime.llm_concurrency_limit = int(llm_concurrency_limit)
 
     # 快捷访问（兼容旧代码）
     @property

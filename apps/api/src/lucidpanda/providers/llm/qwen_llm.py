@@ -48,7 +48,7 @@ class QwenLLM(BaseLLM):
             )
             elapsed = time.time() - start_time
 
-            raw_text = response.choices[0].message.content
+            raw_text = response.choices[0].message.content or ""
             logger.info(f"📥 [Qwen] 响应成功 (耗时：{elapsed:.2f}s)。")
 
             return self._parse_json(raw_text)
@@ -77,7 +77,7 @@ class QwenLLM(BaseLLM):
                 max_tokens=2000,
             )
 
-            raw_text = response.choices[0].message.content
+            raw_text = response.choices[0].message.content or ""
             return self._parse_json(raw_text)
 
         except Exception as e:
@@ -106,7 +106,7 @@ class QwenLLM(BaseLLM):
             )
             elapsed = time.time() - start_time
 
-            raw_text = response.choices[0].message.content
+            raw_text = response.choices[0].message.content or ""
             logger.info(f"📥 [Qwen] 批量响应成功 (耗时：{elapsed:.2f}s)")
 
             results = self._parse_json(raw_text)

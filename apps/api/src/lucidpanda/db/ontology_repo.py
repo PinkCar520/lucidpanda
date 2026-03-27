@@ -4,7 +4,7 @@ db/ontology_repo.py — 实体与标签元数据仓库
 负责 entity_registry, entity_aliases 和 taxonomy_registry 的底层 CRUD。
 """
 
-from typing import Any
+from typing import Any, cast
 
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
@@ -34,7 +34,7 @@ class OntologyRepo(DBBase):
                         WHERE r.is_active = TRUE
                         GROUP BY r.canonical_id;
                     """)
-                    return cursor.fetchall()
+                    return cast(list[dict[str, Any]], cursor.fetchall())
         except Exception as e:
             logger.error(f"❌ Failed to fetch entities from DB: {e}")
             return []
@@ -45,7 +45,7 @@ class OntologyRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT dimension, value FROM taxonomy_registry;")
-                    return cursor.fetchall()
+                    return cast(list[dict[str, Any]], cursor.fetchall())
         except Exception as e:
             logger.error(f"❌ Failed to fetch taxonomy from DB: {e}")
             return []
@@ -129,7 +129,7 @@ class OntologyRepo(DBBase):
                     )
                     row = cursor.fetchone()
                     if row and row["sim"] >= threshold:
-                        return row["canonical_id"]
+                        return cast(str | None, row["canonical_id"])
                     return None
         except Exception as e:
             logger.warning(f"⚠️ 向量匹配实体兜底失败: {e}")
