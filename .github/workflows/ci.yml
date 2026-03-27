@@ -112,15 +112,15 @@ jobs:
 
       # 1. TypeScript 类型检查
       - name: TypeScript Check
-        run: npx tsc --noEmit
+        run: pnpm --filter web exec tsc --noEmit
 
       # 2. ESLint
       - name: ESLint
-        run: pnpm run lint
+        run: pnpm --filter web run lint
 
       # 3. 单元测试
       - name: Jest Tests
-        run: npx jest --ci --coverage
+        run: pnpm --filter web exec jest --ci --coverage
         continue-on-error: true  # 前期宽松
 
   # ── 文档完整性检查 ─────────────────────────────
@@ -128,7 +128,7 @@ jobs:
     name: Docs Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Check CLAUDE.md exists
         run: |
