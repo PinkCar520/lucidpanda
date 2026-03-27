@@ -339,6 +339,8 @@ class DBBase:
                 CREATE TABLE IF NOT EXISTS stock_metadata (
                     stock_code VARCHAR(10) PRIMARY KEY,
                     stock_name VARCHAR(50),
+                    pinyin_shorthand VARCHAR(50),
+                    pinyin_full VARCHAR(255),
                     industry_l1_code VARCHAR(20),
                     industry_l1_name VARCHAR(50),
                     industry_l2_code VARCHAR(20),
@@ -348,6 +350,7 @@ class DBBase:
                 );
                 CREATE INDEX IF NOT EXISTS idx_stock_industry_l1 ON stock_metadata(industry_l1_name);
                 CREATE INDEX IF NOT EXISTS idx_stock_industry_l2 ON stock_metadata(industry_l2_name);
+                CREATE INDEX IF NOT EXISTS idx_stock_pinyin ON stock_metadata(pinyin_shorthand);
             """)
 
             # ── fund_metadata ─────────────────────────────────────────────
@@ -357,6 +360,7 @@ class DBBase:
                     fund_name VARCHAR(255) NOT NULL,
                     full_name VARCHAR(512),
                     pinyin_shorthand VARCHAR(100),
+                    pinyin_full VARCHAR(255),
                     investment_type VARCHAR(50),
                     style_tag VARCHAR(50),
                     risk_level CHAR(2),
@@ -371,6 +375,7 @@ class DBBase:
                 CREATE INDEX IF NOT EXISTS idx_fund_code_prefix ON fund_metadata (fund_code text_pattern_ops);
                 CREATE INDEX IF NOT EXISTS idx_fund_name_trgm ON fund_metadata USING gin (fund_name gin_trgm_ops);
                 CREATE INDEX IF NOT EXISTS idx_fund_pinyin ON fund_metadata (pinyin_shorthand);
+                CREATE INDEX IF NOT EXISTS idx_fund_pinyin_full ON fund_metadata (pinyin_full);
             """)
 
             # ── fund_valuation_archive ────────────────────────────────────

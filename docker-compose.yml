@@ -125,7 +125,7 @@ services:
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
       # 国内可直连域名跳过代理
-      - NO_PROXY=localhost,127.0.0.1,*.cn,*.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
+      - NO_PROXY=localhost,127.0.0.1,.cn,.com.cn,gtimg.cn,.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
     restart: unless-stopped
     deploy:
       resources:
@@ -165,7 +165,7 @@ services:
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
       # 国内可直连域名跳过代理
-      - NO_PROXY=localhost,127.0.0.1,*.cn,*.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
+      - NO_PROXY=localhost,127.0.0.1,.cn,.com.cn,gtimg.cn,.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
     restart: unless-stopped
     depends_on:
       db:
@@ -237,7 +237,7 @@ services:
       # 境外屏蔽域名走 singbox 代理
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
-      - NO_PROXY=localhost,127.0.0.1,*.cn,*.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
+      - NO_PROXY=localhost,127.0.0.1,.cn,.com.cn,gtimg.cn,.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
     restart: unless-stopped
     deploy:
       resources:
@@ -317,7 +317,7 @@ services:
       # 代理访问境外数据（如需）及在国内跳过国内域名
       - HTTP_PROXY=http://singbox:7890
       - HTTPS_PROXY=http://singbox:7890
-      - NO_PROXY=localhost,127.0.0.1,*.cn,*.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
+      - NO_PROXY=localhost,127.0.0.1,.cn,.com.cn,gtimg.cn,.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
     restart: unless-stopped
     deploy:
       resources:
@@ -348,7 +348,7 @@ services:
       dockerfile: apps/web/Dockerfile
     container_name: lucidpanda_web
     ports:
-      - "80:3000"
+      - "3000:3000"
     env_file:
       - .env
     environment:

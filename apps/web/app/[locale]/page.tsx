@@ -31,6 +31,18 @@ import { useMarketQuery } from '@/hooks/api/use-market-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { intelligenceKeys } from '@/lib/query-keys';
 
+type IntelligencePage = { data: Intelligence[] };
+type InfiniteIntelligenceData = { pages: IntelligencePage[] };
+
+function isInfiniteIntelligenceData(value: unknown): value is InfiniteIntelligenceData {
+  if (typeof value !== 'object' || value === null) return false;
+  const pages = (value as { pages?: unknown }).pages;
+  return Array.isArray(pages);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = React.use(params);
@@ -92,16 +104,16 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   const handleSSEMessage = useCallback((newItems: Intelligence[]) => {
     if (newItems.length > 0) {
       // 1. Update Intelligence Stream Cache
-      queryClient.setQueryData(intelligenceKeys.infinite({ mode: filterMode, search: searchQuery }), (old: any) => {
-        if (!old || !old.pages || old.pages.length === 0) return old;
+      queryClient.setQueryData(intelligenceKeys.infinite({ mode: filterMode, search: searchQuery }), (old: unknown) => {
+        if (!isInfiniteIntelligenceData(old) || old.pages.length === 0) return old;
         const newPages = [...old.pages];
         newPages[0] = { ...newPages[0], data: [...newItems, ...newPages[0].data] };
         return { ...old, pages: newPages };
       });
 
       // 2. Update Strategy Matrix Cache
-      queryClient.setQueryData(['intelligence', 'strategy-matrix', 'infinite'], (old: any) => {
-        if (!old || !old.pages || old.pages.length === 0) return old;
+      queryClient.setQueryData(['intelligence', 'strategy-matrix', 'infinite'], (old: unknown) => {
+        if (!isInfiniteIntelligenceData(old) || old.pages.length === 0) return old;
         const newPages = [...old.pages];
         newPages[0] = { ...newPages[0], data: [...newItems, ...newPages[0].data] };
         return { ...old, pages: newPages };
@@ -130,8 +142,8 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   });
 
   // Helper function to extract localized text from JSON strings or objects
-  const getLocalizedText = useCallback((input: any, currentLocale: string) => {
-    let data = input;
+  const getLocalizedText = useCallback((input: unknown, currentLocale: string) => {
+    let data: unknown = input;
 
     // If input is string, try to parse it (compatibility for SQLite/legacy)
     if (typeof input === 'string') {
@@ -143,22 +155,29 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     }
 
     // If it's already an object (Postgres JSONB), or successfully parsed
-    if (typeof data === 'object' && data !== null) {
-      return data[currentLocale] || data['en'] || data['zh'] || Object.values(data)[0] || '';
+    if (isRecord(data)) {
+      const localized =
+        data[currentLocale] ??
+        data['en'] ??
+        data['zh'] ??
+        Object.values(data)[0];
+      return typeof localized === 'string' ? localized : String(localized ?? '');
     }
 
     return String(data || '');
   }, []);
 
   // Helper function to detect bearish sentiment (language-agnostic)
-  const isBearishSentiment = useCallback((sentimentInput: any) => {
+  const isBearishSentiment = useCallback((sentimentInput: unknown) => {
     const bearishKeywords = ['鹰', '利空', '下跌', 'Bearish', 'Hawkish', 'Pressure'];
 
     let sentimentStr = '';
     if (typeof sentimentInput === 'string') {
       sentimentStr = sentimentInput;
-    } else if (typeof sentimentInput === 'object' && sentimentInput !== null) {
+    } else if (isRecord(sentimentInput)) {
       sentimentStr = JSON.stringify(sentimentInput);
+    } else if (sentimentInput != null) {
+      sentimentStr = String(sentimentInput);
     }
 
     return bearishKeywords.some(keyword => sentimentStr.includes(keyword));
@@ -398,4 +417,3 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     </div>
   );
 }
-

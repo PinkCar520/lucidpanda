@@ -18,6 +18,11 @@ import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
 import { registerPasskey } from '@/lib/passkey';
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
 interface Session {
     id: number;
     device_info: { name?: string } | null;
@@ -32,7 +37,7 @@ interface AuditLog {
     action: string;
     ip_address: string;
     user_agent: string;
-    details: any;
+    details: Record<string, unknown> | null;
     created_at: string;
 }
 
@@ -152,9 +157,10 @@ export default function SecurityPage() {
         setToast({ message: t('passkeyRegistered'), type: 'success' });
         fetchPasskeys();
         fetchAuditLogs();
-    } catch (error: any) {
-        if (error.name !== 'NotAllowedError') { // Ignore user cancel
-            setToast({ message: error.message || t('passkeyRegisterFailed'), type: 'error' });
+    } catch (error: unknown) {
+        const errorName = error instanceof Error ? error.name : undefined;
+        if (errorName !== 'NotAllowedError') { // Ignore user cancel
+            setToast({ message: getErrorMessage(error) || t('passkeyRegisterFailed'), type: 'error' });
         }
     } finally {
         setIsPasskeyRegistering(false);
@@ -172,8 +178,8 @@ export default function SecurityPage() {
             setToast({ message: t('passkeyDeleted'), type: 'success' });
             fetchAuditLogs();
         }
-    } catch (error: any) {
-        setToast({ message: error.message, type: 'error' });
+    } catch (error: unknown) {
+        setToast({ message: getErrorMessage(error), type: 'error' });
     }
   };
 
@@ -202,8 +208,8 @@ export default function SecurityPage() {
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setIsPasswordPasswordDialogOpen(false);
       fetchAuditLogs();
-    } catch (error: any) {
-      setToast({ message: error.message, type: 'error' });
+    } catch (error: unknown) {
+      setToast({ message: getErrorMessage(error), type: 'error' });
     } finally {
       setPasswordLoading(false);
     }
@@ -229,8 +235,8 @@ export default function SecurityPage() {
       setEmailForm({ newEmail: '', currentPassword: '' });
       setIsIdentityDialogOpen(false);
       fetchAuditLogs();
-    } catch (error: any) {
-      setToast({ message: error.message, type: 'error' });
+    } catch (error: unknown) {
+      setToast({ message: getErrorMessage(error), type: 'error' });
     } finally {
       setEmailLoading(false);
     }
@@ -271,8 +277,8 @@ export default function SecurityPage() {
               const data = await res.json();
               throw new Error(data.detail || t('verificationFailed'));
           }
-      } catch (error: any) {
-          setToast({ message: error.message, type: 'error' });
+      } catch (error: unknown) {
+          setToast({ message: getErrorMessage(error), type: 'error' });
       } finally {
           setTwoFALoading(false);
       }
@@ -287,8 +293,8 @@ export default function SecurityPage() {
               setToast({ message: t('twoFADisabled'), type: 'success' });
               fetchAuditLogs();
           }
-      } catch (error: any) {
-          setToast({ message: error.message, type: 'error' });
+      } catch (error: unknown) {
+          setToast({ message: getErrorMessage(error), type: 'error' });
       }
   };
 
@@ -304,8 +310,8 @@ export default function SecurityPage() {
           } else {
               throw new Error(t('failedToRevokeSession'));
           }
-      } catch (error: any) {
-          setToast({ message: error.message, type: 'error' });
+      } catch (error: unknown) {
+          setToast({ message: getErrorMessage(error), type: 'error' });
       }
   };
 

@@ -89,6 +89,20 @@ export interface FundHistoryEntry {
   source?: string;
 }
 
+export interface FundMonitorAnomaly {
+  trade_date: string;
+  fund_code?: string;
+  fund_name?: string;
+  tracking_status?: string;
+  frozen_est_growth?: number;
+  official_growth?: number;
+  deviation?: number;
+  reason?: string;
+  severity?: string;
+  mae?: number;
+  frozen_sector_attribution?: Record<string, number>;
+}
+
 export interface FundMonitorStats {
   updated_at?: string;
   health?: {
@@ -110,16 +124,7 @@ export interface FundMonitorStats {
     category: string;
     mae: number;
   }>;
-  anomalies?: Array<{
-    trade_date: string;
-    fund_code?: string;
-    fund_name?: string;
-    reason?: string;
-    severity?: string;
-    mae?: number;
-    frozen_sector_attribution?: SectorAttribution;
-    [key: string]: unknown;
-  }>;
+  anomalies?: FundMonitorAnomaly[];
   [key: string]: unknown;
 }
 

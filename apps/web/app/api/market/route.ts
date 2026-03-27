@@ -1,11 +1,31 @@
 import { NextResponse } from 'next/server';
 import YahooFinance from "yahoo-finance2";
+import type { ChartOptionsWithReturnObject, ChartResultObject } from 'yahoo-finance2/modules/chart';
 import { marketRateLimiter, applyRateLimit } from '@/lib/rate-limit';
 import { requireAuth } from '@/lib/auth';
 
+type ChartResult = ChartResultObject;
+
+interface MarketIndicators {
+  domestic_spot: number;
+  intl_spot_cny: number;
+  spread: number;
+  spread_pct: number;
+  fx_rate: number;
+  last_updated: string;
+}
+
+type MarketResponse = Omit<ChartResult, 'indicators'> & {
+  indicators: MarketIndicators | null;
+  _cached: boolean;
+  _fetchedAt: string;
+  _stale?: boolean;
+  _warning?: string;
+};
+
 // Enhanced in-memory cache with metadata
 interface CacheEntry {
-  data: any;
+  data: MarketResponse;
   timestamp: number;
   fetchedAt: string; // ISO timestamp for debugging
 }
@@ -24,14 +44,19 @@ async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchWithTimeout(promise: Promise<any>, timeoutMs: number) {
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+async function fetchWithTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   const timeout = new Promise((_, reject) =>
     setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
   );
-  return Promise.race([promise, timeout]);
+  return Promise.race([promise, timeout]) as Promise<T>;
 }
 
-async function fetchMarketData(symbol: string, queryOptions: any, retries = MAX_RETRIES): Promise<any> {
+async function fetchMarketData(symbol: string, queryOptions: ChartOptionsWithReturnObject, retries = MAX_RETRIES): Promise<ChartResult> {
   try {
     const yahooFinance = new YahooFinance();
     const result = await fetchWithTimeout(
@@ -39,9 +64,9 @@ async function fetchMarketData(symbol: string, queryOptions: any, retries = MAX_
       REQUEST_TIMEOUT
     );
     return result;
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (retries > 0) {
-      console.warn(`[Market API] Retry ${MAX_RETRIES - retries + 1}/${MAX_RETRIES} after error:`, error.message);
+      console.warn(`[Market API] Retry ${MAX_RETRIES - retries + 1}/${MAX_RETRIES} after error:`, getErrorMessage(error));
       await sleep(RETRY_DELAY);
       return fetchMarketData(symbol, queryOptions, retries - 1);
     }
@@ -137,10 +162,13 @@ export async function GET(request: Request) {
       default: period1Date.setMonth(period1Date.getMonth() - 1);
     }
 
-    const queryOptions: any = {
-      period1: searchParams.get('period1') || period1Date,
-      period2: searchParams.get('period2') || period2Date,
-      interval: interval,
+    const period1Param = searchParams.get('period1');
+    const period2Param = searchParams.get('period2');
+    const queryOptions: ChartOptionsWithReturnObject = {
+      period1: period1Param ?? period1Date,
+      period2: period2Param ?? period2Date,
+      interval: interval as ChartOptionsWithReturnObject['interval'],
+      return: 'object',
     };
 
     console.log(`[Market API] ⟳ Fetching fresh data for ${cacheKey}...`);
@@ -154,7 +182,7 @@ export async function GET(request: Request) {
       ]);
 
       // Calculate Indicators (Spread)
-      let indicators = null;
+      let indicators: MarketIndicators | null = null;
       if (symbol === 'GC=F' && domesticSpot && fxRate && chartResult.meta?.regularMarketPrice) {
         const intlPriceUsd = chartResult.meta.regularMarketPrice;
         const intlPriceCnyPerGram = (intlPriceUsd * fxRate) / 31.1034768;
@@ -171,8 +199,9 @@ export async function GET(request: Request) {
         };
       }
 
-      const responseData = {
-        ...chartResult,
+      const { indicators: _chartIndicators, ...chartRest } = chartResult;
+      const responseData: MarketResponse = {
+        ...chartRest,
         indicators,
         _cached: false,
         _fetchedAt: new Date().toISOString()
@@ -189,8 +218,8 @@ export async function GET(request: Request) {
 
       return NextResponse.json(responseData);
 
-    } catch (fetchError: any) {
-      console.error(`[Market API] ✗ Data source error:`, fetchError.message);
+    } catch (fetchError: unknown) {
+      console.error(`[Market API] ✗ Data source error:`, getErrorMessage(fetchError));
 
       // Graceful degradation: serve stale cache if available
       if (cachedEntry && (Date.now() - cachedEntry.timestamp < STALE_CACHE_MAX_AGE)) {
@@ -210,11 +239,12 @@ export async function GET(request: Request) {
       throw fetchError;
     }
 
-  } catch (error: any) {
-    console.error('[Market API] ✗ Fatal error:', error.message || error);
+  } catch (error: unknown) {
+    const message = getErrorMessage(error);
+    console.error('[Market API] ✗ Fatal error:', message);
     return NextResponse.json({
       error: 'Market data temporarily unavailable',
-      message: error.message,
+      message,
       suggestion: 'Please try again in a few moments'
     }, { status: 503 });
   }

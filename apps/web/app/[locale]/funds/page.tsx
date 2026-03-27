@@ -147,7 +147,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     const watchlist = useMemo(() => {
         if (!watchlistData) return [];
         return watchlistData.map(item => {
-            const val = batchData?.find((v: any) => v.fund_code === item.code);
+            const val = batchData?.find((v) => v.fund_code === item.code);
             return {
                 ...item,
                 estimated_growth: val?.estimated_growth ?? item.estimated_growth,

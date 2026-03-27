@@ -17,11 +17,20 @@ interface Message {
     sent_at: string;
 }
 
+type NotificationFrequency = 'immediate' | 'daily' | 'weekly';
+
+interface NotificationPrefs {
+  email_enabled: boolean;
+  app_push_enabled: boolean;
+  email_frequency: NotificationFrequency;
+  subscribed_types: string[];
+}
+
 export default function NotificationsPage() {
   const t = useTranslations('Settings');
   const { data: sessionData } = useSession();
   
-  const [prefs, setPrefs] = useState({
+  const [prefs, setPrefs] = useState<NotificationPrefs>({
     email_enabled: true,
     app_push_enabled: false,
     email_frequency: 'daily',
@@ -79,12 +88,12 @@ export default function NotificationsPage() {
       }
   };
 
-  const handleToggle = (key: string) => {
-      setPrefs(prev => ({ ...prev, [key]: !(prev as any)[key] }));
+  const handleToggle = (key: 'email_enabled' | 'app_push_enabled') => {
+      setPrefs(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleFrequencyChange = (key: string, value: string) => {
-      setPrefs(prev => ({ ...prev, [key]: value }));
+  const handleFrequencyChange = (value: NotificationFrequency) => {
+      setPrefs(prev => ({ ...prev, email_frequency: value }));
   };
 
   const handleTypeToggle = (type: string) => {
@@ -118,8 +127,9 @@ export default function NotificationsPage() {
           } else {
               throw new Error('Failed to save preferences');
           }
-      } catch (error: any) {
-          setToast({ message: error.message, type: 'error' });
+      } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          setToast({ message, type: 'error' });
       } finally {
           setSaving(false);
       }
@@ -179,7 +189,7 @@ export default function NotificationsPage() {
                             <label className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{t('frequency')}</label>
                             <select 
                                 value={prefs.email_frequency}
-                                onChange={(e) => handleFrequencyChange('email_frequency', e.target.value)}
+                                onChange={(e) => handleFrequencyChange(e.target.value as NotificationFrequency)}
                                 disabled={!prefs.email_enabled}
                                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2 py-1 text-xs focus:outline-none disabled:opacity-50"
                             >

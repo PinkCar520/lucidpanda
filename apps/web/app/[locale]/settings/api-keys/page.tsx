@@ -8,6 +8,11 @@ import { Key, Plus, Trash2, Copy, Shield, AlertCircle, Loader2, CheckCircle2, Gl
 import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
 interface APIKey {
     id: string;
     name: string;
@@ -78,8 +83,8 @@ export default function APIKeysPage() {
               setToast({ message: t('apiKeyCreated'), type: 'success' });
               setFormData({ name: '', permissions: ['read_only'], ip_whitelist: '', expires_at: '' });
           }
-      } catch (error: any) {
-          setToast({ message: error.message, type: 'error' });
+      } catch (error: unknown) {
+          setToast({ message: getErrorMessage(error), type: 'error' });
       } finally {
           setCreating(false);
       }
@@ -95,8 +100,8 @@ export default function APIKeysPage() {
               setKeys(keys.filter(k => k.id !== keyId));
               setToast({ message: t('apiKeyRevoked'), type: 'success' });
           }
-      } catch (error: any) {
-          setToast({ message: error.message, type: 'error' });
+      } catch (error: unknown) {
+          setToast({ message: getErrorMessage(error), type: 'error' });
       }
   };
 

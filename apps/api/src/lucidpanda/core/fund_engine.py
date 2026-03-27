@@ -354,9 +354,9 @@ class FundEngine:
                         
                         db_updates = {}
                         for r in rows:
-                            val = {'l1': r[1] or "其他", 'l2': r[2] or "其他"}
-                            db_updates[r[0]] = json.dumps(val)
-                            result[r[0]] = val
+                            val = {'l1': r['industry_l1_name'] or "其他", 'l2': r['industry_l2_name'] or "其他"}
+                            db_updates[r['stock_code']] = json.dumps(val)
+                            result[r['stock_code']] = val
                         
                         # Cache found ones back to Redis
                         if db_updates:

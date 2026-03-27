@@ -11,6 +11,11 @@ import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
 import Image from 'next/image';
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
 export default function ProfilePage() {
   const t = useTranslations('Settings');
   const authT = useTranslations('Auth');
@@ -109,9 +114,10 @@ export default function ProfilePage() {
       }
 
       setToast({ message: t('profileUpdateSuccess'), type: 'success' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Profile] Error:', error);
-      setToast({ message: error.message || t('profileUpdateError'), type: 'error' });
+      const message = getErrorMessage(error);
+      setToast({ message: message || t('profileUpdateError'), type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -149,8 +155,8 @@ export default function ProfilePage() {
       });
 
       setToast({ message: t('usernameUpdateSuccess'), type: 'success' });
-    } catch (error: any) {
-      setToast({ message: error.message, type: 'error' });
+    } catch (error: unknown) {
+      setToast({ message: getErrorMessage(error), type: 'error' });
     } finally {
       setUsernameLoading(false);
     }
@@ -194,7 +200,7 @@ export default function ProfilePage() {
       }
       
       setToast({ message: t('avatarUpdateSuccess'), type: 'success' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Avatar] Error:', error);
       setToast({ message: t('avatarUpdateError'), type: 'error' });
     } finally {
