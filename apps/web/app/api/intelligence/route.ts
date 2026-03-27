@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db, Intelligence } from '@/lib/db';
 import { intelligenceRateLimiter, applyRateLimit } from '@/lib/rate-limit';
-import { requireAuth, optionalAuth } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(request: Request) {
   // Check authentication (required in production, optional in development)

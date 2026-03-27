@@ -12,16 +12,13 @@ export default function VerifyEmailPage() {
   const router = useRouter();
   const { locale } = useParams();
   const token = searchParams.get('token');
+  const missingToken = !token;
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      setMessage(t('missingToken'));
-      return;
-    }
+    if (missingToken) return;
 
     const verify = async () => {
       try {
@@ -42,14 +39,32 @@ export default function VerifyEmailPage() {
           setStatus('error');
           setMessage(data.detail || t('verificationFailed'));
         }
-      } catch (error) {
+      } catch {
         setStatus('error');
         setMessage(t('networkError'));
       }
     };
 
     verify();
-  }, [token, router, locale, t]);
+  }, [missingToken, token, router, locale, t]);
+
+  if (missingToken) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center">
+        <Card className="max-w-md w-full p-8 flex flex-col items-center text-center gap-4">
+          <XCircle className="w-12 h-12 text-rose-500" />
+          <h2 className="text-xl font-bold">{t('verificationFailed')}</h2>
+          <p className="text-sm text-slate-500">{t('missingToken')}</p>
+          <button
+            onClick={() => router.push(`/${locale}/settings/security`)}
+            className="mt-4 px-6 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-bold rounded-lg"
+          >
+            {t('backToSecurity')}
+          </button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[400px] flex items-center justify-center">

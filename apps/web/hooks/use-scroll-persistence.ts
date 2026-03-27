@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { throttle } from 'lodash';
 
@@ -16,12 +16,13 @@ export function useScrollPersistence(key: string, isDataReady: boolean = true) {
   const storageKey = `scroll-pos:${pathname}:${key}`;
 
   // 1. Save scroll position (throttled for performance)
-  const handleScroll = useCallback(
-    throttle(() => {
-      if (scrollRef.current) {
-        sessionStorage.setItem(storageKey, scrollRef.current.scrollTop.toString());
-      }
-    }, 150),
+  const handleScroll = useMemo(
+    () =>
+      throttle(() => {
+        if (scrollRef.current) {
+          sessionStorage.setItem(storageKey, scrollRef.current.scrollTop.toString());
+        }
+      }, 150),
     [storageKey]
   );
 

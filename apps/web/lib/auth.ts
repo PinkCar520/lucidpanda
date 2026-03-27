@@ -7,6 +7,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { randomBytes } from 'crypto';
 
 /**
  * Check if API authentication is enabled
@@ -93,8 +94,7 @@ export function generateApiKey(): string {
         throw new Error('generateApiKey should only be called on the server');
     }
 
-    const crypto = require('crypto');
-    return crypto.randomBytes(32).toString('hex');
+    return randomBytes(32).toString('hex');
 }
 
 /**

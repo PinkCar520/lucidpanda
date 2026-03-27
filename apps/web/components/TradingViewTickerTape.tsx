@@ -61,7 +61,7 @@ function TradingViewTickerTape({ locale, t }: TradingViewTickerTapeProps) {
         container.current.appendChild(widgetContainer);
         container.current.appendChild(script);
 
-    }, [locale]); // Add locale to dependencies
+    }, [locale, t]); // Add locale to dependencies
 
     return (
         <div className="tradingview-widget-container w-full h-12 border-b border-slate-800/50 bg-slate-900/30 backdrop-blur-sm" ref={container}>

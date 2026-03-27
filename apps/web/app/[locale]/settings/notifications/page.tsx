@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/Card';
-import { Bell, Mail, Smartphone, Zap, Loader2, Save, Inbox, CheckCheck } from 'lucide-react';
+import { Bell, Mail, Zap, Loader2, Save, Inbox, CheckCheck } from 'lucide-react';
 import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
 
@@ -42,14 +42,9 @@ export default function NotificationsPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  useEffect(() => {
-    if (sessionData) {
-        Promise.all([fetchPrefs(), fetchMessages()]).finally(() => setLoading(false));
-    }
-  }, [sessionData]);
-
-  const fetchPrefs = async () => {
+  const fetchPrefs = useCallback(async () => {
     try {
+        if (!sessionData) return;
         const res = await authenticatedFetch('/api/v1/auth/notifications/me/preferences', sessionData);
         if (res.ok) {
             const data = await res.json();
@@ -63,10 +58,11 @@ export default function NotificationsPage() {
     } catch (error) {
         console.error("Failed to fetch notification preferences", error);
     }
-  };
+  }, [sessionData]);
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
       try {
+          if (!sessionData) return;
           const res = await authenticatedFetch('/api/v1/auth/notifications/me/inbox', sessionData);
           if (res.ok) {
               const data = await res.json();
@@ -75,7 +71,13 @@ export default function NotificationsPage() {
       } catch (error) {
           console.error("Failed to fetch inbox", error);
       }
-  };
+  }, [sessionData]);
+
+  useEffect(() => {
+    if (sessionData) {
+        Promise.all([fetchPrefs(), fetchMessages()]).finally(() => setLoading(false));
+    }
+  }, [sessionData, fetchPrefs, fetchMessages]);
 
   const handleMarkRead = async (msgId: string) => {
       try {

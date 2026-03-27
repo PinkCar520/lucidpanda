@@ -5,8 +5,8 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Progress from '@radix-ui/react-progress';
 import { 
     User, Settings, ShieldCheck, ShieldAlert, 
-    LogOut, CreditCard, ChevronRight, 
-    Zap, Terminal, BarChart3 
+    LogOut, ChevronRight, 
+    Zap
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { atomicSignOut } from '@/lib/auth-cleanup';
@@ -18,7 +18,6 @@ import Image from 'next/image';
 export default function UserMenu() {
     const { data: session, status } = useSession();
     const t = useTranslations('Settings');
-    const tApp = useTranslations('App');
     const tAuth = useTranslations('Auth');
     const { locale } = useParams();
     const [open, setOpen] = useState(false);

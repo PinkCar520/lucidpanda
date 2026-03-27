@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/Card';
@@ -518,7 +519,7 @@ export default function SecurityPage() {
                                           <form onSubmit={handleVerify2FA} className="flex flex-col gap-6">
                                               <div className="flex flex-col items-center gap-4">
                                                   <div className="bg-white p-2 rounded-xl shadow-xl border border-slate-100">
-                                                      <img src={qrCodeUrl!} alt="2FA QR Code" className="w-40 h-40" />
+                                                      <Image src={qrCodeUrl!} alt="2FA QR Code" width={160} height={160} className="w-40 h-40" />
                                                   </div>
                                                   <p className="text-xs text-center text-slate-500 px-4">
                                                       {t('scanQRCode')}

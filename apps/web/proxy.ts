@@ -1,17 +1,18 @@
 import { auth } from "@/auth";
 import createIntlMiddleware from 'next-intl/middleware';
 import { locales } from './i18n/config';
-import { NextRequest } from "next/server";
+import type { NextAuthRequest } from "next-auth";
 
 const intlMiddleware = createIntlMiddleware({
   locales,
   defaultLocale: 'en'
 });
 
-export default auth((req: NextRequest & { auth: any }) => {
+export const proxy = auth((req: NextAuthRequest) => {
   const { nextUrl } = req;
   // Consider user logged in only if auth exists AND there's no error (like RefreshAccessTokenError)
-  const isLoggedIn = !!req.auth && !req.auth.error;
+  const authError = (req.auth as { error?: string | null } | null)?.error;
+  const isLoggedIn = !!req.auth && !authError;
   
   // Check if it's an auth page (login, register, forgot-password, reset-password)
   const isAuthPage = nextUrl.pathname.includes('/login') || nextUrl.pathname.includes('/register') || nextUrl.pathname.includes('/forgot-password') || nextUrl.pathname.includes('/reset-password');

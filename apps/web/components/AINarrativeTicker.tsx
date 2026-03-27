@@ -5,15 +5,18 @@ import { Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface TickerItem {
-    summary?: any;
-    content?: any;
-    [key: string]: any;
+    summary?: unknown;
+    content?: unknown;
+    urgency_score?: number;
+    timestamp?: string;
+    sentiment?: unknown;
+    [key: string]: unknown;
 }
 
 interface AINarrativeTickerProps {
     items?: TickerItem[];
     locale: string;
-    getLocalizedText: (input: any, locale: string) => string;
+    getLocalizedText: (input: unknown, locale: string) => string;
 }
 
 
@@ -26,14 +29,16 @@ export default function AINarrativeTicker({
 
     // AI Insight Optimization: Ticker/Rapid Stream Logic
     const urgentRecentItems = useMemo(() => {
-        const now = Date.now();
         const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+        const latestTimestamp = items.length
+            ? Math.max(...items.map(item => new Date(item.timestamp ?? 0).getTime()))
+            : 0;
 
         return items.filter(item => {
             const urgency = item.urgency_score || 0;
-            const itemTime = new Date(item.timestamp).getTime();
+            const itemTime = new Date(item.timestamp ?? 0).getTime();
             const isUrgent = urgency > 7;
-            const isRecent = (now - itemTime) <= FOUR_HOURS_MS;
+            const isRecent = (latestTimestamp - itemTime) <= FOUR_HOURS_MS;
 
             return isUrgent && isRecent;
         });
@@ -67,7 +72,7 @@ export default function AINarrativeTicker({
             urgency: 0,
             sentiment: 'neutral'
         }];
-    }, [urgentRecentItems, locale, getLocalizedText]);
+    }, [urgentRecentItems, locale, getLocalizedText, t]);
 
     const narratives = displayItems;
     const getDotClass = (urgency: number, sentiment: string) => {

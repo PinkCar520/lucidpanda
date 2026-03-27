@@ -18,7 +18,7 @@ import {
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { useRouter } from '@/i18n/navigation';
-import { Intelligence } from '@/lib/db';
+import { Intelligence, type LocalizedText } from '@/lib/db';
 
 export default function IntelligenceDetailPage() {
     const params = useParams();
@@ -55,7 +55,7 @@ export default function IntelligenceDetailPage() {
         fetchItem();
     }, [id, t]);
 
-    const getLocalizedText = (textSource: string | Record<string, string> | undefined) => {
+    const getLocalizedText = (textSource: LocalizedText | undefined) => {
         if (!textSource) return '';
         try {
             const data = typeof textSource === 'string' ? JSON.parse(textSource) : textSource;
@@ -133,7 +133,7 @@ export default function IntelligenceDetailPage() {
                         </h2>
                         <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                             <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-lg italic serif">
-                                &quot;{item.content}&quot;
+                                &quot;{getLocalizedText(item.content)}&quot;
                             </p>
                         </div>
                     </section>

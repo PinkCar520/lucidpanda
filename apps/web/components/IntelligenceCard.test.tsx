@@ -1,13 +1,12 @@
 import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'
 import IntelligenceCard from './IntelligenceCard'
+import type { Intelligence, LocalizedText } from '@/lib/db'
 
 // Mock data
-const mockItem: any = {
+const mockItem: Intelligence = {
     id: 1,
-    source: 'google',
     source_id: '123',
-    title: 'Test Title',
     url: 'http://example.com',
     content: 'Test Content',
     summary: 'Mock Summary',
@@ -16,14 +15,19 @@ const mockItem: any = {
     actionable_advice: 'Buy now',
     timestamp: new Date().toISOString(),
     author: 'Test Author',
-    market_implication: {},
-    original_content: 'Content',
+    market_implication: 'Implication',
     gold_price_snapshot: 2000,
+    price_15m: 0.05,
     price_1h: 0.1,
+    price_4h: 0.2,
+    price_12h: 0.3,
     price_24h: 0.5
 };
 
-const mockGetLocalizedText = jest.fn((text: string, locale: string) => text);
+const mockGetLocalizedText = jest.fn((text: LocalizedText, locale: string) => {
+    if (typeof text === 'string') return text;
+    return text[locale] ?? '';
+});
 const mockT = jest.fn((key: string) => key);
 const mockTSentiment = jest.fn((key: string) => key);
 const mockIsBearish = false;

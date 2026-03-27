@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Activity, Globe } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 interface SystemStatusProps {
     isConnected?: boolean;

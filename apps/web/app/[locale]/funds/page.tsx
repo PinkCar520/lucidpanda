@@ -2,13 +2,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { useSession } from 'next-auth/react'; // Added missing import
-import { useRouter, useSearchParams } from 'next/navigation'; // Added missing import
+import { useSearchParams } from 'next/navigation'; // Added missing import
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Search, RefreshCw, ArrowUp, ArrowDown, PieChart, X, Target, Scale, Anchor, AlertTriangle } from 'lucide-react';
+import { Search, RefreshCw, ArrowUp, ArrowDown, X, Target, Scale, Anchor, AlertTriangle } from 'lucide-react';
 import FundSearch from '@/components/FundSearch';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useWatchlistQuery, useBatchValuationQuery, useFundValuationQuery, useFundHistoryQuery, useWatchlistMutations } from '@/hooks/api/use-fund-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { fundKeys } from '@/lib/query-keys';
@@ -26,87 +24,14 @@ interface ComponentStock {
     weight: number;
 }
 
-interface FundStats {
-    return_1w: number;
-    return_1m: number;
-    return_3m: number;
-    return_1y: number;
-    sharpe_ratio: number;
-    sharpe_grade: string;
-    max_drawdown: number;
-    drawdown_grade: string;
-    volatility: number;
-    sparkline_data: number[];
-}
-
-interface FundConfidence {
-    level: 'high' | 'medium' | 'low';
-    score: number;
-    is_suspected_rebalance?: boolean;
-    reasons: string[];
-}
-
-interface FundValuation {
-    fund_code: string;
-    fund_name: string;
-    estimated_growth: number;
-    total_weight: number;
-    is_qdii?: boolean;
-    confidence?: FundConfidence;
-    risk_level?: string;
-    status?: string;
-    message?: string;
-    components: ComponentStock[];
-    sector_attribution?: Record<string, {
-        impact: number;
-        weight: number;
-        sub: Record<string, { impact: number; weight: number; }>;
-    }>;
-    timestamp: string;
-    source?: string;
-    stats?: FundStats;
-}
-
-interface ValuationHistory {
-    trade_date: string;
-    frozen_est_growth: number;
-    official_growth: number;
-    deviation: number;
-    tracking_status: string;
-    sector_attribution?: Record<string, {
-        impact: number;
-        weight: number;
-        sub: Record<string, { impact: number; weight: number; }>;
-    }>;
-    timestamp: string;
-    source?: string;
-}
-
-interface WatchlistItem {
-    code: string;
-    name: string;
-    is_qdii?: boolean;
-    estimated_growth?: number; // For sorting by daily performance
-    previous_growth?: number; // For trend arrows (↑↓)
-    source?: string; // For confidence indicators
-    confidence?: FundConfidence;
-    risk_level?: string;
-    stats?: FundStats;
-}
-
-export default function FundDashboard({ params }: { params: Promise<{ locale: string }> }) {
-    const { locale } = React.use(params);
-    const { data: session, status } = useSession();
-    const router = useRouter();
+export default function FundDashboard() {
     const searchParams = useSearchParams();
     const t = useTranslations('Funds');
-    const tApp = useTranslations('App');
 
     const queryClient = useQueryClient();
 
     // State management - UI and sorting
-    const [selectedFund, setSelectedFund] = useState<string>('');
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const [selectedFundOverride, setSelectedFundOverride] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc' | 'none'>('none');
     const [activeTab, setActiveTab] = useState<'attribution' | 'sector' | 'history'>('attribution');
     const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
@@ -114,7 +39,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     // --- TanStack Query Data Fetching ---
 
     // 1. Fetch Watchlist
-    const { data: watchlistData, isLoading: watchlistLoading, isFetching: watchlistFetching } = useWatchlistQuery();
+    const { data: watchlistData, isFetching: watchlistFetching } = useWatchlistQuery();
     const { addFund, removeFund } = useWatchlistMutations();
 
     // 2. Fetch Batch Valuation (Growth only)
@@ -122,27 +47,30 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     const { data: batchData } = useBatchValuationQuery(watchlistCodes);
 
     // 3. Fetch Selected Fund Detail
+    const selectedFund = useMemo(() => {
+        if (!watchlistData || watchlistData.length === 0) return '';
+        if (selectedFundOverride && watchlistData.some(i => i.code === selectedFundOverride)) {
+            return selectedFundOverride;
+        }
+
+        const queryCode = searchParams.get('code');
+        if (queryCode && watchlistData.some(i => i.code === queryCode)) {
+            return queryCode;
+        }
+
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('fund_selected') : null;
+        if (stored && watchlistData.some(i => i.code === stored)) {
+            return stored;
+        }
+
+        return watchlistData[0].code;
+    }, [watchlistData, searchParams, selectedFundOverride]);
+
     const { data: valuation, isLoading: valLoading, isFetching: valFetching } = useFundValuationQuery(selectedFund);
+    const lastUpdated = useMemo(() => (valuation ? new Date() : null), [valuation]);
 
     // 4. Fetch History
     const { data: historyData, isLoading: historyLoading } = useFundHistoryQuery(selectedFund);
-
-    // Sync last updated time
-    useEffect(() => {
-        if (valuation) setLastUpdated(new Date());
-    }, [valuation]);
-
-    // Initialize selected fund
-    useEffect(() => {
-        if (watchlistData && watchlistData.length > 0 && !selectedFund) {
-            const stored = localStorage.getItem('fund_selected');
-            if (stored && watchlistData.some(i => i.code === stored)) {
-                setSelectedFund(stored);
-            } else {
-                setSelectedFund(watchlistData[0].code);
-            }
-        }
-    }, [watchlistData, selectedFund]);
 
     const watchlist = useMemo(() => {
         if (!watchlistData) return [];
@@ -164,25 +92,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     const loading = valLoading || valFetching;
     const watchlistValidating = watchlistFetching;
 
-    // --- Selection Persistence & Initialization ---
-
-    // 1. Initialize from URL or LocalStorage
-    useEffect(() => {
-        if (watchlistData && watchlistData.length > 0 && !selectedFund) {
-            const queryCode = searchParams.get('code');
-            const stored = localStorage.getItem('fund_selected');
-
-            if (queryCode && watchlistData.some(i => i.code === queryCode)) {
-                setSelectedFund(queryCode);
-            } else if (stored && watchlistData.some(i => i.code === stored)) {
-                setSelectedFund(stored);
-            } else {
-                setSelectedFund(watchlistData[0].code);
-            }
-        }
-    }, [watchlistData, searchParams, selectedFund]);
-
-    // 2. Persist to LocalStorage whenever selection changes
+    // Persist to LocalStorage whenever selection changes
     useEffect(() => {
         if (selectedFund) {
             localStorage.setItem('fund_selected', selectedFund);
@@ -201,8 +111,8 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
             onSuccess: () => {
                 if (selectedFund === codeToDelete) {
                     const remaining = watchlistData?.filter(i => i.code !== codeToDelete);
-                    if (remaining && remaining.length > 0) setSelectedFund(remaining[0].code);
-                    else setSelectedFund("");
+                    if (remaining && remaining.length > 0) setSelectedFundOverride(remaining[0].code);
+                    else setSelectedFundOverride(null);
                 }
             }
         });
@@ -284,12 +194,12 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                         if (!watchlist.some(i => i.code === code)) {
                                             addFund.mutate({ code, name }, {
                                                 onSuccess: () => {
-                                                    setSelectedFund(code);
+                                                    setSelectedFundOverride(code);
                                                     setIsWatchlistOpen(false);
                                                 }
                                             });
                                         } else {
-                                            setSelectedFund(code);
+                                            setSelectedFundOverride(code);
                                             setIsWatchlistOpen(false);
                                         }
                                     }}
@@ -318,7 +228,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
                                         <div
                                             key={item.code}
                                             onClick={() => {
-                                                setSelectedFund(item.code);
+                                                setSelectedFundOverride(item.code);
                                                 setIsWatchlistOpen(false);
                                             }}
                                             className={`group flex items-center justify-between p-3 rounded-md transition-all cursor-pointer ${selectedFund === item.code

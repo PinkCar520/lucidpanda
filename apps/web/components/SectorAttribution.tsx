@@ -1,10 +1,46 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
 import { X, TrendingUp, TrendingDown } from 'lucide-react';
 
+type TreemapDatum = {
+  type: 'treemap';
+  ids: string[];
+  labels: string[];
+  parents: string[];
+  values: number[];
+  customdata: Array<{ impact: number; weight: number }>;
+  marker: {
+    colors: number[];
+    center: number;
+    colorscale: Array<[number, string]>;
+    cmid: number;
+    cmin: number;
+    cmax: number;
+    line: { width: number; color: string };
+    pad: { t: number; l: number; r: number; b: number };
+  };
+  texttemplate: string;
+  hovertemplate: string;
+  branchvalues: 'total';
+  textfont: { family: string; color: string };
+  tiling: { packing: 'squarify'; pad: number };
+};
+
+type PlotlyClickEvent = {
+  points?: Array<{ label?: string }>;
+};
+
+type PlotlyComponentProps = {
+  data: TreemapDatum[];
+  layout: Record<string, unknown>;
+  style?: React.CSSProperties;
+  config?: Record<string, unknown>;
+  onClick?: (event: PlotlyClickEvent) => void;
+};
+
 // Dynamically import Plotly to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as any;
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as React.ComponentType<PlotlyComponentProps>;
 
 interface SubSectorStat {
   impact: number;
@@ -25,17 +61,14 @@ export function SectorAttribution({ data }: Props) {
   const t = useTranslations('Funds');
   const tApp = useTranslations('App');
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
-  const [chartData, setChartData] = useState<any[]>([]);
-
-  // Prepare Data for Plotly Treemap
-  useEffect(() => {
-    if (!data || Object.keys(data).length === 0) return;
+  const chartData = useMemo<TreemapDatum[]>(() => {
+    if (!data || Object.keys(data).length === 0) return [];
     const ids: string[] = [];
     const labels: string[] = [];
     const parents: string[] = [];
     const values: number[] = []; // Weight
     const colors: number[] = []; // Impact (for coloring)
-    const customdata: any[] = []; // Store extra data (impact display)
+    const customdata: Array<{ impact: number; weight: number }> = []; // Store extra data (impact display)
 
     // Root
     const rootId = 'Portfolio';
@@ -66,7 +99,7 @@ export function SectorAttribution({ data }: Props) {
     // Add dummy root value (sum of weights)
     values[0] = values.slice(1).reduce((a, b) => a + b, 0);
 
-    setChartData([{
+    return [{
       type: 'treemap',
       ids: ids,
       labels: labels,
@@ -101,11 +134,10 @@ export function SectorAttribution({ data }: Props) {
       // Using adaptive color for text based on theme via React state or just generic contrast? Plotly doesn't support CSS vars well in data. 
       // We'll set a default dark grey which looks okay-ish or we need to reload on theme change like in Chart.tsx.
       // For now, let's stick to a robust slate-800 equivalent.
-      textfont: { family: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif', color: '#1e293b' },
+      textfont: { family: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif', color: '#1e293b' },
       tiling: { packing: 'squarify', pad: 2 }
-    }]);
-
-  }, [data, t]);
+    }];
+  }, [data, t, tApp]);
 
 
   // Detail Panel Logic
@@ -182,11 +214,11 @@ export function SectorAttribution({ data }: Props) {
               }}
               style={{ width: '100%', height: '100%' }}
               config={{ displayModeBar: false, responsive: true }}
-              onClick={(e: any) => {
+              onClick={(e: PlotlyClickEvent) => {
                 if (e.points && e.points[0]) {
                   const label = e.points[0].label;
                   if (label !== 'Portfolio') {
-                    setSelectedSector(label);
+                    setSelectedSector(label ?? null);
                   }
                 }
               }}

@@ -10,13 +10,12 @@ interface TradingViewMiniChartsProps {
 function TradingViewMiniCharts({ locale, t }: TradingViewMiniChartsProps) {
     const container = useRef<HTMLDivElement>(null);
 
-    const [theme, setTheme] = React.useState<'light' | 'dark'>('dark');
+    const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
+        if (typeof document === 'undefined') return 'dark';
+        return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    });
 
     useEffect(() => {
-        // Initial Theme Check
-        const isDark = document.documentElement.classList.contains('dark');
-        setTheme(isDark ? 'dark' : 'light');
-
         // Observer for Theme Changes
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
@@ -77,7 +76,7 @@ function TradingViewMiniCharts({ locale, t }: TradingViewMiniChartsProps) {
         container.current.appendChild(widgetContainer);
         container.current.appendChild(script);
 
-    }, [theme, locale]); // Add locale to dependencies
+    }, [theme, locale, t]); // Add locale to dependencies
 
     return (
         <div className="tradingview-widget-container w-full h-full" ref={container}>

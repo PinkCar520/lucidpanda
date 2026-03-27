@@ -25,14 +25,14 @@ export const fundKeys = {
 export const intelligenceKeys = {
   all: ['intelligence'] as const,
   lists: () => [...intelligenceKeys.all, 'list'] as const,
-  list: (filters: any) => [...intelligenceKeys.lists(), { filters }] as const,
-  infinite: (filters: any) => [...intelligenceKeys.list(filters), 'infinite'] as const,
+  list: (filters: { mode?: 'all' | 'essential' | 'bearish'; search?: string }) => [...intelligenceKeys.lists(), { filters }] as const,
+  infinite: (filters: { mode?: 'all' | 'essential' | 'bearish'; search?: string }) => [...intelligenceKeys.list(filters), 'infinite'] as const,
 };
 
 export const backtestKeys = {
   all: ['backtest'] as const,
   results: () => [...backtestKeys.all, 'results'] as const,
-  result: (params: any) => [...backtestKeys.results(), { params }] as const,
+  result: (params: Record<string, unknown>) => [...backtestKeys.results(), { params }] as const,
 };
 
 export const sourceMonitorKeys = {

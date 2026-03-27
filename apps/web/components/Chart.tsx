@@ -1,18 +1,54 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Card } from './ui/Card';
 import { useTranslations } from 'next-intl';
-import { Intelligence } from '@/lib/db';
+import { Intelligence, type LocalizedText } from '@/lib/db';
 
-const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as any;
+interface PlotlyComponentProps {
+  data: unknown;
+  layout?: Record<string, unknown>;
+  config?: Record<string, unknown>;
+  className?: string;
+  useResizeHandler?: boolean;
+  style?: React.CSSProperties;
+}
+
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as unknown as React.ComponentType<PlotlyComponentProps>;
 
 interface ChartProps {
-  marketData: any;
+  marketData: MarketData | null;
   intelligence: Intelligence[];
   onRangeChange: (range: string, interval: string) => void;
 }
+
+interface MarketQuote {
+  date: string | number | Date;
+  open: number;
+  close: number;
+  high: number;
+  low: number;
+}
+
+interface MarketIndicators {
+  spread: number;
+  spread_pct: number;
+  domestic_spot: number;
+  intl_spot_cny?: number;
+  fx_rate?: number;
+}
+
+interface MarketData {
+  quotes: MarketQuote[];
+  indicators?: MarketIndicators;
+  [key: string]: unknown;
+}
+
+const asText = (value: LocalizedText): string => {
+  if (typeof value === 'string') return value;
+  return value['en'] || value['zh'] || Object.values(value)[0] || '';
+};
 
 const RANGES = [
   { label: 'intraday', range: '1d', interval: '5m' },
@@ -110,9 +146,9 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
               key={i}
               className="bg-slate-200/50 dark:bg-slate-800/50 rounded-sm"
               style={{
-                height: `${Math.random() * 60 + 20}%`,
+                height: `${20 + ((i * 13) % 60)}%`,
                 width: '3%',
-                opacity: 0.3 + Math.random() * 0.4
+                opacity: 0.3 + ((i * 7) % 40) / 100
               }}
             ></div>
           ))}
@@ -132,11 +168,11 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
   const traces = [
     // Candlestick trace
     {
-      x: marketData.quotes.map((q: any) => q.date),
-      close: marketData.quotes.map((q: any) => q.close),
-      high: marketData.quotes.map((q: any) => q.high),
-      low: marketData.quotes.map((q: any) => q.low),
-      open: marketData.quotes.map((q: any) => q.open),
+      x: marketData.quotes.map((q) => q.date),
+      close: marketData.quotes.map((q) => q.close),
+      high: marketData.quotes.map((q) => q.high),
+      low: marketData.quotes.map((q) => q.low),
+      open: marketData.quotes.map((q) => q.open),
 
       // increasing: { line: { color: '#10B981', width: 1 }, fillcolor: '#10B981' },
       // decreasing: { line: { color: '#F43F5E', width: 1 }, fillcolor: '#F43F5E' },
@@ -153,25 +189,25 @@ export default function Chart({ marketData, intelligence, onRangeChange }: Chart
     },
     // Markers for Bullish Events
     {
-      x: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => i.timestamp),
-      y: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => i.gold_price_snapshot || marketData.quotes[marketData.quotes.length - 1].close), // Fallback price
+      x: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(asText(i.sentiment))).map(i => i.timestamp),
+      y: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(asText(i.sentiment))).map(i => i.gold_price_snapshot || marketData.quotes[marketData.quotes.length - 1].close), // Fallback price
       mode: 'markers',
       type: 'scatter',
       name: 'Bullish Signal',
       marker: { symbol: 'triangle-up', size: 10, color: '#EF4444' }, // Red 500 (Up)
       hoverinfo: 'text',
-      text: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => `${i.summary} (Score: ${i.urgency_score})`),
+      text: intelligence.filter(i => !/鹰|利空|下跌|风险|Bearish/.test(asText(i.sentiment))).map(i => `${asText(i.summary)} (Score: ${i.urgency_score})`),
     },
     // Markers for Bearish Events
     {
-      x: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => i.timestamp),
-      y: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => i.gold_price_snapshot || marketData.quotes[marketData.quotes.length - 1].close),
+      x: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(asText(i.sentiment))).map(i => i.timestamp),
+      y: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(asText(i.sentiment))).map(i => i.gold_price_snapshot || marketData.quotes[marketData.quotes.length - 1].close),
       mode: 'markers',
       type: 'scatter',
       name: 'Bearish Signal',
       marker: { symbol: 'triangle-down', size: 10, color: '#10B981' }, // Emerald 500 (Down)
       hoverinfo: 'text',
-      text: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(i.sentiment)).map(i => `${i.summary} (Score: ${i.urgency_score})`),
+      text: intelligence.filter(i => /鹰|利空|下跌|风险|Bearish/.test(asText(i.sentiment))).map(i => `${asText(i.summary)} (Score: ${i.urgency_score})`),
     }
   ];
 

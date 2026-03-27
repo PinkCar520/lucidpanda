@@ -8,17 +8,19 @@ export const db = new Pool({
   port: 5432,
 });
 
+export type LocalizedText = string | Record<string, string>;
+
 export interface Intelligence {
   id: number;
   timestamp: string;
   source_id: string;
   author: string;
-  content: string | any;
-  summary: string | any;
-  sentiment: string | any;
+  content: LocalizedText;
+  summary: LocalizedText;
+  sentiment: LocalizedText;
   urgency_score: number;
-  market_implication: string | any;
-  actionable_advice: string | any;
+  market_implication: LocalizedText;
+  actionable_advice: LocalizedText;
   url: string;
   gold_price_snapshot: number | null;
   price_15m: number | null;

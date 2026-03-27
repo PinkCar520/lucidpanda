@@ -9,8 +9,14 @@
 import { useState, useEffect } from 'react';
 import Paginator from '@/components/Paginator';
 
+interface ExampleIntelligenceItem {
+    id: number | string;
+    content: string;
+    urgency_score: number;
+}
+
 export default function TacticalMatrixExample() {
-    const [intelligence, setIntelligence] = useState([]);
+    const [intelligence, setIntelligence] = useState<ExampleIntelligenceItem[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
     const [totalItems, setTotalItems] = useState(0);
@@ -26,7 +32,12 @@ export default function TacticalMatrixExample() {
             const response = await fetch(
                 `/api/v1/web/intelligence/full?limit=${ITEMS_PER_PAGE}&offset=${offset}`
             );
-            const data = await response.json();
+            const data = await response.json() as {
+                data: ExampleIntelligenceItem[];
+                total_pages: number;
+                total: number;
+                page: number;
+            };
 
             setIntelligence(data.data);
             setTotalPages(data.total_pages);
@@ -58,7 +69,7 @@ export default function TacticalMatrixExample() {
                 {loading ? (
                     <div className="text-center py-8">加载中...</div>
                 ) : (
-                    intelligence.map((item: any) => (
+                    intelligence.map((item) => (
                         <div key={item.id} className="border rounded-lg p-4">
                             {/* 您的情报卡片内容 */}
                             <h3>{item.content}</h3>

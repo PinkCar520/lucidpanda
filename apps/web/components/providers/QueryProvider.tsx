@@ -29,7 +29,7 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
           refetchOnWindowFocus: true,
           
           // Smooth loading experience: show old data while fetching new one
-          placeholderData: (previousData: any) => previousData,
+          placeholderData: (previousData: unknown) => previousData,
         },
       },
     });

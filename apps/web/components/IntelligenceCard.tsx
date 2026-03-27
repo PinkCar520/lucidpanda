@@ -2,15 +2,14 @@ import React, { memo } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Zap, ExternalLink } from 'lucide-react';
-import { Intelligence } from '@/lib/db';
-import { useTranslations } from 'next-intl';
+import { Intelligence, type LocalizedText } from '@/lib/db';
 import { useHighlight } from '@/hooks/useHighlight';
 
 interface IntelligenceCardProps {
     item: Intelligence;
     style?: React.CSSProperties;
     locale: string;
-    getLocalizedText: (jsonString: string, locale: string) => string;
+    getLocalizedText: (jsonString: LocalizedText, locale: string) => string;
     t: (key: string) => string;
     tSentiment: (key: string) => string;
     isBearish: boolean;
@@ -25,7 +24,6 @@ const IntelligenceCard = memo(function IntelligenceCard({
     tSentiment,
     isBearish
 }: IntelligenceCardProps) {
-    const td = useTranslations('DimensionD');
     const badgeVariant = isBearish ? 'bearish' : 'bullish';
     const corroborationCount = Math.max(1, item.corroboration_count ?? 1);
     const confidenceStars = Math.min(5, corroborationCount);
@@ -35,15 +33,13 @@ const IntelligenceCard = memo(function IntelligenceCard({
     // Trigger highlight when content or summary changes
     const highlightClass = useHighlight(item.id); 
 
-    // Time Decay Logic (Quant Standard)
-    const timeDiff = Date.now() - new Date(item.timestamp).getTime();
-    const hoursOld = timeDiff / (1000 * 60 * 60);
-
+    // Emphasize based on urgency to avoid time-based impurity during render
     let decayClass = 'opacity-100';
-    if (hoursOld > 12) {
-        decayClass = 'opacity-50 grayscale-[0.5]'; // Old news: dim & desaturate
-    } else if (hoursOld > 4) {
-        decayClass = 'opacity-75'; // Mid-term: slightly dim
+    if (item.urgency_score <= 3) {
+        decayClass = 'opacity-75';
+    }
+    if (item.urgency_score <= 1) {
+        decayClass = 'opacity-60 grayscale-[0.4]';
     }
 
     // We wrap the Card in a div with the style for virtualization positioning

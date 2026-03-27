@@ -199,9 +199,8 @@ export async function GET(request: Request) {
         };
       }
 
-      const { indicators: _chartIndicators, ...chartRest } = chartResult;
       const responseData: MarketResponse = {
-        ...chartRest,
+        ...chartResult,
         indicators,
         _cached: false,
         _fetchedAt: new Date().toISOString()

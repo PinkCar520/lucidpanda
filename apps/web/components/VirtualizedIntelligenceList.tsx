@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useMemo } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import IntelligenceCard from './IntelligenceCard';
 import { Intelligence } from '@/lib/db';
@@ -12,10 +12,10 @@ interface VirtualizedIntelligenceListProps {
   isFetchingNextPage: boolean;
   fetchNextPage: () => void;
   locale: string;
-  getLocalizedText: (jsonString: any, locale: string) => string;
+  getLocalizedText: (jsonString: unknown, locale: string) => string;
   t: (key: string) => string;
   tSentiment: (key: string) => string;
-  isBearishSentiment: (sentimentInput: any) => boolean;
+  isBearishSentiment: (sentimentInput: unknown) => boolean;
 }
 
 /**
@@ -38,6 +38,7 @@ export default function VirtualizedIntelligenceList({
   const parentRef = useRef<HTMLDivElement>(null);
 
   // Initialize the virtualizer
+  // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
     count: hasNextPage ? items.length + 1 : items.length,
     getScrollElement: () => parentRef.current,

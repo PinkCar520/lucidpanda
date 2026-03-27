@@ -1,29 +1,23 @@
 'use client';
 
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
-import { authenticatedFetch } from '@/lib/api-client';
-import { useSession, signOut } from 'next-auth/react';
 
 import Chart from '@/components/Chart';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Alert } from '@/components/Alert'; // Add this line
 import { Intelligence } from '@/lib/db';
-import { AlertTriangle, Radio, ExternalLink, Zap, Search, Filter, X } from 'lucide-react';
+import { Radio, Zap, Search, X } from 'lucide-react';
 
-import LanguageSwitcher from '@/components/LanguageSwitcher';
-import AINarrativeTicker from '@/components/AINarrativeTicker';
 import SystemStatus from '@/components/SystemStatus';
-import TradingViewTickerTape from '@/components/TradingViewTickerTape';
 import TradingViewMiniCharts from '@/components/TradingViewMiniCharts';
 import BacktestStats from '@/components/BacktestStats';
 import { useSSE } from '@/hooks/useSSE';
 import VirtualizedIntelligenceList from '@/components/VirtualizedIntelligenceList';
 import VirtualizedStrategyTable from '@/components/VirtualizedStrategyTable';
-import Paginator from '@/components/Paginator';
 import { Link } from '@/i18n/navigation';
-import { Settings, Terminal } from 'lucide-react';
+import { Terminal } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useIntelligenceInfiniteQuery } from '@/hooks/api/use-intelligence-query';
 import { useStrategyInfiniteQuery } from '@/hooks/api/use-strategy-query';
@@ -46,7 +40,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export default function Dashboard({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = React.use(params);
-  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const focusedCode = searchParams.get('code');
   const queryClient = useQueryClient();
@@ -91,14 +84,9 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     return infiniteStrategyData?.pages.flatMap(page => page.data) || [];
   }, [infiniteStrategyData]);
 
-  const [loading, setLoading] = useState(true);
   const [globalHighUrgency, setGlobalHighUrgency] = useState(0);
 
   const [activeTab, setActiveTab] = useState<'feed' | 'charts'>('feed');
-
-  // --- Scroll Position Persistence ---
-  // We use this for the intelligence feed container
-  const isDataLoaded = !!infiniteIntelData && !intelLoading;
 
   // SSE callbacks - memoized to prevent infinite reconnection loop
   const handleSSEMessage = useCallback((newItems: Intelligence[]) => {
@@ -134,9 +122,9 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   }, []);
 
   // SSE Connection for real-time updates
-  const { isConnected, error: sseError } = useSSE({
+  const { isConnected } = useSSE({
     url: '/api/v1/intelligence/stream',
-    enabled: !loading, // Only connect after initial load
+    enabled: !marketLoading && !intelLoading, // Only connect after initial load
     onMessage: handleSSEMessage,
     onError: handleSSEError
   });
@@ -149,7 +137,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
     if (typeof input === 'string') {
       try {
         data = JSON.parse(input);
-      } catch (e) {
+      } catch {
         return input;
       }
     }
@@ -184,25 +172,7 @@ export default function Dashboard({ params }: { params: Promise<{ locale: string
   }, []);
 
 
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-
-  // Sync global loading state
-  useEffect(() => {
-    if (!marketLoading && !intelLoading) {
-      setLoading(false);
-    }
-  }, [marketLoading, intelLoading]);
-
-  // Manual retry function
-  const handleRetry = useCallback(() => {
-    setError(null);
-    setRetryCount(0);
-    setLoading(true);
-    // Trigger re-fetch for all major data sources
-    queryClient.invalidateQueries({ queryKey: ['market'] });
-    queryClient.invalidateQueries({ queryKey: intelligenceKeys.all });
-  }, [queryClient]);
+  const loading = marketLoading || intelLoading;
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-[#020617]">

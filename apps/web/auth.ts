@@ -1,7 +1,19 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import type { JWT } from "next-auth/jwt";
+import type { Session } from "next-auth";
 
 import { API_INTERNAL_URL as API_URL } from "@/lib/constants";
+
+type AuthUser = NonNullable<JWT['user']>;
+
+type AuthToken = JWT & {
+  accessToken?: string;
+  refreshToken?: string;
+  accessTokenExpires?: number;
+  user?: AuthUser;
+  error?: string;
+};
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -18,13 +30,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials) return null;
         
-        // Cast to any to access dynamic Passkey fields safely
-        const creds = credentials as any;
+        type CredentialsInput = Partial<Record<'email' | 'password' | 'action' | 'auth_data' | 'state', string>>;
+        const creds = credentials as CredentialsInput;
 
         try {
           let res;
           if (creds.action === 'passkey') {
             // WebAuthn Passkey Login
+            if (!creds.auth_data) return null;
             res = await fetch(`${API_URL}/api/v1/auth/passkeys/login/verify`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -85,6 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
+      const typedToken = token as AuthToken;
       // Initial sign in
       if (user && account) {
         return {
@@ -117,37 +131,40 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Handle session update
       if (trigger === "update" && session?.user) {
         console.log("[AUTH] JWT Update Triggered:", session.user);
-        const newToken = {
+        if (!typedToken.user) return typedToken;
+        const updatedUser: AuthUser = {
+          ...typedToken.user,
+          ...(session.user as Partial<AuthUser>),
+        };
+        const newToken: AuthToken = {
           ...token,
-          user: {
-            ...(token.user as any),
-            ...session.user,
-          }
+          user: updatedUser
         };
         // If we are updating the session, we should probably clear any error
-        delete (newToken as any).error;
+        delete newToken.error;
         return newToken;
       }
 
       // Return previous token if the access token has not expired yet
       // Use a 30-second buffer to avoid race conditions near expiry
-      if (Date.now() < (token.accessTokenExpires as number) - 30000) {
-        return token;
+      if (Date.now() < (typedToken.accessTokenExpires as number) - 30000) {
+        return typedToken;
       }
 
       // Access token has expired or is about to expire, try to update it
       console.log("[AUTH] Access Token expired or near expiry, rotating...");
-      return refreshAccessToken(token);
+      return refreshAccessToken(typedToken);
     },
     async session({ session, token }) {
-      if (token && token.user) {
+      const typedToken = token as AuthToken;
+      if (typedToken && typedToken.user) {
         session.user = {
           ...session.user,
-          ...token.user,
+          ...typedToken.user,
         };
-        session.accessToken = token.accessToken as string;
-        if (token.error) {
-          (session as any).error = token.error;
+        session.accessToken = typedToken.accessToken as string;
+        if (typedToken.error) {
+          (session as Session & { error?: string }).error = typedToken.error;
         }
       }
       return session;
@@ -158,7 +175,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
-async function refreshAccessToken(token: any) {
+async function refreshAccessToken(token: AuthToken) {
   try {
     const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
       method: "POST",

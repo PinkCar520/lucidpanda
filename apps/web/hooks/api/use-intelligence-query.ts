@@ -2,16 +2,30 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { authenticatedFetch } from '@/lib/api-client';
 import { intelligenceKeys } from '@/lib/query-keys';
+import type { Intelligence } from '@/lib/db';
+
+export interface IntelligenceFilters {
+  mode?: 'all' | 'essential' | 'bearish';
+  search?: string;
+}
+
+interface IntelligencePage {
+  data: Intelligence[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+}
 
 /**
  * Hook for fetching intelligence news with infinite scrolling
  * Handles thousands of items efficiently with TanStack Query's pagination
  */
-export function useIntelligenceInfiniteQuery(filters: any = {}) {
+export function useIntelligenceInfiniteQuery(filters: IntelligenceFilters = {}) {
   const { data: session } = useSession();
   const limit = 50;
   
-  return useInfiniteQuery({
+  return useInfiniteQuery<IntelligencePage>({
     queryKey: intelligenceKeys.infinite(filters),
     queryFn: async ({ pageParam = 0 }) => {
       // Use V1 Web BFF for full JSONB data
@@ -20,7 +34,7 @@ export function useIntelligenceInfiniteQuery(filters: any = {}) {
         session
       );
       if (!res.ok) throw new Error('Failed to fetch intelligence');
-      return res.json();
+      return res.json() as Promise<IntelligencePage>;
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage) => {
