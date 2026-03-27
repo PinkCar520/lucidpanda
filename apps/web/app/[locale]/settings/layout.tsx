@@ -3,6 +3,7 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
+import { useParams } from 'next/navigation';
 import { User, Shield, Bell, Key, LayoutDashboard, Settings, ChevronRight } from 'lucide-react';
 
 export default function SettingsLayout({

@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react'; // Added missing import
-import { useSearchParams } from 'next/navigation'; 
+import { useRouter, useSearchParams } from 'next/navigation'; // Added missing import
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Search, RefreshCw, ArrowUp, ArrowDown, X, Target, Scale, Anchor, AlertTriangle } from 'lucide-react';
+import { Search, RefreshCw, ArrowUp, ArrowDown, PieChart, X, Target, Scale, Anchor, AlertTriangle } from 'lucide-react';
 import FundSearch from '@/components/FundSearch';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useWatchlistQuery, useBatchValuationQuery, useFundValuationQuery, useFundHistoryQuery, useWatchlistMutations } from '@/hooks/api/use-fund-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { fundKeys } from '@/lib/query-keys';
@@ -17,14 +18,20 @@ import { FundSparkline } from '@/components/FundSparkline';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/Tooltip';
 import { 
     ComponentStock, 
-    FundValuation 
+    FundStats, 
+    FundConfidence, 
+    FundValuation, 
+    ValuationHistory, 
+    WatchlistItem 
 } from '@/lib/services/fund-service';
 
 export default function FundDashboard({ params }: { params: Promise<{ locale: string }> }) {
-    React.use(params);
-    useSession();
+    const { locale } = React.use(params);
+    const { data: session, status } = useSession();
+    const router = useRouter();
     const searchParams = useSearchParams();
     const t = useTranslations('Funds');
+    const tApp = useTranslations('App');
 
     const queryClient = useQueryClient();
 
@@ -38,7 +45,7 @@ export default function FundDashboard({ params }: { params: Promise<{ locale: st
     // --- TanStack Query Data Fetching ---
 
     // 1. Fetch Watchlist
-    const { data: watchlistData, isFetching: watchlistFetching } = useWatchlistQuery();
+    const { data: watchlistData, isLoading: watchlistLoading, isFetching: watchlistFetching } = useWatchlistQuery();
     const { addFund, removeFund } = useWatchlistMutations();
 
     // 2. Fetch Batch Valuation (Growth only)

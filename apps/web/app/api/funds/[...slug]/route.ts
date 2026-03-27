@@ -38,7 +38,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         });
         const data = await res.json();
         return NextResponse.json(data);
-    } catch {
+    } catch (error) {
         return NextResponse.json({ error: 'Failed to post to backend' }, { status: 500 });
     }
 }

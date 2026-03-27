@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { Card } from '@/components/ui/Card';
-import { Key, Plus, Trash2, Copy, Shield, AlertCircle, Loader2, Globe, Clock } from 'lucide-react';
+import { Key, Plus, Trash2, Copy, Shield, AlertCircle, Loader2, CheckCircle2, Globe, Clock } from 'lucide-react';
 import Toast from '@/components/Toast';
 import { authenticatedFetch } from '@/lib/api-client';
 
@@ -38,7 +38,13 @@ export default function APIKeysPage() {
 
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const fetchKeys = useCallback(async () => {
+  useEffect(() => {
+    if (sessionData) {
+        fetchKeys();
+    }
+  }, [sessionData]);
+
+  const fetchKeys = async () => {
     try {
         const res = await authenticatedFetch('/api/v1/auth/api-keys/me', sessionData);
         if (res.ok) {
@@ -50,13 +56,7 @@ export default function APIKeysPage() {
     } finally {
         setLoading(false);
     }
-  }, [sessionData]);
-
-  useEffect(() => {
-    if (sessionData) {
-        fetchKeys();
-    }
-  }, [sessionData, fetchKeys]);
+  };
 
   const handleCreateKey = async (e: React.FormEvent) => {
       e.preventDefault();

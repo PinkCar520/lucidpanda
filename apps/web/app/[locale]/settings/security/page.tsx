@@ -520,7 +520,6 @@ export default function SecurityPage() {
                                           <form onSubmit={handleVerify2FA} className="flex flex-col gap-6">
                                               <div className="flex flex-col items-center gap-4">
                                                   <div className="bg-white p-2 rounded-xl shadow-xl border border-slate-100">
-                                                      {/* eslint-disable-next-line @next/next/no-img-element */}
                                                       <img src={qrCodeUrl!} alt="2FA QR Code" className="w-40 h-40" />
                                                   </div>
                                                   <p className="text-xs text-center text-slate-500 px-4">

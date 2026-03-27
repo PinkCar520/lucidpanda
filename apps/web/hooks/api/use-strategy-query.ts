@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { authenticatedFetch } from '@/lib/api-client';
+import { intelligenceKeys } from '@/lib/query-keys';
 
 /**
  * Hook for fetching strategy matrix data with infinite scrolling

@@ -41,7 +41,7 @@ export default function VerifyEmailPage() {
           setStatus('error');
           setMessage(data.detail || t('verificationFailed'));
         }
-      } catch {
+      } catch (error) {
         setStatus('error');
         setMessage(t('networkError'));
       }

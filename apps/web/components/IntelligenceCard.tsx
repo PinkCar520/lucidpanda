@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Zap, ExternalLink } from 'lucide-react';
 import { Intelligence } from '@/lib/db';
+import { useTranslations } from 'next-intl';
 import { useHighlight } from '@/hooks/useHighlight';
 
 interface IntelligenceCardProps {

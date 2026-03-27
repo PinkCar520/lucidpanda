@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
 
       setMessage(data.message);
 
-    } catch {
+    } catch (err) {
       setError(t('networkError'));
     } finally {
       setLoading(false);

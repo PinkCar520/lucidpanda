@@ -29,7 +29,7 @@ const mockItem: Intelligence = {
     categories: []
 };
 
-const mockGetLocalizedText = jest.fn((text: string) => text);
+const mockGetLocalizedText = jest.fn((text: string, locale: string) => text);
 const mockT = jest.fn((key: string) => key);
 const mockTSentiment = jest.fn((key: string) => key);
 const mockIsBearish = false;

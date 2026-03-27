@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { fundService } from '@/lib/services/fund-service';
+import { fundService, WatchlistItem } from '@/lib/services/fund-service';
 import { fundKeys } from '@/lib/query-keys';
 
 /**

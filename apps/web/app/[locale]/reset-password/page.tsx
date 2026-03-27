@@ -73,7 +73,7 @@ export default function ResetPasswordPage() {
         router.push(`/${locale}/login`);
       }, 3000);
 
-    } catch {
+    } catch (err) {
       setError(t('networkError'));
     } finally {
       setLoading(false);

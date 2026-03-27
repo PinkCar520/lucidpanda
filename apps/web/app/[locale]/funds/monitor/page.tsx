@@ -17,7 +17,8 @@ import {
     ShieldCheck,
     RefreshCw,
     Zap,
-    BarChart3
+    BarChart3,
+    ArrowUpRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';

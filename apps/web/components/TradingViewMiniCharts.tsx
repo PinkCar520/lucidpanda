@@ -77,7 +77,7 @@ function TradingViewMiniCharts({ locale, t }: TradingViewMiniChartsProps) {
         container.current.appendChild(widgetContainer);
         container.current.appendChild(script);
 
-    }, [theme, locale, t]); // Add locale and t to dependencies
+    }, [theme, locale]); // Add locale to dependencies
 
     return (
         <div className="tradingview-widget-container w-full h-full" ref={container}>
