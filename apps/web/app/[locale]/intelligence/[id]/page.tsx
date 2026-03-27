@@ -55,20 +55,14 @@ export default function IntelligenceDetailPage() {
         fetchItem();
     }, [id, t]);
 
-    const getLocalizedText = (textSource: any) => {
+    const getLocalizedText = (textSource: string | Record<string, string> | undefined) => {
         if (!textSource) return '';
-        let data = textSource;
-        if (typeof textSource === 'string') {
-            try {
-                data = JSON.parse(textSource);
-            } catch {
-                return textSource;
-            }
+        try {
+            const data = typeof textSource === 'string' ? JSON.parse(textSource) : textSource;
+            return data[locale] || data['en'] || Object.values(data)[0] || '';
+        } catch {
+            return String(textSource);
         }
-        if (typeof data === 'object' && data !== null) {
-            return data[locale] || data['en'] || data['zh'] || Object.values(data)[0] || '';
-        }
-        return String(data || '');
     };
 
     if (loading) return (
@@ -139,7 +133,7 @@ export default function IntelligenceDetailPage() {
                         </h2>
                         <div className="bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
                             <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-lg italic serif">
-                                &quot;{getLocalizedText(item.content)}&quot;
+                                &quot;{item.content}&quot;
                             </p>
                         </div>
                     </section>

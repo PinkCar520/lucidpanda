@@ -22,6 +22,7 @@ Embedding Service - 文本向量化服务
 import logging
 import time
 from http import HTTPStatus
+from typing import List
 
 from src.lucidpanda.config import settings
 
@@ -46,7 +47,7 @@ class EmbeddingService:
     """
 
     @classmethod
-    def _encode_gemini(cls, text: str) -> list[float]:
+    def _encode_gemini(cls, text: str) -> List[float]:
         """
         使用 Gemini Cloud API 生成向量
         
@@ -65,7 +66,7 @@ class EmbeddingService:
             - 有每日配额限制（10K RPD）
         """
         max_retries = 2
-
+        
         for attempt in range(max_retries + 1):
             try:
                 from google import genai
@@ -77,7 +78,7 @@ class EmbeddingService:
                     config={"output_dimensionality": 768}
                 )
                 return res.embeddings[0].values
-
+                
             except Exception as e:
                 if attempt < max_retries:
                     logger.warning(
@@ -89,7 +90,7 @@ class EmbeddingService:
                     raise e
 
     @classmethod
-    def _encode_dashscope(cls, text: str) -> list[float]:
+    def _encode_dashscope(cls, text: str) -> List[float]:
         """
         使用阿里云 DashScope Embedding API 生成向量
         
@@ -108,12 +109,12 @@ class EmbeddingService:
             - 免费额度：50 万 tokens
         """
         max_retries = 2
-
+        
         for attempt in range(max_retries + 1):
             try:
                 import dashscope
                 from dashscope import TextEmbedding
-
+                
                 # 显式设置 API Key
                 dashscope.api_key = settings.DASHSCOPE_API_KEY
 
@@ -127,7 +128,7 @@ class EmbeddingService:
                     return res.output['embeddings'][0]['embedding']
                 else:
                     raise Exception(f"DashScope API error: {res.code} - {res.message}")
-
+                    
             except Exception as e:
                 if attempt < max_retries:
                     logger.warning(
@@ -139,7 +140,7 @@ class EmbeddingService:
                     raise e
 
     @classmethod
-    def encode(cls, text: str) -> list[float]:
+    def encode(cls, text: str) -> List[float]:
         """
         根据配置生成文本嵌入向量
         

@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
-
-from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
+from src.lucidpanda.utils.confidence import calc_confidence_score, calc_confidence_level
 
 
 def test_confidence_score_increases_with_corroboration():

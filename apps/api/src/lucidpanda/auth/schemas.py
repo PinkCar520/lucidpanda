@@ -1,14 +1,13 @@
-from datetime import date, datetime
-from uuid import UUID
-
 from pydantic import BaseModel, EmailStr, Field
-
+from typing import Optional, List
+from uuid import UUID
+from datetime import datetime, date
 
 class UserBase(BaseModel):
     email: EmailStr
-    username: str | None = Field(None, min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
-    name: str | None = None # Changed from full_name to name to match model
-    full_name: str | None = None # Keep for backward compatibility if needed, or deprecate
+    username: Optional[str] = Field(None, min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
+    name: Optional[str] = None # Changed from full_name to name to match model
+    full_name: Optional[str] = None # Keep for backward compatibility if needed, or deprecate
 
 class UserCreate(UserBase):
     username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
@@ -20,18 +19,18 @@ class UserOut(UserBase):
     is_active: bool
     is_verified: bool
     created_at: datetime
-    username_updated_at: datetime | None = None
-
+    username_updated_at: Optional[datetime] = None
+    
     # New fields
-    avatar_url: str | None = None
-    nickname: str | None = None
-    gender: str | None = None
-    birthday: date | None = None
-    location: str | None = None
-    language_preference: str | None = "en"
-    timezone: str | None = "UTC"
-    theme_preference: str | None = "system"
-    phone_number: str | None = None
+    avatar_url: Optional[str] = None
+    nickname: Optional[str] = None
+    gender: Optional[str] = None
+    birthday: Optional[date] = None
+    location: Optional[str] = None
+    language_preference: Optional[str] = "en"
+    timezone: Optional[str] = "UTC"
+    theme_preference: Optional[str] = "system"
+    phone_number: Optional[str] = None
     is_phone_verified: bool = False
     is_two_fa_enabled: bool = False
 
@@ -52,8 +51,8 @@ class TokenRefresh(BaseModel):
     expires_in: int
 
 class TokenPayload(BaseModel):
-    sub: str | None = None
-    type: str | None = None
+    sub: Optional[str] = None
+    type: Optional[str] = None
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
@@ -72,14 +71,14 @@ class MessageResponse(BaseModel):
     message: str
 
 class UserUpdate(BaseModel):
-    name: str | None = None
-    nickname: str | None = None
-    gender: str | None = None
-    birthday: date | None = None
-    location: str | None = None
-    language_preference: str | None = None
-    timezone: str | None = None
-    theme_preference: str | None = None
+    name: Optional[str] = None
+    nickname: Optional[str] = None
+    gender: Optional[str] = None
+    birthday: Optional[date] = None
+    location: Optional[str] = None
+    language_preference: Optional[str] = None
+    timezone: Optional[str] = None
+    theme_preference: Optional[str] = None
 
 class PasswordChangeRequest(BaseModel):
     current_password: str
@@ -100,10 +99,10 @@ class AvatarUploadResponse(BaseModel):
 
 class SessionOut(BaseModel):
     id: int
-    device_info: dict | None = None
-    ip_address: str | None = None
+    device_info: Optional[dict] = None
+    ip_address: Optional[str] = None
     created_at: datetime
-    last_active_at: datetime | None = None
+    last_active_at: Optional[datetime] = None
     is_current: bool = False # Helper field
 
     class Config:
@@ -130,49 +129,49 @@ class NotificationPreferencesOut(BaseModel):
     app_push_enabled: bool
     email_frequency: str
     sms_frequency: str
-    subscribed_types: list[str]
+    subscribed_types: List[str]
 
     class Config:
         from_attributes = True
 
 class NotificationPreferencesUpdate(BaseModel):
-    email_enabled: bool | None = None
-    sms_enabled: bool | None = None
-    app_push_enabled: bool | None = None
-    email_frequency: str | None = None
-    sms_frequency: str | None = None
-    subscribed_types: list[str] | None = None
+    email_enabled: Optional[bool] = None
+    sms_enabled: Optional[bool] = None
+    app_push_enabled: Optional[bool] = None
+    email_frequency: Optional[str] = None
+    sms_frequency: Optional[str] = None
+    subscribed_types: Optional[List[str]] = None
 
 class InSiteMessageOut(BaseModel):
     id: UUID
     sender_type: str
     subject: str
     content: str
-    message_type: str | None = None
+    message_type: Optional[str] = None
     is_read: bool
     sent_at: datetime
-    read_at: datetime | None = None
+    read_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 class APIKeyCreate(BaseModel):
     name: str
-    permissions: list[str] = ["read_only"]
-    expires_at: datetime | None = None
-    ip_whitelist: list[str] | None = None
+    permissions: List[str] = ["read_only"]
+    expires_at: Optional[datetime] = None
+    ip_whitelist: Optional[List[str]] = None
 
 class APIKeyOut(BaseModel):
     id: UUID
     name: str
     public_key: str
     # secret: str - only returned on creation
-    permissions: list[str]
-    ip_whitelist: list[str] | None = None
+    permissions: List[str]
+    ip_whitelist: Optional[List[str]] = None
     is_active: bool
     created_at: datetime
-    last_used_at: datetime | None = None
-    expires_at: datetime | None = None
+    last_used_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -181,17 +180,17 @@ class APIKeyCreateResponse(APIKeyOut):
     secret: str # Clear text secret only once
 
 class APIKeyUpdate(BaseModel):
-    name: str | None = None
-    permissions: list[str] | None = None
-    ip_whitelist: list[str] | None = None
-    is_active: bool | None = None
-    expires_at: datetime | None = None
+    name: Optional[str] = None
+    permissions: Optional[List[str]] = None
+    ip_whitelist: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+    expires_at: Optional[datetime] = None
 
 class APIKeyUsageLogOut(BaseModel):
     endpoint: str
     http_method: str
-    ip_address: str | None
-    status_code: int | None
+    ip_address: Optional[str]
+    status_code: Optional[int]
     timestamp: datetime
 
     class Config:
@@ -200,9 +199,9 @@ class APIKeyUsageLogOut(BaseModel):
 class AuditLogOut(BaseModel):
     id: int
     action: str
-    ip_address: str | None
-    user_agent: str | None
-    details: dict | None
+    ip_address: Optional[str]
+    user_agent: Optional[str]
+    details: Optional[dict]
     created_at: datetime
 
     class Config:
@@ -221,7 +220,7 @@ class AssetOverviewOut(BaseModel):
 
 class PasskeyRegistrationVerify(BaseModel):
     registration_data: dict
-    name: str | None = "My Device"
+    name: Optional[str] = "My Device"
 
 class PasskeyAuthenticationVerify(BaseModel):
     auth_data: dict
@@ -229,10 +228,10 @@ class PasskeyAuthenticationVerify(BaseModel):
 
 class PasskeyOut(BaseModel):
     id: UUID
-    name: str | None
+    name: Optional[str]
     created_at: datetime
-    last_used_at: datetime | None = None
-    transports: list[str] | None = None
+    last_used_at: Optional[datetime] = None
+    transports: Optional[List[str]] = None
 
     class Config:
         from_attributes = True

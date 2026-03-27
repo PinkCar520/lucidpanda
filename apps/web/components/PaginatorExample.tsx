@@ -62,7 +62,7 @@ export default function TacticalMatrixExample() {
                     intelligence.map((item) => (
                         <div key={item.id} className="border rounded-lg p-4">
                             {/* 您的情报卡片内容 */}
-                            <h3>{typeof item.content === 'string' ? item.content : JSON.stringify(item.content)}</h3>
+                            <h3>{item.content}</h3>
                             <p>紧急度: {item.urgency_score}</p>
                         </div>
                     ))

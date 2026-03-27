@@ -1,6 +1,7 @@
 import re
 import unicodedata
 
+
 ALIAS_MAP = {
     # 人物
     "donald trump": "Trump",
@@ -139,13 +140,13 @@ def normalize_fund_name(name: str) -> str:
     ]
     for pattern in suffixes:
         name = re.sub(pattern, "", name)
-
+    
     # 3. 移除基金公司前缀 (常见的大型基金公司)
     companies = ["华夏", "易方达", "广发", "富国", "汇添富", "南方", "嘉实", "博时", "招商", "工银瑞信"]
     for co in companies:
         if name.startswith(co) and len(name) > len(co) + 2: # 避免把 "华夏成长" 误杀成 "成长"
             name = name[len(co):]
-
+            
     return name.strip()
 
 

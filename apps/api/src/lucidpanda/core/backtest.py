@@ -1,12 +1,11 @@
-from datetime import datetime, timedelta
-
 import akshare as ak
 import pandas as pd
-import psycopg
+from datetime import datetime, timedelta
 import pytz
+import psycopg
 from src.lucidpanda.config import settings
-from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.logger import logger
+from src.lucidpanda.core.database import IntelligenceDB
 
 
 class BacktestEngine:
@@ -194,7 +193,7 @@ class BacktestEngine:
         [策略执行] 根据关键词查询历史表现
         """
         try:
-            with psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
+            with psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
                 host=settings.POSTGRES_HOST,
                 port=settings.POSTGRES_PORT,
                 user=settings.POSTGRES_USER,

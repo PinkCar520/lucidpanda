@@ -4,8 +4,8 @@ SSE (Server-Sent Events) endpoint for real-time intelligence updates.
 This module provides a streaming endpoint that pushes new intelligence data
 to connected clients as soon as it's written to the database.
 """
-import os
 import sys
+import os
 
 # 确保项目根目录在 path 中
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,26 +17,26 @@ if root_dir not in sys.path:
 # ... imports remaining the same ...
 import asyncio
 import json
-import logging
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
 from datetime import datetime
-
-import psycopg
-from fastapi import Depends, FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
+from typing import List, AsyncGenerator
+from fastapi import FastAPI, Request, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+import psycopg
+
+from contextlib import asynccontextmanager
+from src.lucidpanda.config import settings
+from src.lucidpanda.auth.router import router as auth_router
 from src.lucidpanda.auth.dependencies import get_current_user
 from src.lucidpanda.auth.models import User
-from src.lucidpanda.auth.router import router as auth_router
-from src.lucidpanda.config import settings
+import logging
 
 # --- Broadcast System ---
 
 class ConnectionManager:
     """Manages active SSE connections and broadcasts messages"""
     def __init__(self):
-        self.active_connections: list[asyncio.Queue] = []
+        self.active_connections: List[asyncio.Queue] = []
 
     async def connect(self) -> asyncio.Queue:
         queue = asyncio.Queue()
@@ -59,7 +59,7 @@ manager = ConnectionManager()
 global_last_id = 0
 
 def sse_json_serializer(obj):
-    from datetime import date, datetime
+    from datetime import datetime, date
     if isinstance(obj, (datetime, date)):
         return format_iso8601(obj)
     if isinstance(obj, (bytes, memoryview)):
@@ -74,10 +74,10 @@ async def database_poller():
     """
     global global_last_id
     from src.lucidpanda.infra.stream.broadcaster import hub
-
+    
     # 1. Startup: Sync the latest ID
     try:
-        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
@@ -98,12 +98,12 @@ async def database_poller():
     # Channel name aligns with collector_tasks.py logic
     while True:
         try:
-            print("[SSE-Broadcaster] Subscribing to Redis channel: intelligence_updates")
+            print(f"[SSE-Broadcaster] Subscribing to Redis channel: intelligence_updates")
             async for _msg in hub.subscribe("intelligence_updates"):
                 # We don't strictly need the message content if we poll only new IDs from DB
                 # This ensures consistent data structure with history
                 try:
-                    conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
+                    conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
                          host=settings.POSTGRES_HOST,
                          port=settings.POSTGRES_PORT,
                          user=settings.POSTGRES_USER,
@@ -111,7 +111,7 @@ async def database_poller():
                          dbname=settings.POSTGRES_DB
                     )
                     cursor = conn.cursor()
-
+                    
                     cursor.execute(
                         "SELECT * FROM intelligence WHERE id > %s ORDER BY id ASC LIMIT 100",
                         (global_last_id,)
@@ -122,7 +122,7 @@ async def database_poller():
                     if new_items:
                         items_data = [dict(row) for row in new_items]
                         global_last_id = new_items[-1]['id']
-
+                        
                         event_data = {
                             'type': 'intelligence_update',
                             'data': items_data,
@@ -134,7 +134,7 @@ async def database_poller():
                         print(f"[SSE-Broadcaster] Pushed {len(items_data)} items via Redis trigger")
                 except Exception as db_err:
                     print(f"[SSE-Broadcaster] DB Sync failed: {db_err}")
-
+                
         except Exception as e:
             print(f"[SSE-Broadcaster] Subscription error: {e}")
             await asyncio.sleep(5) # Backoff before reconnect
@@ -147,9 +147,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     task.cancel()
 
-import os
-
 from fastapi.staticfiles import StaticFiles
+import os
 
 app = FastAPI(lifespan=lifespan)
 
@@ -184,7 +183,6 @@ app.include_router(auth_router)
 # V1 Production Architecture
 from src.lucidpanda.api.v1.main import api_v1_router
 from src.lucidpanda.api.v1.routers import watchlist_v2
-
 app.include_router(api_v1_router)
 # V2-style watchlist routes for iOS (prefix: /api/v2/watchlist/*)
 app.include_router(watchlist_v2.router, prefix="/api/v2")
@@ -196,7 +194,7 @@ app.include_router(watchlist_v2.router, prefix="/api/v2")
 async def get_fund_valuation(code: str):
     """Get real-time estimated valuation for a fund."""
     from src.lucidpanda.core.fund_engine import FundEngine
-
+    
     engine = FundEngine()
     # Use efficient batch method even for single fund
     try:
@@ -208,7 +206,7 @@ async def get_fund_valuation(code: str):
             stats_map = db.get_fund_stats([code])
             if code in stats_map:
                 results[0]['stats'] = stats_map[code]
-
+            
             # Format timestamp for iOS
             if 'timestamp' in results[0] and results[0]['timestamp']:
                 from datetime import datetime
@@ -217,7 +215,7 @@ async def get_fund_valuation(code: str):
                         dt = datetime.fromisoformat(results[0]['timestamp'].replace('Z', '+00:00'))
                         results[0]['timestamp'] = format_iso8601(dt)
                 except: pass
-
+                
             return results[0]
         return {"error": "Valuation failed"}
     except AttributeError:
@@ -239,30 +237,31 @@ async def get_batch_valuations(codes: str, mode: str = "full"):
     codes: Comma-separated list of fund codes.
     mode: 'full' (all data) or 'summary' (only growth)
     """
+    import time
     if not codes:
         return {"data": []}
-
+    
     code_list = [c.strip() for c in codes.split(',') if c.strip()]
     if not code_list:
         return {"data": []}
 
     from src.lucidpanda.core.fund_engine import FundEngine
     engine = FundEngine()
-
+    
     # Use optimized batch valuation
     try:
         results = engine.calculate_batch_valuation(code_list, summary=(mode == "summary"))
-
+        
         # Enrich with stats
         from src.lucidpanda.core.database import IntelligenceDB
         db = IntelligenceDB()
         stats_map = db.get_fund_stats(code_list)
-
+        
         for res in results:
             f_code = res.get('fund_code')
             if f_code in stats_map:
                 res['stats'] = stats_map[f_code]
-
+            
             # Format timestamp for iOS
             if 'timestamp' in res and res['timestamp']:
                 from datetime import datetime
@@ -272,7 +271,7 @@ async def get_batch_valuations(codes: str, mode: str = "full"):
                         dt = datetime.fromisoformat(res['timestamp'].replace('Z', '+00:00'))
                         res['timestamp'] = format_iso8601(dt)
                 except: pass
-
+                
         return {"data": results}
     except AttributeError:
         # Fallback if method missing (during partial reload)
@@ -281,11 +280,11 @@ async def get_batch_valuations(codes: str, mode: str = "full"):
             try:
                 val = engine.calculate_realtime_valuation(code)
                 results.append(val)
-            except Exception:
+            except Exception as e:
                 logging.exception("Error calculating realtime valuation for fund %s", code)
                 results.append({"fund_code": code, "error": "valuation_failed"})
         return {"data": results}
-    except Exception:
+    except Exception as e:
         logging.exception("Error in batch valuation for codes: %s", code_list)
         return {"data": [], "error": "internal_error"}
 
@@ -301,7 +300,7 @@ async def get_fund_history(code: str, limit: int = 30):
         item = {}
         # Map official_growth to growth for iOS model compatibility
         item['growth'] = float(h.get('official_growth') or h.get('est_growth') or 0)
-
+        
         # Format trade_date as full ISO8601 for Swift .iso8601 strategy
         if 'trade_date' in h:
             from datetime import datetime, time
@@ -309,7 +308,7 @@ async def get_fund_history(code: str, limit: int = 30):
             # If it's a date object, combine with zero time
             dt = datetime.combine(td, time.min)
             item['date'] = format_iso8601(dt)
-
+            
         formatted_history.append(item)
     return {"data": formatted_history}
 
@@ -339,7 +338,6 @@ async def trigger_reconcile(date: str = None):
 # --- Watchlist APIs ---
 from pydantic import BaseModel
 
-
 class WatchlistItem(BaseModel):
     code: str
     name: str
@@ -366,7 +364,7 @@ async def add_to_watchlist(item: WatchlistItem, current_user: User = Depends(get
     from src.lucidpanda.core.database import IntelligenceDB
     db = IntelligenceDB()
     success = db.add_to_watchlist(item.code, item.name, str(current_user.id))
-
+    
     # Broadcast to SSE clients
     await manager.broadcast(json.dumps({
         "event": "watchlist.updated",
@@ -378,7 +376,7 @@ async def add_to_watchlist(item: WatchlistItem, current_user: User = Depends(get
             "timestamp": datetime.utcnow().isoformat()
         }
     }))
-
+    
     return {"success": success}
 
 @app.delete("/api/watchlist/{code}")
@@ -386,7 +384,7 @@ async def remove_from_watchlist(code: str, current_user: User = Depends(get_curr
     from src.lucidpanda.core.database import IntelligenceDB
     db = IntelligenceDB()
     success = db.remove_from_watchlist(code, str(current_user.id))
-
+    
     # Broadcast to SSE clients
     await manager.broadcast(json.dumps({
         "event": "watchlist.updated",
@@ -397,15 +395,13 @@ async def remove_from_watchlist(code: str, current_user: User = Depends(get_curr
             "timestamp": datetime.utcnow().isoformat()
         }
     }))
-
+    
     return {"success": success}
 
 # --- Watchlist V2 SSE Stream ---
 
-import asyncio
-
 from sse_starlette.sse import EventSourceResponse
-
+import asyncio
 
 @app.get("/api/v2/watchlist/stream")
 async def watchlist_stream(current_user: User = Depends(get_current_user)):
@@ -414,7 +410,7 @@ async def watchlist_stream(current_user: User = Depends(get_current_user)):
     Pushes real-time notifications when watchlist changes.
     """
     user_id = str(current_user.id)
-
+    
     async def event_generator() -> AsyncGenerator[dict, None]:
         """Generate SSE events for watchlist updates"""
         try:
@@ -426,7 +422,7 @@ async def watchlist_stream(current_user: User = Depends(get_current_user)):
                     "timestamp": datetime.utcnow().isoformat()
                 })
             }
-
+            
             # Keep connection alive with periodic heartbeats
             while True:
                 await asyncio.sleep(30)
@@ -436,7 +432,7 @@ async def watchlist_stream(current_user: User = Depends(get_current_user)):
                         "timestamp": datetime.utcnow().isoformat()
                     })
                 }
-
+                
         except asyncio.CancelledError:
             print(f"[SSE] Watchlist stream cancelled for user {user_id}")
             raise
@@ -446,7 +442,7 @@ async def watchlist_stream(current_user: User = Depends(get_current_user)):
                 "event": "error",
                 "data": json.dumps({"error": str(e)})
             }
-
+    
     return EventSourceResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -485,16 +481,16 @@ async def search_funds(q: str = "", limit: int = 20):
         List of matching funds with code, name, type, and company
     """
     from src.lucidpanda.core.fund_engine import FundEngine
-
+    
     if not q or len(q.strip()) == 0:
         return {"results": [], "total": 0}
-
+    
     # Limit max results to 50
     limit = min(limit, 50)
-
+    
     engine = FundEngine()
     results = engine.search_funds(q.strip(), limit)
-
+    
     return {
         "results": results,
         "total": len(results),
@@ -510,9 +506,9 @@ async def get_backtest_stats(request: Request):
     window = request.query_params.get('window', '1h')
     min_score = int(request.query_params.get('min_score', 8))
     sentiment_type = request.query_params.get('sentiment', 'bearish') # 'bearish' or 'bullish'
-
+    
     try:
-        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
@@ -520,7 +516,7 @@ async def get_backtest_stats(request: Request):
             dbname=settings.POSTGRES_DB
         )
         cursor = conn.cursor()
-
+        
         # Determine columns based on window
         window_map = {
             "15m": "price_15m",
@@ -530,7 +526,7 @@ async def get_backtest_stats(request: Request):
             "24h": "price_24h"
         }
         outcome_col = window_map.get(window, "price_1h")
-
+        
         # Define keywords based on sentiment type
         if sentiment_type == 'bearish':
             keywords = "鹰|利空|下跌|风险|Bearish|Hawkish|Risk|Negative|Pressure"
@@ -541,7 +537,7 @@ async def get_backtest_stats(request: Request):
 
         # Clustering Logic: Group signals within 30 minutes and pick the first one
         cluster_window = "30 minutes"
-
+        
         # 1. Global Stats (Raw)
         query_global = f"""
         WITH filtered_intelligence AS (
@@ -587,7 +583,7 @@ async def get_backtest_stats(request: Request):
             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
         FROM qualified_events;
         """
-
+        
         # 1.5 Distribution Stats
         query_dist = f"""
         WITH filtered_intelligence AS (
@@ -615,7 +611,7 @@ async def get_backtest_stats(request: Request):
         GROUP BY bin
         ORDER BY bin ASC;
         """
-
+        
         # 2. Session Stats
         query_session = f"""
         WITH filtered_intelligence AS (
@@ -751,7 +747,7 @@ async def get_backtest_stats(request: Request):
         FROM qualified
         GROUP BY env;
         """
-
+        
         # 6. Macro Regime (Fed Basis)
         query_macro = f"""
         WITH filtered_intelligence AS (
@@ -788,7 +784,7 @@ async def get_backtest_stats(request: Request):
         FROM qualified
         GROUP BY env;
         """
-
+        
         # 7. Detailed Items
         query_items = f"""
         WITH filtered_intelligence AS (
@@ -823,10 +819,10 @@ async def get_backtest_stats(request: Request):
         ORDER BY timestamp DESC
         LIMIT 50;
         """
-
+        
         cursor.execute(query_global, {'keywords': keywords, 'min_score': min_score})
         res_global = cursor.fetchone()
-
+        
         cursor.execute(query_session, {'keywords': keywords, 'min_score': min_score})
         res_sessions = cursor.fetchall()
 
@@ -847,10 +843,10 @@ async def get_backtest_stats(request: Request):
 
         cursor.execute(query_items, {'keywords': keywords, 'min_score': min_score})
         res_items = cursor.fetchall()
-
+        
         if not res_global or res_global['count'] == 0:
             return {"count": 0, "winRate": 0, "avgDrop": 0, "window": window, "sessionStats": [], "items": [], "distribution": []}
-
+            
         session_stats = []
         for s in res_sessions:
             session_stats.append({
@@ -886,7 +882,7 @@ async def get_backtest_stats(request: Request):
             "sessionStats": session_stats,
             "items": res_items
         }
-
+        
     except Exception as e:
         print(f"[API] Stats error: {e}")
         return {"error": str(e)}
@@ -897,7 +893,7 @@ async def get_24h_alerts_count():
     Get the count of high-urgency (score 8+) alerts in the last 24 hours.
     """
     try:
-        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
@@ -905,20 +901,20 @@ async def get_24h_alerts_count():
             dbname=settings.POSTGRES_DB
         )
         cursor = conn.cursor()
-
+        
         query = """
         SELECT COUNT(*) 
         FROM intelligence 
         WHERE urgency_score >= 8 
         AND timestamp > NOW() - INTERVAL '24 hours'
         """
-
+        
         cursor.execute(query)
         result = cursor.fetchone()
         conn.close()
-
+        
         return {"count": result[0] if result else 0}
-
+        
     except Exception as e:
         print(f"[API] 24h Alerts error: {e}")
         return {"error": str(e)}
@@ -930,11 +926,11 @@ async def v1_intelligence_stream(request: Request):
     Supports low-latency broadcasting and multi-instance scaling.
     """
     from src.lucidpanda.infra.stream.broadcaster import hub
-
+    
     async def event_generator():
         # A. Initial Connection Msg
         yield f"data: {json.dumps({'type': 'connected', 'v': '1.0'})}\n\n"
-
+        
         # B. Redis Subscription
         async for data in hub.subscribe("intelligence_updates"):
             if await request.is_disconnected():
@@ -962,9 +958,8 @@ async def v1_fund_valuation_stream(
     Server pushes the latest valuation snapshot periodically, client no longer needs high-frequency polling.
     """
     from datetime import datetime
-
-    from src.lucidpanda.core.database import IntelligenceDB
     from src.lucidpanda.core.fund_engine import FundEngine
+    from src.lucidpanda.core.database import IntelligenceDB
 
     engine = FundEngine()
     db = IntelligenceDB()
@@ -1032,9 +1027,8 @@ async def v1_fund_valuations_stream(
     Uses one stream to push multiple fund updates (for watchlist + detail multiplexing).
     """
     from datetime import datetime
-
-    from src.lucidpanda.core.database import IntelligenceDB
     from src.lucidpanda.core.fund_engine import FundEngine
+    from src.lucidpanda.core.database import IntelligenceDB
     from src.lucidpanda.utils.market_calendar import get_market_status
 
     code_list = [c.strip() for c in (codes or "").split(",") if c.strip()]
@@ -1137,12 +1131,12 @@ async def intelligence_stream(request: Request):
     async def event_generator():
         # A. Send Connection Ack
         yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE stream established'})}\n\n"
-
+        
         # B. Send Initial Context (History)
         # This is the ONLY time this client queries the DB directly
         since_id_param = request.query_params.get('since_id')
         try:
-            conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
+            conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
                 host=settings.POSTGRES_HOST,
                 port=settings.POSTGRES_PORT,
                 user=settings.POSTGRES_USER,
@@ -1150,7 +1144,7 @@ async def intelligence_stream(request: Request):
                 dbname=settings.POSTGRES_DB
             )
             cursor = conn.cursor()
-
+            
             if since_id_param:
                 # Resume: fetch everything since provided ID
                 try:
@@ -1176,10 +1170,10 @@ async def intelligence_stream(request: Request):
                 items_data = [dict(row) for row in initial_items]
                 if items_data:
                     last_id = items_data[-1]['id']
-
+                    
                     event_payload = {
-                        'type': 'intelligence_update',
-                        'data': items_data,
+                        'type': 'intelligence_update', 
+                        'data': items_data, 
                         'count': len(items_data),
                         'latest_id': last_id
                     }
@@ -1214,7 +1208,7 @@ async def intelligence_stream(request: Request):
 async def get_intelligence_history(limit: int = 50, since_id: int = None):
     """Fetch intelligence history."""
     try:
-        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
@@ -1222,7 +1216,7 @@ async def get_intelligence_history(limit: int = 50, since_id: int = None):
             dbname=settings.POSTGRES_DB
         )
         cursor = conn.cursor()
-
+        
         if since_id:
             cursor.execute(
                 "SELECT * FROM intelligence WHERE id > %s ORDER BY id DESC LIMIT %s",
@@ -1233,15 +1227,15 @@ async def get_intelligence_history(limit: int = 50, since_id: int = None):
                 "SELECT * FROM intelligence ORDER BY id DESC LIMIT %s",
                 (limit,)
             )
-
+            
         items = cursor.fetchall()
         conn.close()
-
+        
         # Format dates for iOS
         for item in items:
             if 'timestamp' in item and item['timestamp']:
                 item['timestamp'] = format_iso8601(item['timestamp'])
-
+        
         return {"data": items, "count": len(items)}
     except Exception as e:
         print(f"[API] Intelligence history error: {e}")
@@ -1250,24 +1244,25 @@ async def get_intelligence_history(limit: int = 50, since_id: int = None):
 @app.get("/api/market")
 async def get_market_data(symbol: str = "GC=F", range: str = "1d", interval: str = "5m"):
     """Fetch market data for charts."""
-    from datetime import datetime
-
     import akshare as ak
-
+    import pandas as pd
+    import time
+    from datetime import datetime
+    
     try:
         if symbol == "GC=F":
             df = ak.futures_foreign_hist_em(symbol="GC")
         else:
             df = ak.stock_zh_a_hist(symbol=symbol.replace("sh", "").replace("sz", ""), period="daily", adjust="qfq")
-
+            
         if df.empty:
             return {"symbol": symbol, "data": []}
-
+            
         results = []
         for _, row in df.tail(100).iterrows():
             date_str = str(row.get('日期') or row.get('date'))
             price_val = float(row.get('收盘') or row.get('close'))
-
+            
             # Convert date_str to timestamp
             try:
                 dt = datetime.strptime(date_str, "%Y-%m-%d")
@@ -1278,7 +1273,7 @@ async def get_market_data(symbol: str = "GC=F", range: str = "1d", interval: str
                 })
             except:
                 continue
-
+        
         return {"symbol": symbol, "data": results}
     except Exception as e:
         print(f"[API] Market data error: {e}")
@@ -1288,7 +1283,7 @@ async def get_market_data(symbol: str = "GC=F", range: str = "1d", interval: str
 async def get_intelligence_item(item_id: int):
     """Fetch a single intelligence item by ID."""
     try:
-        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=settings.POSTGRES_HOST,
             port=settings.POSTGRES_PORT,
             user=settings.POSTGRES_USER,
@@ -1299,10 +1294,10 @@ async def get_intelligence_item(item_id: int):
         cursor.execute("SELECT * FROM intelligence WHERE id = %s", (item_id,))
         item = cursor.fetchone()
         conn.close()
-
+        
         if not item:
             return {"error": "Item not found"}, 404
-
+            
         return item
     except Exception as e:
         print(f"[API] Fetch intelligence error: {e}")

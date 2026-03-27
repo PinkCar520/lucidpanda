@@ -35,7 +35,7 @@ async function fetchMarketData(symbol: string, queryOptions: Record<string, unkn
   try {
     const yahooFinance = new YahooFinance();
     const result = await fetchWithTimeout(
-      yahooFinance.chart(symbol, queryOptions as { period1: Date | number | string; period2: Date | number | string; interval: "1m" | "2m" | "5m" | "15m" | "30m" | "60m" | "90m" | "1h" | "1d" | "5d" | "1wk" | "1mo" | "3mo" }) as unknown as Promise<Record<string, unknown>>,
+      yahooFinance.chart(symbol, queryOptions as { period1: Date | number | string; period2: Date | number | string; interval: "1m" | "2m" | "5m" | "15m" | "30m" | "60m" | "90m" | "1h" | "1d" | "5d" | "1wk" | "1mo" | "3mo" }) as Promise<Record<string, unknown>>,
       REQUEST_TIMEOUT
     );
     return result;

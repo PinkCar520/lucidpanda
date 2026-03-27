@@ -1,39 +1,37 @@
-from datetime import date, datetime
-from typing import Any
-
+from typing import Optional, List, Dict, Any
+from datetime import datetime, date
+from sqlmodel import SQLModel, Field, Column
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import Column, Field, SQLModel
-
 
 class FundMetadataBase(SQLModel):
     fund_code: str = Field(primary_key=True)
     fund_name: str
-    full_name: str | None = None
-    pinyin_shorthand: str | None = None
-    investment_type: str | None = None
-    style_tag: str | None = None
-    risk_level: str | None = None
-    inception_date: date | None = None
+    full_name: Optional[str] = None
+    pinyin_shorthand: Optional[str] = None
+    investment_type: Optional[str] = None
+    style_tag: Optional[str] = None
+    risk_level: Optional[str] = None
+    inception_date: Optional[date] = None
     listing_status: str = "L"
     currency: str = "CNY"
-    benchmark_text: str | None = None
+    benchmark_text: Optional[str] = None
 
 class FundMetadata(FundMetadataBase, table=True):
     __tablename__ = "fund_metadata"
-    last_full_sync: datetime | None = None
+    last_full_sync: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class FundValuationArchive(SQLModel, table=True):
     __tablename__ = "fund_valuation_archive"
-    id: int | None = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     trade_date: date
     fund_code: str
-    frozen_est_growth: float | None = None
-    frozen_components: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
-    frozen_sector_attribution: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
-    official_growth: float | None = None
-    deviation: float | None = None
-    tracking_status: str | None = None
+    frozen_est_growth: Optional[float] = None
+    frozen_components: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
+    frozen_sector_attribution: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
+    official_growth: Optional[float] = None
+    deviation: Optional[float] = None
+    tracking_status: Optional[str] = None
     applied_bias_offset: float = 0.0
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

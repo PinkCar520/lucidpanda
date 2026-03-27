@@ -1,11 +1,9 @@
 import smtplib
-from email.header import Header
 from email.mime.text import MIMEText
-
+from email.header import Header
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.channels.base import BaseChannel
-
 
 class EmailChannel(BaseChannel):
     def send(self, title, message, source_url=None, db_id=None):
@@ -17,7 +15,7 @@ class EmailChannel(BaseChannel):
             # 同样在邮件末尾增加源链接以便追踪
             if source_url:
                 message = f"{message}\n\n----------------------------\n🔗 详情追溯: {source_url}"
-
+                
             msg = MIMEText(message, 'plain', 'utf-8')
             msg['Subject'] = Header(title, 'utf-8')
             msg['From'] = settings.EMAIL_SENDER
@@ -28,7 +26,7 @@ class EmailChannel(BaseChannel):
             server.login(settings.EMAIL_SENDER, settings.EMAIL_PASSWORD)
             server.sendmail(settings.EMAIL_SENDER, [settings.EMAIL_RECEIVER], msg.as_string())
             server.quit()
-
+            
             trace_id = f"ID: {db_id}" if db_id else f"URL: {source_url}" if source_url else "N/A"
             logger.info(f"✅ 邮件已成功投递至 {settings.EMAIL_RECEIVER} [{trace_id}]")
         except Exception as e:

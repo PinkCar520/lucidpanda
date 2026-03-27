@@ -1,11 +1,10 @@
 import json
-from typing import Any
-
+from typing import Optional, List, Any
 from openai import OpenAI
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.core.ontology import TAXONOMY
 from src.lucidpanda.providers.llm.base import BaseLLM
+from src.lucidpanda.core.ontology import TAXONOMY
 
 # 内容截断上限
 CONTENT_MAX_CHARS = 800
@@ -13,8 +12,8 @@ BATCH_CONTENT_CHARS = 400
 
 class QwenLLM(BaseLLM):
     """阿里云百炼 Qwen LLM 实现"""
-
-    async def analyze_async(self, raw_data, taxonomy: dict | None = None):
+    
+    async def analyze_async(self, raw_data, taxonomy: Optional[dict] = None):
         """异步版本的分析方法"""
         import asyncio
         return await asyncio.to_thread(self.analyze, raw_data, taxonomy)
@@ -23,7 +22,7 @@ class QwenLLM(BaseLLM):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data, taxonomy: dict | None = None):
+    def analyze(self, raw_data, taxonomy: Optional[dict] = None):
         import time
         try:
             client = OpenAI(
@@ -32,7 +31,7 @@ class QwenLLM(BaseLLM):
             )
 
             prompt = self._get_prompt(raw_data, taxonomy)
-
+            
             logger.info(f"📤 [Qwen] 发起请求 -> Model: {settings.QWEN_MODEL}")
 
             start_time = time.time()
@@ -63,7 +62,7 @@ class QwenLLM(BaseLLM):
                 api_key=settings.QWEN_API_KEY,
                 base_url=settings.QWEN_BASE_URL
             )
-
+            
             response = client.chat.completions.create(
                 model=settings.QWEN_MODEL,
                 messages=[{"role": "user", "content": prompt}],
@@ -71,15 +70,15 @@ class QwenLLM(BaseLLM):
                 temperature=temperature,
                 max_tokens=2000
             )
-
+            
             raw_text = response.choices[0].message.content
             return self._parse_json(raw_text)
-
+            
         except Exception as e:
             logger.error(f"Qwen JSON 生成失败：{e}")
             raise e
 
-    def analyze_batch(self, news_items, taxonomy: dict | None = None):
+    def analyze_batch(self, news_items, taxonomy: Optional[dict] = None):
         import time
         try:
             client = OpenAI(
@@ -88,9 +87,9 @@ class QwenLLM(BaseLLM):
             )
 
             prompt = self._get_batch_prompt(news_items, taxonomy)
-
+            
             logger.info(f"📤 [Qwen] 批量分析 {len(news_items)} 条新闻")
-
+            
             start_time = time.time()
             response = client.chat.completions.create(
                 model=settings.QWEN_MODEL,
@@ -105,7 +104,7 @@ class QwenLLM(BaseLLM):
             logger.info(f"📥 [Qwen] 批量响应成功 (耗时：{elapsed:.2f}s)")
 
             results = self._parse_json(raw_text)
-
+            
             if isinstance(results, list):
                 return results
             elif isinstance(results, dict) and 'results' in results:
@@ -127,7 +126,7 @@ class QwenLLM(BaseLLM):
         if len(text) <= max_chars: return text
         return text[:max_chars] + "...（已截断）"
 
-    def _get_batch_prompt(self, news_items, taxonomy: dict | None = None):
+    def _get_batch_prompt(self, news_items, taxonomy: Optional[dict] = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         news_list_str = ""
         for i, item in enumerate(news_items, 1):
@@ -170,7 +169,7 @@ relations.relation 枚举：
 - 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
 """
 
-    def _get_prompt(self, raw_data, taxonomy: dict | None = None):
+    def _get_prompt(self, raw_data, taxonomy: Optional[dict] = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         content = self._truncate_content(raw_data.get('content', ''), CONTENT_MAX_CHARS)
         return f"""
@@ -219,7 +218,7 @@ relations.relation 枚举：
             else:
                 # 尝试直接去掉前后的 ```
                 text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.MULTILINE).strip()
-
+        
         try:
             return json.loads(text)
         except json.JSONDecodeError:

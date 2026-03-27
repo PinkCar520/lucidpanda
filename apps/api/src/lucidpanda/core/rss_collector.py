@@ -11,11 +11,11 @@ RSSCollector — 情报采集器（生产者）
 
 import asyncio
 from datetime import datetime
-
 import pytz
-from src.lucidpanda.config import settings
-from src.lucidpanda.core.database import IntelligenceDB
+
 from src.lucidpanda.core.logger import logger
+from src.lucidpanda.core.database import IntelligenceDB
+from src.lucidpanda.config import settings
 from src.lucidpanda.providers.data_sources.rsshub import RSSHubSource
 
 
@@ -89,7 +89,7 @@ class RSSCollector:
                 logger.error(f"❌ [Collector] 入库失败 [{item.get('id')}]: {e}")
 
         logger.info(f"✅ [Collector] 本轮入库 {saved} 条（去重后 {len(unique_items)} 条）")
-
+        
         # 触发 Redis 事件驱动唤醒 Worker
         if saved > 0:
             try:
@@ -99,5 +99,5 @@ class RSSCollector:
                 logger.info(f"📣 [Collector] 成功发布 Redis 唤醒事件, 通知 Worker 分析 {saved} 条新数据")
             except Exception as e:
                 logger.warning(f"⚠️ [Collector] Redis 事件发布失败 (分析引擎将按 5m 兜底唤醒): {e}")
-
+                
         return saved

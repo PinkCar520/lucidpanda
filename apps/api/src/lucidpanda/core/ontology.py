@@ -1,5 +1,5 @@
-from typing import Any
-
+import re
+from typing import Dict, List, Any, Optional
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.services.embedding_service import embedding_service
 
@@ -36,7 +36,7 @@ CORE_ENTITIES = {
         "type": "CentralBank",
         "aliases": ["中国人民银行", "央行", "人行"]
     },
-
+    
     # ── 宏观经济指标 ──
     "ent_us_cpi": {
         "name": "US CPI",
@@ -99,18 +99,18 @@ class EntityResolver:
     实体解析拦截器：将离散的新闻字符串统一对齐到 Core Entities。
     支持从数据库 (RegistryService) 动态加载。
     """
-    def __init__(self, registry_service: Any | None = None):
+    def __init__(self, registry_service: Optional[Any] = None):
         """
         初始化解析器。
         Args:
             registry_service: 实体注册服务。如果为 None，则加载硬编码的本地数据作为兜底。
         """
         self.registry_service = registry_service
-
+        
         if self.registry_service:
-            logger.info("🧠 EntityResolver: 已连接动态注册服务。")
+            logger.info(f"🧠 EntityResolver: 已连接动态注册服务。")
         else:
-            logger.warning("⚠️ EntityResolver: 未提供注册服务，使用硬编码内部数据。")
+            logger.warning(f"⚠️ EntityResolver: 未提供注册服务，使用硬编码内部数据。")
             # 内部构建一份别名映射以便兼容旧测试
             self._local_alias_map = {}
             for cid, data in CORE_ENTITIES.items():
@@ -118,33 +118,33 @@ class EntityResolver:
                     self._local_alias_map[alias.lower()] = cid
 
     @property
-    def alias_map(self) -> dict[str, str]:
+    def alias_map(self) -> Dict[str, str]:
         """按需获取当前的别名映射"""
         if self.registry_service:
             return self.registry_service.get_entity_mappings()
         return self._local_alias_map
 
-    def resolve_name(self, raw_entity_name: str) -> str | None:
+    def resolve_name(self, raw_entity_name: str) -> Optional[str]:
         """
         基于 raw string 解析出 canonical_id。
         """
         if not raw_entity_name:
             return None
-
+            
         clean_name = str(raw_entity_name).strip().lower()
         current_map = self.alias_map
-
+        
         # 1. 精确匹配 O(1)
         if clean_name in current_map:
             return current_map[clean_name]
-
+            
         # 2. 包含匹配 (Sub-string)
         # 按照优先级（名字越长越具体，优先匹配长度长的词）
         sorted_aliases = sorted(current_map.keys(), key=len, reverse=True)
         for alias in sorted_aliases:
             if alias in clean_name:
                 return current_map[alias]
-
+                
         # 3. 向量化兜底匹配 (如果存在 registry_service)
         if self.registry_service:
             try:
@@ -159,27 +159,27 @@ class EntityResolver:
         # 4. 未匹配到
         return None
 
-    def process_ai_entities(self, raw_entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def process_ai_entities(self, raw_entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         处理 AI 产生的 Entities 数组，注入 canonical_id 字段。
         """
         if not raw_entities:
             return []
-
+            
         processed = []
         for ent in raw_entities:
             new_ent = dict(ent)
             raw_name = new_ent.get("name", "")
-
+            
             canonical_id = self.resolve_name(raw_name)
             if canonical_id:
                 new_ent["canonical_id"] = canonical_id
                 logger.debug(f"🔗 实体对齐成功: [{raw_name}] -> {canonical_id}")
             else:
                 new_ent["canonical_id"] = None
-
+                
             processed.append(new_ent)
-
+            
         return processed
 
 # 延迟加载解析器单例，避免导入时触发未初始化的警告

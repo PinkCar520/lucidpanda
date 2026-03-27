@@ -1,14 +1,14 @@
-import asyncio
-import os
-
 import httpx
+import asyncio
+import sys
+import os
 
 # 模拟环境变量
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8001/api/v1")
 
 async def test_pulse_api():
     print(f"🔍 Testing Analytics API at {API_BASE_URL}...")
-
+    
     async with httpx.AsyncClient(timeout=10.0) as client:
         # 1. 测试热点接口
         print("\n--- Testing Hotspots ---")

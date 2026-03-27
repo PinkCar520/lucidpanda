@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
+import sqlite3
+import os
 import json
 import logging
-import os
-import sqlite3
 import sys
 from datetime import datetime
-
 import pytz
 
 # Configure Logging
@@ -36,7 +35,7 @@ def get_sqlite_conn():
 
 def get_pg_conn():
     try:
-        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row,
+        conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
             host=PG_HOST,
             port=PG_PORT,
             user=PG_USER,
@@ -96,20 +95,20 @@ def migrate_data():
     sqlite = get_sqlite_conn()
     sqlite.row_factory = sqlite3.Row
     pg_conn = get_pg_conn()
-
+    
     try:
         cur_sqlite = sqlite.cursor()
         cur_pg = pg_conn.cursor()
-
+        
         # 1. Ensure Schema
         create_pg_table(cur_pg)
-
+        
         # 2. Fetch Data
         logger.info("📥 Reading data from SQLite...")
         cur_sqlite.execute("SELECT * FROM intelligence ORDER BY id ASC")
         rows = cur_sqlite.fetchall()
         logger.info(f"📊 Found {len(rows)} records to migrate.")
-
+        
         if not rows:
             logger.info("⚠️ No data to migrate.")
             return
@@ -118,7 +117,7 @@ def migrate_data():
         logger.info("🚀 Starting migration...")
         success_count = 0
         error_count = 0
-
+        
         for row in rows:
             try:
                 # Parse Timestamp
@@ -134,7 +133,7 @@ def migrate_data():
                             ts_dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S.%f")
                         except:
                             pass
-
+                
                 # If naive, assume UTC or Local? Project seems to use UTC internally mostly.
                 if ts_dt and not ts_dt.tzinfo:
                     ts_dt = pytz.utc.localize(ts_dt)
@@ -171,19 +170,19 @@ def migrate_data():
                     row['price_24h']
                 ))
                 success_count += 1
-
+                
                 if success_count % 100 == 0:
                     logger.info(f"⏳ Migrated {success_count} records...")
-
+                    
             except Exception as e:
                 logger.error(f"❌ Error migrating row ID {row['id']}: {e}")
                 error_count += 1
-
+        
         # 4. Sync Sequence
         # Since we manually inserted IDs, we must reset the ID sequence
         logger.info("🔄 Syncing ID sequence...")
         cur_pg.execute("SELECT setval('intelligence_id_seq', (SELECT MAX(id) FROM intelligence));")
-
+        
         pg_conn.commit()
         logger.info(f"✅ Migration Complete! Success: {success_count}, Errors: {error_count}")
 

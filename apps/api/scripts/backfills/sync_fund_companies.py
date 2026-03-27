@@ -10,14 +10,12 @@ Achieves ~97% fill rate via:
   Pass 4: Manual brand alias rules (e.g. 工银->工银瑞信, 大摩->摩根士丹利)
 """
 
-import os
 import sys
-
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-import hashlib
 import re
-
+import hashlib
 import akshare as ak
 from src.lucidpanda.db.base import DBBase
 

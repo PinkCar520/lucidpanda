@@ -8,11 +8,10 @@
 """
 
 import sys
-
 sys.path.insert(0, '.')
 
-from src.lucidpanda.core.backtest import BacktestEngine
 from src.lucidpanda.core.database import IntelligenceDB
+from src.lucidpanda.core.backtest import BacktestEngine
 
 db = IntelligenceDB()
 engine = BacktestEngine(db)

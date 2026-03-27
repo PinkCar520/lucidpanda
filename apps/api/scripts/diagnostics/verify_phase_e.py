@@ -1,16 +1,17 @@
 
 import asyncio
-import os
 import sys
+import os
+from datetime import datetime
 
 # Ensure project root is in path
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
 from src.lucidpanda.services.embedding_service import embedding_service
-
+from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
+from src.lucidpanda.core.logger import logger
 
 async def verify_embedding():
     print("\n--- 1. 验证 Embedding 稳定性与降级 ---")
@@ -27,7 +28,7 @@ async def verify_tools():
     tools = list_tool_summaries()
     tool_names = [t['name'] for t in tools]
     required_tools = ['get_historical_perf', 'get_market_positioning', 'get_entity_influence']
-
+    
     for rt in required_tools:
         if rt in tool_names:
             print(f"✅ 工具 '{rt}' 已注册。")

@@ -1,14 +1,13 @@
-from collections.abc import Generator
-
+from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
-from src.lucidpanda.auth.models import User
-from src.lucidpanda.auth.schemas import TokenPayload
-from src.lucidpanda.auth.security import decode_token
+from sqlalchemy.orm import sessionmaker, Session
 from src.lucidpanda.config import settings
+from src.lucidpanda.auth.security import decode_token
+from src.lucidpanda.auth.schemas import TokenPayload
+from src.lucidpanda.auth.models import User
 
 # Database Setup
 SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
@@ -48,7 +47,7 @@ async def get_current_user(
     except Exception as e:
         print(f"[AUTH] Unexpected Error during decode: {e}")
         raise credentials_exception
-
+    
     user = db.query(User).filter(User.id == token_data.sub).first()
     if user is None:
         print(f"[AUTH] User not found: id={token_data.sub}")

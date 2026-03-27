@@ -4,11 +4,10 @@ db/fund.py — 基金域
 基金自选单、持仓、估值、统计、元数据、对账、归因、关系映射。
 """
 from datetime import datetime
-
 from psycopg.types.json import Jsonb
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.db.base import DBBase
 from src.lucidpanda.utils import format_iso8601
+from src.lucidpanda.db.base import DBBase
 
 
 class FundRepo(DBBase):
@@ -285,7 +284,7 @@ class FundRepo(DBBase):
                     total = row['total'] if row and row['total'] else 0
                     matched = row['matched'] if row and row['matched'] else 0
                     coverage_score = (matched / total * 100) if total > 0 else 100
-
+                    
                     # 2. Accuracy (MAE) - Weight 30
                     cursor.execute("""
                         SELECT AVG(ABS(deviation)) as mae
@@ -297,7 +296,7 @@ class FundRepo(DBBase):
                     mae = float(row['mae']) if row and row['mae'] is not None else 0
                     # 0 MAE = 100 score, 1.0 MAE = 0 score (roughly)
                     accuracy_score = max(0, 100 - (mae * 100))
-
+                    
                     # 3. Anomalies (Grade C count) - Weight 20
                     cursor.execute("""
                         SELECT COUNT(*) as cases
@@ -309,7 +308,7 @@ class FundRepo(DBBase):
                     c_cases = row['cases'] if row and row['cases'] else 0
                     # 0 cases = 100 score, each case deducts 10 points
                     anomaly_score = max(0, 100 - (c_cases * 10))
-
+                    
                     composite = (coverage_score * 0.5) + (accuracy_score * 0.3) + (anomaly_score * 0.2)
                     return {
                         "score": round(composite, 1),
@@ -361,7 +360,7 @@ class FundRepo(DBBase):
                     health = self.get_health_score(days=3)
 
                     return {
-                        "daily": daily_stats,
+                        "daily": daily_stats, 
                         "anomalies": anomalies,
                         "health": health,
                         "updated_at": format_iso8601(datetime.now())
@@ -458,10 +457,10 @@ class FundRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-
+            
                     query_upper = query.upper()
                     query_lower = query.lower()
-
+            
                     cursor.execute("""
                         (
                             SELECT m.fund_code as code, m.fund_name as name, m.investment_type as type,
@@ -542,7 +541,7 @@ class FundRepo(DBBase):
                         f"%%{query}%%", f"{query}%", f"{query_upper}%", f"{query_lower}%",
                         limit
                     ))
-
+            
                     rows = cursor.fetchall()
             return [dict(row) for row in rows]
         except Exception as e:

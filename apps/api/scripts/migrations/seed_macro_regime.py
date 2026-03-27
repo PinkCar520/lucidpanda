@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-import os
 import sys
+import os
 from datetime import datetime
-
 import pytz
 
 # Add project path
@@ -11,10 +10,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.logger import logger
 
-
 def seed_fed_regimes():
     db = IntelligenceDB()
-
+    
     # Simple Fed Regimes
     # 1: Dovish (Rate Cuts/Ease), -1: Hawkish (Rate Hikes/Tight), 0: Neutral
     regimes = [
@@ -22,7 +20,7 @@ def seed_fed_regimes():
         ("2022-03-16", -1, "Hawkish / Fed starts aggressive hike cycle"),
         ("2024-09-18", 1, "Dovish / Fed starts rate cut cycle (50bps pivot)"),
     ]
-
+    
     for date_str, value, desc in regimes:
         dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=pytz.UTC)
         db.save_indicator(dt, "FED_REGIME", value, percentile=None, description=desc)

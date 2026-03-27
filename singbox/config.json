@@ -434,14 +434,14 @@
         "tag": "geosite-cn",
         "type": "remote",
         "format": "binary",
-        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geosite/main/rule-set/geosite-cn.srs",
         "download_detour": "🚀 自动选优"
       },
       {
         "tag": "geoip-cn",
         "type": "remote",
         "format": "binary",
-        "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs",
+        "url": "https://raw.githubusercontent.com/SagerNet/sing-geoip/main/rule-set/geoip-cn.srs",
         "download_detour": "🚀 自动选优"
       }
     ],

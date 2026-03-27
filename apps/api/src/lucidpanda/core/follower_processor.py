@@ -1,10 +1,9 @@
 import asyncio
-from typing import Any
-
+import logging
+from typing import Any, Dict, List, Optional
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.prompts.delta_check_v1 import build_delta_check_prompt
 from src.lucidpanda.prompts.refold_v1 import build_refold_prompt
-
 
 class FollowerProcessor:
     """
@@ -16,12 +15,12 @@ class FollowerProcessor:
         self.primary_llm = primary_llm
         self.ai_semaphore = ai_semaphore
 
-    async def process_follower_item_async(self, raw_data: dict[str, Any]):
+    async def process_follower_item_async(self, raw_data: Dict[str, Any]):
         """处理聚类中的 Follower 数据，执行 Delta Check 和 Refold。"""
         source_id = raw_data.get('source_id') or raw_data.get('id')
         lead_id = raw_data.get('parent_lead_id')
         story_id = raw_data.get('parent_story_id')
-
+        
         if not lead_id:
             logger.warning(f"⚠️ Follower {source_id} missing parent_lead_id.")
             return
@@ -33,7 +32,7 @@ class FollowerProcessor:
                 if not lead_analysis or not lead_analysis.get('summary'):
                     logger.warning(f"⚠️ Lead {lead_id} 的分析结果尚未就绪，跳过 Follower {source_id} 的增量检查。")
                     return
-
+                
                 lead_summary_text = lead_analysis.get('summary')
                 if isinstance(lead_summary_text, dict):
                     lead_summary_text = lead_summary_text.get('zh', str(lead_summary_text))
@@ -44,7 +43,7 @@ class FollowerProcessor:
 
                 logger.info(f"⚖️ 判断 Follower ({source_id}) 对 Lead ({lead_id}) 是否有信息增量 (Story Threading)...")
                 has_delta = await self._check_delta_gain(raw_data.get('content'), lead_summary_text)
-
+                
                 if not has_delta:
                     logger.info(f"🚫 无信息增量 (Follower): {source_id}")
                     await asyncio.to_thread(self.db.update_intelligence_status, source_id, 'CLUSTERED', f"No Delta from Lead {lead_id}")
@@ -60,7 +59,7 @@ class FollowerProcessor:
         """使用 LLM 判定两个高度相似的文本之间是否存在“信息增量”。"""
         if not lead_summary or not new_content:
             return True
-
+            
         prompt = build_delta_check_prompt(new_content, lead_summary)
         try:
             res = await self.primary_llm.generate_json_async(prompt, temperature=0.0)
@@ -72,7 +71,7 @@ class FollowerProcessor:
             logger.warning(f"Delta Analysis failed, defaulting to True (Safety first): {e}")
             return True
 
-    async def _refold_lead_summary(self, lead_id: str, new_content: str, story_id: str | None = None):
+    async def _refold_lead_summary(self, lead_id: str, new_content: str, story_id: Optional[str] = None):
         """故事线演化：将新发现的增量事实融合进主事件（Lead）的摘要中。"""
         try:
             if story_id:
@@ -84,7 +83,7 @@ class FollowerProcessor:
 
             prompt = build_refold_prompt(new_content, lead_analysis)
             updated_analysis = await self.primary_llm.generate_json_async(prompt, temperature=0.2)
-
+            
             if not updated_analysis or "summary" not in updated_analysis:
                 logger.warning(f"Refold LLM output invalid for Lead {lead_id}")
                 return
@@ -96,7 +95,7 @@ class FollowerProcessor:
                 "urgency_score": updated_analysis.get("urgency_score", lead_analysis.get("urgency_score")),
                 "market_implication": updated_analysis.get("market_implication", lead_analysis.get("market_implication")),
             })
-
+            
             await asyncio.to_thread(self.db.update_lead_analysis, lead_id, lead_analysis)
             logger.info(f"🔄 故事线 Lead {lead_id} 摘要已通过 Refold 进化完成。")
         except Exception as e:

@@ -1,11 +1,11 @@
-import math
 import os
 import sys
-from datetime import date, datetime, timedelta
-
+import logging
+from datetime import datetime, date, timedelta
 import akshare as ak
 import pandas as pd
 from sqlmodel import Session, select
+import math
 
 # Ensure src is in path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -13,7 +13,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.infra.database.connection import engine
 from src.lucidpanda.models.macro_event import MacroEvent
-
 
 def _clean_str(val):
     if isinstance(val, float) and math.isnan(val):
@@ -23,7 +22,7 @@ def _clean_str(val):
 
 def sync_macro_calendar(days_ahead: int = 14):
     logger.info(f"Starting Macro Calendar Sync: scanning {days_ahead} days ahead.")
-
+    
     today = datetime.now().date()
     # Use news_economic_baidu for each day in the window
     dfs = []
@@ -36,17 +35,17 @@ def sync_macro_calendar(days_ahead: int = 14):
                 dfs.append(day_df)
         except Exception as e:
             logger.warning(f"Failed to fetch macro data for {d_str}: {e}")
-
+            
     if not dfs:
         logger.warning("No macro data returned from akshare.")
         return
-
+        
     df = pd.concat(dfs, ignore_index=True)
-
+        
     # Standardize columns: ['日期', '时间', '地区', '事件', '公布', '预期', '前值', '重要性']
     records_inserted = 0
     records_updated = 0
-
+    
     with Session(engine) as session:
         for _, row in df.iterrows():
             try:
@@ -59,14 +58,14 @@ def sync_macro_calendar(days_ahead: int = 14):
                     event_date = datetime.strptime(d_val[:10], "%Y-%m-%d").date()
                 else:
                     continue
-
+                    
                 # We only want to keep data for a valid window
                 if not (today - timedelta(days=7)) <= event_date <= (today + timedelta(days=days_ahead)):
                     continue
-
+                    
                 # 2. Filter out low impact noise (keep >= 3 stars)
                 importance = row.get("重要性", 1)
-
+                
                 # Check for nan/float parsing issues
                 if isinstance(importance, float) and math.isnan(importance):
                     importance = 1
@@ -80,17 +79,17 @@ def sync_macro_calendar(days_ahead: int = 14):
                         importance = int(importance)
                     except Exception:
                         importance = 1
-
+                        
                 if importance < 2:
                     continue
-
+                    
                 impact_level = "high" if importance >= 2 else "medium"
-
+                
                 # 3. Parse fields
                 country = str(row.get("地区", "Global"))
                 title = str(row.get("事件", ""))
                 event_code = f"{country}_{title[:10]}" # Generate a pseudo unique code
-
+                
                 # --- NOISE REDUCTION FILTER ---
                 # We KEEP Gold, Silver, and Crude Oil as they are critical to the fund's strategy.
                 # We ONLY remove irrelevant agricultural and non-core industrial noise.
@@ -101,17 +100,17 @@ def sync_macro_calendar(days_ahead: int = 14):
                 if any(kw in title for kw in noise_keywords):
                     continue
                 # ------------------------------
-
+                
                 t_val = str(row.get("时间", ""))
                 release_time = t_val if t_val and len(t_val) >= 4 and t_val != "nan" else None
-
+                
                 # 4. Upsert Logic (match by date and title to avoid duplicates)
                 stmt = select(MacroEvent).where(
                     MacroEvent.release_date == event_date,
                     MacroEvent.title == title
                 )
                 existing = session.exec(stmt).first()
-
+                
                 if existing:
                     # Update dynamic values
                     existing.actual_value = _clean_str(row.get("公布"))
@@ -136,12 +135,12 @@ def sync_macro_calendar(days_ahead: int = 14):
                     )
                     session.add(new_event)
                     records_inserted += 1
-
+                    
             except Exception as e:
                 logger.warning(f"Error processing macro row {row}: {e}")
-
+                
         session.commit()
-
+    
     logger.info(f"Macro Sync Complete. Inserted: {records_inserted}, Updated: {records_updated}")
 
 if __name__ == "__main__":

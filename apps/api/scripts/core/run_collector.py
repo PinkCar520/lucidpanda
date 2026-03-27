@@ -9,8 +9,8 @@ Celery 集成后，采集任务由 celery_beat + celery_worker 执行。
 - Celery 模式 (推荐): docker compose up celery_beat celery_worker
 """
 import asyncio
-import os
 import sys
+import os
 
 # 确保项目根目录在 path 中
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

@@ -5,12 +5,11 @@ One-time migration script (Enhanced):
 2. Backfill both fields for all records using pypinyin
 """
 
-import os
 import sys
-
+import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from pypinyin import Style, pinyin
+from pypinyin import pinyin, Style
 from src.lucidpanda.db.base import DBBase
 
 
@@ -34,10 +33,10 @@ def main():
     print('🔧 Creating columns and indexes...')
     cur.execute('ALTER TABLE fund_metadata ADD COLUMN IF NOT EXISTS pinyin_full TEXT')
     cur.execute('ALTER TABLE fund_metadata ADD COLUMN IF NOT EXISTS pinyin_shorthand VARCHAR(50)')
-
+    
     cur.execute('ALTER TABLE stock_metadata ADD COLUMN IF NOT EXISTS pinyin_full TEXT')
     cur.execute('ALTER TABLE stock_metadata ADD COLUMN IF NOT EXISTS pinyin_shorthand VARCHAR(50)')
-
+    
     cur.execute('CREATE INDEX IF NOT EXISTS idx_fund_metadata_pinyin_full ON fund_metadata (pinyin_full)')
     cur.execute('CREATE INDEX IF NOT EXISTS idx_stock_metadata_pinyin_full ON stock_metadata (pinyin_full)')
     conn.commit()
@@ -54,7 +53,7 @@ def main():
             conn.commit()
             print(f'   {i}/{len(rows)}')
     conn.commit()
-    print('✅ fund_metadata done')
+    print(f'✅ fund_metadata done')
 
     # Step 3: Backfill stock_metadata
     cur.execute('SELECT stock_code, stock_name FROM stock_metadata WHERE pinyin_full IS NULL OR pinyin_shorthand IS NULL')
@@ -64,7 +63,7 @@ def main():
         cur.execute('UPDATE stock_metadata SET pinyin_full = %s, pinyin_shorthand = %s WHERE stock_code = %s',
                     (to_pinyin_full(name), to_pinyin_shorthand(name), code))
     conn.commit()
-    print('✅ stock_metadata done')
+    print(f'✅ stock_metadata done')
 
     conn.close()
     print('\n🎉 All done! API search should now work completely.')

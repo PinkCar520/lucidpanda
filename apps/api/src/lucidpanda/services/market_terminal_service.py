@@ -1,6 +1,6 @@
-from datetime import datetime
-
 import akshare as ak
+import pandas as pd
+from datetime import datetime
 import requests
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.utils import format_iso8601
@@ -64,13 +64,13 @@ class MarketTerminalService:
                 parts = raw.split("\"")[1].split(",")
                 current = float(parts[0])      # 最新价
                 prev_close = float(parts[8])   # 昨日收盘价
-
+                
                 if prev_close > 0:
                     change = current - prev_close
                     change_pct = (change / prev_close) * 100
                 else:
                     change, change_pct = 0.0, 0.0
-
+                    
                 return {
                     "symbol": "GC=F",
                     "name": "黄金",
@@ -97,13 +97,13 @@ class MarketTerminalService:
                 parts = raw.split("\"")[1].split(",")
                 current = float(parts[1])      # 最新价
                 prev_close = float(parts[3])   # 昨收价
-
+                
                 if prev_close > 0:
                     change = current - prev_close
                     change_pct = (change / prev_close) * 100
                 else:
                     change, change_pct = 0.0, 0.0
-
+                    
                 return {
                     "symbol": "DXY",
                     "name": "美元指数",
@@ -136,7 +136,7 @@ class MarketTerminalService:
                     change_pct = (change / prev_close) * 100
                 else:
                     change, change_pct = 0.0, 0.0
-
+                    
                 return {
                     "symbol": "CL=F",
                     "name": "原油",
@@ -165,7 +165,7 @@ class MarketTerminalService:
                 current = float(parts[1])
                 change_pct = float(parts[2])
                 prev_close = float(parts[3])
-
+                
                 return {
                     "symbol": "US10Y",
                     "name": "美债 10Y",

@@ -1,12 +1,11 @@
+from google import genai
 import os
 import sys
-
-from google import genai
+from dotenv import load_dotenv
 
 # Add src to path
 sys.path.insert(0, os.getcwd())
 from src.lucidpanda.config import settings
-
 
 def list_gemini_models():
     client = genai.Client(api_key=settings.GEMINI_API_KEY)

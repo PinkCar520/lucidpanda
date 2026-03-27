@@ -1,12 +1,5 @@
 from fastapi import APIRouter
-from src.lucidpanda.api.v1.routers import (
-    analytics,
-    calendar,
-    common,
-    mobile,
-    watchlist_v2,
-    web,
-)
+from src.lucidpanda.api.v1.routers import mobile, web, common, watchlist_v2, calendar, analytics
 
 api_v1_router = APIRouter(prefix="/api/v1")
 

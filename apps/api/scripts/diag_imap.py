@@ -1,22 +1,21 @@
 import imaplib
-import os
 import socket
 import ssl
 import sys
+import os
 
 # 路径修复
 root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(root_dir, "apps/api"))
 from src.lucidpanda.config import settings
 
-
 def test_imap_connection():
     server = settings.IMAP_SERVER or "outlook.office365.com"
     port = settings.IMAP_PORT or 993
     user = settings.IMAP_USER
-
+    
     print(f"📡 Diagnostic: Attempting to connect to {server}:{port}...")
-
+    
     # 1. TCP 握手测试
     try:
         sock = socket.create_connection((server, port), timeout=10)

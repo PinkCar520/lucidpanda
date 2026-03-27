@@ -1,7 +1,7 @@
 import os
-
-from dotenv import load_dotenv
+import json
 from google import genai
+from dotenv import load_dotenv
 
 load_dotenv()
 

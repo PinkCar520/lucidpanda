@@ -8,22 +8,22 @@
 4. 配置集中管理
 """
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import List, Optional, TYPE_CHECKING, Any
 
 from src.lucidpanda.config import settings
-from src.lucidpanda.core.backtest import BacktestEngine
 from src.lucidpanda.core.database import IntelligenceDB
-from src.lucidpanda.core.deduplication import NewsDeduplicator
+from src.lucidpanda.core.backtest import BacktestEngine
 from src.lucidpanda.core.event_clusterer import EventClusterer
-from src.lucidpanda.core.ontology import EntityResolver
-from src.lucidpanda.providers.channels.bark import BarkChannel
+from src.lucidpanda.core.deduplication import NewsDeduplicator
 from src.lucidpanda.providers.channels.email import EmailChannel
+from src.lucidpanda.providers.channels.bark import BarkChannel
 from src.lucidpanda.services.agent_tools import list_tool_summaries
+from src.lucidpanda.core.ontology import EntityResolver
 from src.lucidpanda.services.factor_service import FactorService
 
 # 避免循环导入
 if TYPE_CHECKING:
-    pass
+    from src.lucidpanda.core.engine import LLMFactory
 
 
 class EngineDependencies:
@@ -43,12 +43,12 @@ class EngineDependencies:
         entity_resolver: 实体解析器（延迟初始化）
         ai_semaphore: 并发控制信号量（立即初始化）
     """
-
+    
     def __init__(
         self,
-        db: IntelligenceDB | None = None,
-        llm_provider: str | None = None,
-        fallback_provider: str | None = None,
+        db: Optional[IntelligenceDB] = None,
+        llm_provider: Optional[str] = None,
+        fallback_provider: Optional[str] = None,
     ):
         """
         初始化依赖容器
@@ -62,33 +62,33 @@ class EngineDependencies:
         self._db = db
         self._llm_provider = llm_provider
         self._fallback_provider = fallback_provider
-
+        
         # 并发控制（立即初始化）
         self.ai_semaphore = asyncio.Semaphore(settings.LLM_CONCURRENCY_LIMIT)
-
+        
         # 延迟初始化：其他组件
-        self._backtester: BacktestEngine | None = None
-        self._clusterer: EventClusterer | None = None
-        self._deduplicator: NewsDeduplicator | None = None
-        self._channels: list | None = None
-        self._tool_summaries: list | None = None
-        self._entity_resolver: EntityResolver | None = None
-        self._factor_service: FactorService | None = None
-        self._ontology_repo: Any | None = None
-        self._registry_service: Any | None = None
+        self._backtester: Optional[BacktestEngine] = None
+        self._clusterer: Optional[EventClusterer] = None
+        self._deduplicator: Optional[NewsDeduplicator] = None
+        self._channels: Optional[List] = None
+        self._tool_summaries: Optional[List] = None
+        self._entity_resolver: Optional[EntityResolver] = None
+        self._factor_service: Optional[FactorService] = None
+        self._ontology_repo: Optional[Any] = None
+        self._registry_service: Optional[Any] = None
         self._primary_llm = None
         self._fallback_llm = None
-        self._follower_processor: Any | None = None
-        self._fred_source: Any | None = None
-        self._email_source: Any | None = None
-
+        self._follower_processor: Optional[Any] = None
+        self._fred_source: Optional[Any] = None
+        self._email_source: Optional[Any] = None
+    
     @property
     def db(self) -> IntelligenceDB:
         """数据库实例（单例）"""
         if self._db is None:
             self._db = IntelligenceDB()
         return self._db
-
+    
     @property
     def primary_llm(self):
         """主力 LLM 实例（单例）"""
@@ -98,7 +98,7 @@ class EngineDependencies:
             provider = self._llm_provider or settings.AI_PROVIDER.lower()
             self._primary_llm = LLMFactory.create(provider)
         return self._primary_llm
-
+    
     @property
     def fallback_llm(self):
         """备用 LLM 实例（单例）"""
@@ -110,42 +110,42 @@ class EngineDependencies:
             )
             self._fallback_llm = LLMFactory.create(provider)
         return self._fallback_llm
-
+    
     @property
     def backtester(self) -> BacktestEngine:
         """回测引擎（延迟初始化）"""
         if self._backtester is None:
             self._backtester = BacktestEngine(self.db)
         return self._backtester
-
+    
     @property
     def clusterer(self) -> EventClusterer:
         """事件聚类器（延迟初始化）"""
         if self._clusterer is None:
             self._clusterer = EventClusterer(db=self.db)
         return self._clusterer
-
+    
     @property
     def deduplicator(self) -> NewsDeduplicator:
         """去重引擎（延迟初始化）"""
         if self._deduplicator is None:
             self._deduplicator = NewsDeduplicator(db=self.db)
         return self._deduplicator
-
+    
     @property
-    def channels(self) -> list:
+    def channels(self) -> List:
         """通知渠道列表（延迟初始化）"""
         if self._channels is None:
             self._channels = [EmailChannel(), BarkChannel()]
         return self._channels
-
+    
     @property
-    def tool_summaries(self) -> list:
+    def tool_summaries(self) -> List:
         """工具摘要（延迟初始化）"""
         if self._tool_summaries is None:
             self._tool_summaries = list_tool_summaries()
         return self._tool_summaries
-
+    
     @property
     def ontology_repo(self) -> Any:
         """本体元数据仓库"""
@@ -168,26 +168,26 @@ class EngineDependencies:
         if self._entity_resolver is None:
             self._entity_resolver = EntityResolver(self.registry_service)
         return self._entity_resolver
-
+        
     @property
     def factor_service(self) -> FactorService:
         """实体舆情因子聚合服务（延迟初始化）"""
         if self._factor_service is None:
             self._factor_service = FactorService()
         return self._factor_service
-
+    
     @property
     def follower_processor(self) -> Any:
         """Follower 数据处理器（从 AlphaEngine 剥离的增量逻辑）"""
         if self._follower_processor is None:
             from src.lucidpanda.core.follower_processor import FollowerProcessor
             self._follower_processor = FollowerProcessor(
-                db=self.db,
-                primary_llm=self.primary_llm,
+                db=self.db, 
+                primary_llm=self.primary_llm, 
                 ai_semaphore=self.ai_semaphore
             )
         return self._follower_processor
-
+    
     @property
     def fred_source(self) -> Any:
         """美联储经济数据源 (FRED)"""
@@ -195,22 +195,20 @@ class EngineDependencies:
             from src.lucidpanda.providers.data_sources.fred import FredDataSource
             self._fred_source = FredDataSource()
         return self._fred_source
-
+    
     @property
     def email_source(self) -> Any:
         """Email/IMAP 情报源"""
         if self._email_source is None:
-            from src.lucidpanda.providers.data_sources.email_source import (
-                EmailDataSource,
-            )
+            from src.lucidpanda.providers.data_sources.email_source import EmailDataSource
             self._email_source = EmailDataSource(db=self.db)
         return self._email_source
-
+    
     @property
     def enable_agent_tools(self) -> bool:
         """是否启用 Agent 工具"""
         return settings.ENABLE_AGENT_TOOLS
-
+    
     def clear_cache(self):
         """
         清理缓存的依赖实例

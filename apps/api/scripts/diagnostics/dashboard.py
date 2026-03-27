@@ -1,10 +1,10 @@
-import sqlite3
-
-import pandas as pd
-import plotly.graph_objects as go
 import streamlit as st
+import sqlite3
+import pandas as pd
 import yfinance as yf
+import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from datetime import datetime, timedelta
 from src.lucidpanda.config import settings
 
 # 页面配置
@@ -45,7 +45,7 @@ def load_intelligence():
     query = "SELECT * FROM intelligence ORDER BY timestamp DESC"
     df = pd.read_sql_query(query, conn)
     conn.close()
-
+    
     # 转换时间戳并统一为 UTC
     df['timestamp'] = pd.to_datetime(df['timestamp'])
     # 假设数据库存的是 UTC (SQLite DEFAULT CURRENT_TIMESTAMP 是 UTC)
@@ -53,7 +53,7 @@ def load_intelligence():
         df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
     else:
         df['timestamp'] = df['timestamp'].dt.tz_convert('UTC')
-
+        
     return df
 
 # --------------------------
@@ -99,8 +99,8 @@ df_chart = load_market_data(period=time_range, interval=chart_interval)
 df_chart.index = df_chart.index.tz_convert('UTC') # 关键修复：统一为 UTC
 
 # 创建 Plotly 图表
-fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                    vertical_spacing=0.03, subplot_titles=('Price & Sentiment Events', 'Volume'),
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
+                    vertical_spacing=0.03, subplot_titles=('Price & Sentiment Events', 'Volume'), 
                     row_width=[0.2, 0.7])
 
 # K线图
@@ -121,7 +121,7 @@ if not intel_df.empty:
         sentiment = row['sentiment']
         color = "gray"
         symbol = "triangle-up"
-
+        
         # 简单的情绪关键词判断 (实际项目中可以用 urgency_score 辅助)
         if any(w in str(sentiment) for w in ["鹰", "利空", "下跌", "风险", "Bearish"]):
             color = "red"
@@ -129,7 +129,7 @@ if not intel_df.empty:
         elif any(w in str(sentiment) for w in ["鸽", "利多", "上涨", "Bullish"]):
             color = "green"
             symbol = "triangle-up"
-
+        
         # 找到最接近的时间点价格
         # 注意：这里做了一个简单的近似，将事件标记在发生时间的价格上
         event_time = row['timestamp']

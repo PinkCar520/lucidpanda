@@ -4,11 +4,11 @@ db/market.py — 市场数据域
 市场快照、交易时段、技术指标、外汇汇率。
 """
 from datetime import datetime
-
-import akshare as ak
 import pytz
+import akshare as ak
 import redis
 import requests
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
@@ -169,7 +169,7 @@ class MarketRepo(DBBase):
                             return round(float(points[-1][1]), 3)
                 except Exception as e:
                     logger.warning(f"Sina WTI Crude Oil failed: {e}")
-
+                
                 # 备用：AkShare 国际原油
                 try:
                     df = ak.futures_global_commodity_sina(symbol="WTI原油")

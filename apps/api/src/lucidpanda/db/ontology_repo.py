@@ -3,16 +3,14 @@ db/ontology_repo.py — 实体与标签元数据仓库
 ========================================
 负责 entity_registry, entity_aliases 和 taxonomy_registry 的底层 CRUD。
 """
-from typing import Any
-
-from src.lucidpanda.core.logger import logger
+from typing import List, Dict, Any, Optional
 from src.lucidpanda.db.base import DBBase
-
+from src.lucidpanda.core.logger import logger
 
 class OntologyRepo(DBBase):
     """底层存储适配器，用于加载本体元数据"""
 
-    def get_all_entities_with_aliases(self) -> list[dict[str, Any]]:
+    def get_all_entities_with_aliases(self) -> List[Dict[str, Any]]:
         """
         获取所有活跃实体及其对应的别名列表。
         返回格式: [{"canonical_id": "...", "display_name": "...", "aliases": ["...", "..."]}, ...]
@@ -38,7 +36,7 @@ class OntologyRepo(DBBase):
             logger.error(f"❌ Failed to fetch entities from DB: {e}")
             return []
 
-    def get_full_taxonomy(self) -> list[dict[str, Any]]:
+    def get_full_taxonomy(self) -> List[Dict[str, Any]]:
         """加载全量分类树配置"""
         try:
             with self._get_conn() as conn:
@@ -95,7 +93,7 @@ class OntologyRepo(DBBase):
         except Exception as e:
             logger.error(f"❌ Upsert Taxonomy Failed: {e}")
 
-    def find_closest_entity(self, vector, threshold: float = 0.90) -> str | None:
+    def find_closest_entity(self, vector, threshold: float = 0.90) -> Optional[str]:
         """通过 embedding_vec 进行向量兜底查询"""
         try:
             vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)

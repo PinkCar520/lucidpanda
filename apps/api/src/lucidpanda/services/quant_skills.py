@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import statsmodels.api as sm
 
 
-def _to_float_list(values: Any) -> list[float] | None:
+def _to_float_list(values: Any) -> Optional[List[float]]:
     if values is None:
         return None
     if isinstance(values, (list, tuple)):
-        out: list[float] = []
+        out: List[float] = []
         for v in values:
             try:
                 out.append(float(v))
@@ -24,7 +23,7 @@ def _to_float_list(values: Any) -> list[float] | None:
         return None
 
 
-def compute_expectation_gap(actual: float, forecast: float, historical_std: float) -> float | None:
+def compute_expectation_gap(actual: float, forecast: float, historical_std: float) -> Optional[float]:
     """
     Z-score based expectation surprise: (actual - forecast) / historical_std.
     """
@@ -40,7 +39,7 @@ def factor_peel_alpha(
     gold_returns: Iterable[float],
     dxy_returns: Iterable[float],
     us10y_returns: Iterable[float],
-) -> dict[str, Any]:
+) -> Dict[str, Any]:
     gold = _to_float_list(gold_returns)
     dxy = _to_float_list(dxy_returns)
     us10y = _to_float_list(us10y_returns)
@@ -72,7 +71,7 @@ def calculate_alpha_return(
     gold_returns: Iterable[float],
     dxy_returns: Iterable[float],
     us10y_returns: Iterable[float],
-) -> dict[str, Any]:
+) -> Dict[str, Any]:
     """
     Compute alpha return as regression residual on the latest observation.
     """

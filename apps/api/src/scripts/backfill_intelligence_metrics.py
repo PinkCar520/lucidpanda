@@ -1,5 +1,4 @@
 import argparse
-
 from src.lucidpanda.core.database import IntelligenceDB
 
 

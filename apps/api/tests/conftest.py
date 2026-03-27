@@ -1,11 +1,9 @@
 import os
-
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.lucidpanda.auth.models import Base
 from src.lucidpanda.config import settings
-
 
 @pytest.fixture(scope="session")
 def db_engine():

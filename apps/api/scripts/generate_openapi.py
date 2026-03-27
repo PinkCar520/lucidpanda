@@ -30,14 +30,14 @@ def generate_openapi():
     # 生成 OpenAPI JSON
     openapi_schema = app.openapi()
     output_path = output_dir / "openapi.json"
-
+    
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(openapi_schema, f, ensure_ascii=False, indent=2)
-
+    
     print(f"✅ OpenAPI schema generated: {output_path}")
     print(f"   Endpoints: {len(openapi_schema.get('paths', {}))}")
     print(f"   Schemas: {len(openapi_schema.get('components', {}).get('schemas', {}))}")
-
+    
     # 提示下一步
     print("\n📋 下一步:")
     print("   Web类型生成: npx openapi-typescript docs/api/openapi.json -o web/lib/api-types.ts")

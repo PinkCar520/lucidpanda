@@ -1,23 +1,21 @@
 import asyncio
 from datetime import date
-from typing import Any
-
-from src.lucidpanda.core.logger import logger
+from typing import Optional, List, Dict, Any
 from src.lucidpanda.db.base import DBBase
-
+from src.lucidpanda.core.logger import logger
 
 class FactorService(DBBase):
     """
     负责实体舆情因子的聚合计算 (Factor Indexing)。
     通过对已对齐 canonical_id 的实体进行时序聚合，产出量化因子。
     """
-
+    
     async def update_entity_factor_async(
-        self,
-        canonical_id: str,
-        sentiment_score: float,
+        self, 
+        canonical_id: str, 
+        sentiment_score: float, 
         urgency_score: int = 1,
-        metric_date: date | None = None
+        metric_date: Optional[date] = None
     ) -> None:
         """
         异步更新特定实体的每日情绪聚合指标 (Upsert)。
@@ -35,7 +33,7 @@ class FactorService(DBBase):
         canonical_id: str,
         sentiment_score: float,
         urgency_score: int,
-        metric_date: date | None,
+        metric_date: Optional[date],
     ) -> None:
         if metric_date is None:
             metric_date = date.today()
@@ -74,13 +72,13 @@ class FactorService(DBBase):
         except Exception as e:
             logger.error(f"❌ 更新实体因子失败 ({canonical_id}): {e}")
 
-    async def get_entity_trend_async(self, canonical_id: str, days: int = 7) -> list[dict[str, Any]]:
+    async def get_entity_trend_async(self, canonical_id: str, days: int = 7) -> List[Dict[str, Any]]:
         """
         获取某个实体的历史舆情趋势，并带上实体基本信息。
         """
         return await asyncio.to_thread(self._get_entity_trend_sync, canonical_id, days)
 
-    def _get_entity_trend_sync(self, canonical_id: str, days: int = 7) -> list[dict[str, Any]]:
+    def _get_entity_trend_sync(self, canonical_id: str, days: int = 7) -> List[Dict[str, Any]]:
         try:
             conn = self.get_connection()
             with conn:
@@ -104,13 +102,13 @@ class FactorService(DBBase):
             logger.error(f"❌ 获取实体趋势失败 ({canonical_id}): {e}")
             return []
 
-    async def get_top_hotspots_async(self, days: int = 1, limit: int = 10) -> list[dict[str, Any]]:
+    async def get_top_hotspots_async(self, days: int = 1, limit: int = 10) -> List[Dict[str, Any]]:
         """
         获取指定时间内活跃度最高的 Top N 实体。
         """
         return await asyncio.to_thread(self._get_top_hotspots_sync, days, limit)
 
-    def _get_top_hotspots_sync(self, days: int = 1, limit: int = 10) -> list[dict[str, Any]]:
+    def _get_top_hotspots_sync(self, days: int = 1, limit: int = 10) -> List[Dict[str, Any]]:
         try:
             conn = self.get_connection()
             with conn:

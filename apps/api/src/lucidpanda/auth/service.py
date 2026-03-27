@@ -1,56 +1,38 @@
-import base64
+from datetime import datetime, timedelta, date
+from typing import Optional, Tuple, List, Union
 import hashlib
-import io
-import json
-import os
 import random
-import secrets
 import string
-import uuid
-from datetime import date, datetime, timedelta
-from typing import Any, cast
-
 import pyotp
 import qrcode
+import io
+import base64
+import secrets
+import uuid
+import json
 import redis
-from sqlalchemy import and_, desc, text
+import os
 from sqlalchemy.orm import Session
-from src.lucidpanda.auth.models import (
-    APIKey,
-    APIKeyUsageLog,
-    AuthAuditLog,
-    EmailChangeRequest,
-    InSiteMessage,
-    PasswordResetToken,
-    PhoneVerificationToken,
-    RefreshToken,
-    User,
-    UserNotificationPreference,
-    UserPasskey,
-)
-from src.lucidpanda.auth.security import (
-    create_access_token,
-    create_refresh_token,
-    get_password_hash,
-    verify_password,
-)
+from sqlalchemy import and_, desc, text
+from src.lucidpanda.auth.models import User, RefreshToken, AuthAuditLog, PasswordResetToken, EmailChangeRequest, PhoneVerificationToken, UserNotificationPreference, InSiteMessage, APIKey, APIKeyUsageLog, UserPasskey
+from src.lucidpanda.auth.security import get_password_hash, verify_password, create_access_token, create_refresh_token
 from src.lucidpanda.config import settings
 from src.lucidpanda.utils.email import send_email
 from webauthn import (
-    generate_authentication_options,
     generate_registration_options,
-    options_to_json,
-    verify_authentication_response,
     verify_registration_response,
+    generate_authentication_options,
+    verify_authentication_response,
+    options_to_json,
 )
-from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import (
     AttestationConveyancePreference,
     AuthenticatorSelectionCriteria,
-    PublicKeyCredentialDescriptor,
     UserVerificationRequirement,
+    AuthenticatorAttachment,
+    PublicKeyCredentialDescriptor,
 )
-
+from webauthn.helpers import bytes_to_base64url, base64url_to_bytes
 
 class AuthService:
     def __init__(self, db: Session):
@@ -61,18 +43,18 @@ class AuthService:
         except Exception:
             self.redis = None
 
-    def _to_uuid(self, id_val: str | uuid.UUID) -> uuid.UUID:
+    def _to_uuid(self, id_val: Union[str, uuid.UUID]) -> uuid.UUID:
         if isinstance(id_val, str):
             return uuid.UUID(id_val)
         return id_val
 
-    def get_user_by_email(self, email: str) -> User | None:
+    def get_user_by_email(self, email: str) -> Optional[User]:
         return self.db.query(User).filter(User.email == email).first()
 
-    def get_user_by_username(self, username: str) -> User | None:
+    def get_user_by_username(self, username: str) -> Optional[User]:
         return self.db.query(User).filter(User.username == username).first()
 
-    def get_user_by_identifier(self, identifier: str) -> User | None:
+    def get_user_by_identifier(self, identifier: str) -> Optional[User]:
         if "@" in identifier:
             return self.get_user_by_email(identifier)
         return self.get_user_by_username(identifier)
@@ -119,7 +101,7 @@ class AuthService:
         self.db.refresh(db_user)
         return db_user
 
-    def authenticate_user(self, identifier: str, password: str) -> User | None:
+    def authenticate_user(self, identifier: str, password: str) -> Optional[User]:
         user = self.get_user_by_identifier(identifier)
         if not user:
             return None
@@ -133,14 +115,14 @@ class AuthService:
     def create_session(
         self,
         user_id: str,
-        device_name: str | None = None,
-        ip_address: str | None = None,
-        user_agent: str | None = None
-    ) -> tuple[str, str]:
+        device_name: str = None,
+        ip_address: str = None,
+        user_agent: str = None
+    ) -> Tuple[str, str]:
         user_uuid = self._to_uuid(user_id)
         access_token = create_access_token(user_id)
         refresh_token = create_refresh_token(user_id)
-
+        
         expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         resolved_device_name = device_name or user_agent
         db_refresh_token = RefreshToken(
@@ -162,7 +144,7 @@ class AuthService:
         self.db.commit()
         return access_token, refresh_token
 
-    def refresh_session(self, refresh_token: str, ip_address: str | None = None, user_agent: str | None = None) -> tuple[str, str] | None:
+    def refresh_session(self, refresh_token: str, ip_address: str = None, user_agent: str = None) -> Optional[Tuple[str, str]]:
         token_hash = self._hash_token(refresh_token)
         db_token = self.db.query(RefreshToken).filter(
             and_(
@@ -191,10 +173,10 @@ class AuthService:
 
         new_access_token = create_access_token(user_id)
         new_refresh_token = create_refresh_token(user_id)
-
+        
         db_token.revoked_at = datetime.utcnow()
         db_token.replaced_by_token_hash = self._hash_token(new_refresh_token)
-
+        
         new_expires_at = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         new_db_token = RefreshToken(
             user_id=db_token.user_id,
@@ -216,8 +198,8 @@ class AuthService:
         self,
         user_id: str,
         refresh_token: str,
-        ip_address: str | None = None,
-        user_agent: str | None = None
+        ip_address: str = None,
+        user_agent: str = None
     ) -> bool:
         user_uuid = self._to_uuid(user_id)
         token_hash = self._hash_token(refresh_token)
@@ -232,22 +214,22 @@ class AuthService:
         self.db.commit()
         return True
 
-    def update_user(self, user_id: str,
-                    name: str | None = None,
-                    nickname: str | None = None,
-                    gender: str | None = None,
-                    birthday: date | None = None,
-                    location: str | None = None,
-                    language_preference: str | None = None,
-                    timezone: str | None = None,
-                    theme_preference: str | None = None
-                    ) -> User | None:
-
+    def update_user(self, user_id: str, 
+                    name: Optional[str] = None,
+                    nickname: Optional[str] = None,
+                    gender: Optional[str] = None,
+                    birthday: Optional[date] = None,
+                    location: Optional[str] = None,
+                    language_preference: Optional[str] = None,
+                    timezone: Optional[str] = None,
+                    theme_preference: Optional[str] = None
+                    ) -> Optional[User]:
+        
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user:
             return None
-
+        
         if name is not None: user.name = name
         if nickname is not None: user.nickname = nickname
         if gender is not None: user.gender = gender
@@ -256,13 +238,13 @@ class AuthService:
         if language_preference is not None: user.language_preference = language_preference
         if timezone is not None: user.timezone = timezone
         if theme_preference is not None: user.theme_preference = theme_preference
-
+        
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
         return user
 
-    def update_avatar(self, user_id: str, avatar_url: str) -> User | None:
+    def update_avatar(self, user_id: str, avatar_url: str) -> Optional[User]:
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user:
@@ -273,18 +255,18 @@ class AuthService:
         self.db.refresh(user)
         return user
 
-    def update_username(self, user_id: str, new_username: str) -> tuple[bool, str]:
+    def update_username(self, user_id: str, new_username: str) -> Tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user:
             return False, "User not found"
-
+        
         # Validation (should also be in schema, but good for safety)
         if "@" in new_username or len(new_username) < 3:
             return False, "Invalid username format"
-
+            
         now = datetime.utcnow()
-
+        
         # Check if username is already taken
         existing_user = self.get_user_by_username(new_username)
         if existing_user and existing_user.id != user.id:
@@ -303,33 +285,33 @@ class AuthService:
         self.db.commit()
         return True, "Username updated successfully"
 
-    def change_password(self, user_id: str, current_password: str, new_password: str) -> tuple[bool, str]:
+    def change_password(self, user_id: str, current_password: str, new_password: str) -> Tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user:
             return False, "User not found"
         if not verify_password(current_password, user.hashed_password):
             return False, "Incorrect current password"
-
+        
         user.hashed_password = get_password_hash(new_password)
         self.db.query(RefreshToken).filter(RefreshToken.user_id == user_uuid).update({
             "revoked_at": datetime.utcnow()
         })
         self.db.add(user)
         self.db.commit()
-
+        
         email_body = f"<p>Hello {user.name or user.email},</p><p>Your password was recently changed.</p>"
         send_email(to_email=user.email, subject="LucidPanda Password Changed", body=email_body)
         return True, "Password changed successfully"
 
-    def initiate_email_change(self, user_id: str, current_password: str, new_email: str) -> tuple[bool, str]:
+    def initiate_email_change(self, user_id: str, current_password: str, new_email: str) -> Tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user or not verify_password(current_password, user.hashed_password):
             return False, "Invalid credentials"
         if self.get_user_by_email(new_email):
             return False, "Email already in use"
-
+        
         self.db.query(EmailChangeRequest).filter(EmailChangeRequest.user_id == user_uuid).delete()
         raw_token = secrets.token_urlsafe(32)
         token_hash = self._hash_token(raw_token)
@@ -341,21 +323,21 @@ class AuthService:
         )
         self.db.add(db_request)
         self.db.commit()
-
+        
         verify_link = f"{settings.FRONTEND_BASE_URL}/en/settings/security/verify-email?token={raw_token}"
         send_email(to_email=new_email, subject="Verify your new email address", body=f"<p>Verify: <a href='{verify_link}'>Link</a></p>")
         return True, "Verification email sent"
 
-    def verify_email_change(self, raw_token: str) -> tuple[bool, str]:
+    def verify_email_change(self, raw_token: str) -> Tuple[bool, str]:
         token_hash = self._hash_token(raw_token)
         db_request = self.db.query(EmailChangeRequest).filter(
             and_(EmailChangeRequest.token_hash == token_hash, EmailChangeRequest.expires_at > datetime.utcnow())
         ).first()
         if not db_request: return False, "Invalid or expired token"
-
+        
         user = self.db.query(User).filter(User.id == db_request.user_id).first()
         if not user: return False, "User not found"
-
+        
         user.email = db_request.new_email
         user.is_verified = True
         self.db.add(user)
@@ -363,7 +345,7 @@ class AuthService:
         self.db.commit()
         return True, "Email updated successfully"
 
-    def request_phone_verification(self, user_id: str, phone_number: str, purpose: str = 'BIND_PHONE') -> tuple[bool, str]:
+    def request_phone_verification(self, user_id: str, phone_number: str, purpose: str = 'BIND_PHONE') -> Tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         code = ''.join(random.choices(string.digits, k=6))
         code_hash = self._hash_token(code)
@@ -379,7 +361,7 @@ class AuthService:
         print(f"MOCK SMS to {phone_number}: Your code is {code}")
         return True, "Verification code sent"
 
-    def verify_phone_binding(self, user_id: str, phone_number: str, code: str) -> tuple[bool, str]:
+    def verify_phone_binding(self, user_id: str, phone_number: str, code: str) -> Tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         code_hash = self._hash_token(code)
         db_token = self.db.query(PhoneVerificationToken).filter(
@@ -392,7 +374,7 @@ class AuthService:
             )
         ).first()
         if not db_token: return False, "Invalid or expired code"
-
+        
         db_token.is_used = True
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if user:
@@ -413,24 +395,24 @@ class AuthService:
             return True
         return False
 
-    def setup_2fa(self, user_id: str) -> tuple[str, str]:
+    def setup_2fa(self, user_id: str) -> Tuple[str, str]:
         user_uuid = self._to_uuid(user_id)
         secret = pyotp.random_base32()
         user = self.db.query(User).filter(User.id == user_uuid).first()
         provision_url = pyotp.totp.TOTP(secret).provisioning_uri(name=user.email, issuer_name="LucidPanda")
-
+        
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
         qr.add_data(provision_url)
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
-
+        
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
         qr_base64 = base64.b64encode(buffered.getvalue()).decode()
-
+        
         return secret, f"data:image/png;base64,{qr_base64}"
 
-    def verify_and_enable_2fa(self, user_id: str, secret: str, code: str) -> tuple[bool, str]:
+    def verify_and_enable_2fa(self, user_id: str, secret: str, code: str) -> Tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         if pyotp.TOTP(secret).verify(code):
             user = self.db.query(User).filter(User.id == user_uuid).first()
@@ -470,7 +452,7 @@ class AuthService:
         self.db.refresh(prefs)
         return prefs
 
-    def get_in_site_messages(self, user_id: str, limit: int = 50) -> list[InSiteMessage]:
+    def get_in_site_messages(self, user_id: str, limit: int = 50) -> List[InSiteMessage]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(InSiteMessage).filter(InSiteMessage.recipient_user_id == user_uuid).order_by(desc(InSiteMessage.sent_at)).limit(limit).all()
 
@@ -485,7 +467,7 @@ class AuthService:
             return True
         return False
 
-    def create_in_site_message(self, user_id: str, subject: str, content: str, sender_type: str = 'system', message_type: str = 'notification') -> InSiteMessage:
+    def create_in_site_message(self, user_id: str, subject: str, content: str, sender_type: str = 'system', message_type: str = 'notification'):
         user_uuid = self._to_uuid(user_id)
         msg = InSiteMessage(
             recipient_user_id=user_uuid,
@@ -499,12 +481,12 @@ class AuthService:
         self.db.refresh(msg)
         return msg
 
-    def generate_api_key(self, user_id: str, name: str, permissions: list[str], ip_whitelist: list[str] | None = None, expires_at: datetime | None = None) -> tuple[APIKey, str]:
+    def generate_api_key(self, user_id: str, name: str, permissions: List[str], ip_whitelist: List[str] = None, expires_at: datetime = None) -> Tuple[APIKey, str]:
         user_uuid = self._to_uuid(user_id)
         public_key = secrets.token_hex(16)
         secret = secrets.token_urlsafe(32)
         secret_hash = self._hash_token(secret)
-
+        
         api_key = APIKey(
             user_id=user_uuid,
             name=name,
@@ -519,11 +501,11 @@ class AuthService:
         self.db.refresh(api_key)
         return api_key, secret
 
-    def get_user_api_keys(self, user_id: str) -> list[APIKey]:
+    def get_user_api_keys(self, user_id: str) -> List[APIKey]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(APIKey).filter(APIKey.user_id == user_uuid).order_by(desc(APIKey.created_at)).all()
 
-    def update_api_key(self, user_id: str, key_id: str, **kwargs) -> APIKey | None:
+    def update_api_key(self, user_id: str, key_id: str, **kwargs) -> Optional[APIKey]:
         user_uuid = self._to_uuid(user_id)
         key_uuid = self._to_uuid(key_id)
         key = self.db.query(APIKey).filter(and_(APIKey.id == key_uuid, APIKey.user_id == user_uuid)).first()
@@ -545,7 +527,7 @@ class AuthService:
             return True
         return False
 
-    def log_api_key_usage(self, api_key_id: str, endpoint: str, http_method: str, ip_address: str, status_code: int | None = None, details: dict | None = None) -> None:
+    def log_api_key_usage(self, api_key_id: str, endpoint: str, http_method: str, ip_address: str, status_code: int = None, details: dict = None):
         key_uuid = self._to_uuid(api_key_id)
         log = APIKeyUsageLog(
             api_key_id=key_uuid,
@@ -558,10 +540,10 @@ class AuthService:
         self.db.add(log)
         self.db.commit()
 
-    def get_asset_overview(self, user_id: str) -> dict[str, Any]:
+    def get_asset_overview(self, user_id: str):
         user_uuid = self._to_uuid(user_id)
         watchlist_count = self.db.execute(text("SELECT COUNT(*) FROM fund_watchlist WHERE user_id = :uid"), {"uid": str(user_uuid)}).scalar() or 0
-
+        
         return {
             "total_assets": 125430.50,
             "available_funds": 85200.00,
@@ -572,7 +554,7 @@ class AuthService:
             "watchlist_count": watchlist_count
         }
 
-    def get_active_sessions(self, user_id: str) -> list[RefreshToken]:
+    def get_active_sessions(self, user_id: str) -> List[RefreshToken]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(RefreshToken).filter(
             and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at == None, RefreshToken.expires_at > datetime.utcnow())
@@ -589,7 +571,7 @@ class AuthService:
             return True
         return False
 
-    def revoke_all_sessions(self, user_id: str, exclude_token_hash: str | None = None) -> int:
+    def revoke_all_sessions(self, user_id: str, exclude_token_hash: str = None) -> int:
         user_uuid = self._to_uuid(user_id)
         query = self.db.query(RefreshToken).filter(
             and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at == None, RefreshToken.expires_at > datetime.utcnow())
@@ -607,12 +589,12 @@ class AuthService:
         self.db.commit()
         return len(sessions)
 
-    def log_audit(self, user_id: str, action: str, ip_address: str | None = None, user_agent: str | None = None, details: dict | None = None) -> None:
+    def log_audit(self, user_id: str, action: str, ip_address: str = None, user_agent: str = None, details: dict = None):
         user_uuid = self._to_uuid(user_id) if user_id else None
         log = AuthAuditLog(user_id=user_uuid, action=action, ip_address=ip_address, user_agent=user_agent, details=details)
         self.db.add(log)
 
-    def _evaluate_refresh_risk(self, db_token: RefreshToken, ip_address: str | None = None, user_agent: str | None = None) -> tuple[bool, dict]:
+    def _evaluate_refresh_risk(self, db_token: RefreshToken, ip_address: str = None, user_agent: str = None) -> Tuple[bool, dict]:
         previous_ip = str(db_token.ip_address) if db_token.ip_address else None
         previous_device = None
         if isinstance(db_token.device_info, dict):
@@ -644,11 +626,11 @@ class AuthService:
 
         return False, details
 
-    def get_audit_logs(self, user_id: str, limit: int = 50) -> list[AuthAuditLog]:
+    def get_audit_logs(self, user_id: str, limit: int = 50) -> List[AuthAuditLog]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(AuthAuditLog).filter(AuthAuditLog.user_id == user_uuid).order_by(desc(AuthAuditLog.created_at)).limit(limit).all()
 
-    def generate_password_reset_token(self, email: str) -> str | None:
+    def generate_password_reset_token(self, email: str) -> Optional[str]:
         user = self.get_user_by_email(email)
         if not user: return None
         self.db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
@@ -672,7 +654,7 @@ class AuthService:
 
     # --- WebAuthn (Passkeys) Methods ---
 
-    def generate_registration_options(self, user_id: str) -> dict[str, Any]:
+    def generate_registration_options(self, user_id: str) -> dict:
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user:
@@ -704,17 +686,17 @@ class AuthService:
         if self.redis:
             self.redis.setex(f"webauthn:reg:challenge:{user.id}", 300, bytes_to_base64url(options.challenge))
 
-        return cast(dict[str, Any], json.loads(options_to_json(options)))
+        return json.loads(options_to_json(options))
 
-    def verify_registration_response(self, user_id: str, registration_data: dict, name: str | None = None, ip_address: str | None = None) -> UserPasskey:
+    def verify_registration_response(self, user_id: str, registration_data: dict, name: str = None, ip_address: str = None) -> UserPasskey:
         user_uuid = self._to_uuid(user_id)
         challenge = None
         if self.redis:
             challenge = self.redis.get(f"webauthn:reg:challenge:{user_id}")
             if challenge:
                 self.redis.delete(f"webauthn:reg:challenge:{user_id}")
-
-        if not challenge or not isinstance(challenge, str):
+        
+        if not challenge:
             raise ValueError("Registration challenge not found or expired")
 
         verification = verify_registration_response(
@@ -737,11 +719,11 @@ class AuthService:
         self.db.add(passkey)
         self.db.commit()
         self.db.refresh(passkey)
-
+        
         self.log_audit(user_id, "PASSKEY_REGISTERED", ip_address=ip_address, details={"credential_id": bytes_to_base64url(verification.credential_id)})
         return passkey
 
-    def generate_authentication_options(self) -> dict[str, Any]:
+    def generate_authentication_options(self) -> dict:
         options = generate_authentication_options(
             rp_id=settings.RP_ID,
             user_verification=UserVerificationRequirement.REQUIRED,
@@ -754,18 +736,18 @@ class AuthService:
         if self.redis:
             self.redis.setex(f"webauthn:auth:challenge:{state}", 300, bytes_to_base64url(options.challenge))
 
-        response_data = cast(dict[str, Any], json.loads(options_to_json(options)))
+        response_data = json.loads(options_to_json(options))
         response_data["state"] = state
         return response_data
 
-    def verify_authentication_response(self, auth_data: dict, state: str, ip_address: str | None = None) -> User | None:
+    def verify_authentication_response(self, auth_data: dict, state: str, ip_address: str = None) -> Optional[User]:
         challenge = None
         if self.redis:
             challenge = self.redis.get(f"webauthn:auth:challenge:{state}")
             if challenge:
                 self.redis.delete(f"webauthn:auth:challenge:{state}")
-
-        if not challenge or not isinstance(challenge, str):
+        
+        if not challenge:
             return None
 
         credential_id = auth_data.get("id")
@@ -792,10 +774,10 @@ class AuthService:
         user = self.db.query(User).filter(User.id == passkey.user_id).first()
         if user:
             self.log_audit(str(user.id), "PASSKEY_LOGIN", ip_address=ip_address, details={"credential_id": credential_id})
-
+        
         return user
 
-    def get_user_passkeys(self, user_id: str) -> list[UserPasskey]:
+    def get_user_passkeys(self, user_id: str) -> List[UserPasskey]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(UserPasskey).filter(UserPasskey.user_id == user_uuid).order_by(desc(UserPasskey.created_at)).all()
 

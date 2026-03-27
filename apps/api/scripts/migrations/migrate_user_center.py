@@ -1,13 +1,12 @@
-import os
 import sys
+import os
 
 # Add the project root to sys.path
 sys.path.append(os.getcwd())
 
 from sqlalchemy import create_engine, inspect, text
-from src.lucidpanda.auth.models import Base
 from src.lucidpanda.config import settings
-
+from src.lucidpanda.auth.models import Base
 
 def get_engine():
     print(f"DEBUG: settings.DB_TYPE = {settings.DB_TYPE}")
@@ -18,25 +17,25 @@ def get_engine():
     else:
         db_url = f"postgresql+psycopg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
         log_db_url = f"postgresql+psycopg://{settings.POSTGRES_USER}:***@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
-
+    
     print(f"DEBUG: Connecting to {log_db_url}")
     return create_engine(db_url)
 
 def migrate():
     engine = get_engine()
     inspector = inspect(engine)
-
+    
     print(f"Migrating database: {settings.DB_TYPE}...")
 
     # Create new tables
     print("Creating new tables (if not exist)...")
     Base.metadata.create_all(engine)
-
+    
     with engine.connect() as conn:
         # --- Users Table ---
         if inspector.has_table("users"):
             columns = [c['name'] for c in inspector.get_columns('users')]
-
+            
             # Rename full_name -> name
             if 'full_name' in columns and 'name' not in columns:
                 print("Renaming 'full_name' to 'name' in 'users' table...")
@@ -44,7 +43,7 @@ def migrate():
                     conn.execute(text("ALTER TABLE users RENAME COLUMN full_name TO name"))
                 except Exception as e:
                     print(f"Warning: Could not rename 'full_name' to 'name': {e}")
-
+            
             # Add new columns
             new_user_cols = {
                 'avatar_url': 'VARCHAR(255)',
@@ -60,7 +59,7 @@ def migrate():
                 'two_fa_secret': 'VARCHAR(255)',
                 'is_two_fa_enabled': 'BOOLEAN DEFAULT 0' if settings.DB_TYPE == 'sqlite' else 'BOOLEAN DEFAULT FALSE'
             }
-
+            
             for col, type_ in new_user_cols.items():
                 if col not in columns:
                     print(f"Adding column '{col}' to 'users' table...")

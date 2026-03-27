@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any
 
+
 BULLISH_RELATIONS = {
     "raises_tariff",
     "imposes_tariff",

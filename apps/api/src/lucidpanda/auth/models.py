@@ -1,21 +1,9 @@
-import uuid
-
-from sqlalchemy import (
-    JSON,
-    Boolean,
-    Column,
-    Date,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    Uuid,
-)
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, JSON, Integer, Date, Uuid
 from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
+import uuid
 
 Base = declarative_base()
 
@@ -39,7 +27,7 @@ class User(Base):
     is_phone_verified = Column(Boolean, default=False)
     two_fa_secret = Column(String(255), nullable=True)
     is_two_fa_enabled = Column(Boolean, default=False)
-
+    
     role = Column(String(20), default="user")
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
@@ -59,12 +47,12 @@ class UserPasskey(Base):
 
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-
+    
     # FIDO2 Core Fields
     credential_id = Column(String(512), unique=True, nullable=False, index=True) # Base64URL encoded
     public_key = Column(Text, nullable=False)                                     # Base64URL encoded
     sign_count = Column(Integer, default=0, nullable=False)
-
+    
     # Metadata
     name = Column(String(100), nullable=True)        # e.g., "My MacBook Pro"
     transports = Column(JSON, nullable=True)          # e.g., ["internal", "hybrid"]
@@ -113,7 +101,7 @@ class RefreshToken(Base):
     last_active_at = Column(DateTime(timezone=True), server_default=func.now())
     revoked_at = Column(DateTime(timezone=True))
     replaced_by_token_hash = Column(String(255))
-
+    
     user = relationship("User", back_populates="refresh_tokens")
 
     @property

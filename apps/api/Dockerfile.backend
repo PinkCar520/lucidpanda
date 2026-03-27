@@ -9,13 +9,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml .
-# 创建空目录以满足 setuptools 对 src 结构的默认要求（如果有需要）
-RUN mkdir -p src/lucidpanda && touch src/lucidpanda/__init__.py
+COPY requirements.txt .
 
 # pip cache mount，加速构建但不进镜像
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install .
+    pip install -r requirements.txt
 
 # --------------------
 FROM python:3.11-slim

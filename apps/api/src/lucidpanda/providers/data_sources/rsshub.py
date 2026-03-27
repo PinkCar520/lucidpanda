@@ -6,8 +6,9 @@ LucidPanda RSS Intelligence Source
 
 import asyncio
 import os
+import time
 from datetime import datetime, timezone
-
+import calendar
 import feedparser
 import httpx
 from src.lucidpanda.core.logger import logger
@@ -31,7 +32,7 @@ MACRO_GOLD_FEEDS = [
 # 2. A股政策与快讯 (Category: equity_cn)
 # ──────────────────────────────────────────────────────────────────────
 EQUITY_CN_FEEDS = [
-
+  
 ]
 
 # ──────────────────────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ _NOISE_KEYWORDS = frozenset([
 
 # 黄金宏观桶
 _GOLD_MACRO_KEYWORDS = frozenset([
-    "gold", "xau", "silver", "precious metal", "bullion", "fed ", "fomc",
+    "gold", "xau", "silver", "precious metal", "bullion", "fed ", "fomc", 
     "interest rate", "inflation", "cpi", "pce", "dxy", "treasury", "yield",
     "geopolit", "war", "sanction", "trump", "tariff",
 ])
@@ -83,7 +84,7 @@ _CN_POLICY_KEYWORDS = frozenset([
 # 美股权益桶
 _US_EQUITY_KEYWORDS = frozenset([
     "earnings", "revenue", "guidance", "buyback", "dividend", "acquisition", "merger",
-    "tech", "ai", "semiconductor", "chip", "nvidia", "apple", "microsoft", "tesla",
+    "tech", "ai", "semiconductor", "chip", "nvidia", "apple", "microsoft", "tesla", 
     "google", "amazon", "meta", "fed ", "rate", "unemployment", "gdp",
 ])
 
@@ -129,9 +130,9 @@ class RSSHubSource(BaseDataSource):
             try:
                 import dateparser
                 dt = dateparser.parse(
-                    pub_str,
+                    pub_str, 
                     settings={
-                        'TIMEZONE': tz_context,
+                        'TIMEZONE': tz_context, 
                         'RETURN_AS_TIMEZONE_AWARE': True
                     }
                 )
@@ -139,7 +140,7 @@ class RSSHubSource(BaseDataSource):
                     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             except Exception:
                 pass
-
+        
         # Fallback：解析失败或无时间，兜底使用当前数据摄取的绝对 UTC 时间
         return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -163,17 +164,12 @@ class RSSHubSource(BaseDataSource):
             "filter_skipped": 0,
             "reason": "",
         }
-
+        
         from urllib.parse import urlparse
         host = urlparse(url).hostname or ""
         active_client = ssl_client if "reuters" in host else client
 
-        from tenacity import (
-            retry,
-            retry_if_exception_type,
-            stop_after_attempt,
-            wait_exponential,
-        )
+        from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
         async def _do_request():
             @retry(
@@ -193,7 +189,7 @@ class RSSHubSource(BaseDataSource):
                     status["status"] = "failed"
                     status["reason"] = f"HTTP {resp.status_code}"
                     return [], status
-
+                
                 feed = feedparser.parse(resp.content)
                 if not feed.entries:
                     status["status"] = "ok_empty"
@@ -294,7 +290,7 @@ class RSSHubSource(BaseDataSource):
             f"📈 RSS信源汇总: total={len(source_statuses)} | ok_new={ok_new} | "
             f"ok_empty={ok_empty} | failed={failed}"
         )
-
+        
         if new_items:
             logger.info(f"✅ 分类采集完毕: 总计 {len(new_items)} 条新情报")
         return new_items if new_items else None

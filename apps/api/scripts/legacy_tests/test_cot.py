@@ -1,9 +1,8 @@
-import io
-import zipfile
-
-import pandas as pd
 import requests
-
+import zipfile
+import io
+import pandas as pd
+from datetime import datetime
 
 def test_fetch_cot():
     url = "https://www.cftc.gov/files/dea/history/com_disagg_txt_2025.zip"
@@ -17,11 +16,11 @@ def test_fetch_cot():
         print(f"Extracting {filename}...")
         with z.open(filename) as f:
             df = pd.read_csv(f, low_memory=False)
-
+            
         print(f"Total rows: {len(df)}")
         # Filter for Gold
         gold_df = df[df['Market_and_Exchange_Names'].str.contains('GOLD', na=False, case=False)]
-
+        
         if not gold_df.empty:
             print("Found Gold data!")
             print("Columns:", df.columns.tolist()[:30])
@@ -30,7 +29,7 @@ def test_fetch_cot():
         else:
             print("Gold data NOT found in this file.")
             print("Available codes (first 20):", df['CFTC_Market_Code'].unique()[:20])
-
+            
     except Exception as e:
         print(f"Error: {e}")
 

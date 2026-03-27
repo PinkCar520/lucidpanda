@@ -1,17 +1,17 @@
 import json
-
+from typing import Optional, List, Any
 from google import genai
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.core.ontology import TAXONOMY
 from src.lucidpanda.providers.llm.base import BaseLLM
+from src.lucidpanda.core.ontology import TAXONOMY
 
 # 内容输入上限：RSS摘要的黄金信号在前 800 字内就已完整包含，截断防止 Token 浪费
 CONTENT_MAX_CHARS   = 800   # 单条分析最多输入字符数
 BATCH_CONTENT_CHARS = 400   # 批量分析每条最多输入字符数
 
 class GeminiLLM(BaseLLM):
-    async def analyze_async(self, raw_data, taxonomy: dict | None = None):
+    async def analyze_async(self, raw_data, taxonomy: Optional[dict] = None):
         """异步版本的分析方法"""
         import asyncio
         return await asyncio.to_thread(self.analyze, raw_data, taxonomy)
@@ -20,7 +20,7 @@ class GeminiLLM(BaseLLM):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data, taxonomy: dict | None = None):
+    def analyze(self, raw_data, taxonomy: Optional[dict] = None):
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
@@ -64,32 +64,32 @@ class GeminiLLM(BaseLLM):
             logger.error(f"Gemini JSON 生成失败: {e}")
             raise e
 
-    def analyze_batch(self, news_items, taxonomy: dict | None = None):
+    def analyze_batch(self, news_items, taxonomy: Optional[dict] = None):
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
+            
             config = {
                 "temperature": 0.2,
                 "response_mime_type": "application/json",
             }
-
+            
             prompt = self._get_batch_prompt(news_items, taxonomy)
-
+            
             response = client.models.generate_content(
                 model=settings.GEMINI_MODEL,
                 contents=prompt,
                 config=config
             )
-
+            
             clean_text = response.text.replace("```json", "").replace("```", "").strip()
             results = json.loads(clean_text)
-
+            
             if len(results) != len(news_items):
                 logger.warning(f"批量分析返回数量不匹配: 期望 {len(news_items)}, 实际 {len(results)}")
-
+            
             logger.debug(f"🤖 AI Raw Analysis (Batch): Got {len(results)} results")
             return results
-
+            
         except Exception as e:
             logger.error(f"Gemini 批量分析失败: {e}")
             raise e
@@ -103,7 +103,7 @@ class GeminiLLM(BaseLLM):
             return text
         return text[:max_chars] + "...（已截断）"
 
-    def _get_batch_prompt(self, news_items, taxonomy: dict | None = None):
+    def _get_batch_prompt(self, news_items, taxonomy: Optional[dict] = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         news_list_str = ""
         for i, item in enumerate(news_items, 1):
@@ -182,7 +182,7 @@ relations.relation 合法枚举（仅可选以下值）：
 2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
 """
 
-    def _get_prompt(self, raw_data, taxonomy: dict | None = None):
+    def _get_prompt(self, raw_data, taxonomy: Optional[dict] = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         content = self._truncate_content(raw_data.get('content', ''), CONTENT_MAX_CHARS)
         return f"""

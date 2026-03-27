@@ -1,22 +1,22 @@
-from datetime import datetime, timedelta, timezone
-from typing import Any
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlmodel import Session, select, text
-from src.lucidpanda.auth.dependencies import get_current_user
-from src.lucidpanda.auth.models import User
-from src.lucidpanda.infra.cache import get_cached, set_cached
+from typing import List, Optional, Dict, Any
+from datetime import datetime, timedelta, timezone
 from src.lucidpanda.infra.database.connection import get_session
+from src.lucidpanda.models.fund import FundMetadata, FundMobileSummary
 from src.lucidpanda.models.intelligence import Intelligence, IntelligenceMobileRead
 from src.lucidpanda.models.macro_event import MacroEvent
-from src.lucidpanda.services.market_terminal_service import market_terminal_service
+from src.lucidpanda.auth.dependencies import get_current_user
+from src.lucidpanda.auth.models import User
 from src.lucidpanda.utils import v1_prepare_json
-from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
+from src.lucidpanda.utils.confidence import calc_confidence_score, calc_confidence_level
 from src.lucidpanda.utils.market_calendar import get_market_status
+from src.lucidpanda.services.market_terminal_service import market_terminal_service
+from src.lucidpanda.infra.cache import get_cached, set_cached
 
 router = APIRouter()
 
-@router.get("/intelligence/{item_id}/ai_summary", response_model=dict[str, str])
+@router.get("/intelligence/{item_id}/ai_summary", response_model=Dict[str, str])
 async def get_mobile_intelligence_ai_summary(
     item_id: int,
     db: Session = Depends(get_session)
@@ -28,16 +28,16 @@ async def get_mobile_intelligence_ai_summary(
     result = db.exec(statement).first()
     if not result:
         raise HTTPException(status_code=404, detail="Item not found")
-
+        
     advice_text = "目前没有针对该情报的深度AI分析策略。"
     if isinstance(result.actionable_advice, dict):
         advice_text = result.actionable_advice.get("zh") or result.actionable_advice.get("en") or advice_text
     elif isinstance(result.actionable_advice, str) and result.actionable_advice.strip():
         advice_text = result.actionable_advice
-
+        
     return v1_prepare_json({"ai_summary": advice_text})
 
-@router.get("/dashboard/summary", response_model=dict[str, Any])
+@router.get("/dashboard/summary", response_model=Dict[str, Any])
 async def get_mobile_dashboard_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
@@ -52,7 +52,7 @@ async def get_mobile_dashboard_summary(
         "critical_alerts": [] # List[IntelligenceMobileRead]
     })
 
-@router.get("/intelligence", response_model=list[IntelligenceMobileRead])
+@router.get("/intelligence", response_model=List[IntelligenceMobileRead])
 async def get_mobile_intelligence(
     limit: int = 20,
     db: Session = Depends(get_session)
@@ -128,7 +128,7 @@ async def get_mobile_intelligence(
     return v1_prepare_json(mobile_items)
 
 
-@router.get("/market/snapshot", response_model=dict[str, Any])
+@router.get("/market/snapshot", response_model=Dict[str, Any])
 async def get_mobile_market_snapshot():
     """
     Fetch real-time market snapshot for iOS terminal.
@@ -140,7 +140,7 @@ async def get_mobile_market_snapshot():
     return v1_prepare_json(snapshot)
 
 
-@router.get("/market/pulse", response_model=dict[str, Any])
+@router.get("/market/pulse", response_model=Dict[str, Any])
 async def get_market_pulse(
     db: Session = Depends(get_session),
 ):
@@ -238,7 +238,7 @@ async def get_market_pulse(
     # 构建完整的 24 小时时间序列，处理空缺小时
     trend_map = {row["hour"]: round(float(row["avg_score"]), 3) for row in trend_raw}
     sentiment_trend = []
-
+    
     # 从 24 小时前开始，到当前小时结束
     start_hour = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(minute=0, second=0, microsecond=0)
     for i in range(25):
@@ -254,7 +254,7 @@ async def get_market_pulse(
     # 过滤条件：未来 48 小时，影响等级为 high 或 medium
     now_dt = datetime.now(timezone.utc)
     until_dt = now_dt + timedelta(hours=48)
-
+    
     upcoming_events_raw = db.exec(
         select(MacroEvent)
         .where(MacroEvent.release_date >= now_dt.date())

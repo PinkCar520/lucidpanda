@@ -11,8 +11,8 @@ import sys
 # Ensure `src.*` imports work (apps/api is the parent of `src/`).
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
+from src.lucidpanda.core.logger import logger
 
 
 def main() -> None:

@@ -1,8 +1,7 @@
-import os
 import smtplib
-from email.header import Header
 from email.mime.text import MIMEText
-
+from email.header import Header
+import os
 from dotenv import load_dotenv
 
 # 1. 加载环境变量
@@ -40,19 +39,19 @@ def test_icloud_smtp():
     try:
         print("[*] 正在连接 iCloud 服务器...")
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-
+        
         print("[*] 开启 TLS 加密...")
         server.starttls()
-
+        
         print("[*] 正在尝试登录...")
         server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-
+        
         print("[*] 正在发送邮件...")
         server.sendmail(EMAIL_SENDER, [EMAIL_RECEIVER], msg.as_string())
-
+        
         server.quit()
         print("\n[✅] 恭喜！测试邮件发送成功！请检查你的收件箱。")
-
+        
     except smtplib.SMTPAuthenticationError:
         print("\n[x] 认证失败！")
         print("原因: 用户名或密码错误。")

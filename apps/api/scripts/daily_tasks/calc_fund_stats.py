@@ -1,18 +1,16 @@
 
 import os
 import sys
-from datetime import timedelta
-
-import akshare as ak
 import numpy as np
 import pandas as pd
+import akshare as ak
+from datetime import datetime, timedelta
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.logger import logger
-
 
 class StatsEngine:
     def __init__(self):
@@ -44,10 +42,10 @@ class StatsEngine:
             df['date'] = pd.to_datetime(df['净值日期'])
             df = df.sort_values('date')
             df['nav'] = df['单位净值'].astype(float)
-
+            
             # 2. Basic Returns
             latest_nav = df['nav'].iloc[-1]
-
+            
             def get_return(days):
                 target_date = df['date'].iloc[-1] - timedelta(days=days)
                 start_row = df[df['date'] <= target_date].iloc[-1:]
@@ -64,7 +62,7 @@ class StatsEngine:
             # 3. Risk Metrics (using 1 year of daily returns)
             one_year_ago = df['date'].iloc[-1] - timedelta(days=365)
             df_year = df[df['date'] >= one_year_ago].copy()
-
+            
             if len(df_year) < 10:
                 logger.warning(f"Insufficient history for risk metrics: {fund_code}")
                 return None
@@ -72,12 +70,12 @@ class StatsEngine:
             # Annualized Volatility
             daily_returns = df_year['nav'].pct_change().dropna()
             vol = daily_returns.std() * np.sqrt(250) * 100 # Annualized %
-
+            
             # Sharpe (Assume 2% risk-free rate)
             rf = 0.02
             annual_ret = (ret_1y / 100)
             sharpe = (annual_ret - rf) / (vol / 100) if vol > 0 else 0
-
+            
             # Max Drawdown
             roll_max = df_year['nav'].cummax()
             drawdown = (df_year['nav'] - roll_max) / roll_max
@@ -107,7 +105,7 @@ class StatsEngine:
                 'latest_nav': float(latest_nav),
                 'sparkline': [float(v) for v in spark_norm]
             }
-
+            
             self.db.save_fund_stats(fund_code, stats)
             return stats
 
@@ -119,12 +117,12 @@ class StatsEngine:
         # Fetch all funds in watchlists to prioritize
         codes = self.db.get_watchlist_all_codes()
         logger.info(f"🚀 Starting stats calculation for {len(codes)} funds...")
-
+        
         count = 0
         for code in codes:
             self.calculate_for_fund(code)
             count += 1
-
+            
         logger.info(f"✨ Stats calculation finished for {count} funds.")
 
 if __name__ == "__main__":
