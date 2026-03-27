@@ -98,7 +98,7 @@ jobs:
 
       # pnpm/action-setup MUST come before setup-node when using cache: 'pnpm'
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         # version auto-detected from packageManager field in root package.json
 
       - name: Set up Node.js 22
