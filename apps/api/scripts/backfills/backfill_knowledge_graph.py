@@ -56,8 +56,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def step_a_backfill(db, batch_size:
-    int, dry_run: bool) -> int:
+def step_a_backfill(db, batch_size: int, dry_run: bool) -> int:
     """
     Step A：对已有 entities 的记录，提取关系写入图谱。
     不需要调用任何外部 API，完全从本地数据库读取。
@@ -111,7 +110,7 @@ def step_a_backfill(db, batch_size:
                 continue
             try:
                 # 用已有的 entities 构造一个轻量 analysis_result
-                db.upsert_knowledge_graph(
+                result = db.upsert_knowledge_graph(
                     source_id,
                     {"entities": entities}
                 )
@@ -128,8 +127,7 @@ def step_a_backfill(db, batch_size:
     return success
 
 
-def step_b_backfill(db, llm, batch_size:
-    int, min_urgency: int,
+def step_b_backfill(db, llm, batch_size: int, min_urgency: int,
                     sleep_ms: int, dry_run: bool, auto_yes: bool = False) -> int:
     """
     Step B：对 entities IS NULL 的高价值记录，重新调 LLM 补齐 entities，再写图谱。

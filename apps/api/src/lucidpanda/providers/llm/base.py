@@ -3,8 +3,7 @@ from abc import ABC, abstractmethod
 
 class BaseLLM(ABC):
     @abstractmethod
-    def analyze(self, raw_data:
-        dict, taxonomy: dict | None = None):
+    def analyze(self, raw_data: dict, taxonomy: dict | None = None):
         """同步分析核心接口"""
         pass
 

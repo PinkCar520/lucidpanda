@@ -7,18 +7,15 @@ from src.lucidpanda.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def verify_password(plain_password:
-    str, hashed_password: str) -> bool:
+def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against a hashed one."""
     return pwd_context.verify(plain_password, hashed_password)
 
-def get_password_hash(password:
-    str) -> str:
+def get_password_hash(password: str) -> str:
     """Generate a bcrypt hash of a password."""
     return pwd_context.hash(password)
 
-def create_access_token(subject:
-    str | Any, expires_delta: timedelta | None = None) -> str:
+def create_access_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
     """Create a signed JWT access token."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -29,8 +26,7 @@ def create_access_token(subject:
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-def create_refresh_token(subject:
-    str | Any, expires_delta: timedelta | None = None) -> str:
+def create_refresh_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
     """Create a signed JWT refresh token."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -41,7 +37,6 @@ def create_refresh_token(subject:
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-def decode_token(token:
-    str) -> dict:
+def decode_token(token: str) -> dict:
     """Decode a JWT token and return its payload."""
     return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

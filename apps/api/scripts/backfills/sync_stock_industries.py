@@ -91,8 +91,7 @@ class IndustrySyncer:
         try:
             # logger.info(f"   Fetching members for {industry_code} (L{level})...")
             df = ak.index_component_sw(symbol=industry_code)
-            if df.empty:
-                return
+            if df.empty: return
 
             # Columns: 序号, 证券代码, 证券名称, ...
 
@@ -102,8 +101,7 @@ class IndustrySyncer:
                 stock_name = str(row['证券名称'])
                 updates.append((stock_code, stock_name))
 
-            if not updates:
-                return
+            if not updates: return
 
             with self.conn.cursor() as cursor:
                 # We need to know industry name to verify? No, code is enough.
@@ -115,10 +113,8 @@ class IndustrySyncer:
                 for s_code, s_name in updates:
                     # Determine market
                     market = 'SZ'
-                    if s_code.startswith('6') or s_code.startswith('9'):
-                        market = 'SH'
-                    elif s_code.startswith('8') or s_code.startswith('4'):
-                        market = 'BJ'
+                    if s_code.startswith('6') or s_code.startswith('9'): market = 'SH'
+                    elif s_code.startswith('8') or s_code.startswith('4'): market = 'BJ'
 
                     if level == 1:
                         cursor.execute("""
@@ -159,8 +155,7 @@ class IndustrySyncer:
         for i, code in enumerate(l1_codes):
             self.sync_constituents(code, 1)
             time.sleep(0.3)
-            if (i+1) % 5 == 0:
-                logger.info(f"   Progress L1: {i+1}/{len(l1_codes)}")
+            if (i+1) % 5 == 0: logger.info(f"   Progress L1: {i+1}/{len(l1_codes)}")
 
         # 3. Sync L2
         l2_codes = self.sync_l2_industries()
@@ -170,8 +165,7 @@ class IndustrySyncer:
         for i, code in enumerate(l2_codes):
             self.sync_constituents(code, 2)
             time.sleep(0.3)
-            if (i+1) % 10 == 0:
-                logger.info(f"   Progress L2: {i+1}/{len(l2_codes)}")
+            if (i+1) % 10 == 0: logger.info(f"   Progress L2: {i+1}/{len(l2_codes)}")
 
         logger.info("✅ All Done!")
         self.conn.close()

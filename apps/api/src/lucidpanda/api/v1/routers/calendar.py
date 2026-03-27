@@ -51,8 +51,7 @@ class CalendarResponse(BaseModel):
 
 # ==================== Data Sources (P2) ====================
 
-def _get_user_watchlist_codes(current_user:
-    User, db: Session, limit: int = 50) -> list[str]:
+def _get_user_watchlist_codes(current_user: User, db: Session, limit: int = 50) -> list[str]:
     rows = db.execute(
         text(
             """
@@ -68,13 +67,11 @@ def _get_user_watchlist_codes(current_user:
     return [r[0] for r in rows if r and r[0]]
 
 
-def _date_in_window(d:
-    date, date_from: date, date_to: date) -> bool:
+def _date_in_window(d: date, date_from: date, date_to: date) -> bool:
     return date_from <= d <= date_to
 
 
-def _as_date(value:
-    Any) -> date | None:
+def _as_date(value: Any) -> date | None:
     if value is None:
         return None
     if isinstance(value, date) and not isinstance(value, datetime):
@@ -96,8 +93,7 @@ def _as_date(value:
     return None
 
 
-def _extract_yfinance_calendar_dates(cal_df:
-    Any) -> dict[str, Any]:
+def _extract_yfinance_calendar_dates(cal_df: Any) -> dict[str, Any]:
     """
     yfinance `Ticker.calendar` format is not stable; normalize a few known fields.
     Returns mapping: {"earnings": {"date": date, "period": EventPeriod}, ...}
@@ -129,10 +125,8 @@ def _extract_yfinance_calendar_dates(cal_df:
                         # Try to detect period from timestamp if available
                         if hasattr(value, "hour"):
                             h = value.hour
-                            if h < 12:
-                                period = EventPeriod.PRE_MARKET
-                            elif h >= 16:
-                                period = EventPeriod.AFTER_HOURS
+                            if h < 12: period = EventPeriod.PRE_MARKET
+                            elif h >= 16: period = EventPeriod.AFTER_HOURS
 
                         result[out_key] = {"date": d, "period": period}
     except Exception:
@@ -141,8 +135,7 @@ def _extract_yfinance_calendar_dates(cal_df:
     return result
 
 
-def _fetch_single_symbol_events(sym:
-    str, date_from: date, date_to: date) -> list[CalendarEventSchema]:
+def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> list[CalendarEventSchema]:
     """
     Synchronous per-symbol fetch — runs inside run_in_executor.
     Safe to call from a thread.
@@ -231,8 +224,7 @@ async def _build_yfinance_events(
 
 # ==================== P2-C: akshare A-Share ====================
 
-def _is_a_share(code:
-    str) -> bool:
+def _is_a_share(code: str) -> bool:
     return code.isdigit() and len(code) == 6
 
 
@@ -282,8 +274,7 @@ def _fetch_akshare_dividends(
     return events
 
 
-def _fetch_akshare_ipos(date_from:
-    date, date_to: date) -> list[CalendarEventSchema]:
+def _fetch_akshare_ipos(date_from: date, date_to: date) -> list[CalendarEventSchema]:
     """Fetch upcoming A-share IPO dates. Runs in a thread."""
     try:
         import akshare as ak  # type: ignore
@@ -379,18 +370,13 @@ async def get_calendar_events(
         )
         for m in db.exec(stmt).all():
             desc_parts = [f"[{m.country}]"]
-            if m.previous_value:
-                desc_parts.append(f"前:{m.previous_value}")
-            if m.forecast_value:
-                desc_parts.append(f"预:{m.forecast_value}")
-            if m.actual_value:
-                desc_parts.append(f"今:{m.actual_value}")
+            if m.previous_value: desc_parts.append(f"前:{m.previous_value}")
+            if m.forecast_value: desc_parts.append(f"预:{m.forecast_value}")
+            if m.actual_value:   desc_parts.append(f"今:{m.actual_value}")
 
             # Try to parse string values to floats for macro_details
-            def _try_float(v:
-                str | None) -> float | None:
-                if not v:
-                    return None
+            def _try_float(v: str | None) -> float | None:
+                if not v: return None
                 try:
                     # Clean common symbols like %, $, K, M
                     clean_v = v.replace("%", "").replace("$", "").replace("K", "").replace("M", "").strip()

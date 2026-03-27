@@ -43,18 +43,14 @@ class GoogleNewsSource(BaseDataSource):
     def _get_source_rank(self, source_name):
         """Return (Tier Level, Score Multiplier)"""
         for s in self.SOURCE_TIERS['TIER_1']:
-            if s.lower() in source_name.lower():
-                return (1, 1.5)
+            if s.lower() in source_name.lower(): return (1, 1.5)
         for s in self.SOURCE_TIERS['TIER_2']:
-            if s.lower() in source_name.lower():
-                return (2, 1.0)
+            if s.lower() in source_name.lower(): return (2, 1.0)
         for s in self.SOURCE_TIERS['BLOCKED']:
-            if s.lower() in source_name.lower():
-                return (-1, 0.0)
+            if s.lower() in source_name.lower(): return (-1, 0.0)
         return (3, 0.8)
 
-    def fetch(self, query:
-        str = (
+    def fetch(self, query: str = (
         # 核心黄金价格驱动因子查询（多维度覆盖）
         "(gold price OR XAU OR gold market OR precious metals) OR "
         "(Federal Reserve OR FOMC OR interest rate OR rate cut OR rate hike OR Powell) OR "
@@ -76,23 +72,20 @@ class GoogleNewsSource(BaseDataSource):
 
             # Google News RSS supports 'after:YYYY-MM-DD' and 'before:YYYY-MM-DD'
             def format_date_for_rss(date_str):
-                if not date_str:
-                    return None
+                if not date_str: return None
                 try:
                     # Input is MM/DD/YYYY from historical importer
                     dt = datetime.strptime(date_str, '%m/%d/%Y')
                     return dt.strftime('%Y-%m-%d')
-                except Exception:
+                except:
                     return date_str # Assume already formatted or handled by dateparser
 
             from datetime import datetime
             rss_after = format_date_for_rss(start_date)
             rss_before = format_date_for_rss(end_date)
 
-            if rss_after:
-                search_query += f" after:{rss_after}"
-            if rss_before:
-                search_query += f" before:{rss_before}"
+            if rss_after: search_query += f" after:{rss_after}"
+            if rss_before: search_query += f" before:{rss_before}"
 
             # 2. Encode URL
             encoded_query = urllib.parse.quote(search_query)
@@ -114,8 +107,7 @@ class GoogleNewsSource(BaseDataSource):
                         logger.warning(f"Google News RSS returned status {response.status_code}, attempt {attempt+1}/3")
                 except Exception as e:
                     logger.warning(f"Attempt {attempt+1}/3 failed to fetch Google News RSS: {e}")
-                    if attempt < 2:
-                        time.sleep(2)
+                    if attempt < 2: time.sleep(2)
 
             if not content:
                 logger.error("Failed to fetch Google News RSS after 3 attempts.")
@@ -141,12 +133,10 @@ class GoogleNewsSource(BaseDataSource):
 
                 # --- FILTER 1: Source Quality Check ---
                 tier, multiplier = self._get_source_rank(source_name)
-                if tier == -1:
-                    continue
+                if tier == -1: continue
 
                 # --- FILTER 2: Content Type Check ---
-                if any(x in clean_title for x in self.NOISE_TITLES):
-                    continue
+                if any(x in clean_title for x in self.NOISE_TITLES): continue
 
                 # ID for deduplication
                 news_id = getattr(entry, 'id', link)

@@ -5,8 +5,7 @@ from sqlalchemy import create_engine, text
 
 
 def get_pinyin_shorthand(name):
-    if not name:
-        return ""
+    if not name: return ""
     letters = pinyin(name, style=Style.FIRST_LETTER)
     return "".join([item[0].upper() for item in letters if item[0].isalnum()])
 

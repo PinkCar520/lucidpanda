@@ -99,8 +99,7 @@ class EntityResolver:
     实体解析拦截器：将离散的新闻字符串统一对齐到 Core Entities。
     支持从数据库 (RegistryService) 动态加载。
     """
-    def __init__(self, registry_service:
-        Any | None = None):
+    def __init__(self, registry_service: Any | None = None):
         """
         初始化解析器。
         Args:
@@ -125,8 +124,7 @@ class EntityResolver:
             return self.registry_service.get_entity_mappings()
         return self._local_alias_map
 
-    def resolve_name(self, raw_entity_name:
-        str) -> str | None:
+    def resolve_name(self, raw_entity_name: str) -> str | None:
         """
         基于 raw string 解析出 canonical_id。
         """
@@ -161,8 +159,7 @@ class EntityResolver:
         # 4. 未匹配到
         return None
 
-    def process_ai_entities(self, raw_entities:
-        list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def process_ai_entities(self, raw_entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         处理 AI 产生的 Entities 数组，注入 canonical_id 字段。
         """

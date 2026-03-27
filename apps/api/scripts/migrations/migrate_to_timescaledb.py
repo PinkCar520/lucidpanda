@@ -7,8 +7,8 @@ import psycopg
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, root_dir)
 
-from src.lucidpanda.config import settings  # noqa: E402
-from src.lucidpanda.core.logger import logger  # noqa: E402
+from src.lucidpanda.config import settings
+from src.lucidpanda.core.logger import logger
 
 
 def migrate_to_timescaledb():
@@ -37,7 +37,7 @@ def migrate_to_timescaledb():
 
         # 将 market_indicators 转为时序表
         """
-        SELECT create_hypertable('market_indicators', 'timestamp',
+        SELECT create_hypertable('market_indicators', 'timestamp', 
                                  chunk_time_interval => INTERVAL '1 day',
                                  migrate_data => TRUE,
                                  if_not_exists => TRUE);
@@ -45,7 +45,7 @@ def migrate_to_timescaledb():
 
         # 3. 如果存在 fund_valuation_archive（长线资金估值快照），将其归档为超表
         """
-        SELECT create_hypertable('fund_valuation_archive', 'trade_date',
+        SELECT create_hypertable('fund_valuation_archive', 'trade_date', 
                                  chunk_time_interval => INTERVAL '1 day',
                                  migrate_data => TRUE,
                                  if_not_exists => TRUE);

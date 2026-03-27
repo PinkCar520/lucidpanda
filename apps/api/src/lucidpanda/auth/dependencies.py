@@ -44,10 +44,10 @@ async def get_current_user(
         token_data = TokenPayload(sub=user_id, type=token_type)
     except JWTError as e:
         print(f"[AUTH] JWT Decode Error: {e}")
-        raise credentials_exception from e
+        raise credentials_exception
     except Exception as e:
         print(f"[AUTH] Unexpected Error during decode: {e}")
-        raise credentials_exception from e
+        raise credentials_exception
 
     user = db.query(User).filter(User.id == token_data.sub).first()
     if user is None:

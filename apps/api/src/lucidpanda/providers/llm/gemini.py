@@ -20,8 +20,7 @@ class GeminiLLM(BaseLLM):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data, taxonomy:
-        dict | None = None):
+    def analyze(self, raw_data, taxonomy: dict | None = None):
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
@@ -47,8 +46,7 @@ class GeminiLLM(BaseLLM):
             logger.error(f"Gemini 分析失败: {e}")
             raise e
 
-    def generate_json(self, prompt:
-        str, temperature: float = 0.2):
+    def generate_json(self, prompt: str, temperature: float = 0.2):
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
             config = {
@@ -66,8 +64,7 @@ class GeminiLLM(BaseLLM):
             logger.error(f"Gemini JSON 生成失败: {e}")
             raise e
 
-    def analyze_batch(self, news_items, taxonomy:
-        dict | None = None):
+    def analyze_batch(self, news_items, taxonomy: dict | None = None):
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
@@ -97,8 +94,7 @@ class GeminiLLM(BaseLLM):
             logger.error(f"Gemini 批量分析失败: {e}")
             raise e
 
-    def _truncate_content(self, text:
-        str, max_chars: int) -> str:
+    def _truncate_content(self, text: str, max_chars: int) -> str:
         """截断过长内容，保留最有价值的头部信息。"""
         if not text:
             return ""
@@ -107,8 +103,7 @@ class GeminiLLM(BaseLLM):
             return text
         return text[:max_chars] + "...（已截断）"
 
-    def _get_batch_prompt(self, news_items, taxonomy:
-        dict | None = None):
+    def _get_batch_prompt(self, news_items, taxonomy: dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         news_list_str = ""
         for i, item in enumerate(news_items, 1):
@@ -187,8 +182,7 @@ relations.relation 合法枚举（仅可选以下值）：
 2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
 """
 
-    def _get_prompt(self, raw_data, taxonomy:
-        dict | None = None):
+    def _get_prompt(self, raw_data, taxonomy: dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         content = self._truncate_content(raw_data.get('content', ''), CONTENT_MAX_CHARS)
         return f"""

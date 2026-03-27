@@ -3,9 +3,7 @@ services/registry_service.py — 实体注册与标签动态加载服务
 ======================================================
 管理基于数据库的 Ontology 元数据映射。
 """
-
 import threading
-from typing import Any
 
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.ontology_repo import OntologyRepo
@@ -23,7 +21,7 @@ class RegistryService:
         # 初始加载
         self.refresh_cache()
 
-    def refresh_cache(self) -> None:
+    def refresh_cache(self):
         """从数据库全量同步元数据到内存"""
         logger.info("📡 刷新实体注册表与标签体系缓存...")
 
@@ -31,12 +29,12 @@ class RegistryService:
         raw_entities = self.repo.get_all_entities_with_aliases()
         new_entity_cache = {}
         for row in raw_entities:
-            cid = row["canonical_id"]
+            cid = row['canonical_id']
             # 将 Canonical_ID 本身作为别名（方便 AI 直接输出 ID 时命中）
             new_entity_cache[cid.lower()] = cid
 
             # 加载别名并扁平化
-            aliases = row.get("aliases") or []
+            aliases = row.get('aliases') or []
             for alias in aliases:
                 new_entity_cache[alias.lower()] = cid
 
@@ -47,9 +45,7 @@ class RegistryService:
             self._entity_cache = new_entity_cache
             self._taxonomy_cache = new_taxonomy
 
-        logger.info(
-            f"✅ 本体缓存已更新: {len(self._entity_cache)} 个别名, {len(self._taxonomy_cache)} 个标签维度。"
-        )
+        logger.info(f"✅ 本体缓存已更新: {len(self._entity_cache)} 个别名, {len(self._taxonomy_cache)} 个标签维度。")
 
     def get_entity_mappings(self) -> dict[str, str]:
         """获取全量别名映射表 (小写映射)"""
@@ -61,17 +57,11 @@ class RegistryService:
         with self._lock:
             return self._taxonomy_cache.copy()
 
-    def find_closest_entity(self, vector: Any, threshold: float = 0.90) -> str | None:
+    def find_closest_entity(self, vector, threshold: float = 0.90) -> str | None:
         """代理调用 repo 的向量匹配兜底"""
         return self.repo.find_closest_entity(vector, threshold)
 
-    def add_new_entity_async(
-        self,
-        canonical_id: str,
-        display_name: str,
-        entity_type: str,
-        aliases: list[str] | None = None,
-    ) -> None:
+    def add_new_entity_async(self, canonical_id: str, display_name: str, entity_type: str, aliases: list[str] = None):
         """动态增加实体（并异步刷新缓存）"""
         self.repo.upsert_entity(canonical_id, display_name, entity_type)
         if aliases:

@@ -10,10 +10,8 @@ api_src = os.path.join(root_dir, "apps/api")
 if api_src not in sys.path:
     sys.path.insert(0, api_src)
 
-from src.lucidpanda.config import settings  # noqa: E402
-from src.lucidpanda.providers.data_sources.email_source import (  # noqa: E402
-    EmailDataSource,
-)
+from src.lucidpanda.config import settings
+from src.lucidpanda.providers.data_sources.email_source import EmailDataSource
 
 
 async def main():

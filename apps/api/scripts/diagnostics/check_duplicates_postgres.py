@@ -98,7 +98,7 @@ def check_duplicates():
     # ---------------------------------------------------------
     # EXECUTION
     # ---------------------------------------------------------
-    ids_to_delete = sorted(set(ids_to_delete))
+    ids_to_delete = sorted(list(set(ids_to_delete)))
 
     if ids_to_delete:
         print(f"\n[SUMMARY] Total unique records to delete: {len(ids_to_delete)}")

@@ -24,9 +24,7 @@ def _to_float_list(values: Any) -> list[float] | None:
         return None
 
 
-def compute_expectation_gap(
-    actual: float, forecast: float, historical_std: float
-) -> float | None:
+def compute_expectation_gap(actual: float, forecast: float, historical_std: float) -> float | None:
     """
     Z-score based expectation surprise: (actual - forecast) / historical_std.
     """
@@ -47,9 +45,7 @@ def factor_peel_alpha(
     dxy = _to_float_list(dxy_returns)
     us10y = _to_float_list(us10y_returns)
     if not gold or not dxy or not us10y:
-        return {
-            "error": "gold_returns, dxy_returns, us10y_returns must be numeric arrays"
-        }
+        return {"error": "gold_returns, dxy_returns, us10y_returns must be numeric arrays"}
     if not (len(gold) == len(dxy) == len(us10y)) or len(gold) < 3:
         return {"error": "input arrays must have the same length and >= 3"}
 
@@ -92,3 +88,4 @@ def calculate_alpha_return(
         "beta_us10y": result.get("beta_us10y"),
         "r2": result.get("r2"),
     }
+

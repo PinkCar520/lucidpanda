@@ -4,7 +4,6 @@ db/fund.py — 基金域
 基金自选单、持仓、估值、统计、元数据、对账、归因、关系映射。
 """
 from datetime import datetime
-from typing import Any
 
 from psycopg.types.json import Jsonb
 from src.lucidpanda.core.logger import logger
@@ -16,8 +15,7 @@ class FundRepo(DBBase):
 
     # ── 自选单 ────────────────────────────────────────────────────────────
 
-    def add_to_watchlist(self, fund_code:
-        str, fund_name: str, user_id: str) -> bool:
+    def add_to_watchlist(self, fund_code, fund_name, user_id):
         """Add a fund to the user's watchlist."""
         try:
             with self._get_conn() as conn:
@@ -35,8 +33,7 @@ class FundRepo(DBBase):
             logger.error(f"Add to Watchlist Failed: {e}")
             return False
 
-    def remove_from_watchlist(self, fund_code:
-        str, user_id: str) -> bool:
+    def remove_from_watchlist(self, fund_code, user_id):
         """Remove a fund from the watchlist."""
         try:
             with self._get_conn() as conn:
@@ -51,8 +48,7 @@ class FundRepo(DBBase):
             logger.error(f"Remove from Watchlist Failed: {e}")
             return False
 
-    def get_watchlist(self, user_id:
-        str) -> list[dict[str, Any]]:
+    def get_watchlist(self, user_id):
         """Get all funds in the user's watchlist."""
         try:
             with self._get_conn() as conn:
@@ -69,7 +65,7 @@ class FundRepo(DBBase):
             logger.error(f"Get Watchlist Failed: {e}")
             return []
 
-    def get_watchlist_all_codes(self) -> list[str]:
+    def get_watchlist_all_codes(self):
         """Internal helper to get all unique codes across all users."""
         try:
             with self._get_conn() as conn:
@@ -83,8 +79,7 @@ class FundRepo(DBBase):
 
     # ── 持仓 ──────────────────────────────────────────────────────────────
 
-    def save_fund_holdings(self, fund_code:
-        str, holdings: list[dict[str, Any]]) -> None:
+    def save_fund_holdings(self, fund_code, holdings):
         """Save fund holdings to DB."""
         try:
             with self._get_conn() as conn:
@@ -100,8 +95,7 @@ class FundRepo(DBBase):
         except Exception as e:
             logger.error(f"Save Fund Holdings Failed: {e}")
 
-    def get_fund_holdings(self, fund_code:
-        str) -> list[dict[str, Any]]:
+    def get_fund_holdings(self, fund_code):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -114,8 +108,7 @@ class FundRepo(DBBase):
 
     # ── 估值 ──────────────────────────────────────────────────────────────
 
-    def save_fund_valuation(self, fund_code:
-        str, growth: float, details: dict[str, Any]) -> None:
+    def save_fund_valuation(self, fund_code, growth, details):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -127,8 +120,7 @@ class FundRepo(DBBase):
         except Exception as e:
             logger.error(f"Save Fund Valuation Failed: {e}")
 
-    def get_latest_valuation(self, fund_code:
-        str) -> dict[str, Any] | None:
+    def get_latest_valuation(self, fund_code):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -143,14 +135,7 @@ class FundRepo(DBBase):
             logger.error(f"Get Latest Valuation Failed: {e}")
             return None
 
-    def save_valuation_snapshot(
-        self,
-        trade_date: str | datetime,
-        fund_code: str,
-        est_growth: float,
-        components_json: list[dict[str, Any]],
-        sector_json: dict[str, Any] | None = None,
-    ) -> None:
+    def save_valuation_snapshot(self, trade_date, fund_code, est_growth, components_json, sector_json=None):
         """Save the 15:00 frozen snapshot of a fund valuation."""
         try:
             with self._get_conn() as conn:
@@ -169,8 +154,7 @@ class FundRepo(DBBase):
         except Exception as e:
             logger.error(f"Save Valuation Snapshot Failed: {e}")
 
-    def update_official_nav(self, trade_date:
-        str | datetime, fund_code: str, official_growth: float) -> None:
+    def update_official_nav(self, trade_date, fund_code, official_growth):
         """Reconcile official growth, calculate deviations and status."""
         try:
             with self._get_conn() as conn:
@@ -188,12 +172,9 @@ class FundRepo(DBBase):
                         dev = est - off
                         abs_dev = abs(dev)
                         status = 'S'
-                        if abs_dev >= 1.0:
-                            status = 'C'
-                        elif abs_dev >= 0.5:
-                            status = 'B'
-                        elif abs_dev >= 0.2:
-                            status = 'A'
+                        if abs_dev >= 1.0:   status = 'C'
+                        elif abs_dev >= 0.5: status = 'B'
+                        elif abs_dev >= 0.2: status = 'A'
                         cursor.execute("""
                             UPDATE fund_valuation_archive
                             SET deviation = %s, abs_deviation = %s, tracking_status = %s
@@ -203,8 +184,7 @@ class FundRepo(DBBase):
         except Exception as e:
             logger.error(f"Update Official NAV Failed: {e}")
 
-    def get_valuation_history(self, fund_code:
-        str, limit: int = 30) -> list[dict[str, Any]]:
+    def get_valuation_history(self, fund_code, limit=30):
         """Fetch historical valuation performance for UI charts."""
         try:
             with self._get_conn() as conn:
@@ -222,8 +202,7 @@ class FundRepo(DBBase):
             logger.error(f"Get Valuation History Failed: {e}")
             return []
 
-    def get_recent_bias(self, fund_code:
-        str, days: int = 7) -> float:
+    def get_recent_bias(self, fund_code, days=7):
         """Calculate average deviation for dynamic calibration offset."""
         try:
             with self._get_conn() as conn:
@@ -241,8 +220,7 @@ class FundRepo(DBBase):
 
     # ── 统计 & 对账 ───────────────────────────────────────────────────────
 
-    def save_fund_stats(self, fund_code:
-        str, stats: dict[str, Any]) -> bool:
+    def save_fund_stats(self, fund_code, stats):
         """Save calculated fund statistics and grades."""
         try:
             with self._get_conn() as conn:
@@ -279,11 +257,9 @@ class FundRepo(DBBase):
             logger.error(f"Save Fund Stats Failed for {fund_code}: {e}")
             return False
 
-    def get_fund_stats(self, fund_codes:
-        list[str]) -> dict[str, dict[str, Any]]:
+    def get_fund_stats(self, fund_codes):
         """Batch fetch fund statistics."""
-        if not fund_codes:
-            return {}
+        if not fund_codes: return {}
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -294,8 +270,7 @@ class FundRepo(DBBase):
             logger.error(f"Get Fund Stats Failed: {e}")
             return {}
 
-    def get_health_score(self, days:
-        int = 3) -> dict[str, Any]:
+    def get_health_score(self, days=3):
         """Calculate a composite health score (0-100) for recent data quality."""
         try:
             with self._get_conn() as conn:
@@ -319,9 +294,9 @@ class FundRepo(DBBase):
                         AND official_growth IS NOT NULL
                     """, (days,))
                     row = cursor.fetchone()
-                    mae = float(row['mae']) if row and row['mae'] is not None else 0.0
+                    mae = float(row['mae']) if row and row['mae'] is not None else 0
                     # 0 MAE = 100 score, 1.0 MAE = 0 score (roughly)
-                    accuracy_score = max(0.0, 100.0 - (mae * 100.0))
+                    accuracy_score = max(0, 100 - (mae * 100))
 
                     # 3. Anomalies (Grade C count) - Weight 20
                     cursor.execute("""
@@ -333,24 +308,23 @@ class FundRepo(DBBase):
                     row = cursor.fetchone()
                     c_cases = row['cases'] if row and row['cases'] else 0
                     # 0 cases = 100 score, each case deducts 10 points
-                    anomaly_score = max(0.0, 100.0 - (float(c_cases) * 10.0))
+                    anomaly_score = max(0, 100 - (c_cases * 10))
 
-                    composite = (float(coverage_score) * 0.5) + (float(accuracy_score) * 0.3) + (float(anomaly_score) * 0.2)
+                    composite = (coverage_score * 0.5) + (accuracy_score * 0.3) + (anomaly_score * 0.2)
                     return {
-                        "score": round(float(composite), 1),  # type: ignore
+                        "score": round(composite, 1),
                         "components": {
-                            "coverage": round(float(coverage_score), 1),  # type: ignore
-                            "accuracy": round(float(accuracy_score), 1),  # type: ignore
-                            "anomaly": round(float(anomaly_score), 1)  # type: ignore
+                            "coverage": round(coverage_score, 1),
+                            "accuracy": round(accuracy_score, 1),
+                            "anomaly": round(anomaly_score, 1)
                         },
-                        "mae": round(float(mae), 4)  # type: ignore
+                        "mae": round(mae, 4)
                     }
         except Exception as e:
             logger.error(f"Health score calc failed: {e}")
-            return {"score": 0.0, "error": str(e), "components": {}, "mae": 0.0}
+            return {"score": 0, "error": str(e)}
 
-    def get_reconciliation_stats(self, days:
-        int = 14) -> dict[str, Any]:
+    def get_reconciliation_stats(self, days=14):
         """Fetch aggregate stats for the monitoring dashboard."""
         try:
             with self._get_conn() as conn:
@@ -367,8 +341,8 @@ class FundRepo(DBBase):
 
                     # Fix: Ensure dates are stringified for JSON serialization
                     for d in daily_stats:
-                        if hasattr(d.get('trade_date'), 'isoformat'):
-                            d['trade_date'] = d['trade_date'].isoformat()  # type: ignore
+                        if hasattr(d['trade_date'], 'isoformat'):
+                            d['trade_date'] = d['trade_date'].isoformat()
 
                     cursor.execute("""
                         SELECT fund_code, trade_date, frozen_est_growth, official_growth,
@@ -380,8 +354,8 @@ class FundRepo(DBBase):
                     """)
                     anomalies = [dict(row) for row in cursor.fetchall()]
                     for a in anomalies:
-                        if hasattr(a.get('trade_date'), 'isoformat'):
-                            a['trade_date'] = a['trade_date'].isoformat()  # type: ignore
+                        if hasattr(a['trade_date'], 'isoformat'):
+                            a['trade_date'] = a['trade_date'].isoformat()
 
                     # Calculate health score for the Hero section (last 3 days)
                     health = self.get_health_score(days=3)
@@ -396,10 +370,8 @@ class FundRepo(DBBase):
             logger.error(f"Failed to fetch reconciliation stats: {e}")
             return {"daily": [], "anomalies": [], "error": str(e)}
 
-    def get_heatmap_stats(self, days:
-        int = 10) -> list[dict[str, Any]]:
+    def get_heatmap_stats(self, days=10):
         """Fetch MAE grouped by category and date for heatmap visualization."""
-        conn = None
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
@@ -417,15 +389,11 @@ class FundRepo(DBBase):
             logger.error(f"Heatmap stats failed: {e}")
             return []
         finally:
-            if conn:
-                conn.close()
+            conn.close()
 
-    def delete_valuation_records_by_dates(self, dates:
-        list[str | datetime]) -> int:
+    def delete_valuation_records_by_dates(self, dates: list):
         """Physically remove records for specific dates that have no official growth data."""
-        if not dates:
-            return 0
-        conn = None
+        if not dates: return 0
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
@@ -435,24 +403,20 @@ class FundRepo(DBBase):
                 """, (dates,))
                 count = cursor.rowcount
                 conn.commit()
-                return int(count)
+                return count
         except Exception as e:
             logger.error(f"Failed to delete records for dates {dates}: {e}")
             return 0
         finally:
-            if conn:
-                conn.close()
+            conn.close()
 
     # ── 元数据 ────────────────────────────────────────────────────────────
 
-    def get_fund_metadata_batch(self, fund_codes:
-        list[str]) -> dict[str, dict[str, Any]]:
+    def get_fund_metadata_batch(self, fund_codes: list):
         """Fetch multiple fund metadata (name, type, fee rates) in one query."""
-        if not fund_codes:
-            return {}
-        conn = None
+        if not fund_codes: return {}
+        conn = self.get_connection()
         try:
-            conn = self.get_connection()
             with conn.cursor() as cursor:
                 cursor.execute("""
                     SELECT m.fund_code, m.fund_name, m.investment_type,
@@ -465,38 +429,26 @@ class FundRepo(DBBase):
                 rows = cursor.fetchall()
                 return {r['fund_code']: {'name': r['fund_name'], 'type': r['investment_type'], 'mgmt_fee_rate': r['mgmt_fee_rate'],
                                 'custodian_fee_rate': r['custodian_fee_rate'], 'sales_fee_rate': r['sales_fee_rate']} for r in rows}
-        except Exception as e:
-            logger.error(f"Get Fund Metadata Batch Failed: {e}")
-            return {}
         finally:
-            if conn:
-                conn.close()
+            conn.close()
 
-    def get_fund_names(self, fund_codes:
-        list[str]) -> dict[str, str]:
+    def get_fund_names(self, fund_codes: list):
         """Fetch multiple fund names from metadata in one query."""
-        if not fund_codes:
-            return {}
-        conn = None
+        if not fund_codes: return {}
+        conn = self.get_connection()
         try:
-            conn = self.get_connection()
             with conn.cursor() as cursor:
                 cursor.execute(
                     "SELECT fund_code, fund_name FROM fund_metadata WHERE fund_code = ANY(%s)",
                     (fund_codes,)
                 )
                 return {r['fund_code']: r['fund_name'] for r in cursor.fetchall()}
-        except Exception as e:
-            logger.error(f"Get Fund Names Failed: {e}")
-            return {}
         finally:
-            if conn:
-                conn.close()
+            conn.close()
 
-    def search_funds_metadata(self, query:
-        str, limit: int = 20) -> list[dict[str, Any]]:
+    def search_funds_metadata(self, query, limit=20):
         """Search funds and stocks in local metadata tables (Cross-Asset Pinyin Fuzzy Search).
-
+        
         Priority layers:
           1 - Exact code prefix match
           2 - Pinyin shorthand (first-letter abbreviation) prefix match
@@ -517,9 +469,9 @@ class FundRepo(DBBase):
                             FROM fund_metadata m
                             LEFT JOIN fund_companies c ON m.company_id = c.company_id
                             WHERE m.fund_code LIKE %s
-
+                    
                             UNION ALL
-
+                    
                             SELECT s.stock_code as code, s.stock_name as name, s.market as type,
                                    s.industry_l1_name as company, 1 as priority
                             FROM stock_metadata s
@@ -532,9 +484,9 @@ class FundRepo(DBBase):
                             FROM fund_metadata m
                             LEFT JOIN fund_companies c ON m.company_id = c.company_id
                             WHERE m.pinyin_shorthand LIKE %s AND m.fund_code NOT LIKE %s
-
+                    
                             UNION ALL
-
+                    
                             SELECT s.stock_code as code, s.stock_name as name, s.market as type,
                                    s.industry_l1_name as company, 2 as priority
                             FROM stock_metadata s
@@ -548,9 +500,9 @@ class FundRepo(DBBase):
                             LEFT JOIN fund_companies c ON m.company_id = c.company_id
                             WHERE m.pinyin_full LIKE %s
                             AND m.fund_code NOT LIKE %s AND m.pinyin_shorthand NOT LIKE %s
-
+                    
                             UNION ALL
-
+                    
                             SELECT s.stock_code as code, s.stock_name as name, s.market as type,
                                    s.industry_l1_name as company, 3 as priority
                             FROM stock_metadata s
@@ -566,9 +518,9 @@ class FundRepo(DBBase):
                             WHERE m.fund_name LIKE %s
                             AND m.fund_code NOT LIKE %s AND m.pinyin_shorthand NOT LIKE %s
                             AND (m.pinyin_full IS NULL OR m.pinyin_full NOT LIKE %s)
-
+                    
                             UNION ALL
-
+                    
                             SELECT s.stock_code as code, s.stock_name as name, s.market as type,
                                    s.industry_l1_name as company, 4 as priority
                             FROM stock_metadata s
@@ -599,10 +551,8 @@ class FundRepo(DBBase):
 
     # ── 追踪 ──────────────────────────────────────────────────────────────
 
-    def get_recent_tracking_statuses(self, fund_code:
-        str, limit: int = 3) -> list[dict[str, Any]]:
+    def get_recent_tracking_statuses(self, fund_code, limit=3):
         """Fetch the last N tracking statuses for rebalance detection."""
-        conn = None
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
@@ -617,13 +567,10 @@ class FundRepo(DBBase):
             logger.error(f"Failed to fetch recent statuses for {fund_code}: {e}")
             return []
         finally:
-            if conn:
-                conn.close()
+            conn.close()
 
-    def get_fund_performance_metrics(self, fund_code:
-        str, days: int = 5) -> dict[str, Any]:
+    def get_fund_performance_metrics(self, fund_code, days=5):
         """Fetch average absolute deviation and sample count for the last N days."""
-        conn = None
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
@@ -641,13 +588,11 @@ class FundRepo(DBBase):
             logger.error(f"Failed to fetch performance metrics: {e}")
             return {'avg_mae': None, 'sample_count': 0}
         finally:
-            if conn:
-                conn.close()
+            conn.close()
 
     # ── 关系映射 ──────────────────────────────────────────────────────────
 
-    def get_fund_relationship(self, sub_code:
-        str) -> dict[str, Any] | None:
+    def get_fund_relationship(self, sub_code):
         """Retrieve the parent/shadow mapping for a fund."""
         try:
             with self._get_conn() as conn:
@@ -659,8 +604,7 @@ class FundRepo(DBBase):
             logger.error(f"Get Fund Relationship Failed: {e}")
             return None
 
-    def save_fund_relationship(self, sub_code:
-        str, parent_code: str, rel_type: str = "ETF_FEEDER", ratio: float = 0.95) -> bool:
+    def save_fund_relationship(self, sub_code, parent_code, rel_type="ETF_FEEDER", ratio=0.95):
         """Save or update a fund relationship mapping."""
         try:
             with self._get_conn() as conn:

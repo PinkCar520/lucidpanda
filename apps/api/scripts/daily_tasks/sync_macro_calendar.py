@@ -21,8 +21,7 @@ def _clean_str(val):
     res = str(val).strip()
     return None if res in ["nan", "None", "", "-"] else res
 
-def sync_macro_calendar(days_ahead:
-    int = 14):
+def sync_macro_calendar(days_ahead: int = 14):
     logger.info(f"Starting Macro Calendar Sync: scanning {days_ahead} days ahead.")
 
     today = datetime.now().date()

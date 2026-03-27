@@ -1,6 +1,5 @@
 import re
 from datetime import datetime
-from typing import Any
 
 import akshare as ak
 import requests
@@ -14,12 +13,12 @@ class MarketService:
     Handles international/domestic gold price parity and exchange rates.
     """
 
-    def __init__(self) -> None:
+    def __init__(self):
         # In-memory cache for indicators to prevent rate limiting
-        self._cache: dict[str, Any] = {}
-        self._cache_ttl: int = 60  # 1 minute
+        self._cache = {}
+        self._cache_ttl = 60 # 1 minute
 
-    def get_gold_indicators(self) -> dict[str, Any] | None:
+    def get_gold_indicators(self):
         """
         Calculate Gold Spread (CNY/g) between Domestic (AU9999) and Intl (COMEX).
         Refactored from Next.js Node.js implementation.
@@ -55,7 +54,7 @@ class MarketService:
                 "spread": round(spread, 2),
                 "spread_pct": round(spread_pct, 2),
                 "fx_rate": round(fx_rate, 4),
-                "last_updated": format_iso8601(datetime.now()),
+                "last_updated": format_iso8601(datetime.now())
             }
 
             self._cache["gold_indicators"] = {"data": data, "timestamp": now}
@@ -65,7 +64,7 @@ class MarketService:
             logger.error(f"Failed to calculate gold indicators: {e}")
             return None
 
-    def _fetch_domestic_spot(self) -> float | None:
+    def _fetch_domestic_spot(self):
         """Fetch AU9999 from Sina."""
         try:
             url = "https://hq.sinajs.cn/list=gds_AU9999"
@@ -73,13 +72,13 @@ class MarketService:
             res = requests.get(url, headers=headers, timeout=5)
             match = re.search(r'"(.*)"', res.text)
             if match:
-                parts = match.group(1).split(",")
+                parts = match.group(1).split(',')
                 return float(parts[1])
         except Exception:
             pass
         return None
 
-    def _fetch_fx_rate(self) -> float:
+    def _fetch_fx_rate(self):
         """Fetch USD/CNH from Sina."""
         try:
             url = "https://hq.sinajs.cn/list=fx_susdcnh"
@@ -87,22 +86,21 @@ class MarketService:
             res = requests.get(url, headers=headers, timeout=5)
             match = re.search(r'"(.*)"', res.text)
             if match:
-                parts = match.group(1).split(",")
-                return float(parts[1])  # parts[1] is the current price
+                parts = match.group(1).split(',')
+                return float(parts[1]) # parts[1] is the current price
         except Exception:
             pass
-        return 7.2  # Safety fallback
+        return 7.2 # Safety fallback
 
-    def _fetch_intl_gold_price(self) -> float | None:
+    def _fetch_intl_gold_price(self):
         """Fetch COMEX Gold price via AkShare."""
         try:
             # Get latest quote
             df = ak.futures_global_hist_em(symbol="GC00Y")
             if not df.empty:
-                return float(df.iloc[-1]["最新价"])
+                return float(df.iloc[-1]['最新价'])
         except Exception:
             pass
         return None
-
 
 market_service = MarketService()

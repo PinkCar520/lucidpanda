@@ -92,8 +92,7 @@ class LLMConfigManager:
         }
 
     @staticmethod
-    def get_active_llm(provider_name:
-        str) -> LLMProviderConfig:
+    def get_active_llm(provider_name: str) -> LLMProviderConfig:
         """获取指定 LLM 提供商配置"""
         providers = LLMConfigManager.get_llm_providers()
         if provider_name not in providers:
@@ -101,8 +100,7 @@ class LLMConfigManager:
         return providers[provider_name]
 
     @staticmethod
-    def get_active_embedding(provider_name:
-        str) -> EmbeddingProviderConfig:
+    def get_active_embedding(provider_name: str) -> EmbeddingProviderConfig:
         """获取指定 Embedding 提供商配置"""
         providers = LLMConfigManager.get_embedding_providers()
         if provider_name not in providers:

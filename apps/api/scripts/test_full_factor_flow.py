@@ -15,9 +15,9 @@ ai_env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env.ai"
 load_dotenv(env_path)
 load_dotenv(ai_env_path, override=True)
 
-from src.lucidpanda.config import settings  # noqa: E402
-from src.lucidpanda.core.engine import AlphaEngine  # noqa: E402
-from src.lucidpanda.db.base import close_global_pool  # noqa: E402
+from src.lucidpanda.config import settings
+from src.lucidpanda.core.engine import AlphaEngine
+from src.lucidpanda.db.base import close_global_pool
 
 # 强制本地数据库与开启所有组件 (已在 docker-compose 中暴露 6379)
 # 使用默认配置 (由环境变量从 Docker Compose 注入)

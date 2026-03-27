@@ -7,9 +7,9 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.config import settings  # noqa: E402
-from src.lucidpanda.core.engine import AlphaEngine  # noqa: E402
-from src.lucidpanda.core.logger import logger  # noqa: E402
+from src.lucidpanda.config import settings
+from src.lucidpanda.core.engine import AlphaEngine
+from src.lucidpanda.core.logger import logger
 
 
 async def main_loop():
@@ -55,8 +55,8 @@ async def main_loop():
             try:
                 if pubsub:
                     await pubsub.close()
-            except Exception as e:
-                logger.debug(f"关闭 Redis pubsub 异常: {e}")
+            except:
+                pass
             pubsub = None
             redis_client = None
 

@@ -91,9 +91,9 @@ class DatabaseSettings(BaseModel):
 class Settings(BaseSettings):
     """
     统一配置类
-
+    
     所有配置从环境变量加载，提供类型安全和自动验证。
-
+    
     Example:
         settings = Settings()
         print(settings.AI_PROVIDER)  # qwen

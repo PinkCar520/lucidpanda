@@ -18,13 +18,13 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.config import settings  # noqa: E402
-from src.lucidpanda.core.database import IntelligenceDB  # noqa: E402
-from src.lucidpanda.core.logger import logger  # noqa: E402
+from src.lucidpanda.config import settings
+from src.lucidpanda.core.database import IntelligenceDB
+from src.lucidpanda.core.logger import logger
 
 # 引入 TaskIQ broker
-from src.lucidpanda.core.taskiq_broker import broker  # noqa: E402
-from src.lucidpanda.providers.data_sources.rsshub import (  # noqa: E402
+from src.lucidpanda.core.taskiq_broker import broker
+from src.lucidpanda.providers.data_sources.rsshub import (
     TIER1_FEEDS_CONFIG,
     RSSHubSource,
 )
@@ -57,12 +57,10 @@ MIN_INTERVAL = 30
 MAX_INTERVAL = 1800
 EMPTY_THRESHOLD = 10
 
-def _get_redis_key(feed_name:
-    str) -> str:
+def _get_redis_key(feed_name: str) -> str:
     return f"lucidpanda:feed_state:{feed_name}"
 
-def _get_feed_state(feed_name:
-    str) -> dict[str, Any]:
+def _get_feed_state(feed_name: str) -> dict[str, Any]:
     r = redis.from_url(settings.REDIS_URL, decode_responses=True)
     key = _get_redis_key(feed_name)
     state = r.hgetall(key)
@@ -84,8 +82,7 @@ def _get_feed_state(feed_name:
     state['total_new_items'] = int(state.get('total_new_items', 0))
     return state
 
-def _update_feed_state(feed_name:
-    str, state: dict[str, Any], new_items: int):
+def _update_feed_state(feed_name: str, state: dict[str, Any], new_items: int):
     r = redis.from_url(settings.REDIS_URL, decode_responses=True)
     key = _get_redis_key(feed_name)
     now = datetime.utcnow().isoformat()
@@ -126,8 +123,7 @@ def _update_feed_state(feed_name:
     })
     r.expire(key, 86400 * 7)
 
-def _should_fetch(feed_name:
-    str) -> tuple[bool, int]:
+def _should_fetch(feed_name: str) -> tuple[bool, int]:
     state = _get_feed_state(feed_name)
     last_fetch = state.get('last_fetch_at', '')
     current_interval = state['current_interval']
@@ -172,7 +168,7 @@ async def fetch_single_feed_task(feed_name: str, feed_url: str, category: str) -
             # 原生的 await，快如闪电！
             items, _ = await source._fetch_feed_async(client, ssl_client, config)
 
-        len(items) if items else 0
+        new_count = len(items) if items else 0
         state = _get_feed_state(feed_name)
 
         saved = 0

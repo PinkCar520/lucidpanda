@@ -4,7 +4,6 @@ db/market.py — 市场数据域
 市场快照、交易时段、技术指标、外汇汇率。
 """
 from datetime import datetime
-from typing import Any
 
 import akshare as ak
 import pytz
@@ -17,8 +16,7 @@ from src.lucidpanda.db.base import DBBase
 
 class MarketRepo(DBBase):
 
-    def get_market_session(self, dt:
-        datetime | None = None) -> str:
+    def get_market_session(self, dt=None) -> str:
         """
         Determine market session from UTC timestamp.
         ASIA: 00-08, LONDON: 08-15, NEWYORK: 15-22, LATE_NY: 22-24
@@ -30,16 +28,12 @@ class MarketRepo(DBBase):
         else:
             dt = dt.astimezone(pytz.utc)
         hour = dt.hour
-        if 0 <= hour < 8:
-            return "ASIA"
-        if 8 <= hour < 15:
-            return "LONDON"
-        if 15 <= hour < 22:
-            return "NEWYORK"
+        if 0 <= hour < 8:   return "ASIA"
+        if 8 <= hour < 15:  return "LONDON"
+        if 15 <= hour < 22: return "NEWYORK"
         return "LATE_NY"
 
-    def get_advanced_metrics(self, dt:
-        datetime, content: str) -> tuple[int, float]:
+    def get_advanced_metrics(self, dt, content):
         """
         Calculate Scenario A (Clustering) and Scenario B (Exhaustion).
         Returns (clustering_score: int, exhaustion_score: float)
@@ -60,11 +54,10 @@ class MarketRepo(DBBase):
                     """, (dt, dt))
                     exhaustion_score = float(cursor.fetchone()['exhaustion_count'])
             return clustering_score, exhaustion_score
-        except Exception:
+        except:
             return 0, 0.0
 
-    def get_market_snapshot(self, ticker_symbol:
-        str, target_time: datetime) -> float | None:
+    def get_market_snapshot(self, ticker_symbol, target_time):
         """
         Unified snapshot fetcher for international gold (USD/oz) and macro indices.
         统一使用美元/盎司计价，确保触发价与结果价量级一致。
@@ -78,7 +71,7 @@ class MarketRepo(DBBase):
             cached_val = r.get(cache_key)
             if cached_val is not None:
                 # logger.debug(f"🎯 Market Cache Hit: {ticker_symbol} = {cached_val}")
-                return float(cached_val)  # type: ignore
+                return float(cached_val)
         except Exception as e:
             logger.warning(f"⚠️ Redis Cache Access Failed: {e}")
 
@@ -109,7 +102,7 @@ class MarketRepo(DBBase):
                     data = resp.json()
                     if data and "data" in data and data["data"]["klines"]:
                         val = data["data"]["klines"][0].split(",")[1]
-                        return round(float(val), 3)  # type: ignore
+                        return round(float(val), 3)
                 except Exception as e:
                     logger.warning(f"EastMoney XAUUSD failed: {e}")
 
@@ -123,8 +116,7 @@ class MarketRepo(DBBase):
                         val = raw.split("\"")[1].split(",")[1]
                         if val and val != '0':
                             return round(float(val), 3)
-                except Exception:
-                    pass
+                except: pass
                 # 方案 B: AkShare fx_spot_quote (容错解析不同列名)
                 try:
                     df = ak.fx_spot_quote()
@@ -134,9 +126,8 @@ class MarketRepo(DBBase):
                     if name_col and price_col:
                         row = df[df[name_col].str.contains('美元指数|DXY|USDX', case=False, na=False)]
                         if not row.empty:
-                            return round(float(row.iloc[0][price_col]), 3)  # type: ignore
-                except Exception:
-                    pass
+                            return round(float(row.iloc[0][price_col]), 3)
+                except: pass
 
             elif ticker_symbol == "^TNX": # 10年美债收益率
                 # 方案 A: AkShare 债券数据 (最稳定)
@@ -148,9 +139,8 @@ class MarketRepo(DBBase):
                         if rate_col:
                             val = df.iloc[-1][rate_col]
                             if val and float(val) > 0:
-                                return round(float(val), 3)  # type: ignore
-                except Exception:
-                    pass
+                                return round(float(val), 3)
+                except: pass
                 # 方案 B: 新浪
                 try:
                     url = "https://hq.sinajs.cn/list=TB10Y"  # 新浪10年期美债 symbol
@@ -160,8 +150,7 @@ class MarketRepo(DBBase):
                         val = raw.split("\"")[1].split(",")[1]
                         if val and val != '0':
                             return round(float(val), 3)
-                except Exception:
-                    pass
+                except: pass
 
             elif ticker_symbol == "^GVZ": # 黄金波动率 (CBOE GVZ)
                 # GVZ 是 CBOE 衍生出的 OTC 期权指数，国内没有稳定数据源
@@ -185,9 +174,8 @@ class MarketRepo(DBBase):
                 try:
                     df = ak.futures_global_commodity_sina(symbol="WTI原油")
                     if not df.empty:
-                        return round(float(df.iloc[0]['最新价']), 3)  # type: ignore
-                except Exception:
-                    pass
+                        return round(float(df.iloc[0]['最新价']), 3)
+                except: pass
 
             # 3. Cache and Return
             if val is not None:
@@ -195,29 +183,26 @@ class MarketRepo(DBBase):
                     r = redis.from_url(settings.REDIS_URL, decode_responses=True)
                     r.setex(cache_key, 60, str(val)) # 60s TTL
                     # logger.debug(f"💾 Market Cache Set: {ticker_symbol} = {val}")
-                except Exception:
-                    pass
-                return float(val) if val is not None else None
+                except: pass
+                return val
 
             return None
         except Exception as e:
             logger.warning(f"Market Snapshot Failed for {ticker_symbol}: {e}")
             return None
 
-    def get_historical_gold_price(self, target_time:
-        datetime | None = None) -> float | None:
+    def get_historical_gold_price(self, target_time=None):
         """Fetch gold price using domestic sources (London Gold spot)."""
         try:
             df = ak.gold_zh_spot_qhkd()
             row = df[df['名称'].str.contains('伦敦金|London Gold', case=False, na=False)]
             if not row.empty:
-                return round(float(row.iloc[0]['最新价']), 2)  # type: ignore
+                return round(float(row.iloc[0]['最新价']), 2)
         except Exception as e:
             logger.warning(f"Gold Price Fetch Failed: {e}")
         return None
 
-    def get_fx_rate_change(self, currency_pair:
-        str = "USD/CNY") -> float:
+    def get_fx_rate_change(self, currency_pair="USD/CNY"):
         """Fetch real-time exchange rate daily change percentage."""
         try:
             df = ak.fx_spot_quote()
@@ -248,8 +233,7 @@ class MarketRepo(DBBase):
             logger.error(f"Get FX Rate Change Failed for {currency_pair}: {e}")
             return 0.0
 
-    def get_latest_indicator(self, indicator_name:
-        str, dt: datetime | None = None) -> dict[str, Any] | None:
+    def get_latest_indicator(self, indicator_name, dt=None):
         """Get the most recent indicator value relative to a timestamp."""
         try:
             if not dt:
@@ -267,14 +251,7 @@ class MarketRepo(DBBase):
             logger.error(f"Get Indicator Failed: {e}")
             return None
 
-    def save_indicator(
-        self,
-        dt: datetime,
-        name: str,
-        value: float,
-        percentile: float | None = None,
-        description: str | None = None,
-    ) -> None:
+    def save_indicator(self, dt, name, value, percentile=None, description=None):
         """Save or update a market indicator."""
         try:
             with self._get_conn() as conn:

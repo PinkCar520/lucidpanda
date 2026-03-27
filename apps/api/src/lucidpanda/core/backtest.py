@@ -10,15 +10,13 @@ from src.lucidpanda.core.logger import logger
 
 
 class BacktestEngine:
-    def __init__(self, db:
-        IntelligenceDB):
+    def __init__(self, db: IntelligenceDB):
         self.db = db
         self.current_position = None  # Initial state: No position (None)
         self.last_sync_attempt = datetime.min.replace(tzinfo=pytz.utc)
         self.sync_cooldown_minutes = 15  # Initial cooldown
 
-    def process_signal(self, signal_direction:
-        str) -> bool:
+    def process_signal(self, signal_direction: str) -> bool:
         """
         处理交易信号并应用日内同向去重逻辑。
         Args:
@@ -141,7 +139,7 @@ class BacktestEngine:
                 # 至少给 15-30 分钟缓冲时间，等 K 线固化
                 if (now - dt).total_seconds() > 1800:
                     ready_records.append((record, dt))
-            except Exception:
+            except:
                 continue
 
         if not ready_records:
@@ -228,8 +226,7 @@ class BacktestEngine:
                 try:
                     s_p = float(start_price)
                     e_p = float(end_price)
-                    if s_p == 0:
-                        continue
+                    if s_p == 0: continue
                     ret = (e_p - s_p) / s_p * 100
                     total_return += ret
                     if ret > 0:

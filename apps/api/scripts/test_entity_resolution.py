@@ -11,15 +11,15 @@ ai_env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env.ai"
 load_dotenv(env_path)
 load_dotenv(ai_env_path, override=True)
 
-from src.lucidpanda.core.ontology import EntityResolver  # noqa: E402
-from src.lucidpanda.providers.llm.gemini import GeminiLLM  # noqa: E402
+from src.lucidpanda.core.ontology import EntityResolver
+from src.lucidpanda.providers.llm.gemini import GeminiLLM
 
 
 async def test_entity_resolution_no_db():
     print("🚀 开始测试强化的实体识别与多维标签打标流水线 (无数据库依赖)...")
 
     # 1. 模拟一条复杂的突发新闻
-    f"test_{uuid.uuid4().hex[:8]}"
+    test_id = f"test_{uuid.uuid4().hex[:8]}"
     mock_content = "美联储主席鲍威尔今日在杰克逊霍尔年会上意外释放强烈的鸽派信号，暗示将在9月降息50个基点。同时，中东地区的紧张局势升级导致油价大涨。受此双重影响，国际金价短线飙升突破历史新高。"
 
     try:
