@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import redis
@@ -260,7 +260,7 @@ async def get_web_fused_intelligence(
         WITH completed AS (
             SELECT
                 *,
-                COALESCE(event_cluster_id, 'single:' || COALESCE(source_id, id::text)) AS cluster_key
+                COALESCE(event_cluster_id, 'single:' || COALESCE(source_id, CAST(id AS TEXT))) AS cluster_key
             FROM intelligence
             WHERE status = 'COMPLETED'
         ),
@@ -288,7 +288,7 @@ async def get_web_fused_intelligence(
         FROM leads l
         JOIN clusters ON clusters.cluster_key = l.cluster_key
         WHERE l.rn = 1
-          AND (:before_ts IS NULL OR l.timestamp < CAST(:before_ts AS timestamptz))
+          AND (:before_ts IS NULL OR l.timestamp < :before_ts)
         ORDER BY l.timestamp DESC
         LIMIT :limit
     """)
@@ -334,7 +334,7 @@ async def invalidate_web_fused_cache(current_user: User = Depends(get_current_us
         {
             "success": True,
             "removed": removed,
-            "invalidated_at": datetime.utcnow(),
+            "invalidated_at": datetime.now(UTC),
         }
     )
 
@@ -434,9 +434,11 @@ async def get_web_graph_quality(
             ), 0) AS relation_item_count
         FROM intelligence
         WHERE status = 'COMPLETED'
-          AND timestamp >= NOW() - (:days * INTERVAL '1 day')
+          AND timestamp >= :start_date
     """)
-    summary_row = db.execute(summary_sql, {"days": safe_days}).first()
+    from datetime import timedelta
+    start_date = datetime.now(UTC) - timedelta(days=safe_days)
+    summary_row = db.execute(summary_sql, {"start_date": start_date}).first()
     summary = dict(summary_row._mapping) if summary_row else {}
 
     relation_item_sql = text("""
@@ -446,7 +448,7 @@ async def get_web_graph_quality(
             WHERE status = 'COMPLETED'
               AND relation_triples IS NOT NULL
               AND jsonb_typeof(relation_triples) = 'array'
-              AND timestamp >= NOW() - (:days * INTERVAL '1 day')
+              AND timestamp >= :start_date
         )
         SELECT
             COUNT(*) AS total_items,
@@ -517,14 +519,16 @@ async def get_web_graph_quality(
                     END
                 ), 0) AS relation_item_count
             FROM intelligence
-            WHERE timestamp >= NOW() - (:days * INTERVAL '1 day')
+            WHERE timestamp >= :start_date
             GROUP BY DATE_TRUNC('day', timestamp)
         )
         SELECT day, completed_count, with_relations_count, relation_item_count
         FROM day_bucket
         ORDER BY day ASC
     """)
-    trend_rows = db.execute(trend_sql, {"days": safe_days}).all()
+    from datetime import timedelta
+    start_date = datetime.now(UTC) - timedelta(days=safe_days)
+    trend_rows = db.execute(trend_sql, {"start_date": start_date}).all()
     trend = []
     for row in trend_rows:
         mapped = dict(row._mapping)
@@ -645,7 +649,7 @@ async def get_web_graph_quality(
             "daily_report": {
                 "days": safe_days,
                 "trend": trend,
-                "report_date": datetime.utcnow().date(),
+                "report_date": datetime.now(UTC).date(),
             },
             "version_compare": {
                 "current_days": safe_days,
@@ -656,7 +660,7 @@ async def get_web_graph_quality(
                     "delta": coverage_delta,
                 },
             },
-            "generated_at": datetime.utcnow(),
+            "generated_at": datetime.now(UTC),
         }
     )
 
@@ -685,34 +689,34 @@ async def get_web_sources_dashboard(
             END) AS hits,
             ROUND(
                 (
-                    SUM(CASE
+                    CAST(SUM(CASE
                         WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
                         WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
                         ELSE 0
-                    END)::numeric
+                    END) AS NUMERIC)
                     / NULLIF(COUNT(*), 0)
                 ) * 100, 2
             ) AS accuracy_pct,
             ROUND(
                 (
-                    (SUM(CASE
+                    (CAST(SUM(CASE
                         WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
                         WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
                         ELSE 0
-                    END)::numeric + 1.9208)
+                    END) AS NUMERIC) + 1.9208)
                     / (COUNT(*) + 3.8416)
                     - 1.96 * SQRT(
                         (
-                            SUM(CASE
+                            CAST(SUM(CASE
                                 WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
                                 WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
                                 ELSE 0
-                            END)::numeric
-                            * (COUNT(*) - SUM(CASE
+                            END) AS NUMERIC)
+                            * (COUNT(*) - CAST(SUM(CASE
                                 WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
                                 WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
                                 ELSE 0
-                            END)::numeric)
+                            END) AS NUMERIC))
                             / NULLIF(COUNT(*), 0)
                             + 0.9604
                         )
@@ -728,14 +732,16 @@ async def get_web_sources_dashboard(
           AND gold_price_snapshot IS NOT NULL
           AND price_1h IS NOT NULL
           AND ABS(sentiment_score) > 0.2
-          AND timestamp >= NOW() - (:days * INTERVAL '1 day')
+          AND timestamp >= :start_date
         GROUP BY source_name
         HAVING COUNT(*) >= 20
         ORDER BY accuracy_lower_bound DESC NULLS LAST, total_signals DESC
         LIMIT :limit
     """)
+    from datetime import timedelta
+    start_date = datetime.now(UTC) - timedelta(days=safe_days)
     leaderboard_rows = db.execute(
-        leaderboard_sql, {"days": safe_days, "limit": safe_limit}
+        leaderboard_sql, {"start_date": start_date, "limit": safe_limit}
     ).all()
     leaderboard = [dict(row._mapping) for row in leaderboard_rows]
     top_source_names = [row["source_name"] for row in leaderboard]
@@ -749,11 +755,11 @@ async def get_web_sources_dashboard(
                 COUNT(*) AS total_signals,
                 ROUND(
                     (
-                        SUM(CASE
+                        CAST(SUM(CASE
                             WHEN sentiment_score > 0.2 AND price_1h > gold_price_snapshot THEN 1
                             WHEN sentiment_score < -0.2 AND price_1h < gold_price_snapshot THEN 1
                             ELSE 0
-                        END)::numeric
+                        END) AS NUMERIC)
                         / NULLIF(COUNT(*), 0)
                     ) * 100, 2
                 ) AS accuracy_pct
@@ -764,11 +770,11 @@ async def get_web_sources_dashboard(
               AND gold_price_snapshot IS NOT NULL
               AND price_1h IS NOT NULL
               AND ABS(sentiment_score) > 0.2
-              AND timestamp >= NOW() - (:days * INTERVAL '1 day')
+              AND timestamp >= :start_date
             GROUP BY DATE_TRUNC('day', timestamp), source_name
             ORDER BY day ASC, source_name ASC
         """)
-        trend_rows = db.execute(trend_sql, {"days": safe_days}).all()
+        trend_rows = db.execute(trend_sql, {"start_date": start_date}).all()
         top_name_set = set(top_source_names)
         trend = [
             dict(row._mapping)
@@ -792,15 +798,15 @@ async def get_web_sources_dashboard(
               AND gold_price_snapshot IS NOT NULL
               AND price_1h IS NOT NULL
               AND ABS(sentiment_score) > 0.2
-              AND timestamp >= NOW() - (:days * INTERVAL '1 day')
+              AND timestamp >= :start_date
         )
         SELECT
             COUNT(DISTINCT source_name) AS active_sources,
             COUNT(*) AS total_signals,
-            ROUND(AVG(hit)::numeric * 100, 2) AS overall_accuracy_pct
+            ROUND(CAST(AVG(hit) AS NUMERIC) * 100, 2) AS overall_accuracy_pct
         FROM scored
     """)
-    overview_row = db.execute(overview_sql, {"days": safe_days}).first()
+    overview_row = db.execute(overview_sql, {"start_date": start_date}).first()
     overview = (
         dict(overview_row._mapping)
         if overview_row
@@ -813,7 +819,7 @@ async def get_web_sources_dashboard(
             "leaderboard": leaderboard,
             "trend": trend,
             "overview": overview,
-            "generated_at": datetime.utcnow(),
+            "generated_at": datetime.now(UTC),
         }
     )
 

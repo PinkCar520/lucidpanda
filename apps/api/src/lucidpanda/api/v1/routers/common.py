@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -17,7 +17,7 @@ async def get_24h_alerts_count(db: Session = Depends(get_session)):
     Shared by both Web and Mobile.
     """
     # SQLModel approach
-    threshold_time = datetime.utcnow() - timedelta(hours=24)
+    threshold_time = datetime.now(UTC) - timedelta(hours=24)
     statement = (
         select(func.count(col(Intelligence.id)))
         .where(col(Intelligence.urgency_score) >= 8)

@@ -138,13 +138,16 @@ async def create_watchlist_group(
     try:
         insert_stmt = text("""
             INSERT INTO watchlist_groups (id, user_id, name, icon, color, sort_index)
-            VALUES (gen_random_uuid(), :user_id, :name, :icon, :color, :sort_index)
+            VALUES (:id, :user_id, :name, :icon, :color, :sort_index)
             RETURNING id, user_id, name, icon, color, sort_index, created_at, updated_at
         """)
+
+        import uuid
 
         result = db.execute(
             insert_stmt,
             {
+                "id": str(uuid.uuid4()),
                 "user_id": str(current_user.id),
                 "name": group_data.name,
                 "icon": group_data.icon,
@@ -253,7 +256,7 @@ async def delete_watchlist_group(
         """)
         default_group = db.execute(
             default_group_stmt, {"user_id": str(current_user.id)}
-        ).first()
+        ).mappings().first()
 
         if default_group:
             # 将该分组的基金移至默认分组
@@ -265,7 +268,7 @@ async def delete_watchlist_group(
             db.execute(
                 update_stmt,
                 {
-                    "default_group_id": str(default_group.id),
+                    "default_group_id": str(default_group["id"]),
                     "group_id": group_id,
                     "user_id": str(current_user.id),
                 },
@@ -451,7 +454,7 @@ async def get_watchlist_v2(
             {
                 "data": items,
                 "groups": groups,
-                "sync_time": datetime.utcnow().isoformat(),
+                "sync_time": datetime.now(UTC).isoformat(),
             }
         )
     except Exception as e:
@@ -549,6 +552,16 @@ async def batch_remove_from_watchlist(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.delete("/batch", response_model=dict[str, Any])
+async def batch_remove_from_watchlist_legacy(
+    request: WatchlistBatchRemoveRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+):
+    """兼容旧版 DELETE /batch 接口。"""
+    return await batch_remove_from_watchlist(request, current_user, db)
 
 
 @router.post("/reorder", response_model=dict[str, Any])
@@ -735,7 +748,7 @@ async def sync_watchlist(
             {
                 "data": items,
                 "groups": groups,
-                "sync_time": datetime.utcnow().isoformat(),
+                "sync_time": datetime.now(UTC).isoformat(),
             }
         )
     except Exception as e:
@@ -760,12 +773,14 @@ async def submit_sync_operations(
                     INSERT INTO watchlist_sync_log
                     (id, user_id, operation_type, fund_code, old_value, new_value,
                      device_id, client_timestamp, is_synced)
-                    VALUES (gen_random_uuid(), :user_id, :op_type, :fund_code, :old_val, :new_val,
+                    VALUES (:id, :user_id, :op_type, :fund_code, :old_val, :new_val,
                             :device_id, :client_ts, FALSE)
                 """)
+                import uuid
                 db.execute(
                     log_stmt,
                     {
+                        "id": str(uuid.uuid4()),
                         "user_id": user_id,
                         "op_type": op.operation_type,
                         "fund_code": op.fund_code,

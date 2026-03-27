@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserBase(BaseModel):
@@ -21,6 +21,8 @@ class UserCreate(UserBase):
 
 
 class UserOut(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     role: str
     is_active: bool
@@ -40,9 +42,6 @@ class UserOut(UserBase):
     phone_number: str | None = None
     is_phone_verified: bool = False
     is_two_fa_enabled: bool = False
-
-    class Config:
-        from_attributes = True
 
 
 class Token(BaseModel):
@@ -120,15 +119,14 @@ class AvatarUploadResponse(BaseModel):
 
 
 class SessionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     device_info: dict | None = None
     ip_address: str | None = None
     created_at: datetime
     last_active_at: datetime | None = None
     is_current: bool = False  # Helper field
-
-    class Config:
-        from_attributes = True
 
 
 class PhoneNumberPayload(BaseModel):
@@ -151,15 +149,14 @@ class TwoFAVerifyPayload(BaseModel):
 
 
 class NotificationPreferencesOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     email_enabled: bool
     sms_enabled: bool
     app_push_enabled: bool
     email_frequency: str
     sms_frequency: str
     subscribed_types: list[str]
-
-    class Config:
-        from_attributes = True
 
 
 class NotificationPreferencesUpdate(BaseModel):
@@ -172,6 +169,8 @@ class NotificationPreferencesUpdate(BaseModel):
 
 
 class InSiteMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     sender_type: str
     subject: str
@@ -180,9 +179,6 @@ class InSiteMessageOut(BaseModel):
     is_read: bool
     sent_at: datetime
     read_at: datetime | None = None
-
-    class Config:
-        from_attributes = True
 
 
 class APIKeyCreate(BaseModel):
@@ -193,6 +189,8 @@ class APIKeyCreate(BaseModel):
 
 
 class APIKeyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     name: str
     public_key: str
@@ -203,9 +201,6 @@ class APIKeyOut(BaseModel):
     created_at: datetime
     last_used_at: datetime | None = None
     expires_at: datetime | None = None
-
-    class Config:
-        from_attributes = True
 
 
 class APIKeyCreateResponse(APIKeyOut):
@@ -221,26 +216,24 @@ class APIKeyUpdate(BaseModel):
 
 
 class APIKeyUsageLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     endpoint: str
     http_method: str
     ip_address: str | None
     status_code: int | None
     timestamp: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class AuditLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     action: str
     ip_address: str | None
     user_agent: str | None
     details: dict | None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class AssetOverviewOut(BaseModel):
@@ -267,11 +260,10 @@ class PasskeyAuthenticationVerify(BaseModel):
 
 
 class PasskeyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     name: str | None
     created_at: datetime
     last_used_at: datetime | None = None
     transports: list[str] | None = None
-
-    class Config:
-        from_attributes = True

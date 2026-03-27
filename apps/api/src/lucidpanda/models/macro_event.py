@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
@@ -20,4 +20,4 @@ class MacroEvent(SQLModel, table=True):
     actual_value: str | None = None
 
     source: str
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

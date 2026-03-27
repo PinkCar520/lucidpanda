@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.dialects.postgresql import JSONB
@@ -7,6 +7,8 @@ from sqlmodel import Column, Field, SQLModel
 
 class IntelligenceBase(SQLModel):
     source_id: str | None = Field(default=None, unique=True)
+    source_name: str | None = None
+    event_cluster_id: str | None = Field(default=None, index=True)
     author: str | None = None
     content: str | None = None
     urgency_score: int | None = 0
@@ -45,12 +47,13 @@ class IntelligenceBase(SQLModel):
     source_credibility_score: float | None = None
     alpha_return: float | None = None
     expectation_gap: float | None = None
+    sentiment_score: float | None = Field(default=0.0, index=True)
 
 
 class Intelligence(IntelligenceBase, table=True):
     __tablename__ = "intelligence"
     id: int | None = Field(default=None, primary_key=True)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     status: str | None = Field(default="PENDING", index=True)
     last_error: str | None = None
 

@@ -7,12 +7,12 @@ import random
 import secrets
 import string
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pyotp
 import qrcode
 import redis
-from sqlalchemy import and_, desc, text
+from sqlalchemy import and_, desc, select, text, update
 from sqlalchemy.orm import Session
 from webauthn import (
     generate_authentication_options,
@@ -67,10 +67,14 @@ class AuthService:
         return id_val
 
     def get_user_by_email(self, email: str) -> User | None:
-        return self.db.query(User).filter(User.email == email).first()
+        return self.db.execute(select(User).where(User.email == email)).scalars().first()
 
     def get_user_by_username(self, username: str) -> User | None:
-        return self.db.query(User).filter(User.username == username).first()
+        return (
+            self.db.execute(select(User).where(User.username == username))
+            .scalars()
+            .first()
+        )
 
     def get_user_by_identifier(self, identifier: str) -> User | None:
         if "@" in identifier:
@@ -112,7 +116,7 @@ class AuthService:
             username=username,
             hashed_password=hashed_password,
             name=full_name,
-            username_updated_at=datetime.utcnow(),
+            username_updated_at=datetime.now(UTC),
         )
         self.db.add(db_user)
         self.db.commit()
@@ -141,7 +145,7 @@ class AuthService:
         access_token = create_access_token(user_id)
         refresh_token = create_refresh_token(user_id)
 
-        expires_at = datetime.utcnow() + timedelta(
+        expires_at = datetime.now(UTC) + timedelta(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
         resolved_device_name = device_name or user_agent
@@ -171,14 +175,16 @@ class AuthService:
     ) -> tuple[str, str] | None:
         token_hash = self._hash_token(refresh_token)
         db_token = (
-            self.db.query(RefreshToken)
-            .filter(
-                and_(
-                    RefreshToken.token_hash == token_hash,
-                    RefreshToken.revoked_at.is_(None),
-                    RefreshToken.expires_at > datetime.utcnow(),
+            self.db.execute(
+                select(RefreshToken).where(
+                    and_(
+                        RefreshToken.token_hash == token_hash,
+                        RefreshToken.revoked_at.is_(None),
+                        RefreshToken.expires_at > datetime.now(UTC),
+                    )
                 )
             )
+            .scalars()
             .first()
         )
 
@@ -190,7 +196,7 @@ class AuthService:
             db_token, ip_address, user_agent
         )
         if is_risky:
-            db_token.revoked_at = datetime.utcnow()
+            db_token.revoked_at = datetime.now(UTC)
             self.log_audit(
                 user_id,
                 "REFRESH_BLOCKED_RISK",
@@ -204,10 +210,10 @@ class AuthService:
         new_access_token = create_access_token(user_id)
         new_refresh_token = create_refresh_token(user_id)
 
-        db_token.revoked_at = datetime.utcnow()
+        db_token.revoked_at = datetime.now(UTC)
         db_token.replaced_by_token_hash = self._hash_token(new_refresh_token)
 
-        new_expires_at = datetime.utcnow() + timedelta(
+        new_expires_at = datetime.now(UTC) + timedelta(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
         new_db_token = RefreshToken(
@@ -236,19 +242,21 @@ class AuthService:
         user_uuid = self._to_uuid(user_id)
         token_hash = self._hash_token(refresh_token)
         token = (
-            self.db.query(RefreshToken)
-            .filter(
-                and_(
-                    RefreshToken.token_hash == token_hash,
-                    RefreshToken.user_id == user_uuid,
+            self.db.execute(
+                select(RefreshToken).where(
+                    and_(
+                        RefreshToken.token_hash == token_hash,
+                        RefreshToken.user_id == user_uuid,
+                    )
                 )
             )
+            .scalars()
             .first()
         )
         if not token:
             return False
         if token.revoked_at is None:
-            token.revoked_at = datetime.utcnow()
+            token.revoked_at = datetime.now(UTC)
         self.log_audit(
             user_id,
             "LOGOUT",
@@ -273,7 +281,7 @@ class AuthService:
     ) -> User | None:
 
         user_uuid = self._to_uuid(user_id)
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         if not user:
             return None
 
@@ -301,7 +309,7 @@ class AuthService:
 
     def update_avatar(self, user_id: str, avatar_url: str) -> User | None:
         user_uuid = self._to_uuid(user_id)
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         if not user:
             return None
         user.avatar_url = avatar_url
@@ -312,7 +320,7 @@ class AuthService:
 
     def update_username(self, user_id: str, new_username: str) -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         if not user:
             return False, "User not found"
 
@@ -320,7 +328,7 @@ class AuthService:
         if "@" in new_username or len(new_username) < 3:
             return False, "Invalid username format"
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Check if username is already taken
         existing_user = self.get_user_by_username(new_username)
@@ -347,15 +355,17 @@ class AuthService:
         self, user_id: str, current_password: str, new_password: str
     ) -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         if not user:
             return False, "User not found"
         if not verify_password(current_password, user.hashed_password):
             return False, "Incorrect current password"
 
         user.hashed_password = get_password_hash(new_password)
-        self.db.query(RefreshToken).filter(RefreshToken.user_id == user_uuid).update(
-            {"revoked_at": datetime.utcnow()}
+        self.db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user_uuid)
+            .values(revoked_at=datetime.now(UTC))
         )
         self.db.add(user)
         self.db.commit()
@@ -370,22 +380,24 @@ class AuthService:
         self, user_id: str, current_password: str, new_email: str
     ) -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         if not user or not verify_password(current_password, user.hashed_password):
             return False, "Invalid credentials"
         if self.get_user_by_email(new_email):
             return False, "Email already in use"
 
-        self.db.query(EmailChangeRequest).filter(
-            EmailChangeRequest.user_id == user_uuid
-        ).delete()
+        existing_requests = self.db.execute(
+            select(EmailChangeRequest).where(EmailChangeRequest.user_id == user_uuid)
+        ).scalars()
+        for existing_request in existing_requests:
+            self.db.delete(existing_request)
         raw_token = secrets.token_urlsafe(32)
         token_hash = self._hash_token(raw_token)
         db_request = EmailChangeRequest(
             user_id=user_uuid,
             new_email=new_email,
             token_hash=token_hash,
-            expires_at=datetime.utcnow() + timedelta(minutes=60),
+            expires_at=datetime.now(UTC) + timedelta(minutes=60),
         )
         self.db.add(db_request)
         self.db.commit()
@@ -401,19 +413,21 @@ class AuthService:
     def verify_email_change(self, raw_token: str) -> tuple[bool, str]:
         token_hash = self._hash_token(raw_token)
         db_request = (
-            self.db.query(EmailChangeRequest)
-            .filter(
-                and_(
-                    EmailChangeRequest.token_hash == token_hash,
-                    EmailChangeRequest.expires_at > datetime.utcnow(),
+            self.db.execute(
+                select(EmailChangeRequest).where(
+                    and_(
+                        EmailChangeRequest.token_hash == token_hash,
+                        EmailChangeRequest.expires_at > datetime.now(UTC),
+                    )
                 )
             )
+            .scalars()
             .first()
         )
         if not db_request:
             return False, "Invalid or expired token"
 
-        user = self.db.query(User).filter(User.id == db_request.user_id).first()
+        user = self.db.get(User, db_request.user_id)
         if not user:
             return False, "User not found"
 
@@ -435,7 +449,7 @@ class AuthService:
             phone_number=phone_number,
             otp_code_hash=code_hash,
             purpose=purpose,
-            expires_at=datetime.utcnow() + timedelta(minutes=10),
+            expires_at=datetime.now(UTC) + timedelta(minutes=10),
         )
         self.db.add(db_token)
         self.db.commit()
@@ -448,23 +462,25 @@ class AuthService:
         user_uuid = self._to_uuid(user_id)
         code_hash = self._hash_token(code)
         db_token = (
-            self.db.query(PhoneVerificationToken)
-            .filter(
-                and_(
-                    PhoneVerificationToken.user_id == user_uuid,
-                    PhoneVerificationToken.phone_number == phone_number,
-                    PhoneVerificationToken.otp_code_hash == code_hash,
-                    PhoneVerificationToken.is_used.is_(False),
-                    PhoneVerificationToken.expires_at > datetime.utcnow(),
+            self.db.execute(
+                select(PhoneVerificationToken).where(
+                    and_(
+                        PhoneVerificationToken.user_id == user_uuid,
+                        PhoneVerificationToken.phone_number == phone_number,
+                        PhoneVerificationToken.otp_code_hash == code_hash,
+                        PhoneVerificationToken.is_used.is_(False),
+                        PhoneVerificationToken.expires_at > datetime.now(UTC),
+                    )
                 )
             )
+            .scalars()
             .first()
         )
         if not db_token:
             return False, "Invalid or expired code"
 
         db_token.is_used = True
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         if user:
             user.phone_number = phone_number
             user.is_phone_verified = True
@@ -474,7 +490,7 @@ class AuthService:
 
     def unbind_phone(self, user_id: str) -> bool:
         user_uuid = self._to_uuid(user_id)
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         if user:
             user.phone_number = None
             user.is_phone_verified = False
@@ -486,7 +502,7 @@ class AuthService:
     def setup_2fa(self, user_id: str) -> tuple[str, str]:
         user_uuid = self._to_uuid(user_id)
         secret = pyotp.random_base32()
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         provision_url = pyotp.totp.TOTP(secret).provisioning_uri(
             name=user.email, issuer_name="LucidPanda"
         )
@@ -507,7 +523,7 @@ class AuthService:
     ) -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         if pyotp.TOTP(secret).verify(code):
-            user = self.db.query(User).filter(User.id == user_uuid).first()
+            user = self.db.get(User, user_uuid)
             if user:
                 user.two_fa_secret = secret
                 user.is_two_fa_enabled = True
@@ -517,7 +533,7 @@ class AuthService:
 
     def disable_2fa(self, user_id: str) -> bool:
         user_uuid = self._to_uuid(user_id)
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         if user:
             user.two_fa_secret = None
             user.is_two_fa_enabled = False
@@ -528,8 +544,12 @@ class AuthService:
     def get_notification_preferences(self, user_id: str) -> UserNotificationPreference:
         user_uuid = self._to_uuid(user_id)
         prefs = (
-            self.db.query(UserNotificationPreference)
-            .filter(UserNotificationPreference.user_id == user_uuid)
+            self.db.execute(
+                select(UserNotificationPreference).where(
+                    UserNotificationPreference.user_id == user_uuid
+                )
+            )
+            .scalars()
             .first()
         )
         if not prefs:
@@ -555,10 +575,13 @@ class AuthService:
     ) -> list[InSiteMessage]:
         user_uuid = self._to_uuid(user_id)
         return (
-            self.db.query(InSiteMessage)
-            .filter(InSiteMessage.recipient_user_id == user_uuid)
-            .order_by(desc(InSiteMessage.sent_at))
-            .limit(limit)
+            self.db.execute(
+                select(InSiteMessage)
+                .where(InSiteMessage.recipient_user_id == user_uuid)
+                .order_by(desc(InSiteMessage.sent_at))
+                .limit(limit)
+            )
+            .scalars()
             .all()
         )
 
@@ -566,18 +589,20 @@ class AuthService:
         user_uuid = self._to_uuid(user_id)
         message_uuid = self._to_uuid(message_id)
         msg = (
-            self.db.query(InSiteMessage)
-            .filter(
-                and_(
-                    InSiteMessage.id == message_uuid,
-                    InSiteMessage.recipient_user_id == user_uuid,
+            self.db.execute(
+                select(InSiteMessage).where(
+                    and_(
+                        InSiteMessage.id == message_uuid,
+                        InSiteMessage.recipient_user_id == user_uuid,
+                    )
                 )
             )
+            .scalars()
             .first()
         )
         if msg:
             msg.is_read = True
-            msg.read_at = datetime.utcnow()
+            msg.read_at = datetime.now(UTC)
             self.db.commit()
             return True
         return False
@@ -633,9 +658,12 @@ class AuthService:
     def get_user_api_keys(self, user_id: str) -> list[APIKey]:
         user_uuid = self._to_uuid(user_id)
         return (
-            self.db.query(APIKey)
-            .filter(APIKey.user_id == user_uuid)
-            .order_by(desc(APIKey.created_at))
+            self.db.execute(
+                select(APIKey)
+                .where(APIKey.user_id == user_uuid)
+                .order_by(desc(APIKey.created_at))
+            )
+            .scalars()
             .all()
         )
 
@@ -643,8 +671,12 @@ class AuthService:
         user_uuid = self._to_uuid(user_id)
         key_uuid = self._to_uuid(key_id)
         key = (
-            self.db.query(APIKey)
-            .filter(and_(APIKey.id == key_uuid, APIKey.user_id == user_uuid))
+            self.db.execute(
+                select(APIKey).where(
+                    and_(APIKey.id == key_uuid, APIKey.user_id == user_uuid)
+                )
+            )
+            .scalars()
             .first()
         )
         if not key:
@@ -660,8 +692,12 @@ class AuthService:
         user_uuid = self._to_uuid(user_id)
         key_uuid = self._to_uuid(key_id)
         key = (
-            self.db.query(APIKey)
-            .filter(and_(APIKey.id == key_uuid, APIKey.user_id == user_uuid))
+            self.db.execute(
+                select(APIKey).where(
+                    and_(APIKey.id == key_uuid, APIKey.user_id == user_uuid)
+                )
+            )
+            .scalars()
             .first()
         )
         if key:
@@ -714,30 +750,34 @@ class AuthService:
     def get_active_sessions(self, user_id: str) -> list[RefreshToken]:
         user_uuid = self._to_uuid(user_id)
         return (
-            self.db.query(RefreshToken)
-            .filter(
-                and_(
-                    RefreshToken.user_id == user_uuid,
-                    RefreshToken.revoked_at.is_(None),
-                    RefreshToken.expires_at > datetime.utcnow(),
+            self.db.execute(
+                select(RefreshToken).where(
+                    and_(
+                        RefreshToken.user_id == user_uuid,
+                        RefreshToken.revoked_at.is_(None),
+                        RefreshToken.expires_at > datetime.now(UTC),
+                    )
                 )
+                .order_by(desc(RefreshToken.created_at))
             )
-            .order_by(desc(RefreshToken.created_at))
+            .scalars()
             .all()
         )
 
     def revoke_session(self, user_id: str, session_id: int) -> bool:
         user_uuid = self._to_uuid(user_id)
         token = (
-            self.db.query(RefreshToken)
-            .filter(
-                and_(RefreshToken.id == session_id, RefreshToken.user_id == user_uuid)
+            self.db.execute(
+                select(RefreshToken).where(
+                    and_(RefreshToken.id == session_id, RefreshToken.user_id == user_uuid)
+                )
             )
+            .scalars()
             .first()
         )
         if token:
             if token.revoked_at is None:
-                token.revoked_at = datetime.utcnow()
+                token.revoked_at = datetime.now(UTC)
             self.log_audit(
                 user_id, "SESSION_REVOKED", details={"session_id": session_id}
             )
@@ -747,18 +787,18 @@ class AuthService:
 
     def revoke_all_sessions(self, user_id: str, exclude_token_hash: str = None) -> int:
         user_uuid = self._to_uuid(user_id)
-        query = self.db.query(RefreshToken).filter(
+        stmt = select(RefreshToken).where(
             and_(
                 RefreshToken.user_id == user_uuid,
                 RefreshToken.revoked_at.is_(None),
-                RefreshToken.expires_at > datetime.utcnow(),
+                RefreshToken.expires_at > datetime.now(UTC),
             )
         )
         if exclude_token_hash:
-            query = query.filter(RefreshToken.token_hash != exclude_token_hash)
+            stmt = stmt.where(RefreshToken.token_hash != exclude_token_hash)
 
-        sessions = query.all()
-        now = datetime.utcnow()
+        sessions = self.db.execute(stmt).scalars().all()
+        now = datetime.now(UTC)
         for session in sessions:
             session.revoked_at = now
 
@@ -828,7 +868,7 @@ class AuthService:
             and previous_ip != ip_address
         ):
             if db_token.last_active_at:
-                recent_window = datetime.utcnow() - timedelta(
+                recent_window = datetime.now(UTC) - timedelta(
                     minutes=ip_change_window_minutes
                 )
                 if db_token.last_active_at >= recent_window:
@@ -840,10 +880,13 @@ class AuthService:
     def get_audit_logs(self, user_id: str, limit: int = 50) -> list[AuthAuditLog]:
         user_uuid = self._to_uuid(user_id)
         return (
-            self.db.query(AuthAuditLog)
-            .filter(AuthAuditLog.user_id == user_uuid)
-            .order_by(desc(AuthAuditLog.created_at))
-            .limit(limit)
+            self.db.execute(
+                select(AuthAuditLog)
+                .where(AuthAuditLog.user_id == user_uuid)
+                .order_by(desc(AuthAuditLog.created_at))
+                .limit(limit)
+            )
+            .scalars()
             .all()
         )
 
@@ -851,15 +894,17 @@ class AuthService:
         user = self.get_user_by_email(email)
         if not user:
             return None
-        self.db.query(PasswordResetToken).filter(
-            PasswordResetToken.user_id == user.id
-        ).delete()
+        existing_tokens = self.db.execute(
+            select(PasswordResetToken).where(PasswordResetToken.user_id == user.id)
+        ).scalars()
+        for existing_token in existing_tokens:
+            self.db.delete(existing_token)
         raw_token = secrets.token_urlsafe(32)
         token_hash = self._hash_token(raw_token)
         db_token = PasswordResetToken(
             user_id=user.id,
             token_hash=token_hash,
-            expires_at=datetime.utcnow() + timedelta(minutes=60),
+            expires_at=datetime.now(UTC) + timedelta(minutes=60),
         )
         self.db.add(db_token)
         self.db.commit()
@@ -868,18 +913,20 @@ class AuthService:
     def reset_password(self, raw_token: str, new_password: str) -> bool:
         token_hash = self._hash_token(raw_token)
         db_token = (
-            self.db.query(PasswordResetToken)
-            .filter(
-                and_(
-                    PasswordResetToken.token_hash == token_hash,
-                    PasswordResetToken.expires_at > datetime.utcnow(),
+            self.db.execute(
+                select(PasswordResetToken).where(
+                    and_(
+                        PasswordResetToken.token_hash == token_hash,
+                        PasswordResetToken.expires_at > datetime.now(UTC),
+                    )
                 )
             )
+            .scalars()
             .first()
         )
         if not db_token:
             return False
-        user = self.db.query(User).filter(User.id == db_token.user_id).first()
+        user = self.db.get(User, db_token.user_id)
         if not user:
             return False
         user.hashed_password = get_password_hash(new_password)
@@ -891,13 +938,17 @@ class AuthService:
 
     def generate_registration_options(self, user_id: str) -> dict:
         user_uuid = self._to_uuid(user_id)
-        user = self.db.query(User).filter(User.id == user_uuid).first()
+        user = self.db.get(User, user_uuid)
         if not user:
             raise ValueError("User not found")
 
         # Get existing credentials to exclude them
         existing_passkeys = (
-            self.db.query(UserPasskey).filter(UserPasskey.user_id == user_uuid).all()
+            self.db.execute(
+                select(UserPasskey).where(UserPasskey.user_id == user_uuid)
+            )
+            .scalars()
+            .all()
         )
         exclude_credentials = [
             PublicKeyCredentialDescriptor(id=base64url_to_bytes(p.credential_id))
@@ -1010,8 +1061,10 @@ class AuthService:
 
         credential_id = auth_data.get("id")
         passkey = (
-            self.db.query(UserPasskey)
-            .filter(UserPasskey.credential_id == credential_id)
+            self.db.execute(
+                select(UserPasskey).where(UserPasskey.credential_id == credential_id)
+            )
+            .scalars()
             .first()
         )
         if not passkey:
@@ -1029,11 +1082,11 @@ class AuthService:
 
         # Update sign count and last used
         passkey.sign_count = verification.new_sign_count
-        passkey.last_used_at = datetime.utcnow()
+        passkey.last_used_at = datetime.now(UTC)
         self.db.add(passkey)
         self.db.commit()
 
-        user = self.db.query(User).filter(User.id == passkey.user_id).first()
+        user = self.db.get(User, passkey.user_id)
         if user:
             self.log_audit(
                 str(user.id),
@@ -1047,9 +1100,12 @@ class AuthService:
     def get_user_passkeys(self, user_id: str) -> list[UserPasskey]:
         user_uuid = self._to_uuid(user_id)
         return (
-            self.db.query(UserPasskey)
-            .filter(UserPasskey.user_id == user_uuid)
-            .order_by(desc(UserPasskey.created_at))
+            self.db.execute(
+                select(UserPasskey)
+                .where(UserPasskey.user_id == user_uuid)
+                .order_by(desc(UserPasskey.created_at))
+            )
+            .scalars()
             .all()
         )
 
@@ -1057,10 +1113,15 @@ class AuthService:
         user_uuid = self._to_uuid(user_id)
         passkey_uuid = self._to_uuid(passkey_id)
         passkey = (
-            self.db.query(UserPasskey)
-            .filter(
-                and_(UserPasskey.id == passkey_uuid, UserPasskey.user_id == user_uuid)
+            self.db.execute(
+                select(UserPasskey).where(
+                    and_(
+                        UserPasskey.id == passkey_uuid,
+                        UserPasskey.user_id == user_uuid,
+                    )
+                )
             )
+            .scalars()
             .first()
         )
         if passkey:
