@@ -5,7 +5,7 @@ import pytest
 @pytest.mark.parametrize("code", ["001618"])
 def test_sources(code):
     print(f"--- Testing {code} ---")
-    
+
     # Source 1: EastMoney (Current)
     try:
         df_em = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
@@ -22,5 +22,6 @@ def test_sources(code):
     except Exception as e:
         print(f"Snowball Error: {e}")
 
+
 if __name__ == "__main__":
-    test_sources('001618')
+    test_sources("001618")

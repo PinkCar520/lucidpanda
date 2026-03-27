@@ -3,6 +3,7 @@ db/intelligence.py — 情报域
 ============================
 情报 CRUD、去重（URL/pg_trgm/pgvector）、向量嵌入、信源可信度。
 """
+
 from datetime import datetime
 
 import pytz
@@ -44,14 +45,17 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT actual_value, forecast_value
                         FROM macro_event
                         WHERE event_code = %s
                           AND actual_value IS NOT NULL
                           AND forecast_value IS NOT NULL
                           AND release_date >= (CURRENT_DATE - (%s || ' years')::interval)
-                    """, (event_code, lookback_years))
+                    """,
+                        (event_code, lookback_years),
+                    )
                     rows = cursor.fetchall()
             surprises = []
             for row in rows:
@@ -63,6 +67,7 @@ class IntelligenceRepo(DBBase):
             if len(surprises) < 2:
                 return None
             import numpy as _np
+
             return float(_np.std(_np.array(surprises), ddof=1))
         except Exception as e:
             logger.warning(f"⚠️ 计算宏观 surprise std 失败: {e}")
@@ -109,11 +114,14 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE intelligence
                         SET expectation_gap = %s
                         WHERE source_id = %s
-                    """, (float(expectation_gap), source_id))
+                    """,
+                        (float(expectation_gap), source_id),
+                    )
                     conn.commit()
         except Exception as e:
             logger.warning(f"⚠️ expectation_gap 更新失败 [{source_id}]: {e}")
@@ -123,14 +131,17 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT source_id, agent_trace
                         FROM intelligence
                         WHERE expectation_gap IS NULL
                           AND agent_trace IS NOT NULL
                         ORDER BY timestamp DESC
                         LIMIT %s
-                    """, (limit,))
+                    """,
+                        (limit,),
+                    )
                     rows = cursor.fetchall()
             for row in rows:
                 gap = self.compute_expectation_gap(row["agent_trace"])
@@ -150,7 +161,8 @@ class IntelligenceRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     # 1. Fetch the target record's data
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT id, gold_price_snapshot, price_1h, dxy_snapshot, us10y_snapshot, timestamp
                         FROM intelligence
                         WHERE id = %s
@@ -158,7 +170,9 @@ class IntelligenceRepo(DBBase):
                           AND price_1h IS NOT NULL
                           AND dxy_snapshot IS NOT NULL
                           AND us10y_snapshot IS NOT NULL
-                    """, (record_id,))
+                    """,
+                        (record_id,),
+                    )
                     target_row = cursor.fetchone()
                     if not target_row:
                         return None
@@ -167,14 +181,17 @@ class IntelligenceRepo(DBBase):
                     if float(target_row["gold_price_snapshot"]) == 0:
                         return None
 
-                    target_gold_ret = (float(target_row["price_1h"]) - float(target_row["gold_price_snapshot"])) / float(target_row["gold_price_snapshot"])
+                    target_gold_ret = (
+                        float(target_row["price_1h"])
+                        - float(target_row["gold_price_snapshot"])
+                    ) / float(target_row["gold_price_snapshot"])
                     target_dxy = float(target_row["dxy_snapshot"])
                     target_us10y = float(target_row["us10y_snapshot"])
                     target_timestamp = target_row["timestamp"]
 
-
                     # 2. Fetch historical data for regression, older than the target record
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT gold_price_snapshot, price_1h, dxy_snapshot, us10y_snapshot
                         FROM intelligence
                         WHERE gold_price_snapshot IS NOT NULL
@@ -185,11 +202,15 @@ class IntelligenceRepo(DBBase):
                           AND id != %s -- Exclude the target record itself from the historical window
                         ORDER BY timestamp DESC
                         LIMIT %s
-                    """, (target_timestamp, record_id, window))
+                    """,
+                        (target_timestamp, record_id, window),
+                    )
                     historical_rows = cursor.fetchall()
 
-            if len(historical_rows) < 3: # Need at least 3 points for regression
-                logger.warning(f"⚠️ alpha_return 计算失败 [ID:{record_id}]: 历史回归数据不足 {len(historical_rows)} 条")
+            if len(historical_rows) < 3:  # Need at least 3 points for regression
+                logger.warning(
+                    f"⚠️ alpha_return 计算失败 [ID:{record_id}]: 历史回归数据不足 {len(historical_rows)} 条"
+                )
                 return None
 
             import numpy as _np
@@ -202,23 +223,27 @@ class IntelligenceRepo(DBBase):
             for row in historical_rows:
                 entry = float(row["gold_price_snapshot"])
                 exit_price = float(row["price_1h"])
-                if entry == 0: # Avoid division by zero
+                if entry == 0:  # Avoid division by zero
                     continue
                 gold_ret = (exit_price - entry) / entry
                 y_data.append(gold_ret)
                 X_dxy_data.append(float(row["dxy_snapshot"]))
                 X_us10y_data.append(float(row["us10y_snapshot"]))
 
-            if len(y_data) < 3: # After filtering, still need at least 3 points
-                logger.warning(f"⚠️ alpha_return 计算失败 [ID:{record_id}]: 过滤后历史回归数据不足 {len(y_data)} 条")
+            if len(y_data) < 3:  # After filtering, still need at least 3 points
+                logger.warning(
+                    f"⚠️ alpha_return 计算失败 [ID:{record_id}]: 过滤后历史回归数据不足 {len(y_data)} 条"
+                )
                 return None
 
             y = _np.array(y_data, dtype=float)
-            X = _np.column_stack([
-                _np.array(X_dxy_data, dtype=float),
-                _np.array(X_us10y_data, dtype=float),
-            ])
-            X = _np.column_stack([_np.ones(len(X)), X]) # Add intercept
+            X = _np.column_stack(
+                [
+                    _np.array(X_dxy_data, dtype=float),
+                    _np.array(X_us10y_data, dtype=float),
+                ]
+            )
+            X = _np.column_stack([_np.ones(len(X)), X])  # Add intercept
 
             model = _sm.OLS(y, X).fit()
 
@@ -234,11 +259,14 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE intelligence
                         SET alpha_return = %s
                         WHERE id = %s
-                    """, (float(alpha_return), record_id))
+                    """,
+                        (float(alpha_return), record_id),
+                    )
                     conn.commit()
         except Exception as e:
             logger.warning(f"⚠️ alpha_return 更新失败 [{record_id}]: {e}")
@@ -248,7 +276,8 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT id
                         FROM intelligence
                         WHERE alpha_return IS NULL
@@ -258,7 +287,9 @@ class IntelligenceRepo(DBBase):
                           AND us10y_snapshot IS NOT NULL
                         ORDER BY timestamp DESC
                         LIMIT %s
-                    """, (limit,))
+                    """,
+                        (limit,),
+                    )
                     rows = cursor.fetchall()
             for row in rows:
                 alpha = self.compute_alpha_return_for_record(row["id"], window=window)
@@ -269,6 +300,7 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.warning(f"⚠️ alpha_return 回填失败: {e}")
         return updated
+
     @staticmethod
     def _normalize_entities(entities):
         """规范化 LLM 实体输出，确保入库结构稳定。"""
@@ -281,11 +313,13 @@ class IntelligenceRepo(DBBase):
             name = str(entity.get("name", "")).strip()
             if not name:
                 continue
-            normalized.append({
-                "name": name,
-                "type": str(entity.get("type", "unknown")).strip() or "unknown",
-                "impact": str(entity.get("impact", "neutral")).strip() or "neutral",
-            })
+            normalized.append(
+                {
+                    "name": name,
+                    "type": str(entity.get("type", "unknown")).strip() or "unknown",
+                    "impact": str(entity.get("impact", "neutral")).strip() or "neutral",
+                }
+            )
         return normalized
 
     @staticmethod
@@ -298,7 +332,11 @@ class IntelligenceRepo(DBBase):
             if not isinstance(relation, dict):
                 continue
             subject = str(relation.get("subject") or relation.get("from") or "").strip()
-            predicate = str(relation.get("predicate") or relation.get("relation") or "").strip().lower()
+            predicate = (
+                str(relation.get("predicate") or relation.get("relation") or "")
+                .strip()
+                .lower()
+            )
             obj = str(relation.get("object") or relation.get("to") or "").strip()
             if not subject or not predicate or not obj:
                 continue
@@ -314,30 +352,39 @@ class IntelligenceRepo(DBBase):
             except Exception:
                 strength = 0.5
             strength = max(0.0, min(1.0, strength))
-            normalized.append({
-                "subject": subject,
-                "predicate": predicate,
-                "object": obj,
-                "direction": direction,
-                "strength": strength,
-            })
+            normalized.append(
+                {
+                    "subject": subject,
+                    "predicate": predicate,
+                    "object": obj,
+                    "direction": direction,
+                    "strength": strength,
+                }
+            )
         return normalized
 
     # ── pgvector 语义去重 ─────────────────────────────────────────────────
 
-    def is_semantic_duplicate(self, vector, entities: list = None, sentiment: float = None, threshold: float = 0.85) -> dict:
+    def is_semantic_duplicate(
+        self,
+        vector,
+        entities: list = None,
+        sentiment: float = None,
+        threshold: float = 0.85,
+    ) -> dict:
         """
         查询 pgvector 判断语义重复 (HNSW 优化)，支持实体约束和情绪反转校验。
         返回dict: {status: 'NEW'|'DUP'|'SUSPECTED'|'SENTIMENT_REVERSAL', sim: float, lead_id: int, lead_summary: str}
         """
         if vector is None:
-             return {"status": "NEW", "sim": 0.0}
+            return {"status": "NEW", "sim": 0.0}
         try:
-            vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+            vec_list = vector.tolist() if hasattr(vector, "tolist") else list(vector)
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     if entities:
-                        cursor.execute("""
+                        cursor.execute(
+                            """
                             SELECT source_id, summary::text, sentiment_score, 1 - (embedding_vec <=> %s::vector) AS sim
                             FROM intelligence
                             WHERE embedding_vec IS NOT NULL
@@ -350,36 +397,54 @@ class IntelligenceRepo(DBBase):
                               )
                             ORDER BY embedding_vec <=> %s::vector
                             LIMIT 1
-                        """, (vec_list, entities, vec_list))
+                        """,
+                            (vec_list, entities, vec_list),
+                        )
                     else:
-                         cursor.execute("""
+                        cursor.execute(
+                            """
                              SELECT source_id, summary::text, sentiment_score, 1 - (embedding_vec <=> %s::vector) AS sim
                              FROM intelligence
                              WHERE embedding_vec IS NOT NULL
                                AND timestamp > NOW() - INTERVAL '48 hours'
                              ORDER BY embedding_vec <=> %s::vector
                              LIMIT 1
-                         """, (vec_list, vec_list))
+                         """,
+                            (vec_list, vec_list),
+                        )
                     row = cursor.fetchone()
-                    
+
                     if not row:
                         return {"status": "NEW", "sim": 0.0}
-                    
-                    sim = row['sim']
-                    lead_sentiment = row['sentiment_score']
-                    
+
+                    sim = row["sim"]
+                    lead_sentiment = row["sentiment_score"]
+
                     if sim > threshold:
                         # 检查是否有重大的情绪反转
                         if sentiment is not None and lead_sentiment is not None:
                             if abs(lead_sentiment - sentiment) > 0.5:
-                                return {"status": "SENTIMENT_REVERSAL", "sim": sim, "lead_id": row['source_id']}
-                        
+                                return {
+                                    "status": "SENTIMENT_REVERSAL",
+                                    "sim": sim,
+                                    "lead_id": row["source_id"],
+                                }
+
                         # 确定性重复阈值
                         if sim > 0.95:
-                            return {"status": "DUP", "sim": sim, "lead_id": row['source_id']}
+                            return {
+                                "status": "DUP",
+                                "sim": sim,
+                                "lead_id": row["source_id"],
+                            }
                         else:
-                            return {"status": "SUSPECTED", "sim": sim, "lead_id": row['source_id'], "lead_summary": row['summary']}
-                    
+                            return {
+                                "status": "SUSPECTED",
+                                "sim": sim,
+                                "lead_id": row["source_id"],
+                                "lead_summary": row["summary"],
+                            }
+
                     return {"status": "NEW", "sim": sim}
         except Exception as e:
             logger.error(f"Semantic Duplicate Check Failed: {e}")
@@ -388,14 +453,17 @@ class IntelligenceRepo(DBBase):
     def save_embedding_vec(self, source_id: str, vector) -> None:
         """将 BERT 嵌入向量持久化到 intelligence 表的 embedding_vec 列。"""
         try:
-            vec_list = vector.tolist() if hasattr(vector, 'tolist') else list(vector)
+            vec_list = vector.tolist() if hasattr(vector, "tolist") else list(vector)
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE intelligence
                         SET embedding_vec = %s::vector
                         WHERE source_id = %s
-                    """, (vec_list, source_id))
+                    """,
+                        (vec_list, source_id),
+                    )
                     conn.commit()
         except Exception as e:
             logger.warning(f"⚠️ 嵌入向量写入失败 [{source_id}]: {e}")
@@ -432,21 +500,32 @@ class IntelligenceRepo(DBBase):
                     rows = cursor.fetchall()
                     credibility_map = {}
                     for row in rows:
-                        source = row['source_name']
-                        accuracy = round(row['correct'] / row['total'], 4) if row['total'] > 0 else None
+                        source = row["source_name"]
+                        accuracy = (
+                            round(row["correct"] / row["total"], 4)
+                            if row["total"] > 0
+                            else None
+                        )
                         credibility_map[source] = accuracy
 
                     for source_name, score in credibility_map.items():
-                        cursor.execute("""
+                        cursor.execute(
+                            """
                             UPDATE intelligence
                             SET source_credibility_score = %s
                             WHERE source_name = %s
                               AND source_credibility_score IS DISTINCT FROM %s
-                        """, (score, source_name, score))
+                        """,
+                            (score, source_name, score),
+                        )
                     conn.commit()
 
                     if credibility_map:
-                        top = sorted(credibility_map.items(), key=lambda x: x[1] or 0, reverse=True)
+                        top = sorted(
+                            credibility_map.items(),
+                            key=lambda x: x[1] or 0,
+                            reverse=True,
+                        )
                         logger.info(
                             f"📊 信源可信度更新完成 | 共 {len(credibility_map)} 个信源 | "
                             f"Top3: {[(s, f'{a:.1%}') for s, a in top[:3]]}"
@@ -498,7 +577,9 @@ class IntelligenceRepo(DBBase):
                         values.append(record_id)
                         cursor.execute(query, tuple(values))
                         conn.commit()
-                        logger.info(f"✅ Outcome Updated ID: {record_id} | Fields: {list(kwargs.keys())}")
+                        logger.info(
+                            f"✅ Outcome Updated ID: {record_id} | Fields: {list(kwargs.keys())}"
+                        )
         except Exception as e:
             logger.error(f"Update Outcome Failed: {e}")
 
@@ -524,7 +605,7 @@ class IntelligenceRepo(DBBase):
     def save_raw_intelligence(self, raw_data, market_snapshots=None, conn=None):
         """
         Save raw intelligence data immediately (before analysis).
-        
+
         Args:
             raw_data: The raw item data.
             market_snapshots: Optional dict of pre-fetched market snapshots.
@@ -532,15 +613,16 @@ class IntelligenceRepo(DBBase):
         """
         try:
             news_time = None
-            if raw_data.get('timestamp'):
+            if raw_data.get("timestamp"):
                 import calendar
 
                 import dateutil.parser
+
                 try:
-                    if isinstance(raw_data['timestamp'], str):
-                        news_time = dateutil.parser.parse(raw_data['timestamp'])
-                    elif hasattr(raw_data['timestamp'], 'tm_year'):
-                        ts_utc = calendar.timegm(raw_data['timestamp'])
+                    if isinstance(raw_data["timestamp"], str):
+                        news_time = dateutil.parser.parse(raw_data["timestamp"])
+                    elif hasattr(raw_data["timestamp"], "tm_year"):
+                        ts_utc = calendar.timegm(raw_data["timestamp"])
                         news_time = datetime.fromtimestamp(ts_utc, tz=pytz.utc)
                 except Exception as e:
                     logger.warning(f"Timestamp parsing failed: {e}")
@@ -554,41 +636,44 @@ class IntelligenceRepo(DBBase):
                     news_time = news_time.astimezone(pytz.utc)
 
             market_session = self.get_market_session(news_time)
-            clustering_score, exhaustion_score = self.get_advanced_metrics(news_time, raw_data.get('content'))
+            clustering_score, exhaustion_score = self.get_advanced_metrics(
+                news_time, raw_data.get("content")
+            )
 
             # Use pre-fetched snapshots if available, otherwise fetch (cached)
             snaps = market_snapshots or {}
-            
-            dxy = raw_data.get('dxy_snapshot') or snaps.get("DX-Y.NYB")
+
+            dxy = raw_data.get("dxy_snapshot") or snaps.get("DX-Y.NYB")
             if dxy is None:
                 dxy = self.get_market_snapshot("DX-Y.NYB", news_time)
-            
-            us10y = raw_data.get('us10y_snapshot') or snaps.get("^TNX")
+
+            us10y = raw_data.get("us10y_snapshot") or snaps.get("^TNX")
             if us10y is None:
                 us10y = self.get_market_snapshot("^TNX", news_time)
-            
-            gvz = raw_data.get('gvz_snapshot') or snaps.get("^GVZ")
+
+            gvz = raw_data.get("gvz_snapshot") or snaps.get("^GVZ")
             if gvz is None:
                 gvz = self.get_market_snapshot("^GVZ", news_time)
-            
-            gold = raw_data.get('gold_price_snapshot') or snaps.get("GC=F")
+
+            gold = raw_data.get("gold_price_snapshot") or snaps.get("GC=F")
             if gold is None:
                 gold = self.get_market_snapshot("GC=F", news_time)
-            
-            oil = raw_data.get('oil_price_snapshot') or snaps.get("CL=F")
+
+            oil = raw_data.get("oil_price_snapshot") or snaps.get("CL=F")
             if oil is None:
                 oil = self.get_market_snapshot("CL=F", news_time)
 
             # Define the actual save logic
             def _execute_save(active_conn):
                 with active_conn.cursor() as cursor:
-
                     embedding_binary = None
-                    if 'embedding' in raw_data and raw_data['embedding'] is not None:
+                    if "embedding" in raw_data and raw_data["embedding"] is not None:
                         import pickle
-                        embedding_binary = pickle.dumps(raw_data['embedding'])
 
-                    cursor.execute("""
+                        embedding_binary = pickle.dumps(raw_data["embedding"])
+
+                    cursor.execute(
+                        """
                         INSERT INTO intelligence (
                             source_id, author, content, url, timestamp,
                             market_session, clustering_score, exhaustion_score,
@@ -597,31 +682,38 @@ class IntelligenceRepo(DBBase):
                         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (source_id) DO NOTHING
                         RETURNING id
-                    """, (
-                        raw_data.get('id'),
-                        raw_data.get('author'),
-                        raw_data.get('original_content') if raw_data.get('original_content') else raw_data.get('content'),
-                        raw_data.get('url'),
-                        news_time,
-                        market_session,
-                        clustering_score,
-                        float(exhaustion_score),
-                        float(dxy) if dxy is not None else None,
-                        float(us10y) if us10y is not None else None,
-                        float(gvz) if gvz is not None else None,
-                        float(gold) if gold is not None else None,
-                        float(oil) if oil is not None else None,
-                        float(raw_data.get('fed_val', 0.0)),
-                        embedding_binary,
-                        raw_data.get('source'),
-                        raw_data.get('category', 'macro_gold'),
-                    ))
+                    """,
+                        (
+                            raw_data.get("id"),
+                            raw_data.get("author"),
+                            raw_data.get("original_content")
+                            if raw_data.get("original_content")
+                            else raw_data.get("content"),
+                            raw_data.get("url"),
+                            news_time,
+                            market_session,
+                            clustering_score,
+                            float(exhaustion_score),
+                            float(dxy) if dxy is not None else None,
+                            float(us10y) if us10y is not None else None,
+                            float(gvz) if gvz is not None else None,
+                            float(gold) if gold is not None else None,
+                            float(oil) if oil is not None else None,
+                            float(raw_data.get("fed_val", 0.0)),
+                            embedding_binary,
+                            raw_data.get("source"),
+                            raw_data.get("category", "macro_gold"),
+                        ),
+                    )
                     row = cursor.fetchone()
                     if not row:
-                        cursor.execute("SELECT id FROM intelligence WHERE source_id = %s", (raw_data.get('id'),))
+                        cursor.execute(
+                            "SELECT id FROM intelligence WHERE source_id = %s",
+                            (raw_data.get("id"),),
+                        )
                         row = cursor.fetchone()
                     active_conn.commit()
-                    return row['id'] if row else None
+                    return row["id"] if row else None
 
             if conn:
                 return _execute_save(conn)
@@ -637,7 +729,7 @@ class IntelligenceRepo(DBBase):
         """批量保存原始情报，共享数据库连接和市场快照。"""
         if not items:
             return 0
-        
+
         saved_count = 0
         try:
             # 1. 预解析当前的全局市场快照（利用刚才加的 Redis 缓存）
@@ -649,17 +741,19 @@ class IntelligenceRepo(DBBase):
                 "GC=F": self.get_market_snapshot("GC=F", now),
                 "CL=F": self.get_market_snapshot("CL=F", now),
             }
-            
+
             # 2. 使用单一连接批量处理
             with self._get_conn() as conn:
                 for item in items:
                     try:
-                        res = self.save_raw_intelligence(item, market_snapshots=snaps, conn=conn)
+                        res = self.save_raw_intelligence(
+                            item, market_snapshots=snaps, conn=conn
+                        )
                         if res:
                             saved_count += 1
                     except Exception as e:
                         logger.error(f"Batch item save failed: {e}")
-            
+
             return saved_count
         except Exception as e:
             logger.error(f"Batch Save Failed: {e}")
@@ -670,12 +764,15 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT summary, sentiment, urgency_score, market_implication, 
                                actionable_advice, entities, relation_triples, tags, 
                                sentiment_score
                         FROM intelligence WHERE source_id = %s
-                    """, (source_id,))
+                    """,
+                        (source_id,),
+                    )
                     row = cursor.fetchone()
                     if row:
                         return dict(row)
@@ -687,15 +784,17 @@ class IntelligenceRepo(DBBase):
     def update_lead_analysis(self, source_id: str, analysis_result: dict):
         """仅更新标杆节点的分析结果 (用于 Lead Evolution 自动融合阶段)"""
         try:
+
             def _to_jsonb(val):
                 if val is None:
                     return None
                 return Jsonb(val)
-                
+
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     # 仅更新需要演化的核心分析字段
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE intelligence SET
                             summary = %s, 
                             market_implication = %s,
@@ -705,14 +804,16 @@ class IntelligenceRepo(DBBase):
                             status = 'COMPLETED',
                             last_error = NULL
                         WHERE source_id = %s
-                    """, (
-                        _to_jsonb(analysis_result.get('summary')),
-                        _to_jsonb(analysis_result.get('market_implication')),
-                        _to_jsonb(analysis_result.get('sentiment')),
-                        float(analysis_result.get('sentiment_score') or 0.0),
-                        analysis_result.get('urgency_score'),
-                        source_id
-                    ))
+                    """,
+                        (
+                            _to_jsonb(analysis_result.get("summary")),
+                            _to_jsonb(analysis_result.get("market_implication")),
+                            _to_jsonb(analysis_result.get("sentiment")),
+                            float(analysis_result.get("sentiment_score") or 0.0),
+                            analysis_result.get("urgency_score"),
+                            source_id,
+                        ),
+                    )
                     conn.commit()
         except Exception as e:
             logger.error(f"Lead Evolution 更新失败 ({source_id}): {e}")
@@ -721,22 +822,26 @@ class IntelligenceRepo(DBBase):
     def update_intelligence_analysis(self, source_id, analysis_result, raw_data):
         """Update a record with analysis results."""
         try:
-            sentiment_score = analysis_result.get('sentiment_score', 0)
+            sentiment_score = analysis_result.get("sentiment_score", 0)
             orig_score = sentiment_score
-            fed_val = raw_data.get('fed_val', 0)
+            fed_val = raw_data.get("fed_val", 0)
             macro_adj = 0.0
             # Story Threading: allow engine to attach story metadata for cross-round traceability.
             # When values are None, COALESCE keeps existing DB values.
-            story_id = raw_data.get('story_id')
-            is_story_lead = raw_data.get('is_story_lead')
+            story_id = raw_data.get("story_id")
+            is_story_lead = raw_data.get("is_story_lead")
             if fed_val > 0:
                 macro_adj = 0.15
                 sentiment_score = max(-1.0, min(1.0, sentiment_score + 0.15))
-                logger.info(f"⚖️  Dimension D 权调节 (Dovish/+0.15): {orig_score:.2f} -> {sentiment_score:.2f}")
+                logger.info(
+                    f"⚖️  Dimension D 权调节 (Dovish/+0.15): {orig_score:.2f} -> {sentiment_score:.2f}"
+                )
             elif fed_val < 0:
                 macro_adj = -0.15
                 sentiment_score = max(-1.0, min(1.0, sentiment_score - 0.15))
-                logger.info(f"⚖️  Dimension D 权调节 (Hawkish/-0.15): {orig_score:.2f} -> {sentiment_score:.2f}")
+                logger.info(
+                    f"⚖️  Dimension D 权调节 (Hawkish/-0.15): {orig_score:.2f} -> {sentiment_score:.2f}"
+                )
 
             def _to_jsonb(val):
                 if val is None:
@@ -746,11 +851,17 @@ class IntelligenceRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     embedding_binary = None
-                    if 'embedding' in analysis_result and analysis_result['embedding'] is not None:
+                    if (
+                        "embedding" in analysis_result
+                        and analysis_result["embedding"] is not None
+                    ):
                         import pickle
-                        embedding_binary = pickle.dumps(analysis_result['embedding'])
-                    entities = self._normalize_entities(analysis_result.get('entities'))
-                    relation_triples = self._normalize_relations(analysis_result.get('relations'))
+
+                        embedding_binary = pickle.dumps(analysis_result["embedding"])
+                    entities = self._normalize_entities(analysis_result.get("entities"))
+                    relation_triples = self._normalize_relations(
+                        analysis_result.get("relations")
+                    )
                     expectation_gap = None
                     agent_trace = analysis_result.get("agent_trace")
                     if agent_trace is not None:
@@ -759,7 +870,8 @@ class IntelligenceRepo(DBBase):
                     agent_trace = analysis_result.get("agent_trace")
                     if agent_trace is not None:
                         try:
-                            cursor.execute("""
+                            cursor.execute(
+                                """
                                 UPDATE intelligence SET
                                     summary = %s, sentiment = %s, urgency_score = %s,
                                     market_implication = %s, actionable_advice = %s,
@@ -773,23 +885,33 @@ class IntelligenceRepo(DBBase):
                                     embedding = COALESCE(%s, embedding),
                                     status = 'COMPLETED', last_error = NULL
                                 WHERE source_id = %s
-                            """, (
-                                _to_jsonb(analysis_result.get('summary')),
-                                _to_jsonb(analysis_result.get('sentiment')),
-                                analysis_result.get('urgency_score'),
-                                _to_jsonb(analysis_result.get('market_implication')),
-                                _to_jsonb(analysis_result.get('actionable_advice')),
-                                float(sentiment_score), float(macro_adj),
-                                _to_jsonb(entities),
-                                _to_jsonb(relation_triples),
-                                _to_jsonb(agent_trace),
-                                float(expectation_gap) if expectation_gap is not None else None,
-                                story_id, is_story_lead,
-                                embedding_binary, source_id,
-                            ))
+                            """,
+                                (
+                                    _to_jsonb(analysis_result.get("summary")),
+                                    _to_jsonb(analysis_result.get("sentiment")),
+                                    analysis_result.get("urgency_score"),
+                                    _to_jsonb(
+                                        analysis_result.get("market_implication")
+                                    ),
+                                    _to_jsonb(analysis_result.get("actionable_advice")),
+                                    float(sentiment_score),
+                                    float(macro_adj),
+                                    _to_jsonb(entities),
+                                    _to_jsonb(relation_triples),
+                                    _to_jsonb(agent_trace),
+                                    float(expectation_gap)
+                                    if expectation_gap is not None
+                                    else None,
+                                    story_id,
+                                    is_story_lead,
+                                    embedding_binary,
+                                    source_id,
+                                ),
+                            )
                         except Exception as e:
                             if "agent_trace" in str(e):
-                                cursor.execute("""
+                                cursor.execute(
+                                    """
                                     UPDATE intelligence SET
                                         summary = %s, sentiment = %s, urgency_score = %s,
                                         market_implication = %s, actionable_advice = %s,
@@ -802,23 +924,35 @@ class IntelligenceRepo(DBBase):
                                         embedding = COALESCE(%s, embedding),
                                         status = 'COMPLETED', last_error = NULL
                                     WHERE source_id = %s
-                                """, (
-                                    _to_jsonb(analysis_result.get('summary')),
-                                    _to_jsonb(analysis_result.get('sentiment')),
-                                    analysis_result.get('urgency_score'),
-                                    _to_jsonb(analysis_result.get('market_implication')),
-                                    _to_jsonb(analysis_result.get('actionable_advice')),
-                                    float(sentiment_score), float(macro_adj),
-                                    _to_jsonb(entities),
-                                    _to_jsonb(relation_triples),
-                                    float(expectation_gap) if expectation_gap is not None else None,
-                                    story_id, is_story_lead,
-                                    embedding_binary, source_id,
-                                ))
+                                """,
+                                    (
+                                        _to_jsonb(analysis_result.get("summary")),
+                                        _to_jsonb(analysis_result.get("sentiment")),
+                                        analysis_result.get("urgency_score"),
+                                        _to_jsonb(
+                                            analysis_result.get("market_implication")
+                                        ),
+                                        _to_jsonb(
+                                            analysis_result.get("actionable_advice")
+                                        ),
+                                        float(sentiment_score),
+                                        float(macro_adj),
+                                        _to_jsonb(entities),
+                                        _to_jsonb(relation_triples),
+                                        float(expectation_gap)
+                                        if expectation_gap is not None
+                                        else None,
+                                        story_id,
+                                        is_story_lead,
+                                        embedding_binary,
+                                        source_id,
+                                    ),
+                                )
                             else:
                                 raise
                     else:
-                        cursor.execute("""
+                        cursor.execute(
+                            """
                             UPDATE intelligence SET
                                 summary = %s, sentiment = %s, urgency_score = %s,
                                 market_implication = %s, actionable_advice = %s,
@@ -831,43 +965,60 @@ class IntelligenceRepo(DBBase):
                                 embedding = COALESCE(%s, embedding),
                                 status = 'COMPLETED', last_error = NULL
                             WHERE source_id = %s
-                        """, (
-                            _to_jsonb(analysis_result.get('summary')),
-                            _to_jsonb(analysis_result.get('sentiment')),
-                            analysis_result.get('urgency_score'),
-                            _to_jsonb(analysis_result.get('market_implication')),
-                            _to_jsonb(analysis_result.get('actionable_advice')),
-                            float(sentiment_score), float(macro_adj),
-                            _to_jsonb(entities),
-                            _to_jsonb(relation_triples),
-                            float(expectation_gap) if expectation_gap is not None else None,
-                            story_id, is_story_lead,
-                            embedding_binary, source_id,
-                        ))
+                        """,
+                            (
+                                _to_jsonb(analysis_result.get("summary")),
+                                _to_jsonb(analysis_result.get("sentiment")),
+                                analysis_result.get("urgency_score"),
+                                _to_jsonb(analysis_result.get("market_implication")),
+                                _to_jsonb(analysis_result.get("actionable_advice")),
+                                float(sentiment_score),
+                                float(macro_adj),
+                                _to_jsonb(entities),
+                                _to_jsonb(relation_triples),
+                                float(expectation_gap)
+                                if expectation_gap is not None
+                                else None,
+                                story_id,
+                                is_story_lead,
+                                embedding_binary,
+                                source_id,
+                            ),
+                        )
                     conn.commit()
                     logger.info(f"💾 Updated Analysis for ID: {source_id}")
         except Exception as e:
             logger.error(f"Update Analysis Failed: {e}")
 
-    def save_intelligence(self, raw_data, analysis_result, gold_price_snapshot=None, price_1h=None, price_24h=None):
+    def save_intelligence(
+        self,
+        raw_data,
+        analysis_result,
+        gold_price_snapshot=None,
+        price_1h=None,
+        price_24h=None,
+    ):
         """Save fully-analyzed intelligence to PostgreSQL using JSONB."""
         try:
             news_time = None
-            if raw_data.get('timestamp'):
+            if raw_data.get("timestamp"):
                 import calendar
 
                 import dateutil.parser
+
                 try:
-                    if isinstance(raw_data['timestamp'], str):
-                        news_time = dateutil.parser.parse(raw_data['timestamp'])
-                    elif hasattr(raw_data['timestamp'], 'tm_year'):
-                        ts_utc = calendar.timegm(raw_data['timestamp'])
+                    if isinstance(raw_data["timestamp"], str):
+                        news_time = dateutil.parser.parse(raw_data["timestamp"])
+                    elif hasattr(raw_data["timestamp"], "tm_year"):
+                        ts_utc = calendar.timegm(raw_data["timestamp"])
                         news_time = datetime.fromtimestamp(ts_utc, tz=pytz.utc)
                 except Exception as e:
                     logger.warning(f"Failed to parse timestamp: {e}")
 
             market_session = self.get_market_session(news_time)
-            clustering_score, exhaustion_score = self.get_advanced_metrics(news_time, raw_data.get('content'))
+            clustering_score, exhaustion_score = self.get_advanced_metrics(
+                news_time, raw_data.get("content")
+            )
 
             if news_time is None:
                 news_time = datetime.now(pytz.utc)
@@ -879,12 +1030,18 @@ class IntelligenceRepo(DBBase):
 
             if gold_price_snapshot is None:
                 gold_price_snapshot = self.get_market_snapshot("GC=F", news_time)
-            dxy = raw_data.get('dxy_snapshot') or self.get_market_snapshot("DX-Y.NYB", news_time)
-            us10y = raw_data.get('us10y_snapshot') or self.get_market_snapshot("^TNX", news_time)
-            gvz = raw_data.get('gvz_snapshot') or self.get_market_snapshot("^GVZ", news_time)
+            dxy = raw_data.get("dxy_snapshot") or self.get_market_snapshot(
+                "DX-Y.NYB", news_time
+            )
+            us10y = raw_data.get("us10y_snapshot") or self.get_market_snapshot(
+                "^TNX", news_time
+            )
+            gvz = raw_data.get("gvz_snapshot") or self.get_market_snapshot(
+                "^GVZ", news_time
+            )
 
-            sentiment_score = analysis_result.get('sentiment_score', 0)
-            fed_val = raw_data.get('fed_val', 0)
+            sentiment_score = analysis_result.get("sentiment_score", 0)
+            fed_val = raw_data.get("fed_val", 0)
             macro_adj = 0.0
             if fed_val > 0:
                 macro_adj = 0.15
@@ -900,11 +1057,14 @@ class IntelligenceRepo(DBBase):
 
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    entities = self._normalize_entities(analysis_result.get('entities'))
-                    tags = analysis_result.get('tags')
-                    relation_triples = self._normalize_relations(analysis_result.get('relations'))
+                    entities = self._normalize_entities(analysis_result.get("entities"))
+                    tags = analysis_result.get("tags")
+                    relation_triples = self._normalize_relations(
+                        analysis_result.get("relations")
+                    )
 
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO intelligence (
                             source_id, author, content, summary, sentiment,
                             urgency_score, market_implication, actionable_advice, url,
@@ -914,30 +1074,45 @@ class IntelligenceRepo(DBBase):
                             sentiment_score, fed_regime, macro_adjustment, category
                         ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                         ON CONFLICT (source_id) DO NOTHING
-                    """, (
-                        raw_data.get('id'), raw_data.get('author'), raw_data.get('content'),
-                        _to_jsonb(analysis_result.get('summary')), _to_jsonb(analysis_result.get('sentiment')),
-                        analysis_result.get('urgency_score'),
-                        _to_jsonb(analysis_result.get('market_implication')),
-                        _to_jsonb(analysis_result.get('actionable_advice')),
-                        raw_data.get('url'),
-                        _to_jsonb(entities), _to_jsonb(tags), _to_jsonb(relation_triples),
-                        float(gold_price_snapshot) if gold_price_snapshot is not None else None,
-                        float(price_1h) if price_1h is not None else None,
-                        float(price_24h) if price_24h is not None else None,
-                        news_time, market_session, clustering_score,
-                        float(exhaustion_score) if exhaustion_score is not None else 0.0,
-                        float(dxy) if dxy is not None else None,
-                        float(us10y) if us10y is not None else None,
-                        float(gvz) if gvz is not None else None,
-                        float(sentiment_score),
-                        float(fed_val) if fed_val is not None else 0.0,
-                        float(macro_adj),
-                        raw_data.get('category', 'macro_gold'),
-                    ))
+                    """,
+                        (
+                            raw_data.get("id"),
+                            raw_data.get("author"),
+                            raw_data.get("content"),
+                            _to_jsonb(analysis_result.get("summary")),
+                            _to_jsonb(analysis_result.get("sentiment")),
+                            analysis_result.get("urgency_score"),
+                            _to_jsonb(analysis_result.get("market_implication")),
+                            _to_jsonb(analysis_result.get("actionable_advice")),
+                            raw_data.get("url"),
+                            _to_jsonb(entities),
+                            _to_jsonb(tags),
+                            _to_jsonb(relation_triples),
+                            float(gold_price_snapshot)
+                            if gold_price_snapshot is not None
+                            else None,
+                            float(price_1h) if price_1h is not None else None,
+                            float(price_24h) if price_24h is not None else None,
+                            news_time,
+                            market_session,
+                            clustering_score,
+                            float(exhaustion_score)
+                            if exhaustion_score is not None
+                            else 0.0,
+                            float(dxy) if dxy is not None else None,
+                            float(us10y) if us10y is not None else None,
+                            float(gvz) if gvz is not None else None,
+                            float(sentiment_score),
+                            float(fed_val) if fed_val is not None else 0.0,
+                            float(macro_adj),
+                            raw_data.get("category", "macro_gold"),
+                        ),
+                    )
                     conn.commit()
                     if cursor.rowcount > 0:
-                        logger.info(f"💾 Saved Intelligence | Gold: ${gold_price_snapshot}")
+                        logger.info(
+                            f"💾 Saved Intelligence | Gold: ${gold_price_snapshot}"
+                        )
         except Exception as e:
             logger.error(f"Save Intelligence Failed: {e}")
 
@@ -948,7 +1123,10 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("SELECT 1 FROM intelligence WHERE source_id = %s LIMIT 1", (source_id,))
+                    cursor.execute(
+                        "SELECT 1 FROM intelligence WHERE source_id = %s LIMIT 1",
+                        (source_id,),
+                    )
                     exists = cursor.fetchone() is not None
             return exists
         except Exception as e:
@@ -964,7 +1142,10 @@ class IntelligenceRepo(DBBase):
                 with conn.cursor() as cursor:
                     # Convert all IDs to strings to avoid psycopg mixed-type array errors
                     str_ids = [str(i) for i in source_ids]
-                    cursor.execute("SELECT source_id FROM intelligence WHERE source_id = ANY(%s)", (str_ids,))
+                    cursor.execute(
+                        "SELECT source_id FROM intelligence WHERE source_id = ANY(%s)",
+                        (str_ids,),
+                    )
                     rows = cursor.fetchall()
             return {row["source_id"] for row in rows}
         except Exception as e:
@@ -975,7 +1156,10 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("SELECT * FROM intelligence ORDER BY timestamp DESC LIMIT %s", (limit,))
+                    cursor.execute(
+                        "SELECT * FROM intelligence ORDER BY timestamp DESC LIMIT %s",
+                        (limit,),
+                    )
                     rows = cursor.fetchall()
             return [dict(row) for row in rows]
         except Exception as e:
@@ -987,11 +1171,14 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT * FROM intelligence
                         WHERE status IN ('PENDING', 'FAILED')
                         ORDER BY timestamp DESC LIMIT %s
-                    """, (limit,))
+                    """,
+                        (limit,),
+                    )
                     rows = cursor.fetchall()
             return [dict(row) for row in rows]
         except Exception as e:
@@ -1003,9 +1190,12 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE intelligence SET status = %s, last_error = %s WHERE source_id = %s
-                    """, (status, error, source_id))
+                    """,
+                        (status, error, source_id),
+                    )
                     conn.commit()
         except Exception as e:
             logger.error(f"Update Status Failed: {e}")
@@ -1017,7 +1207,7 @@ class IntelligenceRepo(DBBase):
                 with conn.cursor() as cursor:
                     cursor.execute(
                         "SELECT 1 FROM intelligence WHERE source_id = %s AND summary IS NOT NULL LIMIT 1",
-                        (source_id,)
+                        (source_id,),
                     )
                     exists = cursor.fetchone() is not None
             return exists
@@ -1033,15 +1223,22 @@ class IntelligenceRepo(DBBase):
                 with conn.cursor() as cursor:
                     if exclude_id:
                         cursor.execute(
-                            "SELECT id FROM intelligence WHERE url = %s AND id != %s LIMIT 1", 
-                            (new_url, exclude_id)
+                            "SELECT id FROM intelligence WHERE url = %s AND id != %s LIMIT 1",
+                            (new_url, exclude_id),
                         )
                     else:
-                        cursor.execute("SELECT id FROM intelligence WHERE url = %s LIMIT 1", (new_url,))
+                        cursor.execute(
+                            "SELECT id FROM intelligence WHERE url = %s LIMIT 1",
+                            (new_url,),
+                        )
                     row = cursor.fetchone()
                     if row:
                         logger.info(f"🚫 URL {new_url} 已存在，跳过。")
-                        return {"is_duplicate": True, "status": "DUP", "lead_id": row['id']}
+                        return {
+                            "is_duplicate": True,
+                            "status": "DUP",
+                            "lead_id": row["id"],
+                        }
             return {"is_duplicate": False, "status": "NEW"}
         except Exception as e:
             logger.error(f"URL 判重失败: {e}")
@@ -1049,7 +1246,9 @@ class IntelligenceRepo(DBBase):
 
     # ── 事件聚类支持方法 ──────────────────────────────────────────────────
 
-    def find_similar_pairs(self, source_ids: list, threshold: float = 0.45, time_window_hours: int = 48) -> list:
+    def find_similar_pairs(
+        self, source_ids: list, threshold: float = 0.45, time_window_hours: int = 48
+    ) -> list:
         """
         在给定的 source_ids 范围内查找相似对。
         Story Threading 优化：引入衰减式时间窗口。
@@ -1062,7 +1261,8 @@ class IntelligenceRepo(DBBase):
                 with conn.cursor() as cursor:
                     # 使用 exp(-dt/T) 实现衰减，T = 12h (43200s)
                     # 只有 (相似度 * 衰减因子) > threshold 的才会被聚类
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT a.source_id AS source_id_a, b.source_id AS source_id_b
                         FROM intelligence a
                         JOIN intelligence b ON a.source_id < b.source_id
@@ -1075,14 +1275,24 @@ class IntelligenceRepo(DBBase):
                             ((a.embedding_vec IS NULL OR b.embedding_vec IS NULL) 
                              AND (similarity(COALESCE(a.content, ''), COALESCE(b.content, '')) * exp(-ABS(EXTRACT(EPOCH FROM (a.timestamp - b.timestamp))) / 43200.0)) > %s)
                           )
-                    """, (source_ids, source_ids, time_window_hours * 3600, threshold, threshold))
+                    """,
+                        (
+                            source_ids,
+                            source_ids,
+                            time_window_hours * 3600,
+                            threshold,
+                            threshold,
+                        ),
+                    )
                     rows = cursor.fetchall()
             return [(r["source_id_a"], r["source_id_b"]) for r in rows]
         except Exception as e:
             logger.error(f"find_similar_pairs (Story Threading) failed: {e}")
             return []
 
-    def mark_clustered(self, source_ids: list, cluster_id: str, lead_source_id: str) -> None:
+    def mark_clustered(
+        self, source_ids: list, cluster_id: str, lead_source_id: str
+    ) -> None:
         """
         将非 lead 的同事件记录批量标记为 CLUSTERED。
           - is_cluster_lead = FALSE  （非 lead）
@@ -1100,30 +1310,39 @@ class IntelligenceRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     # 所有成员打上 cluster_id
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE intelligence
                         SET event_cluster_id = %s,
                             story_id = %s,
                             corroboration_count = %s
                         WHERE source_id = ANY(%s)
-                    """, (cluster_id, cluster_id, corroboration_count, source_ids))
+                    """,
+                        (cluster_id, cluster_id, corroboration_count, source_ids),
+                    )
                     # Lead 标记
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE intelligence
                         SET is_cluster_lead = TRUE,
                             is_story_lead = TRUE
                         WHERE source_id = %s
-                    """, (lead_source_id,))
+                    """,
+                        (lead_source_id,),
+                    )
                     # Followers → CLUSTERED
                     if follower_ids:
-                        cursor.execute("""
+                        cursor.execute(
+                            """
                             UPDATE intelligence
                             SET is_cluster_lead = FALSE,
                                 is_story_lead = FALSE,
                                 status = 'CLUSTERED',
                                 last_error = 'Suppressed: same event as ' || %s
                             WHERE source_id = ANY(%s)
-                        """, (lead_source_id, follower_ids))
+                        """,
+                            (lead_source_id, follower_ids),
+                        )
                     conn.commit()
                     logger.info(
                         f"🔗 事件聚类 [{cluster_id[:8]}] | lead={lead_source_id[:20]} | "
@@ -1150,26 +1369,31 @@ class IntelligenceRepo(DBBase):
             return None
 
     # ── 实体未命中监控 (Entity Miss Logging) ──────────────────────────────
-    
+
     def log_entity_miss_batch(self, source_id: str, missing_names: list) -> None:
         """记录实体提取中未对齐（查无此人）的名称，用于后续人工审核补全"""
         if not missing_names:
             return
-            
+
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     for name in missing_names:
-                        cursor.execute("""
+                        cursor.execute(
+                            """
                             INSERT INTO entity_miss_log (raw_entity_name, last_source_id)
                             VALUES (%s, %s)
                             ON CONFLICT (raw_entity_name) DO UPDATE 
                             SET occurrence_count = entity_miss_log.occurrence_count + 1,
                                 last_seen = NOW(),
                                 last_source_id = EXCLUDED.last_source_id
-                        """, (name, source_id))
+                        """,
+                            (name, source_id),
+                        )
                     conn.commit()
-            logger.info(f"📝 已记录 {len(missing_names)} 个未识别实体至待审核库: {missing_names}")
+            logger.info(
+                f"📝 已记录 {len(missing_names)} 个未识别实体至待审核库: {missing_names}"
+            )
         except Exception as e:
             logger.warning(f"⚠️ 记录 missing entities 失败: {e}")
 
@@ -1178,13 +1402,16 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT raw_entity_name, occurrence_count, last_seen, last_source_id
                         FROM entity_miss_log
                         WHERE last_seen >= (NOW() - INTERVAL '%s days')
                           AND occurrence_count >= %s
                         ORDER BY occurrence_count DESC
-                    """, (days, min_count))
+                    """,
+                        (days, min_count),
+                    )
                     return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
             logger.error(f"❌ Failed to fetch frequent missed entities: {e}")
@@ -1192,7 +1419,9 @@ class IntelligenceRepo(DBBase):
 
     # ── 事件知识图谱 ──────────────────────────────────────────────────────
 
-    def _upsert_entity_node(self, cursor, entity_name: str, entity_type: str = "unknown") -> int | None:
+    def _upsert_entity_node(
+        self, cursor, entity_name: str, entity_type: str = "unknown"
+    ) -> int | None:
         """
         根据名称和类型 Upsert 实体节点。
         使用标准化后的 normalized_name 作为唯一冲突检查，但保留展示用的 entity_name。
@@ -1206,13 +1435,16 @@ class IntelligenceRepo(DBBase):
         # 针对 Gold/Oil 等资产强制标准化类型
         canonical_type = normalize_entity_type(canonical_name, entity_type)
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO entity_nodes (entity_name, normalized_name, entity_type)
             VALUES (%s, %s, %s)
             ON CONFLICT (normalized_name, entity_type)
             DO UPDATE SET entity_name = EXCLUDED.entity_name
             RETURNING node_id
-        """, (canonical_name, normalized_name, canonical_type))
+        """,
+            (canonical_name, normalized_name, canonical_type),
+        )
         res = cursor.fetchone()
         return res["node_id"] if res else None
 
@@ -1230,7 +1462,8 @@ class IntelligenceRepo(DBBase):
         intelligence_id: int,
         metadata: dict | None = None,
     ) -> None:
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO entity_edges (
                 from_node_id, to_node_id, relation, direction,
                 strength, confidence_score, event_cluster_id,
@@ -1242,36 +1475,47 @@ class IntelligenceRepo(DBBase):
                 strength = GREATEST(entity_edges.strength, EXCLUDED.strength),
                 confidence_score = GREATEST(entity_edges.confidence_score, EXCLUDED.confidence_score),
                 metadata = COALESCE(entity_edges.metadata, '{}'::jsonb) || EXCLUDED.metadata
-        """, (
-            from_node_id,
-            to_node_id,
-            relation,
-            direction,
-            strength,
-            confidence_score,
-            cluster_id,
-            source_id,
-            intelligence_id,
-            Jsonb(metadata or {}),
-        ))
+        """,
+            (
+                from_node_id,
+                to_node_id,
+                relation,
+                direction,
+                strength,
+                confidence_score,
+                cluster_id,
+                source_id,
+                intelligence_id,
+                Jsonb(metadata or {}),
+            ),
+        )
 
     def _get_intelligence_context(self, cursor, source_id: str) -> dict | None:
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT id, source_id, event_cluster_id, urgency_score, source_credibility_score, timestamp
             FROM intelligence
             WHERE source_id = %s
             LIMIT 1
-        """, (source_id,))
+        """,
+            (source_id,),
+        )
         row = cursor.fetchone()
         if not row:
             return None
         return {
-            "id": row.get("id") if hasattr(row, 'get') else row[0],
-            "source_id": row.get("source_id") if hasattr(row, 'get') else row[1],
-            "event_cluster_id": row.get("event_cluster_id") if hasattr(row, 'get') else row[2],
-            "urgency_score": row.get("urgency_score") if hasattr(row, 'get') else row[3],
-            "source_credibility_score": row.get("source_credibility_score") if hasattr(row, 'get') else row[4],
-            "timestamp": row.get("timestamp") if hasattr(row, 'get') else row[5],
+            "id": row.get("id") if hasattr(row, "get") else row[0],
+            "source_id": row.get("source_id") if hasattr(row, "get") else row[1],
+            "event_cluster_id": row.get("event_cluster_id")
+            if hasattr(row, "get")
+            else row[2],
+            "urgency_score": row.get("urgency_score")
+            if hasattr(row, "get")
+            else row[3],
+            "source_credibility_score": row.get("source_credibility_score")
+            if hasattr(row, "get")
+            else row[4],
+            "timestamp": row.get("timestamp") if hasattr(row, "get") else row[5],
         }
 
     def _upsert_cross_asset_edges(
@@ -1317,34 +1561,82 @@ class IntelligenceRepo(DBBase):
         oil_relation = "inflation_up" if signal >= 0 else "risk_off"
 
         self._upsert_graph_edge(
-            cursor, dxy_id, gold_id, dxy_relation, "forward",
-            base_strength, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic", "asset": "DXY"}
+            cursor,
+            dxy_id,
+            gold_id,
+            dxy_relation,
+            "forward",
+            base_strength,
+            confidence_score,
+            cluster_id,
+            source_id,
+            intelligence_id,
+            {"source": "cross_asset_heuristic", "asset": "DXY"},
         )
         self._upsert_graph_edge(
-            cursor, tnx_id, gold_id, tnx_relation, "forward",
-            base_strength, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic", "asset": "US10Y"}
+            cursor,
+            tnx_id,
+            gold_id,
+            tnx_relation,
+            "forward",
+            base_strength,
+            confidence_score,
+            cluster_id,
+            source_id,
+            intelligence_id,
+            {"source": "cross_asset_heuristic", "asset": "US10Y"},
         )
         self._upsert_graph_edge(
-            cursor, oil_id, gold_id, oil_relation, "forward",
-            0.5, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic", "asset": "Oil"}
+            cursor,
+            oil_id,
+            gold_id,
+            oil_relation,
+            "forward",
+            0.5,
+            confidence_score,
+            cluster_id,
+            source_id,
+            intelligence_id,
+            {"source": "cross_asset_heuristic", "asset": "Oil"},
         )
         self._upsert_graph_edge(
-            cursor, dxy_id, tnx_id, "macro_coupling", "bidirectional",
-            0.45, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic"}
+            cursor,
+            dxy_id,
+            tnx_id,
+            "macro_coupling",
+            "bidirectional",
+            0.45,
+            confidence_score,
+            cluster_id,
+            source_id,
+            intelligence_id,
+            {"source": "cross_asset_heuristic"},
         )
         self._upsert_graph_edge(
-            cursor, tnx_id, dxy_id, "macro_coupling", "bidirectional",
-            0.45, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic", "reverse": True}
+            cursor,
+            tnx_id,
+            dxy_id,
+            "macro_coupling",
+            "bidirectional",
+            0.45,
+            confidence_score,
+            cluster_id,
+            source_id,
+            intelligence_id,
+            {"source": "cross_asset_heuristic", "reverse": True},
         )
         self._upsert_graph_edge(
-            cursor, oil_id, tnx_id, "inflation_coupling", "forward",
-            0.4, confidence_score, cluster_id, source_id, intelligence_id,
-            {"source": "cross_asset_heuristic"}
+            cursor,
+            oil_id,
+            tnx_id,
+            "inflation_coupling",
+            "forward",
+            0.4,
+            confidence_score,
+            cluster_id,
+            source_id,
+            intelligence_id,
+            {"source": "cross_asset_heuristic"},
         )
 
     def upsert_knowledge_graph(self, source_id: str, analysis_result: dict) -> None:
@@ -1367,10 +1659,14 @@ class IntelligenceRepo(DBBase):
                     if not context:
                         return
 
-                    cluster_id = context.get("event_cluster_id") or f"single:{source_id}"
+                    cluster_id = (
+                        context.get("event_cluster_id") or f"single:{source_id}"
+                    )
                     confidence_score = calc_confidence_score(
                         corroboration_count=1,
-                        source_credibility_score=context.get("source_credibility_score"),
+                        source_credibility_score=context.get(
+                            "source_credibility_score"
+                        ),
                         urgency_score=context.get("urgency_score"),
                         timestamp=context.get("timestamp"),
                     )
@@ -1380,8 +1676,12 @@ class IntelligenceRepo(DBBase):
                     for entity in entities:
                         entity_name = entity["name"]
                         entity_type = entity.get("type", "unknown")
-                        node_id = self._upsert_entity_node(cursor, entity_name, entity_type)
-                        node_ids[(entity_name.strip().lower(), entity_type.strip().lower())] = node_id
+                        node_id = self._upsert_entity_node(
+                            cursor, entity_name, entity_type
+                        )
+                        node_ids[
+                            (entity_name.strip().lower(), entity_type.strip().lower())
+                        ] = node_id
 
                     for relation in relations:
                         sub_name = relation["subject"]
@@ -1392,11 +1692,19 @@ class IntelligenceRepo(DBBase):
                         obj_key = (obj_name.strip().lower(), obj_type)
 
                         if sub_key not in node_ids:
-                            node_ids[sub_key] = self._upsert_entity_node(cursor, sub_name, sub_type)
+                            node_ids[sub_key] = self._upsert_entity_node(
+                                cursor, sub_name, sub_type
+                            )
                         if obj_key not in node_ids:
-                            node_ids[obj_key] = self._upsert_entity_node(cursor, obj_name, obj_type)
+                            node_ids[obj_key] = self._upsert_entity_node(
+                                cursor, obj_name, obj_type
+                            )
 
-                        metadata = {"source_id": source_id, "predicate": relation["predicate"], "source": "llm_relation_extract"}
+                        metadata = {
+                            "source_id": source_id,
+                            "predicate": relation["predicate"],
+                            "source": "llm_relation_extract",
+                        }
                         self._upsert_graph_edge(
                             cursor,
                             node_ids[sub_key],
@@ -1426,10 +1734,14 @@ class IntelligenceRepo(DBBase):
                                 {**metadata, "reverse": True},
                             )
 
-                    self._upsert_cross_asset_edges(cursor, source_id, context, sentiment_score)
+                    self._upsert_cross_asset_edges(
+                        cursor, source_id, context, sentiment_score
+                    )
 
                     conn.commit()
-                    logger.info(f"🕸️ 图谱写入完成: source_id={source_id}, entities={len(entities)}, relations={len(relations)}")
+                    logger.info(
+                        f"🕸️ 图谱写入完成: source_id={source_id}, entities={len(entities)}, relations={len(relations)}"
+                    )
         except Exception as e:
             logger.error(f"图谱写入失败 [{source_id}]: {e}")
 
@@ -1440,7 +1752,8 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT relation_triples, gold_price_snapshot, price_1h
                         FROM intelligence
                         WHERE status = 'COMPLETED'
@@ -1449,7 +1762,9 @@ class IntelligenceRepo(DBBase):
                           AND price_1h IS NOT NULL
                         ORDER BY timestamp DESC
                         LIMIT %s
-                    """, (max(100, limit),))
+                    """,
+                        (max(100, limit),),
+                    )
                     rows = cursor.fetchall()
 
                     stats: dict[str, dict[str, int]] = {}
@@ -1466,12 +1781,15 @@ class IntelligenceRepo(DBBase):
                             signal = relation_signal(relation)
                             if signal == "NEUTRAL":
                                 continue
-                            agg = stats.setdefault(relation, {
-                                "bullish_hits": 0,
-                                "bullish_total": 0,
-                                "bearish_hits": 0,
-                                "bearish_total": 0,
-                            })
+                            agg = stats.setdefault(
+                                relation,
+                                {
+                                    "bullish_hits": 0,
+                                    "bullish_total": 0,
+                                    "bearish_hits": 0,
+                                    "bearish_total": 0,
+                                },
+                            )
                             if signal == "BULLISH_GOLD":
                                 agg["bullish_total"] += 1
                                 if price_up:
@@ -1488,7 +1806,8 @@ class IntelligenceRepo(DBBase):
                             continue
                         hit_rate = hits / total
                         weight = max(0.6, min(1.25, 0.75 + hit_rate * 0.7))
-                        cursor.execute("""
+                        cursor.execute(
+                            """
                             INSERT INTO relation_rule_stats (
                                 relation, bullish_hits, bullish_total,
                                 bearish_hits, bearish_total, hit_rate, weight, last_updated
@@ -1503,36 +1822,45 @@ class IntelligenceRepo(DBBase):
                                 hit_rate = EXCLUDED.hit_rate,
                                 weight = EXCLUDED.weight,
                                 last_updated = NOW()
-                        """, (
-                            relation,
-                            agg["bullish_hits"],
-                            agg["bullish_total"],
-                            agg["bearish_hits"],
-                            agg["bearish_total"],
-                            round(hit_rate, 4),
-                            round(weight, 4),
-                        ))
+                        """,
+                            (
+                                relation,
+                                agg["bullish_hits"],
+                                agg["bullish_total"],
+                                agg["bearish_hits"],
+                                agg["bearish_total"],
+                                round(hit_rate, 4),
+                                round(weight, 4),
+                            ),
+                        )
 
                     conn.commit()
                     if stats:
-                        logger.info(f"📚 关系规则学习更新完成: {len(stats)} 条 relation 权重")
+                        logger.info(
+                            f"📚 关系规则学习更新完成: {len(stats)} 条 relation 权重"
+                        )
         except Exception as e:
             logger.error(f"refresh_relation_rule_stats 失败: {e}")
 
     def get_relation_rule_weights(self, relations: list[str]) -> dict[str, float]:
         if not relations:
             return {}
-        normalized = sorted({str(r).strip().lower() for r in relations if str(r).strip()})
+        normalized = sorted(
+            {str(r).strip().lower() for r in relations if str(r).strip()}
+        )
         if not normalized:
             return {}
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT relation, weight
                         FROM relation_rule_stats
                         WHERE relation = ANY(%s)
-                    """, (normalized,))
+                    """,
+                        (normalized,),
+                    )
                     rows = cursor.fetchall()
             return {row["relation"]: float(row["weight"]) for row in rows}
         except Exception as e:
@@ -1546,8 +1874,8 @@ class IntelligenceRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT DISTINCT
                             n.node_id, n.entity_name, n.entity_type
                         FROM entity_nodes n
@@ -1555,10 +1883,13 @@ class IntelligenceRepo(DBBase):
                           ON n.node_id = e.from_node_id OR n.node_id = e.to_node_id
                         WHERE e.event_cluster_id = %s
                         ORDER BY n.entity_name
-                    """, (event_cluster_id,))
+                    """,
+                        (event_cluster_id,),
+                    )
                     nodes = [dict(row) for row in cursor.fetchall()]
 
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT
                             e.edge_id,
                             e.relation,
@@ -1580,30 +1911,45 @@ class IntelligenceRepo(DBBase):
                         WHERE e.event_cluster_id = %s
                         ORDER BY e.confidence_score DESC, e.strength DESC, e.edge_id DESC
                         LIMIT 300
-                    """, (event_cluster_id,))
+                    """,
+                        (event_cluster_id,),
+                    )
                     edges = [dict(row) for row in cursor.fetchall()]
-                    relation_weights = self.get_relation_rule_weights([edge.get("relation") for edge in edges])
+                    relation_weights = self.get_relation_rule_weights(
+                        [edge.get("relation") for edge in edges]
+                    )
 
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT id, source_id, timestamp, summary
                         FROM intelligence
                         WHERE event_cluster_id = %s
                           AND status = 'COMPLETED'
                         ORDER BY timestamp DESC
                         LIMIT 20
-                    """, (event_cluster_id,))
+                    """,
+                        (event_cluster_id,),
+                    )
                     evidence = [dict(row) for row in cursor.fetchall()]
 
             return {
                 "nodes": nodes,
                 "edges": edges,
-                "inferences": infer_event_chains(edges, relation_weights=relation_weights),
+                "inferences": infer_event_chains(
+                    edges, relation_weights=relation_weights
+                ),
                 "evidence": evidence,
                 "relation_weights": relation_weights,
             }
         except Exception as e:
             logger.error(f"get_event_graph 失败 [{event_cluster_id}]: {e}")
-            return {"nodes": [], "edges": [], "inferences": [], "evidence": [], "relation_weights": {}}
+            return {
+                "nodes": [],
+                "edges": [],
+                "inferences": [],
+                "evidence": [],
+                "relation_weights": {},
+            }
 
     def get_entity_graph(self, entity_name: str, limit: int = 100) -> dict:
         """按实体名称返回邻接子图（聚合所有同名节点）。"""
@@ -1613,11 +1959,14 @@ class IntelligenceRepo(DBBase):
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
                     # 1. 查找所有匹配该名称的节点 ID（支持类型聚合）
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT node_id, entity_name, entity_type
                         FROM entity_nodes
                         WHERE normalized_name = %s
-                    """, (entity_name.strip().lower(),))
+                    """,
+                        (entity_name.strip().lower(),),
+                    )
                     nodes_data = cursor.fetchall()
                     if not nodes_data:
                         return {"center": None, "nodes": [], "edges": []}
@@ -1627,7 +1976,8 @@ class IntelligenceRepo(DBBase):
                     center_info = dict(nodes_data[0])
 
                     # 2. 查询这些 ID 集合的所有关联边
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT
                             e.edge_id,
                             e.relation,
@@ -1647,14 +1997,16 @@ class IntelligenceRepo(DBBase):
                         WHERE e.from_node_id = ANY(%s) OR e.to_node_id = ANY(%s)
                         ORDER BY e.confidence_score DESC, e.strength DESC
                         LIMIT %s
-                    """, (node_ids, node_ids, max(1, limit)))
+                    """,
+                        (node_ids, node_ids, max(1, limit)),
+                    )
                     edges = [dict(row) for row in cursor.fetchall()]
 
                     # 3. 收集所有相关节点
                     node_map = {}
                     for n in nodes_data:
                         node_map[n["node_id"]] = dict(n)
-                        
+
                     for edge in edges:
                         node_map[edge["from_node_id"]] = {
                             "node_id": edge["from_node_id"],
@@ -1667,7 +2019,11 @@ class IntelligenceRepo(DBBase):
                             "entity_type": edge["to_type"],
                         }
 
-            return {"center": center_info, "nodes": list(node_map.values()), "edges": edges}
+            return {
+                "center": center_info,
+                "nodes": list(node_map.values()),
+                "edges": edges,
+            }
         except Exception as e:
             logger.error(f"get_entity_graph 失败 [{entity_name}]: {e}")
             return {"center": None, "nodes": [], "edges": []}
@@ -1715,31 +2071,57 @@ class IntelligenceRepo(DBBase):
                     if event_cluster_id:
                         sql += " AND e.event_cluster_id = %s"
                         params.append(event_cluster_id)
-                    sql += " ORDER BY e.confidence_score DESC, e.strength DESC LIMIT 2000"
+                    sql += (
+                        " ORDER BY e.confidence_score DESC, e.strength DESC LIMIT 2000"
+                    )
                     cursor.execute(sql, tuple(params))
                     edges = [dict(row) for row in cursor.fetchall()]
 
                     paths = []
                     for edge in edges:
-                        if edge["from_entity"].strip().lower() == from_norm and edge["to_entity"].strip().lower() == to_norm:
-                            paths.append({
-                                "hops": 1,
-                                "edges": [edge],
-                                "score": round(float(edge.get("confidence_score") or 50.0), 1),
-                            })
+                        if (
+                            edge["from_entity"].strip().lower() == from_norm
+                            and edge["to_entity"].strip().lower() == to_norm
+                        ):
+                            paths.append(
+                                {
+                                    "hops": 1,
+                                    "edges": [edge],
+                                    "score": round(
+                                        float(edge.get("confidence_score") or 50.0), 1
+                                    ),
+                                }
+                            )
 
                     if max_hops >= 2:
-                        first_hop = [e for e in edges if e["from_entity"].strip().lower() == from_norm]
-                        second_hop = [e for e in edges if e["to_entity"].strip().lower() == to_norm]
+                        first_hop = [
+                            e
+                            for e in edges
+                            if e["from_entity"].strip().lower() == from_norm
+                        ]
+                        second_hop = [
+                            e
+                            for e in edges
+                            if e["to_entity"].strip().lower() == to_norm
+                        ]
                         for e1 in first_hop:
                             for e2 in second_hop:
-                                if e1["to_entity"].strip().lower() != e2["from_entity"].strip().lower():
+                                if (
+                                    e1["to_entity"].strip().lower()
+                                    != e2["from_entity"].strip().lower()
+                                ):
                                     continue
                                 score = round(
-                                    (float(e1.get("confidence_score") or 50.0) + float(e2.get("confidence_score") or 50.0)) / 2.0,
-                                    1
+                                    (
+                                        float(e1.get("confidence_score") or 50.0)
+                                        + float(e2.get("confidence_score") or 50.0)
+                                    )
+                                    / 2.0,
+                                    1,
                                 )
-                                paths.append({"hops": 2, "edges": [e1, e2], "score": score})
+                                paths.append(
+                                    {"hops": 2, "edges": [e1, e2], "score": score}
+                                )
 
                     paths = sorted(paths, key=lambda x: x["score"], reverse=True)[:10]
             return {

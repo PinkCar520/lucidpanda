@@ -20,6 +20,7 @@ class IntelligenceDB(IntelligenceRepo, MarketRepo, FundRepo):
     全功能数据库门面。
     Backward-compatible: 全项目所有 self.db.xxx() 调用均直接有效。
     """
+
     pass
 
 

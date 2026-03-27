@@ -15,7 +15,7 @@ class EmailDataSource(BaseDataSource):
     基于 IMAP 的情报摄入源。
     专门监听来自白宫、美联储等官方域名的邮件通知。
     """
-    
+
     OFFICIAL_DOMAINS = {
         "who.eop.gov": "White House",
         "frb.gov": "Federal Reserve",
@@ -53,75 +53,81 @@ class EmailDataSource(BaseDataSource):
         try:
             # 1. 建立 SSL 连接
             mail = imaplib.IMAP4_SSL(self.server, self.port)
-            
+
             # 2. 【关键】网易 163 要求 ID 指令声明身份
             try:
-                mail.xatom('ID', '("name" "ios")')
+                mail.xatom("ID", '("name" "ios")')
             except Exception:
                 pass
 
             # 3. 登录
             mail.login(self.user, self.password)
-            
+
             # 登录后再发一次 ID 指令
             try:
-                mail.xatom('ID', '("name" "ios")')
+                mail.xatom("ID", '("name" "ios")')
             except Exception:
                 pass
 
             # --- 诊断：列出该账户所有可用的文件夹 ---
             try:
                 _, folders = mail.list()
-                logger.info(f"📁 您的 163 邮箱可用文件夹: {[f.decode() for f in folders]}")
+                logger.info(
+                    f"📁 您的 163 邮箱可用文件夹: {[f.decode() for f in folders]}"
+                )
             except Exception:
                 pass
 
             # 4. 扫描文件夹
             target_folders = ["INBOX", "&dcVr0mWHTvZZOQ-", "&V4NXPpCuTvY-"]
-            
+
             for folder in target_folders:
                 try:
                     status, _ = mail.select(folder)
-                    if status != 'OK':
+                    if status != "OK":
                         status, _ = mail.select(f'"{folder}"')
-                    
-                    if status != 'OK':
+
+                    if status != "OK":
                         logger.info(f"ℹ️ 无法选择文件夹 {folder}: {status}")
                         continue
-                    
-                    _, unseen_msg = mail.search(None, 'UNSEEN')
+
+                    _, unseen_msg = mail.search(None, "UNSEEN")
                     if not unseen_msg[0]:
                         logger.info(f"📂 正在检查文件夹 [{folder}]: 未读=0")
                         continue
-                    
+
                     unseen_ids = unseen_msg[0].split()
                     logger.info(f"📂 正在检查文件夹 [{folder}]: 未读={len(unseen_ids)}")
 
                     for num in unseen_ids:
-                        res, msg_data = mail.fetch(num, '(RFC822)')
-                        if res != 'OK':
+                        res, msg_data = mail.fetch(num, "(RFC822)")
+                        if res != "OK":
                             continue
 
                         raw_content = msg_data[0][1]
                         msg = email.message_from_bytes(raw_content)
-                        
+
                         sender_raw = self._decode_str(msg.get("From", ""))
                         subject = self._decode_str(msg.get("Subject", ""))
-                        
+
                         sender_addr = ""
                         if "<" in sender_raw:
-                            sender_addr = sender_raw.split("<")[-1].split(">")[0].lower()
+                            sender_addr = (
+                                sender_raw.split("<")[-1].split(">")[0].lower()
+                            )
                         else:
                             sender_addr = sender_raw.strip().lower()
 
                         source_label = None
                         is_verified = False
                         for domain, label in self.OFFICIAL_DOMAINS.items():
-                            if sender_addr.endswith(f"@{domain}") or sender_addr.endswith(f".{domain}"):
+                            if sender_addr.endswith(
+                                f"@{domain}"
+                            ) or sender_addr.endswith(f".{domain}"):
                                 source_label = label
                                 is_verified = True
                                 break
-                        
+
                         if not is_verified:
                             continue
 
@@ -130,27 +136,31 @@ class EmailDataSource(BaseDataSource):
                             for part in msg.walk():
                                 if part.get_content_type() == "text/plain":
                                     payload = part.get_payload(decode=True)
-                                    charset = part.get_content_charset() or 'utf-8'
-                                    content_body = payload.decode(charset, errors='ignore')
+                                    charset = part.get_content_charset() or "utf-8"
+                                    content_body = payload.decode(
+                                        charset, errors="ignore"
+                                    )
                                     break
                         else:
                             payload = msg.get_payload(decode=True)
-                            charset = msg.get_content_charset() or 'utf-8'
-                            content_body = payload.decode(charset, errors='ignore')
+                            charset = msg.get_content_charset() or "utf-8"
+                            content_body = payload.decode(charset, errors="ignore")
 
                         ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
                         msg_id = msg.get("Message-ID", f"manual_{num.decode()}")
-                        items.append({
-                            "source": source_label,
-                            "author": sender_raw,
-                            "category": "macro_gold",
-                            "timestamp": ts,
-                            "content": f"[{subject}] {content_body[:5000]}",
-                            "url": f"email://{folder}/{num.decode()}",
-                            "id": f"email_{msg_id.strip('<>')}"
-                        })
+                        items.append(
+                            {
+                                "source": source_label,
+                                "author": sender_raw,
+                                "category": "macro_gold",
+                                "timestamp": ts,
+                                "content": f"[{subject}] {content_body[:5000]}",
+                                "url": f"email://{folder}/{num.decode()}",
+                                "id": f"email_{msg_id.strip('<>')}",
+                            }
+                        )
 
-                        mail.store(num, '+FLAGS', '\\Seen')
+                        mail.store(num, "+FLAGS", "\\Seen")
                         logger.info(f"✅ 成功摄入官方情报: {subject}")
 
                 except Exception as folder_err:
@@ -165,7 +175,7 @@ class EmailDataSource(BaseDataSource):
                 except Exception:
                     pass
             logger.info(f"✅ 邮件巡检完毕: 发现并录入 {len(items)} 条新通稿。")
-            
+
         return items
 
     async def fetch_async(self) -> list[dict[str, Any]] | None:

@@ -9,7 +9,8 @@ def format_iso8601(dt: datetime) -> str | None:
     if not dt:
         return None
     # Ensure it's UTC-ish and formatted as YYYY-MM-DDTHH:mm:ss.sssZ
-    return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:23] + 'Z'
+    return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
+
 
 def v1_prepare_json(obj):
     """Recursively prepare object for V1 JSON serialization."""
@@ -29,5 +30,9 @@ def v1_prepare_json(obj):
         return None  # Binaries should not be sent in JSON
     if hasattr(obj, "__dict__"):
         # For SQLModel/Pydantic objects not yet serialized
-        return {k: v1_prepare_json(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
+        return {
+            k: v1_prepare_json(v)
+            for k, v in obj.__dict__.items()
+            if not k.startswith("_")
+        }
     return obj

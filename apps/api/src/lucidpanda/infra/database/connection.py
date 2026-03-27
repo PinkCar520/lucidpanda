@@ -13,8 +13,9 @@ engine = create_engine(
     echo=False,  # Set to True only for deep debugging
     pool_size=20,
     max_overflow=10,
-    pool_pre_ping=True  # Ensure connections are alive before using them
+    pool_pre_ping=True,  # Ensure connections are alive before using them
 )
+
 
 def get_session():
     with Session(engine) as session:

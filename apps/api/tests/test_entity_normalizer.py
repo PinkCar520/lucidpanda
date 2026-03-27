@@ -16,15 +16,17 @@ def test_normalize_entity_name_fallback():
 
 
 def test_normalize_relations_accepts_from_to_relation_keys():
-    normalized = IntelligenceRepo._normalize_relations([
-        {
-            "from": "Trump",
-            "to": "Gold",
-            "relation": "raises_tariff",
-            "direction": "forward",
-            "strength": 0.8,
-        }
-    ])
+    normalized = IntelligenceRepo._normalize_relations(
+        [
+            {
+                "from": "Trump",
+                "to": "Gold",
+                "relation": "raises_tariff",
+                "direction": "forward",
+                "strength": 0.8,
+            }
+        ]
+    )
 
     assert len(normalized) == 1
     assert normalized[0]["subject"] == "Trump"
@@ -33,22 +35,24 @@ def test_normalize_relations_accepts_from_to_relation_keys():
 
 
 def test_normalize_relations_direction_compatibility():
-    normalized = IntelligenceRepo._normalize_relations([
-        {
-            "from": "Fed",
-            "to": "Gold",
-            "relation": "rate_hike",
-            "direction": "positive",
-            "strength": "0.6",
-        },
-        {
-            "subject": "Oil",
-            "predicate": "inflation_up",
-            "object": "Gold",
-            "direction": "two_way",
-            "strength": 2.0,
-        },
-    ])
+    normalized = IntelligenceRepo._normalize_relations(
+        [
+            {
+                "from": "Fed",
+                "to": "Gold",
+                "relation": "rate_hike",
+                "direction": "positive",
+                "strength": "0.6",
+            },
+            {
+                "subject": "Oil",
+                "predicate": "inflation_up",
+                "object": "Gold",
+                "direction": "two_way",
+                "strength": 2.0,
+            },
+        ]
+    )
 
     assert len(normalized) == 2
     assert normalized[0]["direction"] == "forward"

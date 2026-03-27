@@ -15,4 +15,3 @@ def test_call_tool_unknown():
 def test_query_macro_expectation_requires_title():
     result = agent_tools.call_tool("query_macro_expectation", {"event_title": ""})
     assert result.get("error") == "event_title is required"
-

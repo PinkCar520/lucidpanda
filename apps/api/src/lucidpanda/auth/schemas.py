@@ -6,13 +6,19 @@ from pydantic import BaseModel, EmailStr, Field
 
 class UserBase(BaseModel):
     email: EmailStr
-    username: str | None = Field(None, min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
-    name: str | None = None # Changed from full_name to name to match model
-    full_name: str | None = None # Keep for backward compatibility if needed, or deprecate
+    username: str | None = Field(
+        None, min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$"
+    )
+    name: str | None = None  # Changed from full_name to name to match model
+    full_name: str | None = (
+        None  # Keep for backward compatibility if needed, or deprecate
+    )
+
 
 class UserCreate(UserBase):
     username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
     password: str = Field(..., min_length=8)
+
 
 class UserOut(UserBase):
     id: UUID
@@ -21,7 +27,7 @@ class UserOut(UserBase):
     is_verified: bool
     created_at: datetime
     username_updated_at: datetime | None = None
-    
+
     # New fields
     avatar_url: str | None = None
     nickname: str | None = None
@@ -38,12 +44,14 @@ class UserOut(UserBase):
     class Config:
         from_attributes = True
 
+
 class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
     expires_in: int
-    user: UserOut # Add user information to the token response
+    user: UserOut  # Add user information to the token response
+
 
 class TokenRefresh(BaseModel):
     access_token: str
@@ -51,25 +59,32 @@ class TokenRefresh(BaseModel):
     token_type: str = "bearer"
     expires_in: int
 
+
 class TokenPayload(BaseModel):
     sub: str | None = None
     type: str | None = None
 
+
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
 
 class LogoutRequest(BaseModel):
     refresh_token: str
 
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
+
 
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str = Field(..., min_length=8)
 
+
 class MessageResponse(BaseModel):
     message: str
+
 
 class UserUpdate(BaseModel):
     name: str | None = None
@@ -81,22 +96,28 @@ class UserUpdate(BaseModel):
     timezone: str | None = None
     theme_preference: str | None = None
 
+
 class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8)
 
+
 class UsernameUpdate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, pattern="^[a-zA-Z0-9_]+$")
+
 
 class EmailChangeInitiateRequest(BaseModel):
     new_email: EmailStr
     current_password: str
 
+
 class EmailChangeVerifyRequest(BaseModel):
     token: str
 
+
 class AvatarUploadResponse(BaseModel):
     avatar_url: str
+
 
 class SessionOut(BaseModel):
     id: int
@@ -104,25 +125,30 @@ class SessionOut(BaseModel):
     ip_address: str | None = None
     created_at: datetime
     last_active_at: datetime | None = None
-    is_current: bool = False # Helper field
+    is_current: bool = False  # Helper field
 
     class Config:
         from_attributes = True
 
+
 class PhoneNumberPayload(BaseModel):
     phone_number: str
+
 
 class PhoneVerificationPayload(BaseModel):
     phone_number: str
     code: str
 
+
 class TwoFASetupResponse(BaseModel):
     secret: str
     qr_code_url: str
 
+
 class TwoFAVerifyPayload(BaseModel):
     code: str
     secret: str
+
 
 class NotificationPreferencesOut(BaseModel):
     email_enabled: bool
@@ -135,6 +161,7 @@ class NotificationPreferencesOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class NotificationPreferencesUpdate(BaseModel):
     email_enabled: bool | None = None
     sms_enabled: bool | None = None
@@ -142,6 +169,7 @@ class NotificationPreferencesUpdate(BaseModel):
     email_frequency: str | None = None
     sms_frequency: str | None = None
     subscribed_types: list[str] | None = None
+
 
 class InSiteMessageOut(BaseModel):
     id: UUID
@@ -156,11 +184,13 @@ class InSiteMessageOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class APIKeyCreate(BaseModel):
     name: str
     permissions: list[str] = ["read_only"]
     expires_at: datetime | None = None
     ip_whitelist: list[str] | None = None
+
 
 class APIKeyOut(BaseModel):
     id: UUID
@@ -177,8 +207,10 @@ class APIKeyOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class APIKeyCreateResponse(APIKeyOut):
-    secret: str # Clear text secret only once
+    secret: str  # Clear text secret only once
+
 
 class APIKeyUpdate(BaseModel):
     name: str | None = None
@@ -186,6 +218,7 @@ class APIKeyUpdate(BaseModel):
     ip_whitelist: list[str] | None = None
     is_active: bool | None = None
     expires_at: datetime | None = None
+
 
 class APIKeyUsageLogOut(BaseModel):
     endpoint: str
@@ -196,6 +229,7 @@ class APIKeyUsageLogOut(BaseModel):
 
     class Config:
         from_attributes = True
+
 
 class AuditLogOut(BaseModel):
     id: int
@@ -208,6 +242,7 @@ class AuditLogOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class AssetOverviewOut(BaseModel):
     total_assets: float
     available_funds: float
@@ -217,15 +252,19 @@ class AssetOverviewOut(BaseModel):
     active_strategies: int
     watchlist_count: int
 
+
 # WebAuthn Schemas
+
 
 class PasskeyRegistrationVerify(BaseModel):
     registration_data: dict
     name: str | None = "My Device"
 
+
 class PasskeyAuthenticationVerify(BaseModel):
     auth_data: dict
     state: str
+
 
 class PasskeyOut(BaseModel):
     id: UUID

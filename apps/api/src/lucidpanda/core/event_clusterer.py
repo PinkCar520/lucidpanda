@@ -18,6 +18,7 @@ from src.lucidpanda.core.logger import logger
 
 # ── Union-Find ────────────────────────────────────────────────────────────────
 
+
 class _UnionFind:
     def __init__(self, items: list):
         self._parent = {x: x for x in items}
@@ -43,6 +44,7 @@ class _UnionFind:
 
 
 # ── EventClusterer ────────────────────────────────────────────────────────────
+
 
 class EventClusterer:
     """
@@ -83,7 +85,7 @@ class EventClusterer:
         if len(pending_items) < 2:
             return pending_items, 0
 
-        source_ids = [item.get('source_id') or item.get('id') for item in pending_items]
+        source_ids = [item.get("source_id") or item.get("id") for item in pending_items]
 
         # Step 1: DB 内找相似对（单次 SQL）
         pairs = self.db.find_similar_pairs(
@@ -109,8 +111,7 @@ class EventClusterer:
         # Step 3: 为每个 cluster 选 lead，将其余标记为 CLUSTERED
         # 建 sid → record 查找表
         sid_to_item = {
-            (item.get('source_id') or item.get('id')): item
-            for item in pending_items
+            (item.get("source_id") or item.get("id")): item for item in pending_items
         }
 
         suppressed_sids: set[str] = set()
@@ -127,19 +128,21 @@ class EventClusterer:
             # 为 follower 字典注入 parent_lead_id
             for fsid in follower_sids:
                 if fsid in sid_to_item:
-                    sid_to_item[fsid]['parent_lead_id'] = lead_sid
-                    sid_to_item[fsid]['parent_story_id'] = cluster_id
+                    sid_to_item[fsid]["parent_lead_id"] = lead_sid
+                    sid_to_item[fsid]["parent_story_id"] = cluster_id
 
         # Step 4: 过滤返回仅 lead 记录和 follower 记录
         lead_items = [
-            item for item in pending_items
-            if (item.get('source_id') or item.get('id')) not in suppressed_sids
+            item
+            for item in pending_items
+            if (item.get("source_id") or item.get("id")) not in suppressed_sids
         ]
         follower_items = [
-            item for item in pending_items
-            if (item.get('source_id') or item.get('id')) in suppressed_sids
+            item
+            for item in pending_items
+            if (item.get("source_id") or item.get("id")) in suppressed_sids
         ]
-        
+
         logger.info(
             f"✅ 事件聚类完成 | 本轮 {len(pending_items)} 条 → "
             f"{len(lead_items)} lead + {len(follower_items)} followers (进入 Delta 检查)"
@@ -153,8 +156,9 @@ class EventClusterer:
         """
         import asyncio
         import uuid
+
         logger.info(f"⏳ 开始执行历史故事线回填，目标限额：{limit}...")
-        
+
         # 1. 查找缺失 story_id 的存量记录
         query = """
             SELECT source_id, content, timestamp, source_credibility_score 
@@ -163,27 +167,32 @@ class EventClusterer:
             ORDER BY timestamp DESC LIMIT %s
         """
         records = await asyncio.to_thread(self.db.query, query, (limit,))
-        
+
         if not records:
             logger.info("✅ 没有发现缺失故事线的历史记录，跳过回填。")
             return
-            
-        logger.info(f"📚 发现 {len(records)} 条待处理历史记录，正在进行追溯性聚类分析...")
-        
+
+        logger.info(
+            f"📚 发现 {len(records)} 条待处理历史记录，正在进行追溯性聚类分析..."
+        )
+
         # 2. 调用标准聚类逻辑
         lead_items, follower_items = self.cluster(records)
-        
+
         # 3. 为 Lead 记录打上标记
         for lead in lead_items:
-            sid = lead.get('source_id') or lead.get('id')
+            sid = lead.get("source_id") or lead.get("id")
             # 使用 SID 派生确定性的 Story ID (或随机，此处为了回溯一致性使用随机 UUID4)
             story_id = str(uuid.uuid4())
-            await asyncio.to_thread(self.db.execute, 
+            await asyncio.to_thread(
+                self.db.execute,
                 "UPDATE intelligence SET story_id = %s, is_story_lead = TRUE WHERE source_id = %s",
-                (story_id, sid)
+                (story_id, sid),
             )
-            
-        logger.info(f"✨ 历史回填完成 | 本轮处理: {len(records)} | 形成故事主线: {len(lead_items)}")
+
+        logger.info(
+            f"✨ 历史回填完成 | 本轮处理: {len(records)} | 形成故事主线: {len(lead_items)}"
+        )
 
     # ── 内部 ──────────────────────────────────────────────────────────────
 
@@ -194,11 +203,12 @@ class EventClusterer:
           2. timestamp 最早（最先报道）
           3. source_id 字典序（兜底确定性排序）
         """
+
         def sort_key(sid: str):
             item = sid_to_item.get(sid, {})
-            credibility = item.get('source_credibility_score') or 0.0
-            ts = item.get('timestamp')
+            credibility = item.get("source_credibility_score") or 0.0
+            ts = item.get("timestamp")
             # 越高越好 → 负号；timestamp 越早越好 → 原值
-            return (-credibility, ts or '', sid)
+            return (-credibility, ts or "", sid)
 
         return min(member_sids, key=sort_key)

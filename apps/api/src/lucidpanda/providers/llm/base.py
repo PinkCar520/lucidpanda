@@ -13,4 +13,6 @@ class BaseLLM(ABC):
         pass
 
     async def generate_json_async(self, prompt: str, temperature: float = 0.2):
-        raise NotImplementedError("generate_json_async is not implemented for this provider")
+        raise NotImplementedError(
+            "generate_json_async is not implemented for this provider"
+        )

@@ -11,6 +11,7 @@ class RealtimeHub:
     Production-grade Real-time Message Hub.
     Uses Redis Pub/Sub to decouple calculation from delivery.
     """
+
     def __init__(self):
         self.redis_url = settings.REDIS_URL
         self.redis = None
@@ -23,9 +24,10 @@ class RealtimeHub:
     async def publish(self, channel: str, message: dict):
         """Publish a message to a specific Redis channel."""
         await self.connect()
-        
+
         def json_serial(obj):
             from datetime import date, datetime
+
             if isinstance(obj, (datetime, date)):
                 return obj.isoformat()
             if isinstance(obj, (bytes, memoryview)):
@@ -40,12 +42,13 @@ class RealtimeHub:
         await self.connect()
         pubsub = self.redis.pubsub()
         await pubsub.subscribe(channel)
-        
+
         try:
             async for message in pubsub.listen():
-                if message['type'] == 'message':
-                    yield message['data']
+                if message["type"] == "message":
+                    yield message["data"]
         finally:
             await pubsub.unsubscribe(channel)
+
 
 hub = RealtimeHub()

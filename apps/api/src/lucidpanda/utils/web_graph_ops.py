@@ -7,7 +7,9 @@ from typing import Any, cast
 
 
 def fused_cache_key(limit: int, before_timestamp: str | None) -> str:
-    return json.dumps({"limit": limit, "before_timestamp": before_timestamp}, sort_keys=True)
+    return json.dumps(
+        {"limit": limit, "before_timestamp": before_timestamp}, sort_keys=True
+    )
 
 
 class FusedCacheStore:
@@ -44,7 +46,9 @@ class FusedCacheStore:
             return None
         return cast(dict[str, Any], cached["payload"])
 
-    def set(self, limit: int, before_timestamp: str | None, payload: dict[str, Any]) -> None:
+    def set(
+        self, limit: int, before_timestamp: str | None, payload: dict[str, Any]
+    ) -> None:
         key = fused_cache_key(limit, before_timestamp)
         self._local_cache[key] = {"ts": time.time(), "payload": payload}
 
@@ -52,7 +56,9 @@ class FusedCacheStore:
         if redis_client:
             try:
                 redis_key = self._redis_key(limit, before_timestamp)
-                redis_client.setex(redis_key, self.ttl_seconds, json.dumps(payload, default=str))
+                redis_client.setex(
+                    redis_key, self.ttl_seconds, json.dumps(payload, default=str)
+                )
                 keyset = f"{self.namespace}:keys"
                 redis_client.sadd(keyset, redis_key)
                 redis_client.expire(keyset, max(self.ttl_seconds * 5, 180))
@@ -90,35 +96,43 @@ def build_graph_quality_alerts(
 ) -> list[dict[str, Any]]:
     alerts: list[dict[str, Any]] = []
     if coverage_pct < coverage_threshold:
-        alerts.append({
-            "metric": "relation_coverage_pct",
-            "severity": "warning",
-            "value": coverage_pct,
-            "threshold": coverage_threshold,
-            "message": f"coverage below threshold: {coverage_pct} < {coverage_threshold}",
-        })
+        alerts.append(
+            {
+                "metric": "relation_coverage_pct",
+                "severity": "warning",
+                "value": coverage_pct,
+                "threshold": coverage_threshold,
+                "message": f"coverage below threshold: {coverage_pct} < {coverage_threshold}",
+            }
+        )
     if in_vocab_pct < in_vocab_threshold:
-        alerts.append({
-            "metric": "in_vocab_pct",
-            "severity": "warning",
-            "value": in_vocab_pct,
-            "threshold": in_vocab_threshold,
-            "message": f"in-vocab below threshold: {in_vocab_pct} < {in_vocab_threshold}",
-        })
+        alerts.append(
+            {
+                "metric": "in_vocab_pct",
+                "severity": "warning",
+                "value": in_vocab_pct,
+                "threshold": in_vocab_threshold,
+                "message": f"in-vocab below threshold: {in_vocab_pct} < {in_vocab_threshold}",
+            }
+        )
     if valid_direction_pct < direction_threshold:
-        alerts.append({
-            "metric": "valid_direction_pct",
-            "severity": "critical",
-            "value": valid_direction_pct,
-            "threshold": direction_threshold,
-            "message": f"direction-valid below threshold: {valid_direction_pct} < {direction_threshold}",
-        })
+        alerts.append(
+            {
+                "metric": "valid_direction_pct",
+                "severity": "critical",
+                "value": valid_direction_pct,
+                "threshold": direction_threshold,
+                "message": f"direction-valid below threshold: {valid_direction_pct} < {direction_threshold}",
+            }
+        )
     if malformed_pct > malformed_threshold:
-        alerts.append({
-            "metric": "malformed_pct",
-            "severity": "critical",
-            "value": malformed_pct,
-            "threshold": malformed_threshold,
-            "message": f"malformed above threshold: {malformed_pct} > {malformed_threshold}",
-        })
+        alerts.append(
+            {
+                "metric": "malformed_pct",
+                "severity": "critical",
+                "value": malformed_pct,
+                "threshold": malformed_threshold,
+                "message": f"malformed above threshold: {malformed_pct} > {malformed_threshold}",
+            }
+        )
     return alerts

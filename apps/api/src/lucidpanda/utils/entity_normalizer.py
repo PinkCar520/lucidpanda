@@ -133,19 +133,44 @@ def normalize_fund_name(name: str) -> str:
     name = re.sub(r"\(.*?\)|（.*?）", "", name)
     # 2. 移除常见后缀 (按顺序尝试，最长匹配优先)
     suffixes = [
-        r"联接[ABCDEI]$", r"混合[ABCDEI]$", r"债券[ABCDEI]$",
-        r"联接$", r"混合$", r"精选$", r"增强$", r"ETF$", r"LOF$",
-        r"主题$", r"核心$", r"优选$", r"价值$", r"成长$", r"量化$"
+        r"联接[ABCDEI]$",
+        r"混合[ABCDEI]$",
+        r"债券[ABCDEI]$",
+        r"联接$",
+        r"混合$",
+        r"精选$",
+        r"增强$",
+        r"ETF$",
+        r"LOF$",
+        r"主题$",
+        r"核心$",
+        r"优选$",
+        r"价值$",
+        r"成长$",
+        r"量化$",
     ]
     for pattern in suffixes:
         name = re.sub(pattern, "", name)
-    
+
     # 3. 移除基金公司前缀 (常见的大型基金公司)
-    companies = ["华夏", "易方达", "广发", "富国", "汇添富", "南方", "嘉实", "博时", "招商", "工银瑞信"]
+    companies = [
+        "华夏",
+        "易方达",
+        "广发",
+        "富国",
+        "汇添富",
+        "南方",
+        "嘉实",
+        "博时",
+        "招商",
+        "工银瑞信",
+    ]
     for co in companies:
-        if name.startswith(co) and len(name) > len(co) + 2: # 避免把 "华夏成长" 误杀成 "成长"
-            name = name[len(co):]
-            
+        if (
+            name.startswith(co) and len(name) > len(co) + 2
+        ):  # 避免把 "华夏成长" 误杀成 "成长"
+            name = name[len(co) :]
+
     return name.strip()
 
 

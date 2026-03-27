@@ -24,6 +24,7 @@ class DBConnectionProxy:
     代理真实的 psycopg 连接，使 conn.close() 变为归还连接池，
     同时支持 with 语句自动释放，完美解决高并发下的连接耗尽风险。
     """
+
     def __init__(self, pool):
         self._pool = pool
         self._conn = pool.getconn()
@@ -37,7 +38,11 @@ class DBConnectionProxy:
         if self._pool and self._conn:
             try:
                 # 归还连接前，强制 rollback 掉任何未提交的或报错的残留事务
-                if getattr(self._conn, 'info', None) and self._conn.info.transaction_status != psycopg.pq.TransactionStatus.IDLE:
+                if (
+                    getattr(self._conn, "info", None)
+                    and self._conn.info.transaction_status
+                    != psycopg.pq.TransactionStatus.IDLE
+                ):
                     self._conn.rollback()
             except Exception as e:
                 logger.error(f"连接池归还清理异常: {e}")
@@ -73,6 +78,7 @@ class DBBase:
     所有 Repo 子类的基类。
     负责连接池初始化和 Schema 建表。
     """
+
     def __init__(self):
         """Initialize PostgreSQL Database connection configuration."""
         self.host = settings.POSTGRES_HOST
@@ -90,9 +96,11 @@ class DBBase:
                     min_size=5,
                     max_size=50,
                     timeout=10,
-                    kwargs={"row_factory": dict_row}
+                    kwargs={"row_factory": dict_row},
                 )
-                logger.info("✅ 数据库连接池已初始化 (min=5, max=50, row_factory=dict_row)")
+                logger.info(
+                    "✅ 数据库连接池已初始化 (min=5, max=50, row_factory=dict_row)"
+                )
             except Exception as e:
                 logger.error(f"❌ 初始化全局连接池失败: {e}")
                 raise
@@ -226,11 +234,19 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS tags JSONB;",
             ]:
                 cursor.execute(col_sql)
-            cursor.execute("UPDATE intelligence SET corroboration_count = 1 WHERE corroboration_count IS NULL;")
+            cursor.execute(
+                "UPDATE intelligence SET corroboration_count = 1 WHERE corroboration_count IS NULL;"
+            )
 
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_status ON intelligence(status);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_event_cluster ON intelligence(event_cluster_id);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_intel_story_id ON intelligence(story_id);")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_intel_status ON intelligence(status);"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_intel_event_cluster ON intelligence(event_cluster_id);"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_intel_story_id ON intelligence(story_id);"
+            )
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_intel_embedding_hnsw
                 ON intelligence USING hnsw (embedding_vec vector_cosine_ops)
@@ -465,7 +481,9 @@ class DBBase:
                 );
                 CREATE INDEX IF NOT EXISTS idx_archive_date_code ON fund_valuation_archive (trade_date, fund_code);
             """)
-            cursor.execute("ALTER TABLE fund_valuation_archive ADD COLUMN IF NOT EXISTS frozen_sector_attribution JSONB;")
+            cursor.execute(
+                "ALTER TABLE fund_valuation_archive ADD COLUMN IF NOT EXISTS frozen_sector_attribution JSONB;"
+            )
 
             # ── fund_managers ─────────────────────────────────────────────
             cursor.execute("""
@@ -560,7 +578,7 @@ class DBBase:
                 );
                 CREATE INDEX IF NOT EXISTS idx_fund_rel_parent ON fund_relationships(parent_code);
             """)
-            
+
             # ── 实体舆情因子时序表 (Factor Indexing) ───────────────────────
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS entity_metrics (
@@ -613,7 +631,7 @@ class DBBase:
                     UNIQUE(dimension, value)
                 );
             """)
-            
+
             # ── 实体未命中监控表 (Entity Miss Log) ────────────────────────
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS entity_miss_log (

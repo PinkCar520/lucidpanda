@@ -9,6 +9,7 @@
         data = compute_expensive_thing()
         set_cached("pulse:global", data, ttl=30)
 """
+
 import json
 import logging
 from typing import Any
@@ -27,6 +28,7 @@ def _get_client():
         import redis as redis_lib
 
         from src.lucidpanda.config import settings
+
         _redis_client = redis_lib.from_url(
             settings.REDIS_URL,
             decode_responses=True,

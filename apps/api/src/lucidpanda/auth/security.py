@@ -8,36 +8,54 @@ from src.lucidpanda.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against a hashed one."""
     return bool(pwd_context.verify(plain_password, hashed_password))
+
 
 def get_password_hash(password: str) -> str:
     """Generate a bcrypt hash of a password."""
     return cast(str, pwd_context.hash(password))
 
-def create_access_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
+
+def create_access_token(
+    subject: str | Any, expires_delta: timedelta | None = None
+) -> str:
     """Create a signed JWT access token."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
+        expire = datetime.utcnow() + timedelta(
+            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
+        )
+
     to_encode = {"exp": expire, "sub": str(subject), "type": "access"}
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    encoded_jwt = jwt.encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return cast(str, encoded_jwt)
 
-def create_refresh_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
+
+def create_refresh_token(
+    subject: str | Any, expires_delta: timedelta | None = None
+) -> str:
     """Create a signed JWT refresh token."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    
+
     to_encode = {"exp": expire, "sub": str(subject), "type": "refresh"}
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    encoded_jwt = jwt.encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return cast(str, encoded_jwt)
+
 
 def decode_token(token: str) -> dict[str, Any]:
     """Decode a JWT token and return its payload."""
-    return cast(dict[str, Any], jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]))
+    return cast(
+        dict[str, Any],
+        jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]),
+    )

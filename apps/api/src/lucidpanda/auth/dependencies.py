@@ -17,6 +17,7 @@ SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{settings.POSTGRES_USER}:{setti
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def get_db() -> Generator:
     db = SessionLocal()
     try:
@@ -24,11 +25,12 @@ def get_db() -> Generator:
     finally:
         db.close()
 
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
+
 async def get_current_user(
-    db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
+    db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,7 +51,7 @@ async def get_current_user(
     except Exception as e:
         print(f"[AUTH] Unexpected Error during decode: {e}")
         raise credentials_exception from e
-    
+
     user = db.query(User).filter(User.id == token_data.sub).first()
     if user is None:
         print(f"[AUTH] User not found: id={token_data.sub}")
@@ -58,6 +60,7 @@ async def get_current_user(
         print(f"[AUTH] User inactive: id={token_data.sub}")
         raise HTTPException(status_code=400, detail="Inactive user")
     return user
+
 
 async def get_current_active_user(
     current_user: User = Depends(get_current_user),

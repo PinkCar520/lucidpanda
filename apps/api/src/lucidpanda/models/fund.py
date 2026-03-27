@@ -18,10 +18,12 @@ class FundMetadataBase(SQLModel):
     currency: str = "CNY"
     benchmark_text: str | None = None
 
+
 class FundMetadata(FundMetadataBase, table=True):
     __tablename__ = "fund_metadata"
     last_full_sync: datetime | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class FundValuationArchive(SQLModel, table=True):
     __tablename__ = "fund_valuation_archive"
@@ -29,19 +31,24 @@ class FundValuationArchive(SQLModel, table=True):
     trade_date: date
     fund_code: str
     frozen_est_growth: float | None = None
-    frozen_components: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
-    frozen_sector_attribution: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    frozen_components: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB)
+    )
+    frozen_sector_attribution: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB)
+    )
     official_growth: float | None = None
     deviation: float | None = None
     tracking_status: str | None = None
     applied_bias_offset: float = 0.0
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+
 # Mobile Optimized DTO
 class FundMobileSummary(SQLModel):
     fund_code: str
     fund_name: str
     estimated_growth: float
-    urgency_level: str # Derived: 'normal' | 'warning' | 'critical'
+    urgency_level: str  # Derived: 'normal' | 'warning' | 'critical'
     confidence_score: int
     risk_level: str

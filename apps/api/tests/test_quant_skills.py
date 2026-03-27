@@ -19,4 +19,3 @@ def test_factor_peel_alpha_basic():
     assert "beta_us10y" in res
     assert "residuals" in res
     assert len(res["residuals"]) == len(gold)
-

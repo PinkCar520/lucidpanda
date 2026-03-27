@@ -11,13 +11,19 @@ class IntelligenceBase(SQLModel):
     content: str | None = None
     urgency_score: int | None = 0
     url: str | None = None
-    category: str = Field(default="macro_gold", index=True) # macro_gold | equity_cn | equity_us
-    
+    category: str = Field(
+        default="macro_gold", index=True
+    )  # macro_gold | equity_cn | equity_us
+
     # Complex fields using JSONB for performance and Web requirements
     summary: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
     sentiment: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
-    market_implication: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
-    actionable_advice: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
+    market_implication: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB)
+    )
+    actionable_advice: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB)
+    )
     entities: Any | None = Field(default=None, sa_column=Column(JSONB))
     tags: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSONB))
     relation_triples: Any | None = Field(default=None, sa_column=Column(JSONB))
@@ -40,6 +46,7 @@ class IntelligenceBase(SQLModel):
     alpha_return: float | None = None
     expectation_gap: float | None = None
 
+
 class Intelligence(IntelligenceBase, table=True):
     __tablename__ = "intelligence"
     id: int | None = Field(default=None, primary_key=True)
@@ -47,19 +54,21 @@ class Intelligence(IntelligenceBase, table=True):
     status: str | None = Field(default="PENDING", index=True)
     last_error: str | None = None
 
+
 class IntelligenceRead(IntelligenceBase):
     id: int
     timestamp: datetime
+
 
 # iOS Specific Summary DTO
 class IntelligenceMobileRead(SQLModel):
     id: int
     timestamp: datetime
     author: str
-    summary: str           # Flattened for mobile
-    content: str           # Full content for peek sheet
+    summary: str  # Flattened for mobile
+    content: str  # Full content for peek sheet
     urgency_score: int
-    sentiment_label: str   # Derived for mobile
+    sentiment_label: str  # Derived for mobile
     gold_price_snapshot: float | None = None
     dxy_snapshot: float | None = None
     us10y_snapshot: float | None = None

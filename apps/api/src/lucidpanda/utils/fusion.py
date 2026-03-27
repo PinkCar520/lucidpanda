@@ -29,4 +29,3 @@ def merge_entities(entity_sets: Any, max_items: int = 12) -> list[dict]:
             if len(merged) >= max_items:
                 return merged
     return merged
-

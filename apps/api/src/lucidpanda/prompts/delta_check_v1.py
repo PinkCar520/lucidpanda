@@ -8,7 +8,9 @@ delta_check_v1.py — Delta 信息增量判定 Prompt
 VERSION = "v1"
 
 
-def build_delta_check_prompt(lead_summary: str, new_content: str, max_new_content_chars: int = 1000) -> str:
+def build_delta_check_prompt(
+    lead_summary: str, new_content: str, max_new_content_chars: int = 1000
+) -> str:
     """
     构建 Delta 判定 Prompt。
 

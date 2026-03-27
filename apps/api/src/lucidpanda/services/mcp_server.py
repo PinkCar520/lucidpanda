@@ -1,4 +1,3 @@
-
 from fastmcp import FastMCP
 
 from src.lucidpanda.services.agent_tools import (
@@ -39,7 +38,9 @@ def compute_expectation_gap(actual: float, forecast: float, historical_std: floa
     """
     计算宏观预期差 Z-Score。
     """
-    return {"expectation_gap": _compute_expectation_gap(actual, forecast, historical_std)}
+    return {
+        "expectation_gap": _compute_expectation_gap(actual, forecast, historical_std)
+    }
 
 
 def main() -> None:

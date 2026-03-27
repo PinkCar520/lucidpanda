@@ -9,10 +9,9 @@ from src.lucidpanda.models.intelligence import Intelligence
 
 router = APIRouter()
 
+
 @router.get("/alerts/24h", response_model=dict[str, Any])
-async def get_24h_alerts_count(
-    db: Session = Depends(get_session)
-):
+async def get_24h_alerts_count(db: Session = Depends(get_session)):
     """
     Get the count of high-urgency (score 8+) alerts in the last 24 hours.
     Shared by both Web and Mobile.
@@ -20,9 +19,8 @@ async def get_24h_alerts_count(
     # SQLModel approach
     threshold_time = datetime.utcnow() - timedelta(hours=24)
     statement = select(func.count(Intelligence.id)).where(
-        Intelligence.urgency_score >= 8,
-        Intelligence.timestamp > threshold_time
+        Intelligence.urgency_score >= 8, Intelligence.timestamp > threshold_time
     )
     count = db.exec(statement).first() or 0
-    
+
     return {"count": count}

@@ -11,4 +11,3 @@ def test_merge_entities_deduplicates_by_name_and_type():
     assert len(merged) == 2
     assert merged[0]["name"] == "Fed"
     assert merged[1]["name"] == "Trump"
-

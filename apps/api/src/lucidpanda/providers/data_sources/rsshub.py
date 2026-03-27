@@ -18,43 +18,75 @@ from src.lucidpanda.providers.data_sources.base import BaseDataSource
 # 1. 黄金宏观信源 (Category: macro_gold)
 # ──────────────────────────────────────────────────────────────────────
 MACRO_GOLD_FEEDS = [
-    ("Trump Truth Social",     "https://www.trumpstruth.org/feed", "US/Eastern"),
-    ("WhiteHouse Exec Orders", "https://www.whitehouse.gov/presidential-actions/feed/", "US/Eastern"),
-    ("Politico Politics",      "https://rss.politico.com/politics-news.xml", "US/Eastern"),
-    ("Bloomberg Economics",    "https://feeds.bloomberg.com/economics/news.rss", "US/Eastern"),
-    ("Fed Speeches",           "https://www.federalreserve.gov/feeds/speeches.xml", "US/Eastern"),
-    ("Fed Press Releases",     "https://www.federalreserve.gov/feeds/press_all.xml", "US/Eastern"),
-    ("WSJ Economy",            "https://feeds.content.dowjones.io/public/rss/socialeconomyfeed", "US/Eastern"),
-    ("CFTC Press Releases",    "http://rsshub:1200/cftc/pressreleases", "US/Eastern"),
+    ("Trump Truth Social", "https://www.trumpstruth.org/feed", "US/Eastern"),
+    (
+        "WhiteHouse Exec Orders",
+        "https://www.whitehouse.gov/presidential-actions/feed/",
+        "US/Eastern",
+    ),
+    ("Politico Politics", "https://rss.politico.com/politics-news.xml", "US/Eastern"),
+    (
+        "Bloomberg Economics",
+        "https://feeds.bloomberg.com/economics/news.rss",
+        "US/Eastern",
+    ),
+    ("Fed Speeches", "https://www.federalreserve.gov/feeds/speeches.xml", "US/Eastern"),
+    (
+        "Fed Press Releases",
+        "https://www.federalreserve.gov/feeds/press_all.xml",
+        "US/Eastern",
+    ),
+    (
+        "WSJ Economy",
+        "https://feeds.content.dowjones.io/public/rss/socialeconomyfeed",
+        "US/Eastern",
+    ),
+    ("CFTC Press Releases", "http://rsshub:1200/cftc/pressreleases", "US/Eastern"),
 ]
 
 # ──────────────────────────────────────────────────────────────────────
 # 2. A股政策与快讯 (Category: equity_cn)
 # ──────────────────────────────────────────────────────────────────────
-EQUITY_CN_FEEDS = [
-  
-]
+EQUITY_CN_FEEDS = []
 
 # ──────────────────────────────────────────────────────────────────────
 # 3. 美股权益与行业 (Category: equity_us)
 # ──────────────────────────────────────────────────────────────────────
 EQUITY_US_FEEDS = [
-    ("CNBC Technology",        "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910", "US/Eastern"),
-    ("Bloomberg Markets",      "https://feeds.bloomberg.com/markets/news.rss", "US/Eastern"),
-    ("WSJ Markets",            "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain", "US/Eastern"),
-    ("MarketWatch-Top",        "https://feeds.content.dowjones.io/public/rss/mw_topstories", "US/Eastern"),
-    ("Yahoo Finance-News",      "https://finance.yahoo.com/news/rssindex", "US/Eastern"),
-    ("Reuters-Business",       "http://rsshub:1200/reuters/business", "Europe/London"),
+    (
+        "CNBC Technology",
+        "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910",
+        "US/Eastern",
+    ),
+    ("Bloomberg Markets", "https://feeds.bloomberg.com/markets/news.rss", "US/Eastern"),
+    (
+        "WSJ Markets",
+        "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain",
+        "US/Eastern",
+    ),
+    (
+        "MarketWatch-Top",
+        "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+        "US/Eastern",
+    ),
+    ("Yahoo Finance-News", "https://finance.yahoo.com/news/rssindex", "US/Eastern"),
+    ("Reuters-Business", "http://rsshub:1200/reuters/business", "Europe/London"),
 ]
 
 # 汇总所有信源并标记分类
 TIER1_FEEDS_CONFIG = []
 for name, url, tz in MACRO_GOLD_FEEDS:
-    TIER1_FEEDS_CONFIG.append({"name": name, "url": url, "category": "macro_gold", "timezone": tz})
+    TIER1_FEEDS_CONFIG.append(
+        {"name": name, "url": url, "category": "macro_gold", "timezone": tz}
+    )
 for name, url, tz in EQUITY_CN_FEEDS:
-    TIER1_FEEDS_CONFIG.append({"name": name, "url": url, "category": "equity_cn", "timezone": tz})
+    TIER1_FEEDS_CONFIG.append(
+        {"name": name, "url": url, "category": "equity_cn", "timezone": tz}
+    )
 for name, url, tz in EQUITY_US_FEEDS:
-    TIER1_FEEDS_CONFIG.append({"name": name, "url": url, "category": "equity_us", "timezone": tz})
+    TIER1_FEEDS_CONFIG.append(
+        {"name": name, "url": url, "category": "equity_us", "timezone": tz}
+    )
 
 
 # ──────────────────────────────────────────────
@@ -62,31 +94,103 @@ for name, url, tz in EQUITY_US_FEEDS:
 # ──────────────────────────────────────────────
 
 # 噪音黑名单
-_NOISE_KEYWORDS = frozenset([
-    "nfl", "nba", "soccer", "olympic", "grammy", "oscar",
-    "celebrity", "recipe", "fashion", "lifestyle", "dating",
-])
+_NOISE_KEYWORDS = frozenset(
+    [
+        "nfl",
+        "nba",
+        "soccer",
+        "olympic",
+        "grammy",
+        "oscar",
+        "celebrity",
+        "recipe",
+        "fashion",
+        "lifestyle",
+        "dating",
+    ]
+)
 
 # 黄金宏观桶
-_GOLD_MACRO_KEYWORDS = frozenset([
-    "gold", "xau", "silver", "precious metal", "bullion", "fed ", "fomc", 
-    "interest rate", "inflation", "cpi", "pce", "dxy", "treasury", "yield",
-    "geopolit", "war", "sanction", "trump", "tariff",
-])
+_GOLD_MACRO_KEYWORDS = frozenset(
+    [
+        "gold",
+        "xau",
+        "silver",
+        "precious metal",
+        "bullion",
+        "fed ",
+        "fomc",
+        "interest rate",
+        "inflation",
+        "cpi",
+        "pce",
+        "dxy",
+        "treasury",
+        "yield",
+        "geopolit",
+        "war",
+        "sanction",
+        "trump",
+        "tariff",
+    ]
+)
 
 # A股政策桶
-_CN_POLICY_KEYWORDS = frozenset([
-    "指导意见", "扶持", "降准", "降息", "准备金", "房地产", "化债", "财政",
-    "高质量发展", "新质生产力", "监管", "证监会", "深交所", "上交所", "IPO", "再融资",
-    "半导体", "集成电路", "人工智能", "生物医药", "低空经济", "新能源", "以旧换新",
-])
+_CN_POLICY_KEYWORDS = frozenset(
+    [
+        "指导意见",
+        "扶持",
+        "降准",
+        "降息",
+        "准备金",
+        "房地产",
+        "化债",
+        "财政",
+        "高质量发展",
+        "新质生产力",
+        "监管",
+        "证监会",
+        "深交所",
+        "上交所",
+        "IPO",
+        "再融资",
+        "半导体",
+        "集成电路",
+        "人工智能",
+        "生物医药",
+        "低空经济",
+        "新能源",
+        "以旧换新",
+    ]
+)
 
 # 美股权益桶
-_US_EQUITY_KEYWORDS = frozenset([
-    "earnings", "revenue", "guidance", "buyback", "dividend", "acquisition", "merger",
-    "tech", "ai", "semiconductor", "chip", "nvidia", "apple", "microsoft", "tesla", 
-    "google", "amazon", "meta", "fed ", "rate", "unemployment", "gdp",
-])
+_US_EQUITY_KEYWORDS = frozenset(
+    [
+        "earnings",
+        "revenue",
+        "guidance",
+        "buyback",
+        "dividend",
+        "acquisition",
+        "merger",
+        "tech",
+        "ai",
+        "semiconductor",
+        "chip",
+        "nvidia",
+        "apple",
+        "microsoft",
+        "tesla",
+        "google",
+        "amazon",
+        "meta",
+        "fed ",
+        "rate",
+        "unemployment",
+        "gdp",
+    ]
+)
 
 _DEFAULT_HEADERS = {
     "User-Agent": (
@@ -103,9 +207,9 @@ class RSSHubSource(BaseDataSource):
         self.feed_configs = TIER1_FEEDS_CONFIG
         self._semaphore: asyncio.Semaphore | None = None
         # 开启后打印每个信源的抓取结果，便于灰度排查失效信源
-        self.log_each_source = os.getenv("LUCIDPANDA_LOG_EACH_SOURCE", "1").lower() not in {
-            "0", "false", "off"
-        }
+        self.log_each_source = os.getenv(
+            "LUCIDPANDA_LOG_EACH_SOURCE", "1"
+        ).lower() not in {"0", "false", "off"}
 
     def _is_noise(self, text: str) -> bool:
         return any(kw in text for kw in _NOISE_KEYWORDS)
@@ -129,18 +233,16 @@ class RSSHubSource(BaseDataSource):
         if pub_str:
             try:
                 import dateparser
+
                 dt = dateparser.parse(
-                    pub_str, 
-                    settings={
-                        'TIMEZONE': tz_context, 
-                        'RETURN_AS_TIMEZONE_AWARE': True
-                    }
+                    pub_str,
+                    settings={"TIMEZONE": tz_context, "RETURN_AS_TIMEZONE_AWARE": True},
                 )
                 if dt:
                     return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             except Exception:
                 pass
-        
+
         # Fallback：解析失败或无时间，兜底使用当前数据摄取的绝对 UTC 时间
         return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -164,8 +266,9 @@ class RSSHubSource(BaseDataSource):
             "filter_skipped": 0,
             "reason": "",
         }
-        
+
         from urllib.parse import urlparse
+
         host = urlparse(url).hostname or ""
         active_client = ssl_client if "reuters" in host else client
 
@@ -180,11 +283,14 @@ class RSSHubSource(BaseDataSource):
             @retry(
                 stop=stop_after_attempt(3),
                 wait=wait_exponential(multiplier=1, min=2, max=10),
-                retry=retry_if_exception_type((httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout)),
-                reraise=True
+                retry=retry_if_exception_type(
+                    (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout)
+                ),
+                reraise=True,
             )
             async def _inner_get():
                 return await active_client.get(url, timeout=15.0)
+
             return await _inner_get()
 
         async with self._semaphore:
@@ -194,7 +300,7 @@ class RSSHubSource(BaseDataSource):
                     status["status"] = "failed"
                     status["reason"] = f"HTTP {resp.status_code}"
                     return [], status
-                
+
                 feed = feedparser.parse(resp.content)
                 if not feed.entries:
                     status["status"] = "ok_empty"
@@ -203,9 +309,16 @@ class RSSHubSource(BaseDataSource):
                 status["total_entries"] = len(feed.entries)
 
                 # DB 批量去重
-                all_ids = [getattr(e, "id", None) or getattr(e, "link", None) for e in feed.entries]
+                all_ids = [
+                    getattr(e, "id", None) or getattr(e, "link", None)
+                    for e in feed.entries
+                ]
                 all_ids = [i for i in all_ids if i]
-                existing_ids = await asyncio.to_thread(self.db.source_ids_batch_exists, all_ids) if self.db else set()
+                existing_ids = (
+                    await asyncio.to_thread(self.db.source_ids_batch_exists, all_ids)
+                    if self.db
+                    else set()
+                )
 
                 items = []
                 for entry in feed.entries:
@@ -215,7 +328,9 @@ class RSSHubSource(BaseDataSource):
                         continue
 
                     title = getattr(entry, "title", "").strip()
-                    summary = getattr(entry, "summary", "") or getattr(entry, "description", "")
+                    summary = getattr(entry, "summary", "") or getattr(
+                        entry, "description", ""
+                    )
                     full_text = f"{title} {summary}".lower()
 
                     if self._is_noise(full_text):
@@ -225,15 +340,19 @@ class RSSHubSource(BaseDataSource):
                         status["filter_skipped"] += 1
                         continue
 
-                    items.append({
-                        "source": name,
-                        "author": name,
-                        "category": category,
-                        "timestamp": self._normalize_rss_time(entry, config.get("timezone", "UTC")), # <--- Context-Aware 归一化
-                        "content": f"{title}. {summary}",
-                        "url": getattr(entry, "link", url),
-                        "id": item_id,
-                    })
+                    items.append(
+                        {
+                            "source": name,
+                            "author": name,
+                            "category": category,
+                            "timestamp": self._normalize_rss_time(
+                                entry, config.get("timezone", "UTC")
+                            ),  # <--- Context-Aware 归一化
+                            "content": f"{title}. {summary}",
+                            "url": getattr(entry, "link", url),
+                            "id": item_id,
+                        }
+                    )
                 status["new_items"] = len(items)
                 status["status"] = "ok_new" if items else "ok_empty"
                 if not items:
@@ -241,7 +360,7 @@ class RSSHubSource(BaseDataSource):
                 return items, status
             except Exception as e:
                 status["status"] = "failed"
-                status["reason"] = repr(e)   # repr 保留完整异常类型，str(e) 有时为空
+                status["reason"] = repr(e)  # repr 保留完整异常类型，str(e) 有时为空
                 logger.warning(f"⚠️ [{name}] 抓取失败: {repr(e)}")
                 return [], status
 
@@ -249,26 +368,33 @@ class RSSHubSource(BaseDataSource):
         if self._semaphore is None:
             self._semaphore = asyncio.Semaphore(8)
 
-        async with httpx.AsyncClient(headers=_DEFAULT_HEADERS, verify=True) as client, \
-                   httpx.AsyncClient(headers=_DEFAULT_HEADERS, verify=False) as ssl_client:
-            tasks = [self._fetch_feed_async(client, ssl_client, cfg) for cfg in self.feed_configs]
+        async with (
+            httpx.AsyncClient(headers=_DEFAULT_HEADERS, verify=True) as client,
+            httpx.AsyncClient(headers=_DEFAULT_HEADERS, verify=False) as ssl_client,
+        ):
+            tasks = [
+                self._fetch_feed_async(client, ssl_client, cfg)
+                for cfg in self.feed_configs
+            ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
 
         new_items = []
         source_statuses = []
         for res in results:
             if isinstance(res, Exception):
-                source_statuses.append({
-                    "name": "unknown",
-                    "url": "",
-                    "category": "",
-                    "status": "failed",
-                    "new_items": 0,
-                    "total_entries": 0,
-                    "dedup_skipped": 0,
-                    "filter_skipped": 0,
-                    "reason": str(res),
-                })
+                source_statuses.append(
+                    {
+                        "name": "unknown",
+                        "url": "",
+                        "category": "",
+                        "status": "failed",
+                        "new_items": 0,
+                        "total_entries": 0,
+                        "dedup_skipped": 0,
+                        "filter_skipped": 0,
+                        "reason": str(res),
+                    }
+                )
                 continue
 
             items, status = res
@@ -295,7 +421,7 @@ class RSSHubSource(BaseDataSource):
             f"📈 RSS信源汇总: total={len(source_statuses)} | ok_new={ok_new} | "
             f"ok_empty={ok_empty} | failed={failed}"
         )
-        
+
         if new_items:
             logger.info(f"✅ 分类采集完毕: 总计 {len(new_items)} 条新情报")
         return new_items if new_items else None

@@ -8,17 +8,20 @@ from src.lucidpanda.core.ontology import TAXONOMY
 from src.lucidpanda.providers.llm.base import BaseLLM
 
 # 内容输入上限：RSS摘要的黄金信号在前 800 字内就已完整包含，截断防止 Token 浪费
-CONTENT_MAX_CHARS   = 800   # 单条分析最多输入字符数
-BATCH_CONTENT_CHARS = 400   # 批量分析每条最多输入字符数
+CONTENT_MAX_CHARS = 800  # 单条分析最多输入字符数
+BATCH_CONTENT_CHARS = 400  # 批量分析每条最多输入字符数
+
 
 class GeminiLLM(BaseLLM):
     async def analyze_async(self, raw_data, taxonomy: dict | None = None):
         """异步版本的分析方法"""
         import asyncio
+
         return await asyncio.to_thread(self.analyze, raw_data, taxonomy)
 
     async def generate_json_async(self, prompt: str, temperature: float = 0.2):
         import asyncio
+
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
     def analyze(self, raw_data, taxonomy: dict | None = None):
@@ -33,14 +36,14 @@ class GeminiLLM(BaseLLM):
             prompt = self._get_prompt(raw_data, taxonomy)
 
             response = client.models.generate_content(
-                model=settings.GEMINI_MODEL,
-                contents=prompt,
-                config=config
+                model=settings.GEMINI_MODEL, contents=prompt, config=config
             )
 
             clean_text = response.text.replace("```json", "").replace("```", "").strip()
             res = json.loads(clean_text)
-            logger.debug(f"🤖 AI Raw Analysis (Single): {json.dumps(res, ensure_ascii=False)[:200]}...")
+            logger.debug(
+                f"🤖 AI Raw Analysis (Single): {json.dumps(res, ensure_ascii=False)[:200]}..."
+            )
             return res
 
         except Exception as e:
@@ -55,9 +58,7 @@ class GeminiLLM(BaseLLM):
                 "response_mime_type": "application/json",
             }
             response = client.models.generate_content(
-                model=settings.GEMINI_MODEL,
-                contents=prompt,
-                config=config
+                model=settings.GEMINI_MODEL, contents=prompt, config=config
             )
             clean_text = response.text.replace("```json", "").replace("```", "").strip()
             return json.loads(clean_text)
@@ -68,29 +69,29 @@ class GeminiLLM(BaseLLM):
     def analyze_batch(self, news_items, taxonomy: dict | None = None):
         try:
             client = genai.Client(api_key=settings.GEMINI_API_KEY)
-            
+
             config = {
                 "temperature": 0.2,
                 "response_mime_type": "application/json",
             }
-            
+
             prompt = self._get_batch_prompt(news_items, taxonomy)
-            
+
             response = client.models.generate_content(
-                model=settings.GEMINI_MODEL,
-                contents=prompt,
-                config=config
+                model=settings.GEMINI_MODEL, contents=prompt, config=config
             )
-            
+
             clean_text = response.text.replace("```json", "").replace("```", "").strip()
             results = json.loads(clean_text)
-            
+
             if len(results) != len(news_items):
-                logger.warning(f"批量分析返回数量不匹配: 期望 {len(news_items)}, 实际 {len(results)}")
-            
+                logger.warning(
+                    f"批量分析返回数量不匹配: 期望 {len(news_items)}, 实际 {len(results)}"
+                )
+
             logger.debug(f"🤖 AI Raw Analysis (Batch): Got {len(results)} results")
             return results
-            
+
         except Exception as e:
             logger.error(f"Gemini 批量分析失败: {e}")
             raise e
@@ -108,12 +109,14 @@ class GeminiLLM(BaseLLM):
         taxonomy_to_use = taxonomy or TAXONOMY
         news_list_str = ""
         for i, item in enumerate(news_items, 1):
-            content = self._truncate_content(item.get('content', ''), BATCH_CONTENT_CHARS)
+            content = self._truncate_content(
+                item.get("content", ""), BATCH_CONTENT_CHARS
+            )
             news_list_str += f"""
 [新闻 {i}]
-- ID: {item.get('id')}
+- ID: {item.get("id")}
 - 内容: {content}
-- 市场背景: {item.get('context', '无')}
+- 市场背景: {item.get("context", "无")}
 ---
 """
         return f"""
@@ -185,16 +188,16 @@ relations.relation 合法枚举（仅可选以下值）：
 
     def _get_prompt(self, raw_data, taxonomy: dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
-        content = self._truncate_content(raw_data.get('content', ''), CONTENT_MAX_CHARS)
+        content = self._truncate_content(raw_data.get("content", ""), CONTENT_MAX_CHARS)
         return f"""
 你是一个华尔街顶级宏观策略分析师。请分析以下内容并提取投资信号。
 分析目标：识别该事件对【黄金 (Gold/XAU)】及相关市场的影响。
 
 输入信息：
-- 来源: {raw_data.get('source')}
-- 作者: {raw_data.get('author')}
+- 来源: {raw_data.get("source")}
+- 作者: {raw_data.get("author")}
 - 内容: {content}
-- 市场背景: {raw_data.get('context', '无')}
+- 市场背景: {raw_data.get("context", "无")}
 
 输出格式要求：请必须输出标准的 JSON 格式，不要包含 Markdown 代码块标记（如 ```json）。
 

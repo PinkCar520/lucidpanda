@@ -27,6 +27,7 @@ def db_engine():
     Base.metadata.create_all(bind=engine)
     return engine
 
+
 @pytest.fixture(scope="function")
 def db_session(db_engine):
     Session = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)

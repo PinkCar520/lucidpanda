@@ -1,6 +1,7 @@
 """
 Pydantic 配置验证测试
 """
+
 import pytest
 
 from src.lucidpanda.config.pydantic_settings import (
@@ -59,34 +60,35 @@ class TestSettings:
     def test_settings_from_env(self):
         """测试从环境变量加载配置"""
         import os
-        os.environ['AI_PROVIDER'] = 'deepseek'
-        os.environ['LLM_CONCURRENCY_LIMIT'] = '10'
-        
+
+        os.environ["AI_PROVIDER"] = "deepseek"
+        os.environ["LLM_CONCURRENCY_LIMIT"] = "10"
+
         settings = Settings()
-        assert settings.AI_PROVIDER == 'deepseek'
+        assert settings.AI_PROVIDER == "deepseek"
         assert settings.LLM_CONCURRENCY_LIMIT == 10
-        
+
         # 清理
-        del os.environ['AI_PROVIDER']
-        del os.environ['LLM_CONCURRENCY_LIMIT']
+        del os.environ["AI_PROVIDER"]
+        del os.environ["LLM_CONCURRENCY_LIMIT"]
 
     def test_settings_shortcut_properties(self):
         """测试快捷访问属性"""
         settings = Settings()
-        
+
         # 测试 LLM 相关
-        assert hasattr(settings, 'QWEN_API_KEY')
-        assert hasattr(settings, 'QWEN_MODEL')
-        assert hasattr(settings, 'LLM_FALLBACK_ORDER')
-        
+        assert hasattr(settings, "QWEN_API_KEY")
+        assert hasattr(settings, "QWEN_MODEL")
+        assert hasattr(settings, "LLM_FALLBACK_ORDER")
+
         # 测试 Embedding 相关
-        assert hasattr(settings, 'DASHSCOPE_API_KEY')
-        assert hasattr(settings, 'DASHSCOPE_EMBEDDING_MODEL')
-        
+        assert hasattr(settings, "DASHSCOPE_API_KEY")
+        assert hasattr(settings, "DASHSCOPE_EMBEDDING_MODEL")
+
         # 测试运行时
-        assert hasattr(settings, 'LLM_CONCURRENCY_LIMIT')
-        assert hasattr(settings, 'AGENT_TOOL_MAX_CALLS')
+        assert hasattr(settings, "LLM_CONCURRENCY_LIMIT")
+        assert hasattr(settings, "AGENT_TOOL_MAX_CALLS")
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

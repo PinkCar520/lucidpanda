@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from src.lucidpanda.core.backtest import BacktestEngine
 from src.lucidpanda.core.database import IntelligenceDB
@@ -52,24 +52,28 @@ def get_historical_perf(keywords: str) -> dict[str, Any]:
     """
     if not keywords:
         return {"error": "keywords are required"}
-    
+
     db = IntelligenceDB()
     bt = BacktestEngine(db)
     stats = bt.get_confidence_stats(keywords)
-    
+
     if not stats:
         return {
             "keywords": keywords,
             "count": 0,
-            "message": "历史上未发现包含该关键词的交易信号。"
+            "message": "历史上未发现包含该关键词的交易信号。",
         }
-    
+
     return {
         "keywords": keywords,
         "count": stats["count"],
         "win_rate": f"{stats['win_rate']}%",
         "avg_return": f"{stats['avg_return']}%",
-        "reliability": "high" if stats["count"] >= 10 else "medium" if stats["count"] >= 5 else "low"
+        "reliability": "high"
+        if stats["count"] >= 10
+        else "medium"
+        if stats["count"] >= 5
+        else "low",
     }
 
 
@@ -80,13 +84,13 @@ def get_market_positioning(indicator_name: str = "COT_GOLD_NET") -> dict[str, An
     db = IntelligenceDB()
     # 备注：IntelligenceDB 组合了 MarketRepo 的方法
     indicator = db.get_latest_indicator(indicator_name)
-    
+
     if not indicator:
         return {"error": f"No data found for indicator: {indicator_name}"}
-    
+
     percentile = indicator.get("percentile")
     value = indicator.get("value")
-    
+
     sentiment = "NEUTRAL"
     if percentile is not None:
         if percentile > 85:
@@ -103,8 +107,10 @@ def get_market_positioning(indicator_name: str = "COT_GOLD_NET") -> dict[str, An
         "value": value,
         "percentile": f"{percentile}%" if percentile is not None else "N/A",
         "sentiment": sentiment,
-        "timestamp": indicator.get("timestamp").isoformat() if indicator.get("timestamp") else None,
-        "description": indicator.get("description")
+        "timestamp": indicator.get("timestamp").isoformat()
+        if indicator.get("timestamp")
+        else None,
+        "description": indicator.get("description"),
     }
 
 
@@ -114,41 +120,49 @@ def get_entity_influence(entity_name: str) -> dict[str, Any]:
     """
     if not entity_name:
         return {"error": "entity_name is required"}
-    
+
     db = IntelligenceDB()
     graph = db.get_entity_graph(entity_name, limit=50)
-    
+
     if not graph or not graph.get("center"):
         return {"error": f"Entity '{entity_name}' not found in knowledge graph."}
-    
+
     edges = graph.get("edges") or []
     # 统计活跃度：关联边的总数
     activity_count = len(edges)
-    
+
     # 分析主要关联对象及其强度
     relations = []
     for e in edges:
-        target = e["to_entity"] if e["from_entity"].lower() == entity_name.lower() else e["from_entity"]
-        relations.append({
-            "target": target,
-            "relation": e["relation"],
-            "strength": e["strength"],
-            "confidence": e["confidence_score"]
-        })
-    
+        target = (
+            e["to_entity"]
+            if e["from_entity"].lower() == entity_name.lower()
+            else e["from_entity"]
+        )
+        relations.append(
+            {
+                "target": target,
+                "relation": e["relation"],
+                "strength": e["strength"],
+                "confidence": e["confidence_score"],
+            }
+        )
+
     # 按强度排序取前 5
     top_relations = sorted(relations, key=lambda x: x["strength"], reverse=True)[:5]
-    
+
     return {
         "entity": entity_name,
         "type": graph["center"].get("entity_type"),
         "activity_score": activity_count,
         "top_relations": top_relations,
-        "summary": f"该实体在图谱中有 {activity_count} 条关联，主要与 {', '.join([r['target'] for r in top_relations[:3]])} 存在联系。"
+        "summary": f"该实体在图谱中有 {activity_count} 条关联，主要与 {', '.join([r['target'] for r in top_relations[:3]])} 存在联系。",
     }
 
 
-def query_macro_expectation(event_title: str, date_str: str | None = None) -> dict[str, Any]:
+def query_macro_expectation(
+    event_title: str, date_str: str | None = None
+) -> dict[str, Any]:
     """
     Enhanced macro event matching with cross-lingual aliasing and time-window tolerance.
     """
@@ -168,7 +182,7 @@ def query_macro_expectation(event_title: str, date_str: str | None = None) -> di
         "interest rate": ["利率"],
         "retail sales": ["零售销售"],
     }
-    
+
     clean_title = event_title.lower()
     search_terms = [event_title]
     for key, vals in ALIASES.items():
@@ -180,23 +194,27 @@ def query_macro_expectation(event_title: str, date_str: str | None = None) -> di
         try:
             target_date = date.fromisoformat(date_str[:10])
         except Exception:
-            pass # Fallback to wider search if date is mangled
+            pass  # Fallback to wider search if date is mangled
 
     matches: list[dict[str, Any]] = []
     with Session(engine) as session:
         # 2. Multi-term OR search
         from sqlalchemy import or_
-        filters = [MacroEvent.title.ilike(f"%{t}%") for t in search_terms]
+
+        filters = [col(MacroEvent.title).ilike(f"%{t}%") for t in search_terms]
         statement = select(MacroEvent).where(or_(*filters))
-        
+
         # 3. 48-hour time window tolerance (T-1 to T+1)
         if target_date:
             from datetime import timedelta
+
             date_min = target_date - timedelta(days=1)
             date_max = target_date + timedelta(days=1)
-            statement = statement.where(MacroEvent.release_date.between(date_min, date_max))
-            
-        statement = statement.order_by(MacroEvent.release_date.desc()).limit(10)
+            statement = statement.where(
+                col(MacroEvent.release_date).between(date_min, date_max)
+            )
+
+        statement = statement.order_by(col(MacroEvent.release_date).desc()).limit(10)
         rows = session.exec(statement).all()
 
     for row in rows:
@@ -204,16 +222,24 @@ def query_macro_expectation(event_title: str, date_str: str | None = None) -> di
         forecast = _parse_float(row.forecast_value)
         previous = _parse_float(row.previous_value)
         # Z-Score logic placeholder: assuming 0.1 as default std if historical data missing
-        surprise = (actual - forecast) if actual is not None and forecast is not None else None
-        
-        matches.append({
-            "id": str(row.id),
-            "title": row.title,
-            "release_date": row.release_date.isoformat(),
-            "parsed": {"previous": previous, "forecast": forecast, "actual": actual},
-            "surprise": surprise,
-            "impact_level": row.impact_level
-        })
+        surprise = (
+            (actual - forecast) if actual is not None and forecast is not None else None
+        )
+
+        matches.append(
+            {
+                "id": str(row.id),
+                "title": row.title,
+                "release_date": row.release_date.isoformat(),
+                "parsed": {
+                    "previous": previous,
+                    "forecast": forecast,
+                    "actual": actual,
+                },
+                "surprise": surprise,
+                "impact_level": row.impact_level,
+            }
+        )
 
     return {
         "matches": matches,
@@ -229,8 +255,15 @@ TOOLS: list[ToolSpec] = [
         input_schema={
             "type": "object",
             "properties": {
-                "event_title": {"type": "string", "description": "宏观事件标题或关键词"},
-                "date": {"type": "string", "description": "发布日期 (YYYY-MM-DD)", "nullable": True},
+                "event_title": {
+                    "type": "string",
+                    "description": "宏观事件标题或关键词",
+                },
+                "date": {
+                    "type": "string",
+                    "description": "发布日期 (YYYY-MM-DD)",
+                    "nullable": True,
+                },
             },
             "required": ["event_title"],
         },
@@ -242,7 +275,10 @@ TOOLS: list[ToolSpec] = [
         input_schema={
             "type": "object",
             "properties": {
-                "keywords": {"type": "string", "description": "查询关键词 (如 '地缘政治', '非农')"},
+                "keywords": {
+                    "type": "string",
+                    "description": "查询关键词 (如 '地缘政治', '非农')",
+                },
             },
             "required": ["keywords"],
         },
@@ -254,7 +290,10 @@ TOOLS: list[ToolSpec] = [
         input_schema={
             "type": "object",
             "properties": {
-                "indicator_name": {"type": "string", "description": "指标名 (默认: COT_GOLD_NET)"},
+                "indicator_name": {
+                    "type": "string",
+                    "description": "指标名 (默认: COT_GOLD_NET)",
+                },
             },
         },
         handler=get_market_positioning,
@@ -265,7 +304,10 @@ TOOLS: list[ToolSpec] = [
         input_schema={
             "type": "object",
             "properties": {
-                "entity_name": {"type": "string", "description": "实体名称 (如 '特朗普', '美联储')"},
+                "entity_name": {
+                    "type": "string",
+                    "description": "实体名称 (如 '特朗普', '美联储')",
+                },
             },
             "required": ["entity_name"],
         },

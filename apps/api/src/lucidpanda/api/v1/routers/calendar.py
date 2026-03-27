@@ -1,11 +1,11 @@
 import asyncio
 from datetime import date, datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlmodel import Session, select, text
+from sqlmodel import Session, col, select, text
 
 from src.lucidpanda.auth.dependencies import get_current_user
 from src.lucidpanda.auth.models import User
@@ -13,7 +13,7 @@ from src.lucidpanda.infra.database.connection import get_session
 from src.lucidpanda.models.macro_event import MacroEvent
 
 try:
-    import pandas as pd  # type: ignore
+    import pandas as pd
 except Exception:  # pragma: no cover
     pd = None
 
@@ -21,11 +21,13 @@ router = APIRouter(prefix="/calendar", tags=["calendar"])
 
 # ==================== DTOs ====================
 
+
 class EventPeriod(StrEnum):
-    PRE_MARKET = "pre_market"   # 盘前 (BMO)
-    DURING_MARKET = "during"    # 盘中
-    AFTER_HOURS = "after_hours" # 盘后 (AMC)
+    PRE_MARKET = "pre_market"  # 盘前 (BMO)
+    DURING_MARKET = "during"  # 盘中
+    AFTER_HOURS = "after_hours"  # 盘后 (AMC)
     UNKNOWN = "unknown"
+
 
 class MacroDetails(BaseModel):
     actual: float | None = None
@@ -33,26 +35,32 @@ class MacroDetails(BaseModel):
     previous: float | None = None
     unit: str | None = None
 
+
 class CalendarEventSchema(BaseModel):
     id: str
-    date: str           # "YYYY-MM-DD"
-    time: str | None = None   # "HH:MM" or None (all-day)
-    type: str           # earnings | dividend | ipo | economic | announcement
+    date: str  # "YYYY-MM-DD"
+    time: str | None = None  # "HH:MM" or None (all-day)
+    type: str  # earnings | dividend | ipo | economic | announcement
     title: str
     description: str | None = None
-    impact: str         # high | medium | low
+    impact: str  # high | medium | low
     related_symbols: list[str] = []
     is_watchlist_related: bool = False
     period: EventPeriod = EventPeriod.UNKNOWN
     macro_details: MacroDetails | None = None
 
+
 class CalendarResponse(BaseModel):
     events: list[CalendarEventSchema]
     date_range: dict[str, str]
 
+
 # ==================== Data Sources (P2) ====================
 
-def _get_user_watchlist_codes(current_user: User, db: Session, limit: int = 50) -> list[str]:
+
+def _get_user_watchlist_codes(
+    current_user: User, db: Session, limit: int = 50
+) -> list[str]:
     rows = db.execute(
         text(
             """
@@ -82,7 +90,7 @@ def _as_date(value: Any) -> date | None:
     # pandas Timestamp
     if hasattr(value, "to_pydatetime"):
         try:
-            return value.to_pydatetime().date()
+            return cast(date, value.to_pydatetime().date())
         except Exception:
             return None
     # string
@@ -119,18 +127,18 @@ def _extract_yfinance_calendar_dates(cal_df: Any) -> dict[str, Any]:
                         value = raw.iloc[0] if len(raw) else None
                     else:
                         value = raw
-                    
+
                     d = _as_date(value)
                     if d:
                         period = EventPeriod.UNKNOWN
                         # Try to detect period from timestamp if available
-                        if hasattr(value, "hour"):
+                        if value is not None and hasattr(value, "hour"):
                             h = value.hour
                             if h < 12:
                                 period = EventPeriod.PRE_MARKET
                             elif h >= 16:
                                 period = EventPeriod.AFTER_HOURS
-                        
+
                         result[out_key] = {"date": d, "period": period}
     except Exception:
         return result
@@ -138,7 +146,9 @@ def _extract_yfinance_calendar_dates(cal_df: Any) -> dict[str, Any]:
     return result
 
 
-def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> list[CalendarEventSchema]:
+def _fetch_single_symbol_events(
+    sym: str, date_from: date, date_to: date
+) -> list[CalendarEventSchema]:
     """
     Synchronous per-symbol fetch — runs inside run_in_executor.
     Safe to call from a thread.
@@ -174,7 +184,7 @@ def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> lis
                 impact="medium",
                 related_symbols=[sym],
                 is_watchlist_related=True,
-                period=earnings_info["period"]
+                period=earnings_info["period"],
             )
         )
 
@@ -192,7 +202,7 @@ def _fetch_single_symbol_events(sym: str, date_from: date, date_to: date) -> lis
                 impact="low",
                 related_symbols=[sym],
                 is_watchlist_related=True,
-                period=ex_div_info["period"]
+                period=ex_div_info["period"],
             )
         )
 
@@ -227,6 +237,7 @@ async def _build_yfinance_events(
 
 # ==================== P2-C: akshare A-Share ====================
 
+
 def _is_a_share(code: str) -> bool:
     return code.isdigit() and len(code) == 6
 
@@ -249,10 +260,15 @@ def _fetch_akshare_dividends(
             if df is None:
                 continue
             import pandas as _pd
+
             if isinstance(df, _pd.DataFrame) and df.empty:
                 continue
             date_col = next(
-                (c for c in df.columns if "date" in c.lower() or "日期" in c or "除权" in c.lower()),
+                (
+                    c
+                    for c in df.columns
+                    if "date" in c.lower() or "日期" in c or "除权" in c.lower()
+                ),
                 None,
             )
             if date_col is None:
@@ -261,17 +277,19 @@ def _fetch_akshare_dividends(
                 ex_date = _as_date(raw_date)
                 if ex_date and _date_in_window(ex_date, date_from, date_to):
                     ds = ex_date.strftime("%Y-%m-%d")
-                    events.append(CalendarEventSchema(
-                        id=f"ak-{code}-exdiv-{ds}",
-                        date=ds,
-                        time=None,
-                        type="dividend",
-                        title=f"{code} 除权除息日",
-                        description="来源: akshare",
-                        impact="low",
-                        related_symbols=[code],
-                        is_watchlist_related=True,
-                    ))
+                    events.append(
+                        CalendarEventSchema(
+                            id=f"ak-{code}-exdiv-{ds}",
+                            date=ds,
+                            time=None,
+                            type="dividend",
+                            title=f"{code} 除权除息日",
+                            description="来源: akshare",
+                            impact="low",
+                            related_symbols=[code],
+                            is_watchlist_related=True,
+                        )
+                    )
         except Exception:
             continue
     return events
@@ -289,9 +307,20 @@ def _fetch_akshare_ipos(date_from: date, date_to: date) -> list[CalendarEventSch
         df = ak.stock_zh_a_new_financial_analysis_sina()
         if df is None:
             return []
-        sub_col = next((c for c in df.columns if "申购" in c or "ipo" in c.lower() or "date" in c.lower()), None)
-        name_col = next((c for c in df.columns if "名称" in c or "name" in c.lower()), None)
-        code_col = next((c for c in df.columns if "代码" in c or "code" in c.lower()), None)
+        sub_col = next(
+            (
+                c
+                for c in df.columns
+                if "申购" in c or "ipo" in c.lower() or "date" in c.lower()
+            ),
+            None,
+        )
+        name_col = next(
+            (c for c in df.columns if "名称" in c or "name" in c.lower()), None
+        )
+        code_col = next(
+            (c for c in df.columns if "代码" in c or "code" in c.lower()), None
+        )
         if sub_col is None:
             return []
         for _, row in df.iterrows():
@@ -300,17 +329,19 @@ def _fetch_akshare_ipos(date_from: date, date_to: date) -> list[CalendarEventSch
                 name = str(row.get(name_col, "新股")) if name_col else "新股"
                 code = str(row.get(code_col, "")) if code_col else ""
                 ds = sub_date.strftime("%Y-%m-%d")
-                events.append(CalendarEventSchema(
-                    id=f"ak-ipo-{code or name}-{ds}",
-                    date=ds,
-                    time=None,
-                    type="ipo",
-                    title=f"新股申购 · {name}",
-                    description=f"A股新股 {code}",
-                    impact="medium",
-                    related_symbols=[code] if code else [],
-                    is_watchlist_related=False,
-                ))
+                events.append(
+                    CalendarEventSchema(
+                        id=f"ak-ipo-{code or name}-{ds}",
+                        date=ds,
+                        time=None,
+                        type="ipo",
+                        title=f"新股申购 · {name}",
+                        description=f"A股新股 {code}",
+                        impact="medium",
+                        related_symbols=[code] if code else [],
+                        is_watchlist_related=False,
+                    )
+                )
     except Exception:
         pass
     return events
@@ -323,7 +354,9 @@ async def _build_akshare_events(
     a_share_codes = [c for c in watchlist_codes if _is_a_share(c)]
     loop = asyncio.get_event_loop()
     results = await asyncio.gather(
-        loop.run_in_executor(None, _fetch_akshare_dividends, a_share_codes, date_from, date_to),
+        loop.run_in_executor(
+            None, _fetch_akshare_dividends, a_share_codes, date_from, date_to
+        ),
         loop.run_in_executor(None, _fetch_akshare_ipos, date_from, date_to),
         return_exceptions=True,
     )
@@ -336,14 +369,17 @@ async def _build_akshare_events(
 
 # ==================== Endpoints ====================
 
+
 @router.get("/events", response_model=CalendarResponse)
 async def get_calendar_events(
     date_from: str | None = Query(None, description="YYYY-MM-DD"),
-    date_to: str | None   = Query(None, description="YYYY-MM-DD"),
-    watchlist_only: bool      = Query(False),
-    types: str | None      = Query(None, description="Comma-separated: earnings,dividend,ipo,economic,announcement"),
-    current_user: User        = Depends(get_current_user),
-    db: Session               = Depends(get_session),
+    date_to: str | None = Query(None, description="YYYY-MM-DD"),
+    watchlist_only: bool = Query(False),
+    types: str | None = Query(
+        None, description="Comma-separated: earnings,dividend,ipo,economic,announcement"
+    ),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
 ):
     """
     Returns financial calendar events within [date_from, date_to].
@@ -352,7 +388,7 @@ async def get_calendar_events(
     today = date.today()
     try:
         from_dt = date.fromisoformat(date_from) if date_from else today
-        to_dt   = date.fromisoformat(date_to)   if date_to   else today + timedelta(days=7)
+        to_dt = date.fromisoformat(date_to) if date_to else today + timedelta(days=7)
     except ValueError:
         from_dt, to_dt = today, today + timedelta(days=7)
 
@@ -363,13 +399,13 @@ async def get_calendar_events(
         _build_yfinance_events(watchlist_codes, from_dt, to_dt),
         _build_akshare_events(watchlist_codes, from_dt, to_dt),
     )
-    
+
     # Fetch Macro Events from local DB (Instant synchronous query)
     macro_events = []
     try:
         stmt = select(MacroEvent).where(
-            MacroEvent.release_date >= from_dt,
-            MacroEvent.release_date <= to_dt
+            col(MacroEvent.release_date) >= from_dt,
+            col(MacroEvent.release_date) <= to_dt,
         )
         for m in db.exec(stmt).all():
             desc_parts = [f"[{m.country}]"]
@@ -379,14 +415,20 @@ async def get_calendar_events(
                 desc_parts.append(f"预:{m.forecast_value}")
             if m.actual_value:
                 desc_parts.append(f"今:{m.actual_value}")
-            
+
             # Try to parse string values to floats for macro_details
             def _try_float(v: str | None) -> float | None:
                 if not v:
                     return None
                 try:
                     # Clean common symbols like %, $, K, M
-                    clean_v = v.replace("%", "").replace("$", "").replace("K", "").replace("M", "").strip()
+                    clean_v = (
+                        v.replace("%", "")
+                        .replace("$", "")
+                        .replace("K", "")
+                        .replace("M", "")
+                        .strip()
+                    )
                     return float(clean_v)
                 except ValueError:
                     return None
@@ -395,22 +437,24 @@ async def get_calendar_events(
                 actual=_try_float(m.actual_value),
                 forecast=_try_float(m.forecast_value),
                 previous=_try_float(m.previous_value),
-                unit="%" if m.actual_value and "%" in m.actual_value else None
+                unit="%" if m.actual_value and "%" in m.actual_value else None,
             )
-            
-            macro_events.append(CalendarEventSchema(
-                id=str(m.id),
-                date=m.release_date.strftime("%Y-%m-%d"),
-                time=m.release_time,
-                type="economic",
-                title=m.title,
-                description=" ".join(desc_parts),
-                impact=m.impact_level,
-                related_symbols=[],
-                is_watchlist_related=False,
-                period=EventPeriod.UNKNOWN,
-                macro_details=macro_details
-            ))
+
+            macro_events.append(
+                CalendarEventSchema(
+                    id=str(m.id),
+                    date=m.release_date.strftime("%Y-%m-%d"),
+                    time=m.release_time,
+                    type="economic",
+                    title=m.title,
+                    description=" ".join(desc_parts),
+                    impact=m.impact_level,
+                    related_symbols=[],
+                    is_watchlist_related=False,
+                    period=EventPeriod.UNKNOWN,
+                    macro_details=macro_details,
+                )
+            )
     except Exception:
         pass
 
@@ -442,6 +486,6 @@ async def get_calendar_events(
         events=events,
         date_range={
             "from": from_dt.strftime("%Y-%m-%d"),
-            "to":   to_dt.strftime("%Y-%m-%d"),
-        }
+            "to": to_dt.strftime("%Y-%m-%d"),
+        },
     )

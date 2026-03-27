@@ -7,6 +7,7 @@
 3. 按需初始化（节省内存）
 4. 配置集中管理
 """
+
 import asyncio
 from typing import TYPE_CHECKING, Any
 
@@ -29,10 +30,10 @@ if TYPE_CHECKING:
 class EngineDependencies:
     """
     AlphaEngine 依赖容器
-    
+
     按需初始化依赖，避免不必要的内存占用。
     支持延迟加载（lazy loading）。
-    
+
     Attributes:
         db: 数据库连接（立即初始化）
         backtester: 回测引擎（延迟初始化）
@@ -43,7 +44,7 @@ class EngineDependencies:
         entity_resolver: 实体解析器（延迟初始化）
         ai_semaphore: 并发控制信号量（立即初始化）
     """
-    
+
     def __init__(
         self,
         db: IntelligenceDB | None = None,
@@ -52,7 +53,7 @@ class EngineDependencies:
     ):
         """
         初始化依赖容器
-        
+
         Args:
             db: 数据库实例（可选，默认自动创建）
             llm_provider: 主力 LLM 提供商（可选，默认从配置读取）
@@ -62,10 +63,10 @@ class EngineDependencies:
         self._db = db
         self._llm_provider = llm_provider
         self._fallback_provider = fallback_provider
-        
+
         # 并发控制（立即初始化）
         self.ai_semaphore = asyncio.Semaphore(settings.LLM_CONCURRENCY_LIMIT)
-        
+
         # 延迟初始化：其他组件
         self._backtester: BacktestEngine | None = None
         self._clusterer: EventClusterer | None = None
@@ -81,76 +82,79 @@ class EngineDependencies:
         self._follower_processor: Any | None = None
         self._fred_source: Any | None = None
         self._email_source: Any | None = None
-    
+
     @property
     def db(self) -> IntelligenceDB:
         """数据库实例（单例）"""
         if self._db is None:
             self._db = IntelligenceDB()
         return self._db
-    
+
     @property
     def primary_llm(self):
         """主力 LLM 实例（单例）"""
         if self._primary_llm is None:
             # 延迟导入，避免循环依赖
             from src.lucidpanda.core.engine import LLMFactory
+
             provider = self._llm_provider or settings.AI_PROVIDER.lower()
             self._primary_llm = LLMFactory.create(provider)
         return self._primary_llm
-    
+
     @property
     def fallback_llm(self):
         """备用 LLM 实例（单例）"""
         if self._fallback_llm is None:
             # 延迟导入，避免循环依赖
             from src.lucidpanda.core.engine import LLMFactory
+
             provider = self._fallback_provider or LLMFactory.get_fallback_provider(
                 self._llm_provider or settings.AI_PROVIDER.lower()
             )
             self._fallback_llm = LLMFactory.create(provider)
         return self._fallback_llm
-    
+
     @property
     def backtester(self) -> BacktestEngine:
         """回测引擎（延迟初始化）"""
         if self._backtester is None:
             self._backtester = BacktestEngine(self.db)
         return self._backtester
-    
+
     @property
     def clusterer(self) -> EventClusterer:
         """事件聚类器（延迟初始化）"""
         if self._clusterer is None:
             self._clusterer = EventClusterer(db=self.db)
         return self._clusterer
-    
+
     @property
     def deduplicator(self) -> NewsDeduplicator:
         """去重引擎（延迟初始化）"""
         if self._deduplicator is None:
             self._deduplicator = NewsDeduplicator(db=self.db)
         return self._deduplicator
-    
+
     @property
     def channels(self) -> list:
         """通知渠道列表（延迟初始化）"""
         if self._channels is None:
             self._channels = [EmailChannel(), BarkChannel()]
         return self._channels
-    
+
     @property
     def tool_summaries(self) -> list:
         """工具摘要（延迟初始化）"""
         if self._tool_summaries is None:
             self._tool_summaries = list_tool_summaries()
         return self._tool_summaries
-    
+
     @property
     def ontology_repo(self) -> Any:
         """本体元数据仓库"""
         if self._ontology_repo is None:
             from src.lucidpanda.db.ontology_repo import OntologyRepo
+
             self._ontology_repo = OntologyRepo()
         return self._ontology_repo
 
@@ -159,6 +163,7 @@ class EngineDependencies:
         """实体注册动态加载服务"""
         if self._registry_service is None:
             from src.lucidpanda.services.registry_service import RegistryService
+
             self._registry_service = RegistryService(self.ontology_repo)
         return self._registry_service
 
@@ -168,34 +173,34 @@ class EngineDependencies:
         if self._entity_resolver is None:
             self._entity_resolver = EntityResolver(self.registry_service)
         return self._entity_resolver
-        
+
     @property
     def factor_service(self) -> FactorService:
         """实体舆情因子聚合服务（延迟初始化）"""
         if self._factor_service is None:
             self._factor_service = FactorService()
         return self._factor_service
-    
+
     @property
     def follower_processor(self) -> Any:
         """Follower 数据处理器（从 AlphaEngine 剥离的增量逻辑）"""
         if self._follower_processor is None:
             from src.lucidpanda.core.follower_processor import FollowerProcessor
+
             self._follower_processor = FollowerProcessor(
-                db=self.db, 
-                primary_llm=self.primary_llm, 
-                ai_semaphore=self.ai_semaphore
+                db=self.db, primary_llm=self.primary_llm, ai_semaphore=self.ai_semaphore
             )
         return self._follower_processor
-    
+
     @property
     def fred_source(self) -> Any:
         """美联储经济数据源 (FRED)"""
         if self._fred_source is None:
             from src.lucidpanda.providers.data_sources.fred import FredDataSource
+
             self._fred_source = FredDataSource()
         return self._fred_source
-    
+
     @property
     def email_source(self) -> Any:
         """Email/IMAP 情报源"""
@@ -203,18 +208,19 @@ class EngineDependencies:
             from src.lucidpanda.providers.data_sources.email_source import (
                 EmailDataSource,
             )
+
             self._email_source = EmailDataSource(db=self.db)
         return self._email_source
-    
+
     @property
     def enable_agent_tools(self) -> bool:
         """是否启用 Agent 工具"""
         return settings.ENABLE_AGENT_TOOLS
-    
+
     def clear_cache(self):
         """
         清理缓存的依赖实例
-        
+
         用于测试或重新加载配置。
         注意：不会清理数据库连接。
         """

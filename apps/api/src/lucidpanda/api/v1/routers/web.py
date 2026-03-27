@@ -2,12 +2,12 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import redis
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlmodel import Session, select, text
+from sqlmodel import Session, col, select, text
 
 from src.lucidpanda.auth.dependencies import get_current_user
 from src.lucidpanda.auth.models import User
@@ -44,7 +44,7 @@ def _with_confidence(item: Intelligence) -> dict[str, Any]:
     )
     payload["confidence_score"] = confidence_score
     payload["confidence_level"] = calc_confidence_level(confidence_score)
-    return payload
+    return cast(dict[str, Any], payload)
 
 
 def _fused_cache_key(limit: int, before_timestamp: str | None) -> str:
@@ -55,11 +55,18 @@ def _get_fused_redis_client():
     global _redis_client
     if _redis_client is not None:
         return _redis_client
-    if os.getenv("FUSED_CACHE_USE_REDIS", "true").lower() not in {"1", "true", "yes", "on"}:
+    if os.getenv("FUSED_CACHE_USE_REDIS", "true").lower() not in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
         _redis_client = False
         return None
     try:
-        _redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
+        _redis_client = redis.from_url(
+            os.getenv("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True
+        )
         _redis_client.ping()
         return _redis_client
     except Exception:
@@ -93,10 +100,12 @@ def _get_fused_cache(limit: int, before_timestamp: str | None) -> dict[str, Any]
     if time.time() - local_cached["ts"] > FUSED_CACHE_TTL_SECONDS:
         _fused_cache.pop(key, None)
         return None
-    return local_cached["payload"]
+    return cast(dict[str, Any], local_cached["payload"])
 
 
-def _set_fused_cache(limit: int, before_timestamp: str | None, payload: dict[str, Any]) -> None:
+def _set_fused_cache(
+    limit: int, before_timestamp: str | None, payload: dict[str, Any]
+) -> None:
     key = _fused_cache_key(limit, before_timestamp)
     _fused_cache[key] = {"ts": time.time(), "payload": payload}
     _get_fused_cache_store().set(limit, before_timestamp, payload)
@@ -111,10 +120,10 @@ def _invalidate_fused_cache() -> dict[str, int]:
         "redis_removed": int(store_removed.get("redis_removed") or 0),
     }
 
+
 @router.get("/watchlist", response_model=dict[str, Any])
 async def get_web_watchlist(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_session)
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_session)
 ):
     """
     Get user's watchlist for Web.
@@ -122,38 +131,42 @@ async def get_web_watchlist(
     """
     db_legacy = IntelligenceDB()
     rows = db_legacy.get_watchlist(str(current_user.id))
-    return v1_prepare_json({"data": [{"code": r['fund_code'], "name": r['fund_name']} for r in rows]})
+    return v1_prepare_json(
+        {"data": [{"code": r["fund_code"], "name": r["fund_name"]} for r in rows]}
+    )
+
 
 @router.get("/funds/batch-valuation", response_model=dict[str, Any])
 async def get_web_batch_valuations(
-    codes: str, 
-    mode: str = "full",
-    current_user: User = Depends(get_current_user)
+    codes: str, mode: str = "full", current_user: User = Depends(get_current_user)
 ):
     """
     Batch valuation for Web with full data density.
     """
     if not codes:
         return {"data": []}
-    
-    code_list = [c.strip() for c in codes.split(',') if c.strip()]
+
+    code_list = [c.strip() for c in codes.split(",") if c.strip()]
     engine = FundEngine()
-    
+
     results = engine.calculate_batch_valuation(code_list, summary=(mode == "summary"))
-    
+
     # Enrich with stats
     db_legacy = IntelligenceDB()
     stats_map = db_legacy.get_fund_stats(code_list)
-    
+
     for res in results:
-        f_code = res.get('fund_code')
+        f_code = res.get("fund_code")
         if f_code in stats_map:
-            res['stats'] = stats_map[f_code]
-            
+            res["stats"] = stats_map[f_code]
+
     return v1_prepare_json({"data": results})
 
+
 @router.get("/funds/{code}/valuation", response_model=dict[str, Any])
-async def get_web_fund_valuation(code: str, current_user: User = Depends(get_current_user)):
+async def get_web_fund_valuation(
+    code: str, current_user: User = Depends(get_current_user)
+):
     """
     Detailed single fund valuation for Web.
     """
@@ -163,70 +176,75 @@ async def get_web_fund_valuation(code: str, current_user: User = Depends(get_cur
         db_legacy = IntelligenceDB()
         stats_map = db_legacy.get_fund_stats([code])
         if code in stats_map:
-            results[0]['stats'] = stats_map[code]
+            results[0]["stats"] = stats_map[code]
         return v1_prepare_json(results[0])
     return {"error": "Valuation failed"}
 
+
 @router.get("/funds/{code}/history", response_model=dict[str, Any])
-async def get_web_fund_history(code: str, limit: int = 30, current_user: User = Depends(get_current_user)):
+async def get_web_fund_history(
+    code: str, limit: int = 30, current_user: User = Depends(get_current_user)
+):
     """
     Historical performance for Web.
     """
     db_legacy = IntelligenceDB()
     history = db_legacy.get_valuation_history(code, limit)
-    
+
     formatted_history = []
     for h in history:
         item = dict(h)
-        if 'trade_date' in item and hasattr(item['trade_date'], 'isoformat'):
-            item['trade_date'] = item['trade_date'].isoformat()
+        if "trade_date" in item and hasattr(item["trade_date"], "isoformat"):
+            item["trade_date"] = item["trade_date"].isoformat()
         formatted_history.append(item)
     return v1_prepare_json({"data": formatted_history})
 
+
 @router.get("/intelligence/full", response_model=dict[str, Any])
 async def get_web_intelligence_full(
-    limit: int = 50,
-    db: Session = Depends(get_session)
+    limit: int = 50, db: Session = Depends(get_session)
 ):
     """
     Returns full rich JSONB objects for Web localized rendering.
     """
-    statement = select(Intelligence).order_by(Intelligence.timestamp.desc()).limit(limit)
+    statement = (
+        select(Intelligence).order_by(col(Intelligence.timestamp).desc()).limit(limit)
+    )
     results = db.exec(statement).all()
     return {"data": [_with_confidence(item) for item in results]}
-
 
 
 class WatchlistItemDTO(BaseModel):
     code: str
     name: str
 
+
 @router.post("/watchlist", response_model=dict[str, Any])
 async def add_web_watchlist(
-    item: WatchlistItemDTO,
-    current_user: User = Depends(get_current_user)
+    item: WatchlistItemDTO, current_user: User = Depends(get_current_user)
 ):
     """Add a fund to watchlist via Web BFF."""
     db_legacy = IntelligenceDB()
     success = db_legacy.add_to_watchlist(item.code, item.name, str(current_user.id))
     return {"success": success}
 
+
 @router.delete("/watchlist/{code}", response_model=dict[str, Any])
 async def remove_web_watchlist(
-    code: str,
-    current_user: User = Depends(get_current_user)
+    code: str, current_user: User = Depends(get_current_user)
 ):
     """Remove a fund from watchlist via Web BFF."""
     db_legacy = IntelligenceDB()
     success = db_legacy.remove_from_watchlist(code, str(current_user.id))
     return {"success": success}
 
+
 @router.get("/intelligence/fused", response_model=dict[str, Any])
 async def get_web_fused_intelligence(
     limit: int = 30,
     before_timestamp: str | None = None,
     force_refresh: bool = False,
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_session),
 ):
     """
     Fused intelligence view（NIE-like）:
@@ -312,11 +330,13 @@ async def get_web_fused_intelligence(
 async def invalidate_web_fused_cache(current_user: User = Depends(get_current_user)):
     del current_user
     removed = _invalidate_fused_cache()
-    return v1_prepare_json({
-        "success": True,
-        "removed": removed,
-        "invalidated_at": datetime.utcnow(),
-    })
+    return v1_prepare_json(
+        {
+            "success": True,
+            "removed": removed,
+            "invalidated_at": datetime.utcnow(),
+        }
+    )
 
 
 @router.get("/graph/event/{cluster_id}", response_model=dict[str, Any])
@@ -324,14 +344,16 @@ async def get_web_event_graph(cluster_id: str):
     """按事件 cluster 返回知识图谱。"""
     db_legacy = IntelligenceDB()
     graph = db_legacy.get_event_graph(cluster_id)
-    return v1_prepare_json({
-        "cluster_id": cluster_id,
-        "nodes": graph.get("nodes", []),
-        "edges": graph.get("edges", []),
-        "inferences": graph.get("inferences", []),
-        "evidence": graph.get("evidence", []),
-        "relation_weights": graph.get("relation_weights", {}),
-    })
+    return v1_prepare_json(
+        {
+            "cluster_id": cluster_id,
+            "nodes": graph.get("nodes", []),
+            "edges": graph.get("edges", []),
+            "inferences": graph.get("inferences", []),
+            "evidence": graph.get("evidence", []),
+            "relation_weights": graph.get("relation_weights", {}),
+        }
+    )
 
 
 @router.get("/graph/entity/{entity_name}", response_model=dict[str, Any])
@@ -361,15 +383,17 @@ async def get_web_graph_path(
         relation=relation,
         event_cluster_id=event_cluster_id,
     )
-    return v1_prepare_json({
-        "from_entity": from_entity,
-        "to_entity": to_entity,
-        "max_hops": max_hops,
-        "min_confidence": min_confidence,
-        "relation": relation,
-        "event_cluster_id": event_cluster_id,
-        "paths": result.get("paths", []),
-    })
+    return v1_prepare_json(
+        {
+            "from_entity": from_entity,
+            "to_entity": to_entity,
+            "max_hops": max_hops,
+            "min_confidence": min_confidence,
+            "relation": relation,
+            "event_cluster_id": event_cluster_id,
+            "paths": result.get("paths", []),
+        }
+    )
 
 
 @router.get("/graph/quality", response_model=dict[str, Any])
@@ -380,7 +404,7 @@ async def get_web_graph_quality(
     in_vocab_threshold: float = 70.0,
     direction_threshold: float = 90.0,
     malformed_threshold: float = 20.0,
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_session),
 ):
     """
     图谱抽取质量快照（用于 Phase 2 生产化观测）：
@@ -439,7 +463,9 @@ async def get_web_graph_quality(
             ) AS in_vocab_items
         FROM rels
     """)
-    relation_row = db.execute(relation_item_sql, {"days": safe_days, "allowed_relations": allowed_relations}).first()
+    relation_row = db.execute(
+        relation_item_sql, {"days": safe_days, "allowed_relations": allowed_relations}
+    ).first()
     relation_stats = dict(relation_row._mapping) if relation_row else {}
 
     completed_count = int(summary.get("completed_count") or 0)
@@ -450,11 +476,25 @@ async def get_web_graph_quality(
     valid_direction_items = int(relation_stats.get("valid_direction_items") or 0)
     in_vocab_items = int(relation_stats.get("in_vocab_items") or 0)
 
-    coverage_pct = round((with_relations_count / completed_count) * 100, 2) if completed_count else 0.0
-    avg_relations_per_item = round((relation_item_count / with_relations_count), 3) if with_relations_count else 0.0
-    malformed_pct = round((malformed_items / total_items) * 100, 2) if total_items else 0.0
-    valid_direction_pct = round((valid_direction_items / total_items) * 100, 2) if total_items else 0.0
-    in_vocab_pct = round((in_vocab_items / total_items) * 100, 2) if total_items else 0.0
+    coverage_pct = (
+        round((with_relations_count / completed_count) * 100, 2)
+        if completed_count
+        else 0.0
+    )
+    avg_relations_per_item = (
+        round((relation_item_count / with_relations_count), 3)
+        if with_relations_count
+        else 0.0
+    )
+    malformed_pct = (
+        round((malformed_items / total_items) * 100, 2) if total_items else 0.0
+    )
+    valid_direction_pct = (
+        round((valid_direction_items / total_items) * 100, 2) if total_items else 0.0
+    )
+    in_vocab_pct = (
+        round((in_vocab_items / total_items) * 100, 2) if total_items else 0.0
+    )
 
     trend_sql = text("""
         WITH day_bucket AS (
@@ -491,14 +531,20 @@ async def get_web_graph_quality(
         day_completed = int(mapped.get("completed_count") or 0)
         day_with_rel = int(mapped.get("with_relations_count") or 0)
         day_rel_items = int(mapped.get("relation_item_count") or 0)
-        trend.append({
-            "day": mapped.get("day"),
-            "completed_count": day_completed,
-            "with_relations_count": day_with_rel,
-            "relation_item_count": day_rel_items,
-            "relation_coverage_pct": round((day_with_rel / day_completed) * 100, 2) if day_completed else 0.0,
-            "avg_relations_per_event": round((day_rel_items / day_with_rel), 3) if day_with_rel else 0.0,
-        })
+        trend.append(
+            {
+                "day": mapped.get("day"),
+                "completed_count": day_completed,
+                "with_relations_count": day_with_rel,
+                "relation_item_count": day_rel_items,
+                "relation_coverage_pct": round((day_with_rel / day_completed) * 100, 2)
+                if day_completed
+                else 0.0,
+                "avg_relations_per_event": round((day_rel_items / day_with_rel), 3)
+                if day_with_rel
+                else 0.0,
+            }
+        )
 
     safe_baseline_days = max(3, min(120, int(baseline_days)))
     baseline_sql = text("""
@@ -534,14 +580,30 @@ async def get_web_graph_quality(
             prev_window.with_relations_count AS baseline_with_relations_count
         FROM current_window, prev_window
     """)
-    baseline_row = db.execute(baseline_sql, {"curr_days": safe_days, "base_days": safe_baseline_days}).first()
+    baseline_row = db.execute(
+        baseline_sql, {"curr_days": safe_days, "base_days": safe_baseline_days}
+    ).first()
     baseline_metrics = dict(baseline_row._mapping) if baseline_row else {}
     current_completed_count = int(baseline_metrics.get("current_completed_count") or 0)
-    current_with_relations_count = int(baseline_metrics.get("current_with_relations_count") or 0)
-    baseline_completed_count = int(baseline_metrics.get("baseline_completed_count") or 0)
-    baseline_with_relations_count = int(baseline_metrics.get("baseline_with_relations_count") or 0)
-    current_coverage = round((current_with_relations_count / current_completed_count) * 100, 2) if current_completed_count else 0.0
-    baseline_coverage = round((baseline_with_relations_count / baseline_completed_count) * 100, 2) if baseline_completed_count else 0.0
+    current_with_relations_count = int(
+        baseline_metrics.get("current_with_relations_count") or 0
+    )
+    baseline_completed_count = int(
+        baseline_metrics.get("baseline_completed_count") or 0
+    )
+    baseline_with_relations_count = int(
+        baseline_metrics.get("baseline_with_relations_count") or 0
+    )
+    current_coverage = (
+        round((current_with_relations_count / current_completed_count) * 100, 2)
+        if current_completed_count
+        else 0.0
+    )
+    baseline_coverage = (
+        round((baseline_with_relations_count / baseline_completed_count) * 100, 2)
+        if baseline_completed_count
+        else 0.0
+    )
     coverage_delta = round(current_coverage - baseline_coverage, 2)
 
     alerts = build_graph_quality_alerts(
@@ -555,53 +617,53 @@ async def get_web_graph_quality(
         malformed_threshold=malformed_threshold,
     )
 
-    return v1_prepare_json({
-        "window_days": safe_days,
-        "summary": {
-            "completed_count": completed_count,
-            "with_relations_count": with_relations_count,
-            "relation_item_count": relation_item_count,
-            "relation_coverage_pct": coverage_pct,
-            "avg_relations_per_event": avg_relations_per_item,
-        },
-        "quality": {
-            "total_relation_items": total_items,
-            "malformed_items": malformed_items,
-            "malformed_pct": malformed_pct,
-            "valid_direction_pct": valid_direction_pct,
-            "in_vocab_items": in_vocab_items,
-            "in_vocab_pct": in_vocab_pct,
-        },
-        "alerts": alerts,
-        "thresholds": {
-            "coverage_threshold": coverage_threshold,
-            "in_vocab_threshold": in_vocab_threshold,
-            "direction_threshold": direction_threshold,
-            "malformed_threshold": malformed_threshold,
-        },
-        "daily_report": {
-            "days": safe_days,
-            "trend": trend,
-            "report_date": datetime.utcnow().date(),
-        },
-        "version_compare": {
-            "current_days": safe_days,
-            "baseline_days": safe_baseline_days,
-            "coverage": {
-                "current": current_coverage,
-                "baseline": baseline_coverage,
-                "delta": coverage_delta,
+    return v1_prepare_json(
+        {
+            "window_days": safe_days,
+            "summary": {
+                "completed_count": completed_count,
+                "with_relations_count": with_relations_count,
+                "relation_item_count": relation_item_count,
+                "relation_coverage_pct": coverage_pct,
+                "avg_relations_per_event": avg_relations_per_item,
             },
-        },
-        "generated_at": datetime.utcnow(),
-    })
+            "quality": {
+                "total_relation_items": total_items,
+                "malformed_items": malformed_items,
+                "malformed_pct": malformed_pct,
+                "valid_direction_pct": valid_direction_pct,
+                "in_vocab_items": in_vocab_items,
+                "in_vocab_pct": in_vocab_pct,
+            },
+            "alerts": alerts,
+            "thresholds": {
+                "coverage_threshold": coverage_threshold,
+                "in_vocab_threshold": in_vocab_threshold,
+                "direction_threshold": direction_threshold,
+                "malformed_threshold": malformed_threshold,
+            },
+            "daily_report": {
+                "days": safe_days,
+                "trend": trend,
+                "report_date": datetime.utcnow().date(),
+            },
+            "version_compare": {
+                "current_days": safe_days,
+                "baseline_days": safe_baseline_days,
+                "coverage": {
+                    "current": current_coverage,
+                    "baseline": baseline_coverage,
+                    "delta": coverage_delta,
+                },
+            },
+            "generated_at": datetime.utcnow(),
+        }
+    )
 
 
 @router.get("/sources/dashboard", response_model=dict[str, Any])
 async def get_web_sources_dashboard(
-    days: int = 14,
-    limit: int = 15,
-    db: Session = Depends(get_session)
+    days: int = 14, limit: int = 15, db: Session = Depends(get_session)
 ):
     """
     信源监控 Dashboard 数据：
@@ -672,7 +734,9 @@ async def get_web_sources_dashboard(
         ORDER BY accuracy_lower_bound DESC NULLS LAST, total_signals DESC
         LIMIT :limit
     """)
-    leaderboard_rows = db.execute(leaderboard_sql, {"days": safe_days, "limit": safe_limit}).all()
+    leaderboard_rows = db.execute(
+        leaderboard_sql, {"days": safe_days, "limit": safe_limit}
+    ).all()
     leaderboard = [dict(row._mapping) for row in leaderboard_rows]
     top_source_names = [row["source_name"] for row in leaderboard]
 
@@ -706,7 +770,11 @@ async def get_web_sources_dashboard(
         """)
         trend_rows = db.execute(trend_sql, {"days": safe_days}).all()
         top_name_set = set(top_source_names)
-        trend = [dict(row._mapping) for row in trend_rows if row._mapping.get("source_name") in top_name_set]
+        trend = [
+            dict(row._mapping)
+            for row in trend_rows
+            if row._mapping.get("source_name") in top_name_set
+        ]
 
     overview_sql = text("""
         WITH scored AS (
@@ -733,23 +801,25 @@ async def get_web_sources_dashboard(
         FROM scored
     """)
     overview_row = db.execute(overview_sql, {"days": safe_days}).first()
-    overview = dict(overview_row._mapping) if overview_row else {
-        "active_sources": 0, "total_signals": 0, "overall_accuracy_pct": None
-    }
+    overview = (
+        dict(overview_row._mapping)
+        if overview_row
+        else {"active_sources": 0, "total_signals": 0, "overall_accuracy_pct": None}
+    )
 
-    return v1_prepare_json({
-        "window_days": safe_days,
-        "leaderboard": leaderboard,
-        "trend": trend,
-        "overview": overview,
-        "generated_at": datetime.utcnow(),
-    })
+    return v1_prepare_json(
+        {
+            "window_days": safe_days,
+            "leaderboard": leaderboard,
+            "trend": trend,
+            "overview": overview,
+            "generated_at": datetime.utcnow(),
+        }
+    )
+
 
 @router.get("/intelligence/{item_id}", response_model=dict[str, Any])
-async def get_web_intelligence_item(
-    item_id: int,
-    db: Session = Depends(get_session)
-):
+async def get_web_intelligence_item(item_id: int, db: Session = Depends(get_session)):
     """Fetch a single intelligence item with full JSONB content for Web."""
     statement = select(Intelligence).where(Intelligence.id == item_id)
     result = db.exec(statement).first()
@@ -763,68 +833,68 @@ async def search_web_funds(q: str = "", limit: int = 20):
     """Search for funds via Web BFF."""
     engine = FundEngine()
     results = engine.search_funds(q.strip(), limit)
-    return v1_prepare_json({
-        "results": results,
-        "total": len(results),
-        "query": q
-    })
+    return v1_prepare_json({"results": results, "total": len(results), "query": q})
+
 
 @router.get("/market", response_model=dict[str, Any])
 async def get_web_market_data(
-    symbol: str = "GC=F", 
-    range: str = "1d", 
-    interval: str = "5m"
+    symbol: str = "GC=F", range: str = "1d", interval: str = "5m"
 ):
     """Fetch market data and indicators via Web BFF."""
 
     import akshare as ak
 
     from src.lucidpanda.services.market_service import market_service
-    
+
     try:
         # 1. Fetch Chart Data
         if symbol == "GC=F":
             df = ak.futures_global_hist_em(symbol="GC00Y")
         else:
-            df = ak.stock_zh_a_hist(symbol=symbol.replace("sh", "").replace("sz", ""), period="daily", adjust="qfq")
-            
+            df = ak.stock_zh_a_hist(
+                symbol=symbol.replace("sh", "").replace("sz", ""),
+                period="daily",
+                adjust="qfq",
+            )
+
         if df.empty:
             return {"symbol": symbol, "data": [], "indicators": None}
-            
+
         quotes = []
         for _, row in df.tail(100).iterrows():
-            date_str = str(row.get('日期') or row.get('date'))
+            date_str = str(row.get("日期") or row.get("date"))
             # Format for Plotly expected structure
-            quotes.append({
-                "date": date_str,
-                "open": float(row.get('开盘') or 0),
-                "high": float(row.get('最高') or 0),
-                "low": float(row.get('最低') or 0),
-                "close": float(row.get('收盘') or row.get('最新价') or 0),
-                "volume": float(row.get('成交量') or row.get('总量') or 0)
-            })
-            
+            quotes.append(
+                {
+                    "date": date_str,
+                    "open": float(row.get("开盘") or 0),
+                    "high": float(row.get("最高") or 0),
+                    "low": float(row.get("最低") or 0),
+                    "close": float(row.get("收盘") or row.get("最新价") or 0),
+                    "volume": float(row.get("成交量") or row.get("总量") or 0),
+                }
+            )
+
         # 2. Fetch Calculated Indicators (Parity, Spread)
         indicators = None
         if symbol == "GC=F":
             indicators = market_service.get_gold_indicators()
-            
-        return v1_prepare_json({
-            "symbol": symbol, 
-            "quotes": quotes,
-            "indicators": indicators
-        })
+
+        return v1_prepare_json(
+            {"symbol": symbol, "quotes": quotes, "indicators": indicators}
+        )
     except Exception:
         # Log full exception details server-side, but return a generic error to the client
         logging.exception("Error fetching market data for symbol %s", symbol)
         return {"error": "Failed to fetch market data. Please try again later."}
+
 
 @router.get("/stats", response_model=dict[str, Any])
 async def get_web_backtest_stats(
     window: str = "1h",
     min_score: int = 8,
     sentiment: str = "bearish",
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_session),
 ):
     """
     V1 Full Production Port of server-side backtesting logic.
@@ -832,11 +902,17 @@ async def get_web_backtest_stats(
     """
     try:
         # Determine columns based on window
-        window_map = {"15m": "price_15m", "1h": "price_1h", "4h": "price_4h", "12h": "price_12h", "24h": "price_24h"}
+        window_map = {
+            "15m": "price_15m",
+            "1h": "price_1h",
+            "4h": "price_4h",
+            "12h": "price_12h",
+            "24h": "price_24h",
+        }
         outcome_col = window_map.get(window, "price_1h")
-        
+
         # Define keywords and win condition
-        if sentiment == 'bearish':
+        if sentiment == "bearish":
             keywords = "鹰|利空|下跌|风险|Bearish|Hawkish|Risk|Negative|Pressure"
             win_condition = "exit < entry"
         else:
@@ -844,7 +920,7 @@ async def get_web_backtest_stats(
             win_condition = "exit > entry"
 
         cluster_window = "30 minutes"
-        
+
         # Prepare Common SQL Fragments
         base_cte = f"""
         WITH filtered_intelligence AS (
@@ -876,7 +952,7 @@ async def get_web_backtest_stats(
             NULLIF(COUNT(CASE WHEN clustering_score <= 3 AND exhaustion_score <= 5 THEN 1 END), 0) * 100 as adj_win_rate
         FROM deduplicated_events;
         """
-        
+
         # 2. Session Stats
         query_session = f"""
         {base_cte}
@@ -953,12 +1029,12 @@ async def get_web_backtest_stats(
         """
 
         # Execute all queries
-        params = {'keywords': keywords, 'min_score': min_score}
-        
+        params = {"keywords": keywords, "min_score": min_score}
+
         res_global = db.execute(text(query_global), params).mappings().first()
-        if not res_global or res_global['count'] == 0:
+        if not res_global or res_global["count"] == 0:
             return {"count": 0, "winRate": 0, "avgDrop": 0}
-            
+
         res_sessions = db.execute(text(query_session), params).mappings().all()
         res_corr = db.execute(text(query_correlation), params).mappings().all()
         res_pos = db.execute(text(query_positioning), params).mappings().all()
@@ -969,57 +1045,87 @@ async def get_web_backtest_stats(
         alpha_distribution = None
         alpha_summary = None
         try:
-            alpha_distribution = db.execute(text(query_alpha_dist), params).mappings().all()
-            alpha_summary = db.execute(text(query_alpha_summary), params).mappings().first()
+            alpha_distribution = (
+                db.execute(text(query_alpha_dist), params).mappings().all()
+            )
+            alpha_summary = (
+                db.execute(text(query_alpha_summary), params).mappings().first()
+            )
         except Exception:
             alpha_distribution = None
             alpha_summary = None
 
         # Format Response
-        session_stats = [{
-            "session": s['market_session'], "count": s['count'],
-            "winRate": (s['wins'] / s['count']) * 100 if s['count'] > 0 else 0,
-            "avgDrop": -(s['avg_change_pct'] or 0)
-        } for s in res_sessions]
+        session_stats = [
+            {
+                "session": s["market_session"],
+                "count": s["count"],
+                "winRate": (s["wins"] / s["count"]) * 100 if s["count"] > 0 else 0,
+                "avgDrop": -(s["avg_change_pct"] or 0),
+            }
+            for s in res_sessions
+        ]
 
-        correlation_stats = {row['env']: {"count": row['count'], "winRate": (row['wins']/row['count'])*100} for row in res_corr}
-        positioning_stats = {row['env']: {"count": row['count'], "winRate": (row['wins']/row['count'])*100} for row in res_pos}
-        volatility_stats = {row['env']: {"count": row['count'], "winRate": (row['wins']/row['count'])*100} for row in res_vol}
+        correlation_stats = {
+            row["env"]: {
+                "count": row["count"],
+                "winRate": (row["wins"] / row["count"]) * 100,
+            }
+            for row in res_corr
+        }
+        positioning_stats = {
+            row["env"]: {
+                "count": row["count"],
+                "winRate": (row["wins"] / row["count"]) * 100,
+            }
+            for row in res_pos
+        }
+        volatility_stats = {
+            row["env"]: {
+                "count": row["count"],
+                "winRate": (row["wins"] / row["count"]) * 100,
+            }
+            for row in res_vol
+        }
 
-        return v1_prepare_json({
-            "count": res_global['count'],
-            "winRate": (res_global['wins'] / res_global['count']) * 100,
-            "adjWinRate": res_global['adj_win_rate'] or 0,
-            "avgDrop": -(res_global['avg_change_pct'] or 0),
-            "hygiene": {
-                "avgClustering": res_global['avg_clustering'] or 0,
-                "avgExhaustion": res_global['avg_exhaustion'] or 0,
-                "avgDxy": res_global['avg_dxy'] or 0,
-                "avgUs10y": res_global['avg_us10y'] or 0,
-                "avgGvz": res_global['avg_gvz'] or 0
-            },
-            "correlation": correlation_stats,
-            "positioning": positioning_stats,
-            "volatility": volatility_stats,
-            "distribution": res_dist,
-            "alpha": {
-                "distribution": alpha_distribution,
-                "count": alpha_summary.get("count") if alpha_summary else None,
-                "avg": alpha_summary.get("avg_alpha") if alpha_summary else None,
-                "winRate": (
-                    (alpha_summary.get("wins") / alpha_summary.get("count")) * 100
-                    if alpha_summary and alpha_summary.get("count")
-                    else None
-                ),
-            },
-            "sessionStats": session_stats,
-            "items": res_items
-        })
-        
+        return v1_prepare_json(
+            {
+                "count": res_global["count"],
+                "winRate": (res_global["wins"] / res_global["count"]) * 100,
+                "adjWinRate": res_global["adj_win_rate"] or 0,
+                "avgDrop": -(res_global["avg_change_pct"] or 0),
+                "hygiene": {
+                    "avgClustering": res_global["avg_clustering"] or 0,
+                    "avgExhaustion": res_global["avg_exhaustion"] or 0,
+                    "avgDxy": res_global["avg_dxy"] or 0,
+                    "avgUs10y": res_global["avg_us10y"] or 0,
+                    "avgGvz": res_global["avg_gvz"] or 0,
+                },
+                "correlation": correlation_stats,
+                "positioning": positioning_stats,
+                "volatility": volatility_stats,
+                "distribution": res_dist,
+                "alpha": {
+                    "distribution": alpha_distribution,
+                    "count": alpha_summary.get("count") if alpha_summary else None,
+                    "avg": alpha_summary.get("avg_alpha") if alpha_summary else None,
+                    "winRate": (
+                        (alpha_summary.get("wins") / alpha_summary.get("count")) * 100
+                        if alpha_summary and alpha_summary.get("count")
+                        else None
+                    ),
+                },
+                "sessionStats": session_stats,
+                "items": res_items,
+            }
+        )
+
     except Exception as e:
         import traceback
+
         print(f"[API] Stats error: {traceback.format_exc()}")
         return {"error": str(e)}
+
 
 @router.get("/admin/monitor", response_model=dict[str, Any])
 async def get_web_monitor_stats(current_user: User = Depends(get_current_user)):
@@ -1028,40 +1134,47 @@ async def get_web_monitor_stats(current_user: User = Depends(get_current_user)):
     """
     db_legacy = IntelligenceDB()
     stats = db_legacy.get_reconciliation_stats()
-    stats['heatmap'] = db_legacy.get_heatmap_stats()
+    stats["heatmap"] = db_legacy.get_heatmap_stats()
     return v1_prepare_json(stats)
+
 
 class ReconcileTriggerDTO(BaseModel):
     trade_date: str
     fund_code: str | None = None
 
+
 @router.post("/admin/reconcile/trigger", response_model=dict[str, Any])
 async def trigger_reconciliation(
-    payload: ReconcileTriggerDTO,
-    current_user: User = Depends(get_current_user)
+    payload: ReconcileTriggerDTO, current_user: User = Depends(get_current_user)
 ):
     """
     Trigger manual reconciliation for a specific date or fund.
     Allows administrators to fix data quality issues in real-time.
     """
-    
-    logger.info(f"🚀 Manual reconciliation triggered by user {current_user.id} for {payload.trade_date} (Code: {payload.fund_code or 'ALL'})")
-    
+
+    logger.info(
+        f"🚀 Manual reconciliation triggered by user {current_user.id} for {payload.trade_date} (Code: {payload.fund_code or 'ALL'})"
+    )
+
     try:
         dt = datetime.strptime(payload.trade_date, "%Y-%m-%d").date()
         engine = FundEngine()
-        
+
         codes = [payload.fund_code] if payload.fund_code else []
-        
+
         # Call the core engine reconciliation logic
         # synchronous call here as it's typically < 5s for a single day/fund
-        result_count = engine.reconcile_official_valuations(target_date=dt, fund_codes=codes)
-        
-        return v1_prepare_json({
-            "success": True, 
-            "matched_count": result_count,
-            "message": f"Successfully matched {result_count} funds for {payload.trade_date}"
-        })
+        result_count = engine.reconcile_official_valuations(
+            target_date=dt, fund_codes=codes
+        )
+
+        return v1_prepare_json(
+            {
+                "success": True,
+                "matched_count": result_count,
+                "message": f"Successfully matched {result_count} funds for {payload.trade_date}",
+            }
+        )
     except Exception as e:
         logger.error(f"Manual reconciliation trigger failed: {e}")
         return {"success": False, "error": str(e)}

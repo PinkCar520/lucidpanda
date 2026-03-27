@@ -13,26 +13,38 @@ class BarkChannel(BaseChannel):
 
         try:
             import urllib.parse
-            
+
             # 如果有 URL，在消息末尾增加跳转链接（Bark 会识别自动变蓝/点击跳转）
             if source_url:
                 message = f"{message}\n\n🔗 详情: {source_url}"
-                
+
             encoded_title = urllib.parse.quote(str(title))
             encoded_msg = urllib.parse.quote(str(message))
-            
+
             # Bark 格式: URL/title/body
             url = f"{settings.BARK_URL.rstrip('/')}/{encoded_title}/{encoded_msg}"
-            
+
             # 记录发送状态以便追踪
-            trace_id = f"ID: {db_id}" if db_id else f"URL: {source_url}" if source_url else "N/A"
+            trace_id = (
+                f"ID: {db_id}"
+                if db_id
+                else f"URL: {source_url}"
+                if source_url
+                else "N/A"
+            )
             resp = requests.get(url, timeout=5)
-            
+
             if resp.status_code == 200:
                 logger.info(f"✅ Bark 推送成功 [{trace_id}]")
             else:
                 logger.error(f"❌ Bark 推送失败 [{trace_id}]: HTTP {resp.status_code}")
 
         except Exception as e:
-            trace_id = f"ID: {db_id}" if db_id else f"URL: {source_url}" if source_url else "N/A"
+            trace_id = (
+                f"ID: {db_id}"
+                if db_id
+                else f"URL: {source_url}"
+                if source_url
+                else "N/A"
+            )
             logger.error(f"❌ Bark 发送异常 [{trace_id}]: {e}")

@@ -24,7 +24,11 @@ def calc_confidence_score(
     count = max(1, count)
 
     try:
-        source_score = float(source_credibility_score) if source_credibility_score is not None else 0.5
+        source_score = (
+            float(source_credibility_score)
+            if source_credibility_score is not None
+            else 0.5
+        )
     except Exception:
         source_score = 0.5
     source_score = max(0.0, min(1.0, source_score))
@@ -39,10 +43,7 @@ def calc_confidence_score(
     time_decay = _confidence_time_decay(timestamp)
 
     score = (
-        35.0
-        + 40.0 * corroboration_norm
-        + 20.0 * source_score
-        + 5.0 * (urgency / 10.0)
+        35.0 + 40.0 * corroboration_norm + 20.0 * source_score + 5.0 * (urgency / 10.0)
     ) * time_decay
     return round(max(0.0, min(100.0, score)), 1)
 

@@ -4,13 +4,19 @@ from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confiden
 
 
 def test_confidence_score_increases_with_corroboration():
-    low = calc_confidence_score(corroboration_count=1, source_credibility_score=0.5, urgency_score=5)
-    high = calc_confidence_score(corroboration_count=5, source_credibility_score=0.5, urgency_score=5)
+    low = calc_confidence_score(
+        corroboration_count=1, source_credibility_score=0.5, urgency_score=5
+    )
+    high = calc_confidence_score(
+        corroboration_count=5, source_credibility_score=0.5, urgency_score=5
+    )
     assert high > low
 
 
 def test_confidence_score_is_clamped():
-    score = calc_confidence_score(corroboration_count=999, source_credibility_score=2, urgency_score=100)
+    score = calc_confidence_score(
+        corroboration_count=999, source_credibility_score=2, urgency_score=100
+    )
     assert 0 <= score <= 100
 
 

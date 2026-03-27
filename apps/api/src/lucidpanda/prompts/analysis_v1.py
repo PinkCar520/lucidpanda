@@ -56,8 +56,8 @@ def build_agent_plan_prompt(
 {tool_list}
 
 输入信息：
-- 来源: {raw_data.get('source')}
-- 作者: {raw_data.get('author')}
+- 来源: {raw_data.get("source")}
+- 作者: {raw_data.get("author")}
 - 内容: {content[:1200]}
 - 市场背景: {context}
 
@@ -106,14 +106,17 @@ def build_agent_final_prompt(
     content = raw_data.get("content", "")
     context = raw_data.get("context", "无")
     tools_json = json.dumps(tool_results, ensure_ascii=False)
-    
+
     # 格式化宏观背景
     macro_info = "无"
     if macro_context:
-        macro_info = "\n".join([
-            f"  - {v['name']} ({k}): {v['value']} (发布日期: {v['date']})"
-            for k, v in macro_context.items() if v
-        ])
+        macro_info = "\n".join(
+            [
+                f"  - {v['name']} ({k}): {v['value']} (发布日期: {v['date']})"
+                for k, v in macro_context.items()
+                if v
+            ]
+        )
 
     plan_summary = ""
     if isinstance(plan_response, dict):
@@ -122,6 +125,7 @@ def build_agent_final_prompt(
     # 注入 Taxonomy
     if not taxonomy:
         from src.lucidpanda.core.ontology import TAXONOMY
+
         taxonomy = TAXONOMY
     taxonomy_info = (
         f"多维分类标签 Taxonomy 参考 (仅可选以下值):\n"
@@ -135,8 +139,8 @@ def build_agent_final_prompt(
 分析目标：识别该事件对【黄金 (Gold/XAU)】及相关市场的影响。
 
 输入信息：
-- 来源: {raw_data.get('source')}
-- 作者: {raw_data.get('author')}
+- 来源: {raw_data.get("source")}
+- 作者: {raw_data.get("author")}
 - 核心宏观背景 (FRED):
 {macro_info}
 - 内容: {content[:1200]}

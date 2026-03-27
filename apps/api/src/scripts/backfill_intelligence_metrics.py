@@ -4,9 +4,15 @@ from src.lucidpanda.core.database import IntelligenceDB
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Backfill expectation_gap and alpha_return in intelligence.")
-    parser.add_argument("--limit", type=int, default=500, help="Max rows to backfill per metric.")
-    parser.add_argument("--window", type=int, default=200, help="Window size for alpha regression.")
+    parser = argparse.ArgumentParser(
+        description="Backfill expectation_gap and alpha_return in intelligence."
+    )
+    parser.add_argument(
+        "--limit", type=int, default=500, help="Max rows to backfill per metric."
+    )
+    parser.add_argument(
+        "--window", type=int, default=200, help="Window size for alpha regression."
+    )
     args = parser.parse_args()
 
     db = IntelligenceDB()
@@ -19,4 +25,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

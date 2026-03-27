@@ -3,6 +3,7 @@ db/market.py — 市场数据域
 ==========================
 市场快照、交易时段、技术指标、外汇汇率。
 """
+
 from datetime import datetime
 
 import akshare as ak
@@ -16,7 +17,6 @@ from src.lucidpanda.db.base import DBBase
 
 
 class MarketRepo(DBBase):
-
     def get_market_session(self, dt=None) -> str:
         """
         Determine market session from UTC timestamp.
@@ -45,18 +45,24 @@ class MarketRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT COUNT(*) AS clustering_score FROM intelligence
                         WHERE timestamp BETWEEN %s - INTERVAL '1 hour' AND %s + INTERVAL '1 hour'
-                    """, (dt, dt))
-                    clustering_score = cursor.fetchone()['clustering_score']
+                    """,
+                        (dt, dt),
+                    )
+                    clustering_score = cursor.fetchone()["clustering_score"]
 
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT COUNT(*) AS exhaustion_count FROM intelligence
                         WHERE timestamp BETWEEN %s - INTERVAL '24 hours' AND %s
                         AND urgency_score >= 5
-                    """, (dt, dt))
-                    exhaustion_score = float(cursor.fetchone()['exhaustion_count'])
+                    """,
+                        (dt, dt),
+                    )
+                    exhaustion_score = float(cursor.fetchone()["exhaustion_count"])
             return clustering_score, exhaustion_score
         except Exception:
             return 0, 0.0
@@ -114,11 +120,15 @@ class MarketRepo(DBBase):
                 # 方案 A: 新浪行情接口，美元指数 symbol = DINIW
                 try:
                     url = "https://hq.sinajs.cn/list=DINIW"
-                    resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
+                    resp = requests.get(
+                        url,
+                        timeout=5,
+                        headers={"Referer": "https://finance.sina.com.cn"},
+                    )
                     raw = resp.text
-                    if "=\"" in raw and len(raw.split("\"")[1].split(",")) > 1:
-                        val = raw.split("\"")[1].split(",")[1]
-                        if val and val != '0':
+                    if '="' in raw and len(raw.split('"')[1].split(",")) > 1:
+                        val = raw.split('"')[1].split(",")[1]
+                        if val and val != "0":
                             return round(float(val), 3)
                 except Exception:
                     pass
@@ -126,22 +136,36 @@ class MarketRepo(DBBase):
                 try:
                     df = ak.fx_spot_quote()
                     # AkShare 不同版本列名不同，尝试多种匹配
-                    name_col = next((c for c in df.columns if '名称' in c or 'name' in c.lower()), None)
-                    price_col = next((c for c in df.columns if '最新' in c or 'price' in c.lower() or '现价' in c), None)
+                    name_col = next(
+                        (c for c in df.columns if "名称" in c or "name" in c.lower()),
+                        None,
+                    )
+                    price_col = next(
+                        (
+                            c
+                            for c in df.columns
+                            if "最新" in c or "price" in c.lower() or "现价" in c
+                        ),
+                        None,
+                    )
                     if name_col and price_col:
-                        row = df[df[name_col].str.contains('美元指数|DXY|USDX', case=False, na=False)]
+                        row = df[
+                            df[name_col].str.contains(
+                                "美元指数|DXY|USDX", case=False, na=False
+                            )
+                        ]
                         if not row.empty:
                             return round(float(row.iloc[0][price_col]), 3)
                 except Exception:
                     pass
 
-            elif ticker_symbol == "^TNX": # 10年美债收益率
+            elif ticker_symbol == "^TNX":  # 10年美债收益率
                 # 方案 A: AkShare 债券数据 (最稳定)
                 try:
                     df = ak.bond_zh_us_rate()
                     if not df.empty:
                         # 尝试多种日期列名
-                        rate_col = next((c for c in df.columns if '10' in c), None)
+                        rate_col = next((c for c in df.columns if "10" in c), None)
                         if rate_col:
                             val = df.iloc[-1][rate_col]
                             if val and float(val) > 0:
@@ -151,21 +175,25 @@ class MarketRepo(DBBase):
                 # 方案 B: 新浪
                 try:
                     url = "https://hq.sinajs.cn/list=TB10Y"  # 新浪10年期美债 symbol
-                    resp = requests.get(url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"})
+                    resp = requests.get(
+                        url,
+                        timeout=5,
+                        headers={"Referer": "https://finance.sina.com.cn"},
+                    )
                     raw = resp.text
-                    if "=\"" in raw and len(raw.split("\"")[1].split(",")) > 1:
-                        val = raw.split("\"")[1].split(",")[1]
-                        if val and val != '0':
+                    if '="' in raw and len(raw.split('"')[1].split(",")) > 1:
+                        val = raw.split('"')[1].split(",")[1]
+                        if val and val != "0":
                             return round(float(val), 3)
                 except Exception:
                     pass
 
-            elif ticker_symbol == "^GVZ": # 黄金波动率 (CBOE GVZ)
+            elif ticker_symbol == "^GVZ":  # 黄金波动率 (CBOE GVZ)
                 # GVZ 是 CBOE 衍生出的 OTC 期权指数，国内没有稳定数据源
                 # 不返回 None：用金价波动的简单代理暂时跳过
                 return None
 
-            elif ticker_symbol == "CL=F": # 原油 (WTI)
+            elif ticker_symbol == "CL=F":  # 原油 (WTI)
                 try:
                     url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=CL"
                     resp = requests.get(url, timeout=5)
@@ -177,12 +205,12 @@ class MarketRepo(DBBase):
                             return round(float(points[-1][1]), 3)
                 except Exception as e:
                     logger.warning(f"Sina WTI Crude Oil failed: {e}")
-                
+
                 # 备用：AkShare 国际原油
                 try:
                     df = ak.futures_global_commodity_sina(symbol="WTI原油")
                     if not df.empty:
-                        return round(float(df.iloc[0]['最新价']), 3)
+                        return round(float(df.iloc[0]["最新价"]), 3)
                 except Exception:
                     pass
 
@@ -190,7 +218,7 @@ class MarketRepo(DBBase):
             if val is not None:
                 try:
                     r = redis.from_url(settings.REDIS_URL, decode_responses=True)
-                    r.setex(cache_key, 60, str(val)) # 60s TTL
+                    r.setex(cache_key, 60, str(val))  # 60s TTL
                     # logger.debug(f"💾 Market Cache Set: {ticker_symbol} = {val}")
                 except Exception:
                     pass
@@ -205,9 +233,11 @@ class MarketRepo(DBBase):
         """Fetch gold price using domestic sources (London Gold spot)."""
         try:
             df = ak.gold_zh_spot_qhkd()
-            row = df[df['名称'].str.contains('伦敦金|London Gold', case=False, na=False)]
+            row = df[
+                df["名称"].str.contains("伦敦金|London Gold", case=False, na=False)
+            ]
             if not row.empty:
-                return round(float(row.iloc[0]['最新价']), 2)
+                return round(float(row.iloc[0]["最新价"]), 2)
         except Exception as e:
             logger.warning(f"Gold Price Fetch Failed: {e}")
         return None
@@ -223,16 +253,23 @@ class MarketRepo(DBBase):
                 "EUR/CNY": "欧元人民币",
             }
             search_name = mapping.get(currency_pair, currency_pair)
-            name_col = next((c for c in df.columns if '名称' in c or '外汇' in c or '货币对' in c), None)
+            name_col = next(
+                (c for c in df.columns if "名称" in c or "外汇" in c or "货币对" in c),
+                None,
+            )
             if not name_col:
                 return 0.0
             row = df[df[name_col].str.contains(search_name, case=False, na=False)]
             if not row.empty:
-                change_col = next((c for c in row.columns if '涨跌幅' in c or '幅度' in c), None)
+                change_col = next(
+                    (c for c in row.columns if "涨跌幅" in c or "幅度" in c), None
+                )
                 if change_col:
                     return float(row.iloc[0][change_col])
-                price_col = next((c for c in row.columns if '最新价' in c), None)
-                close_col = next((c for c in row.columns if '昨收' in c or '昨开' in c), None)
+                price_col = next((c for c in row.columns if "最新价" in c), None)
+                close_col = next(
+                    (c for c in row.columns if "昨收" in c or "昨开" in c), None
+                )
                 if price_col and close_col:
                     price = float(row.iloc[0][price_col])
                     close = float(row.iloc[0][close_col])
@@ -250,11 +287,14 @@ class MarketRepo(DBBase):
                 dt = datetime.now()
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT * FROM market_indicators
                         WHERE indicator_name = %s AND timestamp <= %s
                         ORDER BY timestamp DESC LIMIT 1
-                    """, (indicator_name, dt))
+                    """,
+                        (indicator_name, dt),
+                    )
                     row = cursor.fetchone()
             return dict(row) if row else None
         except Exception as e:
@@ -266,14 +306,17 @@ class MarketRepo(DBBase):
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO market_indicators (timestamp, indicator_name, value, percentile, description)
                         VALUES (%s, %s, %s, %s, %s)
                         ON CONFLICT (timestamp, indicator_name) DO UPDATE SET
                             value = EXCLUDED.value,
                             percentile = EXCLUDED.percentile,
                             description = EXCLUDED.description
-                    """, (dt, name, value, percentile, description))
+                    """,
+                        (dt, name, value, percentile, description),
+                    )
                     conn.commit()
         except Exception as e:
             logger.error(f"Save Indicator Failed: {e}")

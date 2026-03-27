@@ -24,4 +24,6 @@ class BaseChannel(ABC):
         """
         # `group` is currently informational; concrete implementations may ignore it.
         _ = group
-        await asyncio.to_thread(self.send, title, body, source_url=source_url, db_id=db_id)
+        await asyncio.to_thread(
+            self.send, title, body, source_url=source_url, db_id=db_id
+        )

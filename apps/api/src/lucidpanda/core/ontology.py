@@ -8,9 +8,23 @@ from src.lucidpanda.services.embedding_service import embedding_service
 # 注入到 LLM 中，强制它在输出标签时，只能从这里的节点选择。
 # ──────────────────────────────────────────────────────────────────────
 TAXONOMY = {
-    "AssetClass": ["Gold", "Equities_CN", "Equities_US", "FX_USD", "Treasures", "CrudeOil"],
-    "MacroTheme": ["Geopolitics", "Monetary_Policy", "Inflation", "Economic_Growth", "Trade_War", "Fiscal_Policy"],
-    "Sector": ["Technology", "Energy", "Financials", "RealEstate", "Semiconductors"]
+    "AssetClass": [
+        "Gold",
+        "Equities_CN",
+        "Equities_US",
+        "FX_USD",
+        "Treasures",
+        "CrudeOil",
+    ],
+    "MacroTheme": [
+        "Geopolitics",
+        "Monetary_Policy",
+        "Inflation",
+        "Economic_Growth",
+        "Trade_War",
+        "Fiscal_Policy",
+    ],
+    "Sector": ["Technology", "Energy", "Financials", "RealEstate", "Semiconductors"],
 }
 
 
@@ -24,69 +38,82 @@ CORE_ENTITIES = {
     "ent_fed": {
         "name": "Federal Reserve",
         "type": "CentralBank",
-        "aliases": ["美联储", "联储", "FED", "FOMC", "美国联邦储备委员会"]
+        "aliases": ["美联储", "联储", "FED", "FOMC", "美国联邦储备委员会"],
     },
     "ent_fed_powell": {
         "name": "Jerome Powell",
         "type": "Person",
-        "aliases": ["鲍威尔", "杰罗姆·鲍威尔", "Powell", "Fed Chair", "美联储主席"]
+        "aliases": ["鲍威尔", "杰罗姆·鲍威尔", "Powell", "Fed Chair", "美联储主席"],
     },
     "ent_pboc": {
         "name": "PBOC",
         "type": "CentralBank",
-        "aliases": ["中国人民银行", "央行", "人行"]
+        "aliases": ["中国人民银行", "央行", "人行"],
     },
-    
     # ── 宏观经济指标 ──
     "ent_us_cpi": {
         "name": "US CPI",
         "type": "MacroIndicator",
-        "aliases": ["美国CPI", "CPI", "消费者物价指数", "核心CPI", "通胀数据"]
+        "aliases": ["美国CPI", "CPI", "消费者物价指数", "核心CPI", "通胀数据"],
     },
     "ent_us_nfp": {
         "name": "US Nonfarm Payrolls",
         "type": "MacroIndicator",
-        "aliases": ["非农", "美国非农就业", "NFP", "非农数据", "新增就业"]
+        "aliases": ["非农", "美国非农就业", "NFP", "非农数据", "新增就业"],
     },
-
     # ── 地缘政治与核心人物 ──
     "ent_geo_mideast": {
         "name": "Middle East Conflict",
         "type": "Geopolitics",
-        "aliases": ["中东局势", "中东冲突", "中东地区", "中东", "以哈冲突", "红海危机", "伊朗", "以色列", "巴以冲突"]
+        "aliases": [
+            "中东局势",
+            "中东冲突",
+            "中东地区",
+            "中东",
+            "以哈冲突",
+            "红海危机",
+            "伊朗",
+            "以色列",
+            "巴以冲突",
+        ],
     },
     "ent_geo_rusukr": {
         "name": "Russia Ukraine War",
         "type": "Geopolitics",
-        "aliases": ["俄乌战争", "俄乌冲突", "俄罗斯", "乌克兰"]
+        "aliases": ["俄乌战争", "俄乌冲突", "俄罗斯", "乌克兰"],
     },
     "ent_person_trump": {
         "name": "Donald Trump",
         "type": "Person",
-        "aliases": ["特朗普", "唐纳德·特朗普", "Trump", "川普"]
+        "aliases": ["特朗普", "唐纳德·特朗普", "Trump", "川普"],
     },
     "ent_person_biden": {
         "name": "Joe Biden",
         "type": "Person",
-        "aliases": ["拜登", "乔·拜登", "Biden"]
+        "aliases": ["拜登", "乔·拜登", "Biden"],
     },
-
     # ── 核心资产 ──
     "ent_asset_gold": {
         "name": "Gold",
         "type": "Commodity",
-        "aliases": ["黄金", "现货黄金", "金价", "XAU", "国际金价", "伦敦金"]
+        "aliases": ["黄金", "现货黄金", "金价", "XAU", "国际金价", "伦敦金"],
     },
     "ent_asset_usd": {
         "name": "US Dollar",
         "type": "Currency",
-        "aliases": ["美元", "美元指数", "DXY", "美指", "USD"]
+        "aliases": ["美元", "美元指数", "DXY", "美指", "USD"],
     },
     "ent_asset_us10y": {
         "name": "US 10Y Treasury",
         "type": "Bond",
-        "aliases": ["美债十年期", "10年期美债收益率", "美债收益率", "US10Y", "十年期国债"]
-    }
+        "aliases": [
+            "美债十年期",
+            "10年期美债收益率",
+            "美债收益率",
+            "US10Y",
+            "十年期国债",
+        ],
+    },
 }
 
 
@@ -99,6 +126,7 @@ class EntityResolver:
     实体解析拦截器：将离散的新闻字符串统一对齐到 Core Entities。
     支持从数据库 (RegistryService) 动态加载。
     """
+
     def __init__(self, registry_service: Any | None = None):
         """
         初始化解析器。
@@ -106,7 +134,7 @@ class EntityResolver:
             registry_service: 实体注册服务。如果为 None，则加载硬编码的本地数据作为兜底。
         """
         self.registry_service = registry_service
-        
+
         if self.registry_service:
             logger.info("🧠 EntityResolver: 已连接动态注册服务。")
         else:
@@ -130,21 +158,21 @@ class EntityResolver:
         """
         if not raw_entity_name:
             return None
-            
+
         clean_name = str(raw_entity_name).strip().lower()
         current_map = self.alias_map
-        
+
         # 1. 精确匹配 O(1)
         if clean_name in current_map:
             return current_map[clean_name]
-            
+
         # 2. 包含匹配 (Sub-string)
         # 按照优先级（名字越长越具体，优先匹配长度长的词）
         sorted_aliases = sorted(current_map.keys(), key=len, reverse=True)
         for alias in sorted_aliases:
             if alias in clean_name:
                 return current_map[alias]
-                
+
         # 3. 向量化兜底匹配 (如果存在 registry_service)
         if self.registry_service:
             try:
@@ -159,31 +187,35 @@ class EntityResolver:
         # 4. 未匹配到
         return None
 
-    def process_ai_entities(self, raw_entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def process_ai_entities(
+        self, raw_entities: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         处理 AI 产生的 Entities 数组，注入 canonical_id 字段。
         """
         if not raw_entities:
             return []
-            
+
         processed = []
         for ent in raw_entities:
             new_ent = dict(ent)
             raw_name = new_ent.get("name", "")
-            
+
             canonical_id = self.resolve_name(raw_name)
             if canonical_id:
                 new_ent["canonical_id"] = canonical_id
                 logger.debug(f"🔗 实体对齐成功: [{raw_name}] -> {canonical_id}")
             else:
                 new_ent["canonical_id"] = None
-                
+
             processed.append(new_ent)
-            
+
         return processed
+
 
 # 延迟加载解析器单例，避免导入时触发未初始化的警告
 _default_resolver = None
+
 
 def get_default_resolver():
     """获取默认解析器单例（按需初始化）"""

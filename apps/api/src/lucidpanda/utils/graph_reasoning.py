@@ -64,7 +64,7 @@ def _time_decay_factor(created_at: Any) -> float:
 def infer_event_chains(
     edges: list[dict[str, Any]],
     relation_weights: dict[str, float] | None = None,
-    max_items: int = 8
+    max_items: int = 8,
 ) -> list[dict[str, Any]]:
     """
     从图谱边中生成最小可解释推理链：
@@ -81,13 +81,15 @@ def infer_event_chains(
         relation = str(edge.get("relation") or "").strip()
         if not from_name or not to_name or not relation:
             continue
-        normalized.append({
-            "from_entity": from_name,
-            "to_entity": to_name,
-            "relation": relation,
-            "strength": float(edge.get("strength") or 0.5),
-            "created_at": edge.get("created_at"),
-        })
+        normalized.append(
+            {
+                "from_entity": from_name,
+                "to_entity": to_name,
+                "relation": relation,
+                "strength": float(edge.get("strength") or 0.5),
+                "created_at": edge.get("created_at"),
+            }
+        )
 
     results: list[dict[str, Any]] = []
     gold_terms = {"gold", "xau", "黄金", "xauusd"}
@@ -104,14 +106,19 @@ def infer_event_chains(
             continue
         rel_weight = float((relation_weights or {}).get(edge["relation"].lower(), 1.0))
         decay = _time_decay_factor(edge.get("created_at"))
-        confidence = round(max(35.0, min(95.0, (45.0 + edge["strength"] * 35.0) * rel_weight * decay)), 1)
-        results.append({
-            "hops": 1,
-            "chain": [edge],
-            "conclusion": signal,
-            "explanation": f"{edge['from_entity']} -> {edge['to_entity']} ({edge['relation']})",
-            "confidence": confidence,
-        })
+        confidence = round(
+            max(35.0, min(95.0, (45.0 + edge["strength"] * 35.0) * rel_weight * decay)),
+            1,
+        )
+        results.append(
+            {
+                "hops": 1,
+                "chain": [edge],
+                "conclusion": signal,
+                "explanation": f"{edge['from_entity']} -> {edge['to_entity']} ({edge['relation']})",
+                "confidence": confidence,
+            }
+        )
         if len(results) >= max_items:
             return results
 
@@ -129,19 +136,29 @@ def infer_event_chains(
             d1 = _time_decay_factor(first.get("created_at"))
             d2 = _time_decay_factor(second.get("created_at"))
             confidence = round(
-                max(38.0, min(92.0, (42.0 + (first["strength"] + second["strength"]) * 22.0) * ((w1 + w2) / 2.0) * ((d1 + d2) / 2.0))),
-                1
-            )
-            results.append({
-                "hops": 2,
-                "chain": [first, second],
-                "conclusion": signal,
-                "explanation": (
-                    f"{first['from_entity']} -> {first['to_entity']} ({first['relation']}) -> "
-                    f"{second['to_entity']} ({second['relation']})"
+                max(
+                    38.0,
+                    min(
+                        92.0,
+                        (42.0 + (first["strength"] + second["strength"]) * 22.0)
+                        * ((w1 + w2) / 2.0)
+                        * ((d1 + d2) / 2.0),
+                    ),
                 ),
-                "confidence": confidence,
-            })
+                1,
+            )
+            results.append(
+                {
+                    "hops": 2,
+                    "chain": [first, second],
+                    "conclusion": signal,
+                    "explanation": (
+                        f"{first['from_entity']} -> {first['to_entity']} ({first['relation']}) -> "
+                        f"{second['to_entity']} ({second['relation']})"
+                    ),
+                    "confidence": confidence,
+                }
+            )
             if len(results) >= max_items:
                 return results
 

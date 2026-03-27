@@ -59,11 +59,11 @@ class RSSCollector:
         # 注入市场快照（此时统一拉取一次，避免每条重复查询）
         now = datetime.now(pytz.utc)
         snapshot = {
-            "gold_price_snapshot": self.db.get_market_snapshot("GC=F",      now),
-            "dxy_snapshot":        self.db.get_market_snapshot("DX-Y.NYB",  now),
-            "us10y_snapshot":      self.db.get_market_snapshot("^TNX",      now),
-            "gvz_snapshot":        self.db.get_market_snapshot("^GVZ",      now),
-            "oil_price_snapshot":  self.db.get_market_snapshot("CL=F",      now),
+            "gold_price_snapshot": self.db.get_market_snapshot("GC=F", now),
+            "dxy_snapshot": self.db.get_market_snapshot("DX-Y.NYB", now),
+            "us10y_snapshot": self.db.get_market_snapshot("^TNX", now),
+            "gvz_snapshot": self.db.get_market_snapshot("^GVZ", now),
+            "oil_price_snapshot": self.db.get_market_snapshot("CL=F", now),
         }
         logger.info(
             f"📊 [Collector] 市场快照 | "
@@ -74,10 +74,10 @@ class RSSCollector:
         )
         for item in unique_items:
             item.setdefault("gold_price_snapshot", snapshot["gold_price_snapshot"])
-            item.setdefault("dxy_snapshot",        snapshot["dxy_snapshot"])
-            item.setdefault("us10y_snapshot",      snapshot["us10y_snapshot"])
-            item.setdefault("gvz_snapshot",        snapshot["gvz_snapshot"])
-            item.setdefault("oil_price_snapshot",  snapshot["oil_price_snapshot"])
+            item.setdefault("dxy_snapshot", snapshot["dxy_snapshot"])
+            item.setdefault("us10y_snapshot", snapshot["us10y_snapshot"])
+            item.setdefault("gvz_snapshot", snapshot["gvz_snapshot"])
+            item.setdefault("oil_price_snapshot", snapshot["oil_price_snapshot"])
 
         # 入库
         saved = 0
@@ -89,16 +89,25 @@ class RSSCollector:
             except Exception as e:
                 logger.error(f"❌ [Collector] 入库失败 [{item.get('id')}]: {e}")
 
-        logger.info(f"✅ [Collector] 本轮入库 {saved} 条（去重后 {len(unique_items)} 条）")
-        
+        logger.info(
+            f"✅ [Collector] 本轮入库 {saved} 条（去重后 {len(unique_items)} 条）"
+        )
+
         # 触发 Redis 事件驱动唤醒 Worker
         if saved > 0:
             try:
                 import redis.asyncio as aioredis
-                async with aioredis.from_url(settings.REDIS_URL, decode_responses=True) as r:
-                    await r.publish('lucidpanda:new_intelligence', str(saved))
-                logger.info(f"📣 [Collector] 成功发布 Redis 唤醒事件, 通知 Worker 分析 {saved} 条新数据")
+
+                async with aioredis.from_url(
+                    settings.REDIS_URL, decode_responses=True
+                ) as r:
+                    await r.publish("lucidpanda:new_intelligence", str(saved))
+                logger.info(
+                    f"📣 [Collector] 成功发布 Redis 唤醒事件, 通知 Worker 分析 {saved} 条新数据"
+                )
             except Exception as e:
-                logger.warning(f"⚠️ [Collector] Redis 事件发布失败 (分析引擎将按 5m 兜底唤醒): {e}")
-                
+                logger.warning(
+                    f"⚠️ [Collector] Redis 事件发布失败 (分析引擎将按 5m 兜底唤醒): {e}"
+                )
+
         return saved
