@@ -1,27 +1,31 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from sqlmodel import Session, select
 
+from src.lucidpanda.core.backtest import BacktestEngine
+from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.infra.database.connection import engine
 from src.lucidpanda.models.macro_event import MacroEvent
-from src.lucidpanda.services.quant_skills import calculate_alpha_return, compute_expectation_gap
-from src.lucidpanda.core.database import IntelligenceDB
-from src.lucidpanda.core.backtest import BacktestEngine
+from src.lucidpanda.services.quant_skills import (
+    calculate_alpha_return,
+    compute_expectation_gap,
+)
 
 
 @dataclass(frozen=True)
 class ToolSpec:
     name: str
     description: str
-    input_schema: Dict[str, Any]
-    handler: Callable[..., Dict[str, Any]]
+    input_schema: dict[str, Any]
+    handler: Callable[..., dict[str, Any]]
 
 
-def _parse_float(value: Optional[str]) -> Optional[float]:
+def _parse_float(value: str | None) -> float | None:
     if value is None:
         return None
     if isinstance(value, (int, float)):
@@ -42,7 +46,7 @@ def _parse_float(value: Optional[str]) -> Optional[float]:
         return None
 
 
-def get_historical_perf(keywords: str) -> Dict[str, Any]:
+def get_historical_perf(keywords: str) -> dict[str, Any]:
     """
     查询历史上包含特定关键词的新闻发布后 1h 的胜率与平均收益。
     """
@@ -69,7 +73,7 @@ def get_historical_perf(keywords: str) -> Dict[str, Any]:
     }
 
 
-def get_market_positioning(indicator_name: str = "COT_GOLD_NET") -> Dict[str, Any]:
+def get_market_positioning(indicator_name: str = "COT_GOLD_NET") -> dict[str, Any]:
     """
     获取市场持仓情绪指标（如 COT 黄金净持仓分位数）。
     """
@@ -104,7 +108,7 @@ def get_market_positioning(indicator_name: str = "COT_GOLD_NET") -> Dict[str, An
     }
 
 
-def get_entity_influence(entity_name: str) -> Dict[str, Any]:
+def get_entity_influence(entity_name: str) -> dict[str, Any]:
     """
     查询特定实体在知识图谱中的中心度及其关联影响。
     """
@@ -144,7 +148,7 @@ def get_entity_influence(entity_name: str) -> Dict[str, Any]:
     }
 
 
-def query_macro_expectation(event_title: str, date_str: Optional[str] = None) -> Dict[str, Any]:
+def query_macro_expectation(event_title: str, date_str: str | None = None) -> dict[str, Any]:
     """
     Enhanced macro event matching with cross-lingual aliasing and time-window tolerance.
     """
@@ -171,14 +175,14 @@ def query_macro_expectation(event_title: str, date_str: Optional[str] = None) ->
         if key in clean_title:
             search_terms.extend(vals)
 
-    target_date: Optional[date] = None
+    target_date: date | None = None
     if date_str:
         try:
             target_date = date.fromisoformat(date_str[:10])
         except Exception:
             pass # Fallback to wider search if date is mangled
 
-    matches: List[Dict[str, Any]] = []
+    matches: list[dict[str, Any]] = []
     with Session(engine) as session:
         # 2. Multi-term OR search
         from sqlalchemy import or_
@@ -218,7 +222,7 @@ def query_macro_expectation(event_title: str, date_str: Optional[str] = None) ->
     }
 
 
-TOOLS: List[ToolSpec] = [
+TOOLS: list[ToolSpec] = [
     ToolSpec(
         name="query_macro_expectation",
         description="获取特定宏观指标的预期值、前值及 Surprise 强度",
@@ -300,10 +304,10 @@ TOOLS: List[ToolSpec] = [
 ]
 
 
-TOOL_REGISTRY: Dict[str, ToolSpec] = {tool.name: tool for tool in TOOLS}
+TOOL_REGISTRY: dict[str, ToolSpec] = {tool.name: tool for tool in TOOLS}
 
 
-def list_tool_summaries() -> List[Dict[str, Any]]:
+def list_tool_summaries() -> list[dict[str, Any]]:
     return [
         {
             "name": tool.name,
@@ -314,7 +318,7 @@ def list_tool_summaries() -> List[Dict[str, Any]]:
     ]
 
 
-def call_tool(name: str, args: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def call_tool(name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
     tool = TOOL_REGISTRY.get(name)
     if not tool:
         return {"error": f"Unknown tool: {name}"}

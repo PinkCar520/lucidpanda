@@ -1,9 +1,11 @@
-import re
 import logging
+import re
+
 # from sklearn.metrics.pairwise import cosine_similarity  # 延迟导入
 import numpy as np
-from src.lucidpanda.services.embedding_service import embedding_service
+
 from src.lucidpanda.config import settings
+from src.lucidpanda.services.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 

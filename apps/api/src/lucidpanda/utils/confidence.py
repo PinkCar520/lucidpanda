@@ -1,5 +1,5 @@
+from datetime import UTC, datetime
 from typing import Any
-from datetime import datetime, timezone
 
 
 def calc_confidence_score(
@@ -63,8 +63,8 @@ def _confidence_time_decay(timestamp: Any) -> float:
         if isinstance(ts, str):
             ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        age_hours = (datetime.now(timezone.utc) - ts.astimezone(timezone.utc)).total_seconds() / 3600.0
+            ts = ts.replace(tzinfo=UTC)
+        age_hours = (datetime.now(UTC) - ts.astimezone(UTC)).total_seconds() / 3600.0
         if age_hours <= 6:
             return 1.0
         if age_hours <= 24:

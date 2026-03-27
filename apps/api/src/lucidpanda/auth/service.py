@@ -1,38 +1,56 @@
-from datetime import datetime, timedelta, date
-from typing import Optional, Tuple, List, Union
+import base64
 import hashlib
+import io
+import json
+import os
 import random
+import secrets
 import string
+import uuid
+from datetime import date, datetime, timedelta
+
 import pyotp
 import qrcode
-import io
-import base64
-import secrets
-import uuid
-import json
 import redis
-import os
-from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, text
-from src.lucidpanda.auth.models import User, RefreshToken, AuthAuditLog, PasswordResetToken, EmailChangeRequest, PhoneVerificationToken, UserNotificationPreference, InSiteMessage, APIKey, APIKeyUsageLog, UserPasskey
-from src.lucidpanda.auth.security import get_password_hash, verify_password, create_access_token, create_refresh_token
-from src.lucidpanda.config import settings
-from src.lucidpanda.utils.email import send_email
+from sqlalchemy.orm import Session
 from webauthn import (
-    generate_registration_options,
-    verify_registration_response,
     generate_authentication_options,
-    verify_authentication_response,
+    generate_registration_options,
     options_to_json,
+    verify_authentication_response,
+    verify_registration_response,
 )
+from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import (
     AttestationConveyancePreference,
     AuthenticatorSelectionCriteria,
-    UserVerificationRequirement,
-    AuthenticatorAttachment,
     PublicKeyCredentialDescriptor,
+    UserVerificationRequirement,
 )
-from webauthn.helpers import bytes_to_base64url, base64url_to_bytes
+
+from src.lucidpanda.auth.models import (
+    APIKey,
+    APIKeyUsageLog,
+    AuthAuditLog,
+    EmailChangeRequest,
+    InSiteMessage,
+    PasswordResetToken,
+    PhoneVerificationToken,
+    RefreshToken,
+    User,
+    UserNotificationPreference,
+    UserPasskey,
+)
+from src.lucidpanda.auth.security import (
+    create_access_token,
+    create_refresh_token,
+    get_password_hash,
+    verify_password,
+)
+from src.lucidpanda.config import settings
+from src.lucidpanda.utils.email import send_email
+
 
 class AuthService:
     def __init__(self, db: Session):
@@ -43,18 +61,18 @@ class AuthService:
         except Exception:
             self.redis = None
 
-    def _to_uuid(self, id_val: Union[str, uuid.UUID]) -> uuid.UUID:
+    def _to_uuid(self, id_val: str | uuid.UUID) -> uuid.UUID:
         if isinstance(id_val, str):
             return uuid.UUID(id_val)
         return id_val
 
-    def get_user_by_email(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: str) -> User | None:
         return self.db.query(User).filter(User.email == email).first()
 
-    def get_user_by_username(self, username: str) -> Optional[User]:
+    def get_user_by_username(self, username: str) -> User | None:
         return self.db.query(User).filter(User.username == username).first()
 
-    def get_user_by_identifier(self, identifier: str) -> Optional[User]:
+    def get_user_by_identifier(self, identifier: str) -> User | None:
         if "@" in identifier:
             return self.get_user_by_email(identifier)
         return self.get_user_by_username(identifier)
@@ -101,7 +119,7 @@ class AuthService:
         self.db.refresh(db_user)
         return db_user
 
-    def authenticate_user(self, identifier: str, password: str) -> Optional[User]:
+    def authenticate_user(self, identifier: str, password: str) -> User | None:
         user = self.get_user_by_identifier(identifier)
         if not user:
             return None
@@ -118,7 +136,7 @@ class AuthService:
         device_name: str = None,
         ip_address: str = None,
         user_agent: str = None
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         user_uuid = self._to_uuid(user_id)
         access_token = create_access_token(user_id)
         refresh_token = create_refresh_token(user_id)
@@ -144,7 +162,7 @@ class AuthService:
         self.db.commit()
         return access_token, refresh_token
 
-    def refresh_session(self, refresh_token: str, ip_address: str = None, user_agent: str = None) -> Optional[Tuple[str, str]]:
+    def refresh_session(self, refresh_token: str, ip_address: str = None, user_agent: str = None) -> tuple[str, str] | None:
         token_hash = self._hash_token(refresh_token)
         db_token = self.db.query(RefreshToken).filter(
             and_(
@@ -215,15 +233,15 @@ class AuthService:
         return True
 
     def update_user(self, user_id: str, 
-                    name: Optional[str] = None,
-                    nickname: Optional[str] = None,
-                    gender: Optional[str] = None,
-                    birthday: Optional[date] = None,
-                    location: Optional[str] = None,
-                    language_preference: Optional[str] = None,
-                    timezone: Optional[str] = None,
-                    theme_preference: Optional[str] = None
-                    ) -> Optional[User]:
+                    name: str | None = None,
+                    nickname: str | None = None,
+                    gender: str | None = None,
+                    birthday: date | None = None,
+                    location: str | None = None,
+                    language_preference: str | None = None,
+                    timezone: str | None = None,
+                    theme_preference: str | None = None
+                    ) -> User | None:
         
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
@@ -244,7 +262,7 @@ class AuthService:
         self.db.refresh(user)
         return user
 
-    def update_avatar(self, user_id: str, avatar_url: str) -> Optional[User]:
+    def update_avatar(self, user_id: str, avatar_url: str) -> User | None:
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user:
@@ -255,7 +273,7 @@ class AuthService:
         self.db.refresh(user)
         return user
 
-    def update_username(self, user_id: str, new_username: str) -> Tuple[bool, str]:
+    def update_username(self, user_id: str, new_username: str) -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user:
@@ -285,7 +303,7 @@ class AuthService:
         self.db.commit()
         return True, "Username updated successfully"
 
-    def change_password(self, user_id: str, current_password: str, new_password: str) -> Tuple[bool, str]:
+    def change_password(self, user_id: str, current_password: str, new_password: str) -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user:
@@ -304,7 +322,7 @@ class AuthService:
         send_email(to_email=user.email, subject="LucidPanda Password Changed", body=email_body)
         return True, "Password changed successfully"
 
-    def initiate_email_change(self, user_id: str, current_password: str, new_email: str) -> Tuple[bool, str]:
+    def initiate_email_change(self, user_id: str, current_password: str, new_email: str) -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         user = self.db.query(User).filter(User.id == user_uuid).first()
         if not user or not verify_password(current_password, user.hashed_password):
@@ -328,7 +346,7 @@ class AuthService:
         send_email(to_email=new_email, subject="Verify your new email address", body=f"<p>Verify: <a href='{verify_link}'>Link</a></p>")
         return True, "Verification email sent"
 
-    def verify_email_change(self, raw_token: str) -> Tuple[bool, str]:
+    def verify_email_change(self, raw_token: str) -> tuple[bool, str]:
         token_hash = self._hash_token(raw_token)
         db_request = self.db.query(EmailChangeRequest).filter(
             and_(EmailChangeRequest.token_hash == token_hash, EmailChangeRequest.expires_at > datetime.utcnow())
@@ -345,7 +363,7 @@ class AuthService:
         self.db.commit()
         return True, "Email updated successfully"
 
-    def request_phone_verification(self, user_id: str, phone_number: str, purpose: str = 'BIND_PHONE') -> Tuple[bool, str]:
+    def request_phone_verification(self, user_id: str, phone_number: str, purpose: str = 'BIND_PHONE') -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         code = ''.join(random.choices(string.digits, k=6))
         code_hash = self._hash_token(code)
@@ -361,7 +379,7 @@ class AuthService:
         print(f"MOCK SMS to {phone_number}: Your code is {code}")
         return True, "Verification code sent"
 
-    def verify_phone_binding(self, user_id: str, phone_number: str, code: str) -> Tuple[bool, str]:
+    def verify_phone_binding(self, user_id: str, phone_number: str, code: str) -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         code_hash = self._hash_token(code)
         db_token = self.db.query(PhoneVerificationToken).filter(
@@ -395,7 +413,7 @@ class AuthService:
             return True
         return False
 
-    def setup_2fa(self, user_id: str) -> Tuple[str, str]:
+    def setup_2fa(self, user_id: str) -> tuple[str, str]:
         user_uuid = self._to_uuid(user_id)
         secret = pyotp.random_base32()
         user = self.db.query(User).filter(User.id == user_uuid).first()
@@ -412,7 +430,7 @@ class AuthService:
         
         return secret, f"data:image/png;base64,{qr_base64}"
 
-    def verify_and_enable_2fa(self, user_id: str, secret: str, code: str) -> Tuple[bool, str]:
+    def verify_and_enable_2fa(self, user_id: str, secret: str, code: str) -> tuple[bool, str]:
         user_uuid = self._to_uuid(user_id)
         if pyotp.TOTP(secret).verify(code):
             user = self.db.query(User).filter(User.id == user_uuid).first()
@@ -452,7 +470,7 @@ class AuthService:
         self.db.refresh(prefs)
         return prefs
 
-    def get_in_site_messages(self, user_id: str, limit: int = 50) -> List[InSiteMessage]:
+    def get_in_site_messages(self, user_id: str, limit: int = 50) -> list[InSiteMessage]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(InSiteMessage).filter(InSiteMessage.recipient_user_id == user_uuid).order_by(desc(InSiteMessage.sent_at)).limit(limit).all()
 
@@ -481,7 +499,7 @@ class AuthService:
         self.db.refresh(msg)
         return msg
 
-    def generate_api_key(self, user_id: str, name: str, permissions: List[str], ip_whitelist: List[str] = None, expires_at: datetime = None) -> Tuple[APIKey, str]:
+    def generate_api_key(self, user_id: str, name: str, permissions: list[str], ip_whitelist: list[str] = None, expires_at: datetime = None) -> tuple[APIKey, str]:
         user_uuid = self._to_uuid(user_id)
         public_key = secrets.token_hex(16)
         secret = secrets.token_urlsafe(32)
@@ -501,11 +519,11 @@ class AuthService:
         self.db.refresh(api_key)
         return api_key, secret
 
-    def get_user_api_keys(self, user_id: str) -> List[APIKey]:
+    def get_user_api_keys(self, user_id: str) -> list[APIKey]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(APIKey).filter(APIKey.user_id == user_uuid).order_by(desc(APIKey.created_at)).all()
 
-    def update_api_key(self, user_id: str, key_id: str, **kwargs) -> Optional[APIKey]:
+    def update_api_key(self, user_id: str, key_id: str, **kwargs) -> APIKey | None:
         user_uuid = self._to_uuid(user_id)
         key_uuid = self._to_uuid(key_id)
         key = self.db.query(APIKey).filter(and_(APIKey.id == key_uuid, APIKey.user_id == user_uuid)).first()
@@ -554,7 +572,7 @@ class AuthService:
             "watchlist_count": watchlist_count
         }
 
-    def get_active_sessions(self, user_id: str) -> List[RefreshToken]:
+    def get_active_sessions(self, user_id: str) -> list[RefreshToken]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(RefreshToken).filter(
             and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at == None, RefreshToken.expires_at > datetime.utcnow())
@@ -594,7 +612,7 @@ class AuthService:
         log = AuthAuditLog(user_id=user_uuid, action=action, ip_address=ip_address, user_agent=user_agent, details=details)
         self.db.add(log)
 
-    def _evaluate_refresh_risk(self, db_token: RefreshToken, ip_address: str = None, user_agent: str = None) -> Tuple[bool, dict]:
+    def _evaluate_refresh_risk(self, db_token: RefreshToken, ip_address: str = None, user_agent: str = None) -> tuple[bool, dict]:
         previous_ip = str(db_token.ip_address) if db_token.ip_address else None
         previous_device = None
         if isinstance(db_token.device_info, dict):
@@ -626,11 +644,11 @@ class AuthService:
 
         return False, details
 
-    def get_audit_logs(self, user_id: str, limit: int = 50) -> List[AuthAuditLog]:
+    def get_audit_logs(self, user_id: str, limit: int = 50) -> list[AuthAuditLog]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(AuthAuditLog).filter(AuthAuditLog.user_id == user_uuid).order_by(desc(AuthAuditLog.created_at)).limit(limit).all()
 
-    def generate_password_reset_token(self, email: str) -> Optional[str]:
+    def generate_password_reset_token(self, email: str) -> str | None:
         user = self.get_user_by_email(email)
         if not user: return None
         self.db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
@@ -740,7 +758,7 @@ class AuthService:
         response_data["state"] = state
         return response_data
 
-    def verify_authentication_response(self, auth_data: dict, state: str, ip_address: str = None) -> Optional[User]:
+    def verify_authentication_response(self, auth_data: dict, state: str, ip_address: str = None) -> User | None:
         challenge = None
         if self.redis:
             challenge = self.redis.get(f"webauthn:auth:challenge:{state}")
@@ -777,7 +795,7 @@ class AuthService:
         
         return user
 
-    def get_user_passkeys(self, user_id: str) -> List[UserPasskey]:
+    def get_user_passkeys(self, user_id: str) -> list[UserPasskey]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(UserPasskey).filter(UserPasskey.user_id == user_uuid).order_by(desc(UserPasskey.created_at)).all()
 

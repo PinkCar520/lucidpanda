@@ -1,4 +1,7 @@
-from src.lucidpanda.services.quant_skills import compute_expectation_gap, factor_peel_alpha
+from src.lucidpanda.services.quant_skills import (
+    compute_expectation_gap,
+    factor_peel_alpha,
+)
 
 
 def test_compute_expectation_gap():

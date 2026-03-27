@@ -1,13 +1,14 @@
-import os
-import imaplib
-import email
-from email.header import decode_header
 import asyncio
-from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
-from src.lucidpanda.core.logger import logger
+import email
+import imaplib
+from datetime import UTC, datetime
+from email.header import decode_header
+from typing import Any
+
 from src.lucidpanda.config import settings
+from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.data_sources.base import BaseDataSource
+
 
 class EmailDataSource(BaseDataSource):
     """
@@ -41,7 +42,7 @@ class EmailDataSource(BaseDataSource):
             return value.decode("utf-8", errors="ignore")
         return str(s)
 
-    def _fetch_emails_sync(self) -> List[Dict[str, Any]]:
+    def _fetch_emails_sync(self) -> list[dict[str, Any]]:
         """深度重构的同步抓取逻辑，完全适配网易 163 邮箱开发者规范。"""
         items = []
         if not all([self.server, self.user, self.password]):
@@ -136,7 +137,7 @@ class EmailDataSource(BaseDataSource):
                             charset = msg.get_content_charset() or 'utf-8'
                             content_body = payload.decode(charset, errors='ignore')
 
-                        ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                        ts = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
                         msg_id = msg.get("Message-ID", f"manual_{num.decode()}")
                         items.append({
                             "source": source_label,
@@ -166,11 +167,11 @@ class EmailDataSource(BaseDataSource):
             
         return items
 
-    async def fetch_async(self) -> List[Dict[str, Any]] | None:
+    async def fetch_async(self) -> list[dict[str, Any]] | None:
         """异步包装，在线程池中运行同步 IMAP 逻辑。"""
         items = await asyncio.to_thread(self._fetch_emails_sync)
         return items if items else None
 
-    def fetch(self) -> List[Dict[str, Any]] | None:
+    def fetch(self) -> list[dict[str, Any]] | None:
         """同步调用入口。"""
         return asyncio.run(self.fetch_async())

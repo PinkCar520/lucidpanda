@@ -22,7 +22,6 @@ Embedding Service - 文本向量化服务
 import logging
 import time
 from http import HTTPStatus
-from typing import List
 
 from src.lucidpanda.config import settings
 
@@ -47,7 +46,7 @@ class EmbeddingService:
     """
 
     @classmethod
-    def _encode_gemini(cls, text: str) -> List[float]:
+    def _encode_gemini(cls, text: str) -> list[float]:
         """
         使用 Gemini Cloud API 生成向量
         
@@ -90,7 +89,7 @@ class EmbeddingService:
                     raise e
 
     @classmethod
-    def _encode_dashscope(cls, text: str) -> List[float]:
+    def _encode_dashscope(cls, text: str) -> list[float]:
         """
         使用阿里云 DashScope Embedding API 生成向量
         
@@ -140,7 +139,7 @@ class EmbeddingService:
                     raise e
 
     @classmethod
-    def encode(cls, text: str) -> List[float]:
+    def encode(cls, text: str) -> list[float]:
         """
         根据配置生成文本嵌入向量
         

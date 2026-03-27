@@ -1,7 +1,6 @@
 import re
 import unicodedata
 
-
 ALIAS_MAP = {
     # 人物
     "donald trump": "Trump",

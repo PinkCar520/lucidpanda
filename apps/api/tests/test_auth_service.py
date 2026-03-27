@@ -1,7 +1,9 @@
+
 import pytest
+
+from src.lucidpanda.auth.models import APIKey, User
 from src.lucidpanda.auth.service import AuthService
-from src.lucidpanda.auth.models import User, APIKey, RefreshToken
-from datetime import datetime, timedelta
+
 
 @pytest.fixture
 def auth_service(db_session):

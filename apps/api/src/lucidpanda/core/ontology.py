@@ -1,5 +1,5 @@
-import re
-from typing import Dict, List, Any, Optional
+from typing import Any
+
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.services.embedding_service import embedding_service
 
@@ -99,7 +99,7 @@ class EntityResolver:
     实体解析拦截器：将离散的新闻字符串统一对齐到 Core Entities。
     支持从数据库 (RegistryService) 动态加载。
     """
-    def __init__(self, registry_service: Optional[Any] = None):
+    def __init__(self, registry_service: Any | None = None):
         """
         初始化解析器。
         Args:
@@ -108,9 +108,9 @@ class EntityResolver:
         self.registry_service = registry_service
         
         if self.registry_service:
-            logger.info(f"🧠 EntityResolver: 已连接动态注册服务。")
+            logger.info("🧠 EntityResolver: 已连接动态注册服务。")
         else:
-            logger.warning(f"⚠️ EntityResolver: 未提供注册服务，使用硬编码内部数据。")
+            logger.warning("⚠️ EntityResolver: 未提供注册服务，使用硬编码内部数据。")
             # 内部构建一份别名映射以便兼容旧测试
             self._local_alias_map = {}
             for cid, data in CORE_ENTITIES.items():
@@ -118,13 +118,13 @@ class EntityResolver:
                     self._local_alias_map[alias.lower()] = cid
 
     @property
-    def alias_map(self) -> Dict[str, str]:
+    def alias_map(self) -> dict[str, str]:
         """按需获取当前的别名映射"""
         if self.registry_service:
             return self.registry_service.get_entity_mappings()
         return self._local_alias_map
 
-    def resolve_name(self, raw_entity_name: str) -> Optional[str]:
+    def resolve_name(self, raw_entity_name: str) -> str | None:
         """
         基于 raw string 解析出 canonical_id。
         """
@@ -159,7 +159,7 @@ class EntityResolver:
         # 4. 未匹配到
         return None
 
-    def process_ai_entities(self, raw_entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def process_ai_entities(self, raw_entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         处理 AI 产生的 Entities 数组，注入 canonical_id 字段。
         """

@@ -4,17 +4,18 @@ services/registry_service.py — 实体注册与标签动态加载服务
 管理基于数据库的 Ontology 元数据映射。
 """
 import threading
-from typing import List, Dict, Any, Optional
-from src.lucidpanda.db.ontology_repo import OntologyRepo
+
 from src.lucidpanda.core.logger import logger
+from src.lucidpanda.db.ontology_repo import OntologyRepo
+
 
 class RegistryService:
     """提供本体元数据的查询与热加载服务"""
 
     def __init__(self, repo: OntologyRepo):
         self.repo = repo
-        self._entity_cache: Dict[str, str] = {}  # alias -> canonical_id
-        self._taxonomy_cache: List[Dict[str, str]] = []
+        self._entity_cache: dict[str, str] = {}  # alias -> canonical_id
+        self._taxonomy_cache: list[dict[str, str]] = []
         self._lock = threading.Lock()
         
         # 初始加载
@@ -46,21 +47,21 @@ class RegistryService:
             
         logger.info(f"✅ 本体缓存已更新: {len(self._entity_cache)} 个别名, {len(self._taxonomy_cache)} 个标签维度。")
 
-    def get_entity_mappings(self) -> Dict[str, str]:
+    def get_entity_mappings(self) -> dict[str, str]:
         """获取全量别名映射表 (小写映射)"""
         with self._lock:
             return self._entity_cache.copy()
 
-    def get_taxonomy_config(self) -> List[Dict[str, str]]:
+    def get_taxonomy_config(self) -> list[dict[str, str]]:
         """获取打标体系配置"""
         with self._lock:
             return self._taxonomy_cache.copy()
 
-    def find_closest_entity(self, vector, threshold: float = 0.90) -> Optional[str]:
+    def find_closest_entity(self, vector, threshold: float = 0.90) -> str | None:
         """代理调用 repo 的向量匹配兜底"""
         return self.repo.find_closest_entity(vector, threshold)
 
-    def add_new_entity_async(self, canonical_id: str, display_name: str, entity_type: str, aliases: List[str] = None):
+    def add_new_entity_async(self, canonical_id: str, display_name: str, entity_type: str, aliases: list[str] = None):
         """动态增加实体（并异步刷新缓存）"""
         self.repo.upsert_entity(canonical_id, display_name, entity_type)
         if aliases:

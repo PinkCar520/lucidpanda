@@ -7,9 +7,14 @@ Embedding Service 单元测试
 3. Gemini API 调用
 4. 未知 Provider 降级
 """
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from src.lucidpanda.services.embedding_service import EmbeddingService, embedding_service
+
+from src.lucidpanda.services.embedding_service import (
+    EmbeddingService,
+    embedding_service,
+)
 
 
 class TestEmbeddingService:

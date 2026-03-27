@@ -1,24 +1,58 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Header
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
-from src.lucidpanda.auth.schemas import (
-    UserCreate, UserOut, Token, TokenRefresh, RefreshTokenRequest, LogoutRequest,
-    ForgotPasswordRequest, ResetPasswordRequest, MessageResponse,
-    UserUpdate, UsernameUpdate, PasswordChangeRequest, EmailChangeInitiateRequest, EmailChangeVerifyRequest,
-    AvatarUploadResponse, SessionOut, PhoneNumberPayload, PhoneVerificationPayload,
-    TwoFASetupResponse, TwoFAVerifyPayload, NotificationPreferencesOut, NotificationPreferencesUpdate,
-    InSiteMessageOut, APIKeyCreate, APIKeyOut, APIKeyUpdate, APIKeyCreateResponse,
-    AssetOverviewOut, AuditLogOut,
-    PasskeyRegistrationVerify, PasskeyAuthenticationVerify, PasskeyOut
-)
-from src.lucidpanda.auth.service import AuthService
-from src.lucidpanda.auth.dependencies import get_db, get_current_user
-from src.lucidpanda.config import settings
-from src.lucidpanda.core.logger import logger
-from typing import List, Any, Optional
 import os
 import uuid
-import shutil
+from typing import Any
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Header,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+
+from src.lucidpanda.auth.dependencies import get_current_user, get_db
+from src.lucidpanda.auth.schemas import (
+    APIKeyCreate,
+    APIKeyCreateResponse,
+    APIKeyOut,
+    APIKeyUpdate,
+    AssetOverviewOut,
+    AuditLogOut,
+    AvatarUploadResponse,
+    EmailChangeInitiateRequest,
+    EmailChangeVerifyRequest,
+    ForgotPasswordRequest,
+    InSiteMessageOut,
+    LogoutRequest,
+    MessageResponse,
+    NotificationPreferencesOut,
+    NotificationPreferencesUpdate,
+    PasskeyAuthenticationVerify,
+    PasskeyOut,
+    PasskeyRegistrationVerify,
+    PasswordChangeRequest,
+    PhoneNumberPayload,
+    PhoneVerificationPayload,
+    RefreshTokenRequest,
+    ResetPasswordRequest,
+    SessionOut,
+    Token,
+    TokenRefresh,
+    TwoFASetupResponse,
+    TwoFAVerifyPayload,
+    UserCreate,
+    UsernameUpdate,
+    UserOut,
+    UserUpdate,
+)
+from src.lucidpanda.auth.service import AuthService
+from src.lucidpanda.config import settings
+from src.lucidpanda.core.logger import logger
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -84,7 +118,7 @@ def verify_passkey_login(
         "user": user
     }
 
-@router.get("/passkeys/me", response_model=List[PasskeyOut])
+@router.get("/passkeys/me", response_model=list[PasskeyOut])
 def list_my_passkeys(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -115,7 +149,7 @@ def update_username(
         raise HTTPException(status_code=400, detail=message)
     return {"message": message}
 
-@router.get("/audit-log", response_model=List[AuditLogOut])
+@router.get("/audit-log", response_model=list[AuditLogOut])
 def get_audit_log(
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -132,7 +166,7 @@ def get_asset_overview(
     auth_service = AuthService(db)
     return auth_service.get_asset_overview(str(current_user.id))
 
-@router.get("/api-keys/me", response_model=List[APIKeyOut])
+@router.get("/api-keys/me", response_model=list[APIKeyOut])
 def get_api_keys(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
@@ -180,7 +214,7 @@ def revoke_api_key(
         return {"message": "API Key revoked successfully"}
     raise HTTPException(status_code=404, detail="API Key not found")
 
-@router.get("/notifications/me/inbox", response_model=List[InSiteMessageOut])
+@router.get("/notifications/me/inbox", response_model=list[InSiteMessageOut])
 def get_inbox(
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -282,9 +316,9 @@ def unbind_phone(
         return {"message": "Phone number unbound successfully"}
     raise HTTPException(status_code=400, detail="Failed to unbind phone")
 
-@router.get("/sessions", response_model=List[SessionOut])
+@router.get("/sessions", response_model=list[SessionOut])
 def get_sessions(
-    x_refresh_token: Optional[str] = Header(default=None, alias="X-Refresh-Token"),
+    x_refresh_token: str | None = Header(default=None, alias="X-Refresh-Token"),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user)
 ):
@@ -455,8 +489,9 @@ async def upload_avatar(
     if file.content_type not in ["image/jpeg", "image/png", "image/webp"]:
         raise HTTPException(status_code=400, detail="Invalid file type. Only JPEG, PNG, and WebP are allowed.")
     
-    from PIL import Image
     import io
+
+    from PIL import Image
 
     upload_dir = os.path.join(settings.BASE_DIR, "uploads", "avatars")
     os.makedirs(upload_dir, exist_ok=True)

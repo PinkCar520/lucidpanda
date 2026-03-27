@@ -1,19 +1,17 @@
-from typing import Optional, List
 
 from fastmcp import FastMCP
 
 from src.lucidpanda.services.agent_tools import (
-    query_macro_expectation as _query_macro_expectation,
     calculate_alpha_return as _calculate_alpha_return,
     compute_expectation_gap as _compute_expectation_gap,
+    query_macro_expectation as _query_macro_expectation,
 )
-
 
 mcp = FastMCP("AlphaHub MCP Server")
 
 
 @mcp.tool
-def query_macro_expectation(event_title: str, date: Optional[str] = None):
+def query_macro_expectation(event_title: str, date: str | None = None):
     """
     获取特定宏观指标的预期值、前值及 Surprise 强度。
     """
@@ -22,9 +20,9 @@ def query_macro_expectation(event_title: str, date: Optional[str] = None):
 
 @mcp.tool
 def calculate_alpha_return(
-    gold_returns: List[float],
-    dxy_returns: List[float],
-    us10y_returns: List[float],
+    gold_returns: list[float],
+    dxy_returns: list[float],
+    us10y_returns: list[float],
 ):
     """
     OLS 因子剥离，返回黄金 alpha_return。

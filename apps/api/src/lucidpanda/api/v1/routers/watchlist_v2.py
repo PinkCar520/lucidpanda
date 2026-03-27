@@ -1,22 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional, Dict, Any
-from uuid import UUID
-from sqlmodel import Session, select, text
-from datetime import datetime, timedelta, timezone
-import json
 import asyncio
-from src.lucidpanda.infra.database.connection import get_session
+import json
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlmodel import Session, text
+
 from src.lucidpanda.auth.dependencies import get_current_user
 from src.lucidpanda.auth.models import User
-from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.fund_engine import FundEngine
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.utils import v1_prepare_json
-from src.lucidpanda.services.market_terminal_service import market_terminal_service
 from src.lucidpanda.infra.cache import get_cached, set_cached
-from src.lucidpanda.utils.entity_normalizer import normalize_fund_name
+from src.lucidpanda.infra.database.connection import get_session
 from src.lucidpanda.services.embedding_service import embedding_service
-from pydantic import BaseModel, Field
+from src.lucidpanda.services.market_terminal_service import market_terminal_service
+from src.lucidpanda.utils import v1_prepare_json
+from src.lucidpanda.utils.entity_normalizer import normalize_fund_name
 
 router = APIRouter(prefix="/watchlist", tags=["watchlist-v2"])
 
@@ -29,63 +29,63 @@ class WatchlistGroupCreate(BaseModel):
     sort_index: int = 0
 
 class WatchlistGroupUpdate(BaseModel):
-    name: Optional[str] = None
-    icon: Optional[str] = None
-    color: Optional[str] = None
-    sort_index: Optional[int] = None
+    name: str | None = None
+    icon: str | None = None
+    color: str | None = None
+    sort_index: int | None = None
 
 class WatchlistGroupReorderItem(BaseModel):
-    group_id: Optional[str] = None
-    id: Optional[str] = None
+    group_id: str | None = None
+    id: str | None = None
     sort_index: int
 
     def resolved_group_id(self) -> str:
         return (self.group_id or self.id or "").strip()
 
 class WatchlistGroupReorderRequest(BaseModel):
-    items: List[WatchlistGroupReorderItem]
-    client_updated_at: Optional[datetime] = None
+    items: list[WatchlistGroupReorderItem]
+    client_updated_at: datetime | None = None
     merge_strategy: str = "server_wins"
 
 class WatchlistItemMove(BaseModel):
-    group_id: Optional[str] = None
+    group_id: str | None = None
 
 class WatchlistReorderItem(BaseModel):
     fund_code: str
     sort_index: int
 
 class WatchlistReorderRequest(BaseModel):
-    items: List[WatchlistReorderItem]
-    client_updated_at: Optional[datetime] = None
+    items: list[WatchlistReorderItem]
+    client_updated_at: datetime | None = None
     merge_strategy: str = "server_wins"
 
 class WatchlistBatchItem(BaseModel):
     code: str
     name: str
-    group_id: Optional[str] = None
+    group_id: str | None = None
 
 class WatchlistBatchAddRequest(BaseModel):
-    items: List[WatchlistBatchItem]
+    items: list[WatchlistBatchItem]
 
 class WatchlistBatchRemoveRequest(BaseModel):
-    codes: List[str]
+    codes: list[str]
 
 class SyncOperation(BaseModel):
     operation_type: str
     fund_code: str
-    fund_name: Optional[str] = None
-    group_id: Optional[str] = None
-    sort_index: Optional[int] = None
+    fund_name: str | None = None
+    group_id: str | None = None
+    sort_index: int | None = None
     client_timestamp: datetime
-    device_id: Optional[str] = "iOS"
+    device_id: str | None = "iOS"
 
 class SyncRequest(BaseModel):
-    operations: List[SyncOperation]
-    last_sync_time: Optional[datetime] = None
+    operations: list[SyncOperation]
+    last_sync_time: datetime | None = None
 
 # ==================== 分组管理 ====================
 
-@router.get("/groups", response_model=Dict[str, Any])
+@router.get("/groups", response_model=dict[str, Any])
 async def get_watchlist_groups(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
@@ -112,7 +112,7 @@ async def get_watchlist_groups(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/groups", response_model=Dict[str, Any])
+@router.post("/groups", response_model=dict[str, Any])
 async def create_watchlist_group(
     group_data: WatchlistGroupCreate,
     current_user: User = Depends(get_current_user),
@@ -151,7 +151,7 @@ async def create_watchlist_group(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/groups/{group_id}", response_model=Dict[str, Any])
+@router.put("/groups/{group_id}", response_model=dict[str, Any])
 async def update_watchlist_group(
     group_id: str,
     group_data: WatchlistGroupUpdate,
@@ -218,7 +218,7 @@ async def update_watchlist_group(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/groups/{group_id}", response_model=Dict[str, Any])
+@router.delete("/groups/{group_id}", response_model=dict[str, Any])
 async def delete_watchlist_group(
     group_id: str,
     current_user: User = Depends(get_current_user),
@@ -336,7 +336,7 @@ async def _reorder_watchlist_groups_impl(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/groups/reorder", response_model=Dict[str, Any])
+@router.post("/groups/reorder", response_model=dict[str, Any])
 async def reorder_watchlist_groups(
     request: WatchlistGroupReorderRequest,
     current_user: User = Depends(get_current_user),
@@ -345,7 +345,7 @@ async def reorder_watchlist_groups(
     return await _reorder_watchlist_groups_impl(request, current_user, db)
 
 
-@router.patch("/groups/reorder", response_model=Dict[str, Any])
+@router.patch("/groups/reorder", response_model=dict[str, Any])
 async def reorder_watchlist_groups_patch(
     request: WatchlistGroupReorderRequest,
     current_user: User = Depends(get_current_user),
@@ -355,9 +355,9 @@ async def reorder_watchlist_groups_patch(
 
 # ==================== 自选列表增强 ====================
 
-@router.get("", response_model=Dict[str, Any])
+@router.get("", response_model=dict[str, Any])
 async def get_watchlist_v2(
-    group_id: Optional[str] = Query(None),
+    group_id: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
 ):
@@ -420,7 +420,7 @@ async def get_watchlist_v2(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/batch-add", response_model=Dict[str, Any])
+@router.post("/batch-add", response_model=dict[str, Any])
 async def batch_add_to_watchlist(
     request: WatchlistBatchAddRequest,
     current_user: User = Depends(get_current_user),
@@ -479,7 +479,7 @@ async def batch_add_to_watchlist(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/batch-remove", response_model=Dict[str, Any])
+@router.post("/batch-remove", response_model=dict[str, Any])
 async def batch_remove_from_watchlist(
     request: WatchlistBatchRemoveRequest,
     current_user: User = Depends(get_current_user),
@@ -511,7 +511,7 @@ async def batch_remove_from_watchlist(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/reorder", response_model=Dict[str, Any])
+@router.post("/reorder", response_model=dict[str, Any])
 async def reorder_watchlist(
     request: WatchlistReorderRequest,
     current_user: User = Depends(get_current_user),
@@ -563,7 +563,7 @@ async def reorder_watchlist(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/{code}/group", response_model=Dict[str, Any])
+@router.put("/{code}/group", response_model=dict[str, Any])
 async def move_fund_to_group(
     code: str,
     request: WatchlistItemMove,
@@ -593,9 +593,9 @@ async def move_fund_to_group(
 
 # ==================== 同步接口 ====================
 
-@router.get("/sync", response_model=Dict[str, Any])
+@router.get("/sync", response_model=dict[str, Any])
 async def sync_watchlist(
-    since: Optional[str] = Query(None),
+    since: str | None = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
 ):
@@ -683,7 +683,7 @@ async def sync_watchlist(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/sync", response_model=Dict[str, Any])
+@router.post("/sync", response_model=dict[str, Any])
 async def submit_sync_operations(
     request: SyncRequest,
     current_user: User = Depends(get_current_user),
@@ -801,7 +801,7 @@ async def submit_sync_operations(
 
 # ==================== 基金 AI 分析 ====================
 
-@router.get("/{fund_code}/ai_analysis", response_model=Dict[str, Any])
+@router.get("/{fund_code}/ai_analysis", response_model=dict[str, Any])
 async def get_fund_ai_analysis(
     fund_code: str,
     current_user: User = Depends(get_current_user),
@@ -840,7 +840,7 @@ async def get_fund_ai_analysis(
     preferred_categories = ["equity_cn", "macro_gold"] if is_a_share else ["equity_us", "macro_gold"]
 
     # 2. 混合检索关联情报 (Hybrid Search: Keyword + Semantic)
-    since_7d = datetime.now(timezone.utc) - timedelta(days=7)
+    since_7d = datetime.now(UTC) - timedelta(days=7)
     
     # 2.1 关键词检索 (Keyword Search)
     kw_raw = db.execute(
@@ -902,7 +902,7 @@ async def get_fund_ai_analysis(
             seen_ids.add(row["id"])
     
     # 重新按紧急度和时间排序，取 Top 5
-    merged_raw.sort(key=lambda x: (x["urgency_score"], x["timestamp"] or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+    merged_raw.sort(key=lambda x: (x["urgency_score"], x["timestamp"] or datetime.min.replace(tzinfo=UTC)), reverse=True)
     related_raw = merged_raw[:5]
 
     # --- 2.4 智能降级逻辑 (Smart Fallback) ---
@@ -1022,7 +1022,7 @@ async def get_fund_ai_analysis(
         "top_advice": top_advice,
         "related_intelligence": related_intelligence,
         "market_snapshot": snapshot,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
     })
     set_cached(_cache_key, result, ttl=_cache_ttl)
     return result

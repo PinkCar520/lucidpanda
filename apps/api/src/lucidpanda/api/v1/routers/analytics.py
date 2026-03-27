@@ -1,7 +1,8 @@
+
 from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional, Dict, Any
-from src.lucidpanda.services.factor_service import FactorService
+
 from src.lucidpanda.core.logger import logger
+from src.lucidpanda.services.factor_service import FactorService
 
 router = APIRouter()
 factor_service = FactorService()

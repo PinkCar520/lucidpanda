@@ -1,7 +1,8 @@
-import akshare as ak
-import pandas as pd
 from datetime import datetime
+
+import akshare as ak
 import requests
+
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.utils import format_iso8601
 

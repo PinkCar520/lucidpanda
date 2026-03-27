@@ -1,6 +1,5 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-
 
 BULLISH_RELATIONS = {
     "raises_tariff",
@@ -49,8 +48,8 @@ def _time_decay_factor(created_at: Any) -> float:
             text = created_at.replace("Z", "+00:00")
             ts = datetime.fromisoformat(text)
         if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        age_hours = (datetime.now(timezone.utc) - ts.astimezone(timezone.utc)).total_seconds() / 3600.0
+            ts = ts.replace(tzinfo=UTC)
+        age_hours = (datetime.now(UTC) - ts.astimezone(UTC)).total_seconds() / 3600.0
         if age_hours <= 24:
             return 1.0
         if age_hours <= 72:

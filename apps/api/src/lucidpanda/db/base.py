@@ -7,10 +7,6 @@ db/base.py — 数据库基础设施层
   - _global_pool / _db_initialized: 全局单例
 """
 
-import json
-import logging
-from datetime import datetime, timedelta
-import pytz
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 

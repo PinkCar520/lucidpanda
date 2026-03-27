@@ -3,16 +3,15 @@ LLM 提供商配置模块
 统一管理所有 LLM 提供商的配置信息
 """
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class LLMProviderConfig:
     """LLM 提供商配置"""
     name: str
-    api_key: Optional[str] = None
-    model: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    model: str | None = None
+    base_url: str | None = None
     enabled: bool = True
 
 
@@ -20,8 +19,8 @@ class LLMProviderConfig:
 class EmbeddingProviderConfig:
     """Embedding 提供商配置"""
     name: str
-    api_key: Optional[str] = None
-    model: Optional[str] = None
+    api_key: str | None = None
+    model: str | None = None
     dimensions: int = 768
     enabled: bool = True
 

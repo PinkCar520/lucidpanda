@@ -1,7 +1,10 @@
-import httpx
 import asyncio
 import re
+
+import httpx
+
 from src.lucidpanda.core.logger import logger
+
 
 class AsyncRichCrawler:
     """

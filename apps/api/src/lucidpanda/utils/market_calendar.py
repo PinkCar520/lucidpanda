@@ -1,8 +1,11 @@
-import pandas_market_calendars as mcal
-from datetime import datetime, date, timedelta
-from zoneinfo import ZoneInfo
 import threading
+from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
+
+import pandas_market_calendars as mcal
+
 from src.lucidpanda.core.logger import logger
+
 
 class MarketCalendar:
     _instance = None
@@ -12,7 +15,7 @@ class MarketCalendar:
     def __new__(cls):
         with cls._lock:
             if cls._instance is None:
-                cls._instance = super(MarketCalendar, cls).__new__(cls)
+                cls._instance = super().__new__(cls)
             return cls._instance
 
     def _get_calendar(self, market_code):
@@ -86,8 +89,7 @@ def get_market_status(region='CN', target_dt=None):
     Values: OPEN / LUNCH_BREAK / CLOSED
     """
     if target_dt is None:
-        from datetime import timezone
-        target_dt = datetime.now(timezone.utc)
+        target_dt = datetime.now(UTC)
     if isinstance(target_dt, date) and not isinstance(target_dt, datetime):
         target_dt = datetime.combine(target_dt, datetime.min.time())
 

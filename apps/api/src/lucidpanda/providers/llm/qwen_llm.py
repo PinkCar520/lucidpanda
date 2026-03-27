@@ -1,10 +1,12 @@
 import json
-from typing import Optional, List, Any
+from typing import Any
+
 from openai import OpenAI
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.providers.llm.base import BaseLLM
 from src.lucidpanda.core.ontology import TAXONOMY
+from src.lucidpanda.providers.llm.base import BaseLLM
 
 # 内容截断上限
 CONTENT_MAX_CHARS = 800
@@ -13,7 +15,7 @@ BATCH_CONTENT_CHARS = 400
 class QwenLLM(BaseLLM):
     """阿里云百炼 Qwen LLM 实现"""
     
-    async def analyze_async(self, raw_data, taxonomy: Optional[dict] = None):
+    async def analyze_async(self, raw_data, taxonomy: dict | None = None):
         """异步版本的分析方法"""
         import asyncio
         return await asyncio.to_thread(self.analyze, raw_data, taxonomy)
@@ -22,7 +24,7 @@ class QwenLLM(BaseLLM):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data, taxonomy: Optional[dict] = None):
+    def analyze(self, raw_data, taxonomy: dict | None = None):
         import time
         try:
             client = OpenAI(
@@ -78,7 +80,7 @@ class QwenLLM(BaseLLM):
             logger.error(f"Qwen JSON 生成失败：{e}")
             raise e
 
-    def analyze_batch(self, news_items, taxonomy: Optional[dict] = None):
+    def analyze_batch(self, news_items, taxonomy: dict | None = None):
         import time
         try:
             client = OpenAI(
@@ -126,7 +128,7 @@ class QwenLLM(BaseLLM):
         if len(text) <= max_chars: return text
         return text[:max_chars] + "...（已截断）"
 
-    def _get_batch_prompt(self, news_items, taxonomy: Optional[dict] = None):
+    def _get_batch_prompt(self, news_items, taxonomy: dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         news_list_str = ""
         for i, item in enumerate(news_items, 1):
@@ -169,7 +171,7 @@ relations.relation 枚举：
 - 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
 """
 
-    def _get_prompt(self, raw_data, taxonomy: Optional[dict] = None):
+    def _get_prompt(self, raw_data, taxonomy: dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         content = self._truncate_content(raw_data.get('content', ''), CONTENT_MAX_CHARS)
         return f"""

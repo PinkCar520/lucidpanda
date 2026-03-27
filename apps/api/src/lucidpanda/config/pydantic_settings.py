@@ -7,7 +7,7 @@ Pydantic 配置验证
 3. 清晰的错误信息
 4. IDE 自动补全
 """
-from typing import List
+
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,7 +15,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class LLMSettings(BaseModel):
     """LLM 相关配置"""
     ai_provider: str = Field(default="qwen", description="主力 AI 提供商")
-    llm_fallback_order: List[str] = Field(
+    llm_fallback_order: list[str] = Field(
         default=["qwen", "deepseek", "gemini"],
         description="LLM 降级顺序"
     )
@@ -123,7 +123,7 @@ class Settings(BaseSettings):
         return self.llm.ai_provider
     
     @property
-    def LLM_FALLBACK_ORDER(self) -> List[str]:
+    def LLM_FALLBACK_ORDER(self) -> list[str]:
         return self.llm.llm_fallback_order
     
     @property

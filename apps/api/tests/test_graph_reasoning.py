@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 from src.lucidpanda.utils.graph_reasoning import infer_event_chains
 
 
@@ -50,7 +51,7 @@ def test_infer_event_chains_applies_relation_weights():
 
 
 def test_infer_event_chains_applies_time_decay():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     recent_edges = [
         {
             "from_entity": "US Tariff",

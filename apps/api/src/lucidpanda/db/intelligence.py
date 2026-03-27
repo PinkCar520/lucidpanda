@@ -3,16 +3,18 @@ db/intelligence.py — 情报域
 ============================
 情报 CRUD、去重（URL/pg_trgm/pgvector）、向量嵌入、信源可信度。
 """
-from typing import Any, Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime
+
 import pytz
-import psycopg
 from psycopg.types.json import Jsonb
-from src.lucidpanda.config import settings
+
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.db.base import DBBase
 from src.lucidpanda.utils.confidence import calc_confidence_score
-from src.lucidpanda.utils.entity_normalizer import normalize_entity_name, normalize_entity_type
+from src.lucidpanda.utils.entity_normalizer import (
+    normalize_entity_name,
+    normalize_entity_type,
+)
 from src.lucidpanda.utils.graph_reasoning import infer_event_chains, relation_signal
 
 
@@ -531,7 +533,9 @@ class IntelligenceRepo(DBBase):
         try:
             news_time = None
             if raw_data.get('timestamp'):
-                import dateutil.parser, calendar
+                import calendar
+
+                import dateutil.parser
                 try:
                     if isinstance(raw_data['timestamp'], str):
                         news_time = dateutil.parser.parse(raw_data['timestamp'])
@@ -656,7 +660,7 @@ class IntelligenceRepo(DBBase):
             logger.error(f"Batch Save Failed: {e}")
             return 0
 
-    def get_intelligence_analysis(self, source_id: str) -> Optional[dict]:
+    def get_intelligence_analysis(self, source_id: str) -> dict | None:
         """获取单条情报的分析结果 (将散列字段组装成 dict)"""
         try:
             with self._get_conn() as conn:
@@ -845,7 +849,9 @@ class IntelligenceRepo(DBBase):
         try:
             news_time = None
             if raw_data.get('timestamp'):
-                import dateutil.parser, calendar
+                import calendar
+
+                import dateutil.parser
                 try:
                     if isinstance(raw_data['timestamp'], str):
                         news_time = dateutil.parser.parse(raw_data['timestamp'])
@@ -1122,7 +1128,7 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"mark_clustered 失败: {e}")
 
-    def get_story_id_by_source_id(self, source_id: str) -> Optional[str]:
+    def get_story_id_by_source_id(self, source_id: str) -> str | None:
         """Fetch story_id for a given intelligence record (source_id)."""
         try:
             with self._get_conn() as conn:

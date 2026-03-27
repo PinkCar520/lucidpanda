@@ -1,9 +1,17 @@
-import httpx
-from datetime import datetime, timezone
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
-from src.lucidpanda.core.logger import logger
-from src.lucidpanda.config import settings
 import asyncio
+from datetime import UTC, datetime
+
+import httpx
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
+from src.lucidpanda.config import settings
+from src.lucidpanda.core.logger import logger
+
 
 class FredDataSource:
     """
@@ -60,7 +68,7 @@ class FredDataSource:
                 "name": self.MACRO_INDICATORS.get(series_id, "Unknown"),
                 "date": obs.get("date"),
                 "value": obs.get("value"),
-                "ingested_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                "ingested_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             })
             
         return results

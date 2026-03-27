@@ -1,8 +1,10 @@
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
+
 
 def send_email_via_smtp(to_email: str, subject: str, body: str):
     """传统 SMTP 发送逻辑"""

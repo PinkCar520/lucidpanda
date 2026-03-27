@@ -1,13 +1,15 @@
+from datetime import datetime, timedelta
+from typing import Any
+
 from fastapi import APIRouter, Depends
-from sqlmodel import Session, select, func
-from typing import Dict, Any
+from sqlmodel import Session, func, select
+
 from src.lucidpanda.infra.database.connection import get_session
 from src.lucidpanda.models.intelligence import Intelligence
-from datetime import datetime, timedelta
 
 router = APIRouter()
 
-@router.get("/alerts/24h", response_model=Dict[str, Any])
+@router.get("/alerts/24h", response_model=dict[str, Any])
 async def get_24h_alerts_count(
     db: Session = Depends(get_session)
 ):

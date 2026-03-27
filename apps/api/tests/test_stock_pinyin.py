@@ -1,6 +1,8 @@
 import os
+
+from pypinyin import Style, pinyin
 from sqlalchemy import create_engine, text
-from pypinyin import pinyin, Style
+
 
 def get_pinyin_shorthand(name):
     if not name: return ""

@@ -1,9 +1,21 @@
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text, JSON, Integer, Date, Uuid
+import uuid
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Uuid,
+)
 from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-import uuid
+from sqlalchemy.sql import func
 
 Base = declarative_base()
 

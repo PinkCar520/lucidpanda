@@ -1,9 +1,11 @@
 import smtplib
-from email.mime.text import MIMEText
 from email.header import Header
+from email.mime.text import MIMEText
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.channels.base import BaseChannel
+
 
 class EmailChannel(BaseChannel):
     def send(self, title, message, source_url=None, db_id=None):

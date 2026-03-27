@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Dict
+
 
 class BaseLLM(ABC):
     @abstractmethod
-    def analyze(self, raw_data: dict, taxonomy: Optional[Dict] = None):
+    def analyze(self, raw_data: dict, taxonomy: dict | None = None):
         """同步分析核心接口"""
         pass
 
     @abstractmethod
-    async def analyze_async(self, raw_data: dict, taxonomy: Optional[Dict] = None):
+    async def analyze_async(self, raw_data: dict, taxonomy: dict | None = None):
         """异步分析核心接口"""
         pass
 

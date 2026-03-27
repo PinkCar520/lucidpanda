@@ -4,13 +4,13 @@ TaskIQ 纯异步采集任务模块
 弃用旧版 Celery 同步阻塞模式，采用原生 async/await
 """
 import asyncio
+import json
 import os
 import sys
-import json
-import httpx
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any
 
+import httpx
 import redis
 
 # 确保项目路径可用
@@ -18,13 +18,16 @@ root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-from src.lucidpanda.core.logger import logger
-from src.lucidpanda.core.database import IntelligenceDB
-from src.lucidpanda.providers.data_sources.rsshub import TIER1_FEEDS_CONFIG, RSSHubSource
 from src.lucidpanda.config import settings
+from src.lucidpanda.core.database import IntelligenceDB
+from src.lucidpanda.core.logger import logger
 
 # 引入 TaskIQ broker
 from src.lucidpanda.core.taskiq_broker import broker
+from src.lucidpanda.providers.data_sources.rsshub import (
+    TIER1_FEEDS_CONFIG,
+    RSSHubSource,
+)
 
 # ──────────────────────────────────────────────────────────────────────
 # 动态间隔配置
@@ -57,7 +60,7 @@ EMPTY_THRESHOLD = 10
 def _get_redis_key(feed_name: str) -> str:
     return f"lucidpanda:feed_state:{feed_name}"
 
-def _get_feed_state(feed_name: str) -> Dict[str, Any]:
+def _get_feed_state(feed_name: str) -> dict[str, Any]:
     r = redis.from_url(settings.REDIS_URL, decode_responses=True)
     key = _get_redis_key(feed_name)
     state = r.hgetall(key)
@@ -79,7 +82,7 @@ def _get_feed_state(feed_name: str) -> Dict[str, Any]:
     state['total_new_items'] = int(state.get('total_new_items', 0))
     return state
 
-def _update_feed_state(feed_name: str, state: Dict[str, Any], new_items: int):
+def _update_feed_state(feed_name: str, state: dict[str, Any], new_items: int):
     r = redis.from_url(settings.REDIS_URL, decode_responses=True)
     key = _get_redis_key(feed_name)
     now = datetime.utcnow().isoformat()
@@ -143,7 +146,7 @@ def _should_fetch(feed_name: str) -> tuple[bool, int]:
 
 # 注意：现在变为了强大的纯粹 async 函数！没有恶心的 asyncio.run() 包裹了！
 @broker.task(max_retries=3)
-async def fetch_single_feed_task(feed_name: str, feed_url: str, category: str) -> Dict[str, Any]:
+async def fetch_single_feed_task(feed_name: str, feed_url: str, category: str) -> dict[str, Any]:
     db = IntelligenceDB()
 
     try:
@@ -182,7 +185,7 @@ async def fetch_single_feed_task(feed_name: str, feed_url: str, category: str) -
                     r.publish('intelligence_updates', json.dumps({"type": "new_data", "count": saved}))
                     r.publish('lucidpanda:new_intelligence', json.dumps({"type": "new_data", "count": saved}))
                     logger.info(f"📣 [{feed_name}] 发布 Redis 唤醒事件")
-                except Exception as e:
+                except Exception:
                     pass
         
         # 将 Redis 存储使用 asyncio.to_thread 处理
@@ -198,7 +201,7 @@ async def fetch_single_feed_task(feed_name: str, feed_url: str, category: str) -
         raise e
 
 @broker.task(max_retries=2)
-async def fetch_email_task() -> Dict[str, Any]:
+async def fetch_email_task() -> dict[str, Any]:
     """官方新闻邮件摄入任务"""
     from src.lucidpanda.core.di_container import EngineDependencies
     deps = EngineDependencies()
@@ -223,7 +226,7 @@ async def fetch_email_task() -> Dict[str, Any]:
 
 # 每分钟运行一次！通过给定时器加 schedule 标签实现
 @broker.task(schedule=[{"cron": "* * * * *"}])
-async def fetch_all_feeds() -> Dict[str, Any]:
+async def fetch_all_feeds() -> dict[str, Any]:
     logger.info("🔄 [TaskIQ] 开始执行全量信源采集检查 (原生并发协程)...")
     
     tasks = []

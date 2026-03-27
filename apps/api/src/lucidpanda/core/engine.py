@@ -2,33 +2,29 @@
 Alpha Engine - AI 分析消费者
 负责消费 intelligence 表中 status=PENDING 的记录进行 AI 分析
 """
-import time
-import json
 import asyncio
+import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import pytz
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.config.llm_config import LLMConfigManager
 from src.lucidpanda.core.logger import logger
 
+# Prompt 模块（版本化管理，不再内嵌于代码）
+from src.lucidpanda.prompts.analysis_v1 import (
+    build_agent_final_prompt,
+    build_agent_plan_prompt,
+)
+from src.lucidpanda.providers.channels.bark import BarkChannel
+from src.lucidpanda.providers.llm.deepseek import DeepSeekLLM
+
 # 引入组件
 from src.lucidpanda.providers.llm.gemini import GeminiLLM
-from src.lucidpanda.providers.llm.deepseek import DeepSeekLLM
 from src.lucidpanda.providers.llm.qwen_llm import QwenLLM
-from src.lucidpanda.providers.channels.email import EmailChannel
-from src.lucidpanda.providers.channels.bark import BarkChannel
-from src.lucidpanda.core.database import IntelligenceDB
-from src.lucidpanda.core.backtest import BacktestEngine
-from src.lucidpanda.core.deduplication import NewsDeduplicator
-from src.lucidpanda.core.event_clusterer import EventClusterer
-from src.lucidpanda.services.agent_tools import call_tool, list_tool_summaries
-
-# Prompt 模块（版本化管理，不再内嵌于代码）
-from src.lucidpanda.prompts.analysis_v1 import build_agent_plan_prompt, build_agent_final_prompt
-from src.lucidpanda.prompts.delta_check_v1 import build_delta_check_prompt
-from src.lucidpanda.prompts.refold_v1 import build_refold_prompt
-from src.lucidpanda.providers.data_sources.fred import FredDataSource
+from src.lucidpanda.services.agent_tools import call_tool
 
 
 class LLMFactory:
@@ -92,7 +88,7 @@ class AlphaEngine:
     - 单元测试友好
     - 按需初始化（节省内存）
     """
-    def __init__(self, deps: Optional[EngineDependencies] = None):
+    def __init__(self, deps: EngineDependencies | None = None):
         """
         初始化 AlphaEngine
         
@@ -393,7 +389,7 @@ class AlphaEngine:
         """委托 FollowerProcessor 进行增量检查。"""
         return await self.follower_processor._check_delta_gain(new_content, lead_summary)
 
-    async def _analyze_with_tools(self, llm, raw_data: Dict[str, Any], taxonomy: Optional[dict] = None) -> Dict[str, Any]:
+    async def _analyze_with_tools(self, llm, raw_data: dict[str, Any], taxonomy: dict | None = None) -> dict[str, Any]:
         if not hasattr(llm, "generate_json_async") or not self.tool_summaries:
             return await llm.analyze_async(raw_data, taxonomy=taxonomy)
 
@@ -405,7 +401,7 @@ class AlphaEngine:
             return await llm.analyze_async(raw_data)
 
         tool_calls = self._extract_tool_calls(plan_response)
-        tool_results: List[Dict[str, Any]] = []
+        tool_results: list[dict[str, Any]] = []
         if tool_calls:
             tool_results = await self._run_tool_calls(tool_calls)
 
@@ -432,7 +428,7 @@ class AlphaEngine:
             analysis_result.setdefault("agent_trace", agent_trace)
         return analysis_result
 
-    def _extract_tool_calls(self, plan_response: Any) -> List[Dict[str, Any]]:
+    def _extract_tool_calls(self, plan_response: Any) -> list[dict[str, Any]]:
         if not isinstance(plan_response, dict):
             return []
         tool_calls = plan_response.get("tool_calls") or []
@@ -452,16 +448,16 @@ class AlphaEngine:
             sanitized.append({"name": name, "args": args, "purpose": call.get("purpose")})
         return sanitized
 
-    async def _run_tool_calls(self, tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def _run_tool_calls(self, tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
         timeout = max(1, int(getattr(settings, "AGENT_TOOL_TIMEOUT_SECONDS", 8)))
 
-        async def _call_one(call: Dict[str, Any]) -> Dict[str, Any]:
+        async def _call_one(call: dict[str, Any]) -> dict[str, Any]:
             try:
                 result = await asyncio.wait_for(
                     asyncio.to_thread(call_tool, call.get("name"), call.get("args")),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 result = {"error": f"Tool {call.get('name')} timed out after {timeout}s"}
             return {
                 "name": call.get("name"),
@@ -473,18 +469,18 @@ class AlphaEngine:
         tasks = [_call_one(call) for call in tool_calls]
         return await asyncio.gather(*tasks) if tasks else []
 
-    def _build_agent_plan_prompt(self, raw_data: Dict[str, Any]) -> str:
+    def _build_agent_plan_prompt(self, raw_data: dict[str, Any]) -> str:
         """委托 prompts/analysis_v1.py 构建 Agent 规划 Prompt。"""
         max_calls = max(1, int(getattr(settings, "AGENT_TOOL_MAX_CALLS", 3)))
         return build_agent_plan_prompt(raw_data, self.tool_summaries, max_tool_calls=max_calls)
 
     def _build_agent_final_prompt(
         self,
-        raw_data: Dict[str, Any],
-        tool_results: List[Dict[str, Any]],
-        plan_response: Optional[Dict[str, Any]],
-        taxonomy: Optional[dict] = None,
-        macro_context: Optional[dict] = None
+        raw_data: dict[str, Any],
+        tool_results: list[dict[str, Any]],
+        plan_response: dict[str, Any] | None,
+        taxonomy: dict | None = None,
+        macro_context: dict | None = None
     ) -> str:
         """委托 prompts/analysis_v1.py 构建 Agent 最终分析 Prompt（含实体提取铁律）。"""
         return build_agent_final_prompt(

@@ -1,7 +1,8 @@
-import smtplib
-from email.mime.text import MIMEText
-from email.header import Header
 import os
+import smtplib
+from email.header import Header
+from email.mime.text import MIMEText
+
 from dotenv import load_dotenv
 
 # 1. 加载环境变量

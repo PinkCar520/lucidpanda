@@ -8,22 +8,22 @@
 4. 配置集中管理
 """
 import asyncio
-from typing import List, Optional, TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any
 
 from src.lucidpanda.config import settings
-from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.backtest import BacktestEngine
-from src.lucidpanda.core.event_clusterer import EventClusterer
+from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.deduplication import NewsDeduplicator
-from src.lucidpanda.providers.channels.email import EmailChannel
-from src.lucidpanda.providers.channels.bark import BarkChannel
-from src.lucidpanda.services.agent_tools import list_tool_summaries
+from src.lucidpanda.core.event_clusterer import EventClusterer
 from src.lucidpanda.core.ontology import EntityResolver
+from src.lucidpanda.providers.channels.bark import BarkChannel
+from src.lucidpanda.providers.channels.email import EmailChannel
+from src.lucidpanda.services.agent_tools import list_tool_summaries
 from src.lucidpanda.services.factor_service import FactorService
 
 # 避免循环导入
 if TYPE_CHECKING:
-    from src.lucidpanda.core.engine import LLMFactory
+    pass
 
 
 class EngineDependencies:
@@ -46,9 +46,9 @@ class EngineDependencies:
     
     def __init__(
         self,
-        db: Optional[IntelligenceDB] = None,
-        llm_provider: Optional[str] = None,
-        fallback_provider: Optional[str] = None,
+        db: IntelligenceDB | None = None,
+        llm_provider: str | None = None,
+        fallback_provider: str | None = None,
     ):
         """
         初始化依赖容器
@@ -67,20 +67,20 @@ class EngineDependencies:
         self.ai_semaphore = asyncio.Semaphore(settings.LLM_CONCURRENCY_LIMIT)
         
         # 延迟初始化：其他组件
-        self._backtester: Optional[BacktestEngine] = None
-        self._clusterer: Optional[EventClusterer] = None
-        self._deduplicator: Optional[NewsDeduplicator] = None
-        self._channels: Optional[List] = None
-        self._tool_summaries: Optional[List] = None
-        self._entity_resolver: Optional[EntityResolver] = None
-        self._factor_service: Optional[FactorService] = None
-        self._ontology_repo: Optional[Any] = None
-        self._registry_service: Optional[Any] = None
+        self._backtester: BacktestEngine | None = None
+        self._clusterer: EventClusterer | None = None
+        self._deduplicator: NewsDeduplicator | None = None
+        self._channels: list | None = None
+        self._tool_summaries: list | None = None
+        self._entity_resolver: EntityResolver | None = None
+        self._factor_service: FactorService | None = None
+        self._ontology_repo: Any | None = None
+        self._registry_service: Any | None = None
         self._primary_llm = None
         self._fallback_llm = None
-        self._follower_processor: Optional[Any] = None
-        self._fred_source: Optional[Any] = None
-        self._email_source: Optional[Any] = None
+        self._follower_processor: Any | None = None
+        self._fred_source: Any | None = None
+        self._email_source: Any | None = None
     
     @property
     def db(self) -> IntelligenceDB:
@@ -133,14 +133,14 @@ class EngineDependencies:
         return self._deduplicator
     
     @property
-    def channels(self) -> List:
+    def channels(self) -> list:
         """通知渠道列表（延迟初始化）"""
         if self._channels is None:
             self._channels = [EmailChannel(), BarkChannel()]
         return self._channels
     
     @property
-    def tool_summaries(self) -> List:
+    def tool_summaries(self) -> list:
         """工具摘要（延迟初始化）"""
         if self._tool_summaries is None:
             self._tool_summaries = list_tool_summaries()
@@ -200,7 +200,9 @@ class EngineDependencies:
     def email_source(self) -> Any:
         """Email/IMAP 情报源"""
         if self._email_source is None:
-            from src.lucidpanda.providers.data_sources.email_source import EmailDataSource
+            from src.lucidpanda.providers.data_sources.email_source import (
+                EmailDataSource,
+            )
             self._email_source = EmailDataSource(db=self.db)
         return self._email_source
     

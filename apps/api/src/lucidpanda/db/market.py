@@ -4,8 +4,9 @@ db/market.py — 市场数据域
 市场快照、交易时段、技术指标、外汇汇率。
 """
 from datetime import datetime
-import pytz
+
 import akshare as ak
+import pytz
 import redis
 import requests
 

@@ -6,10 +6,11 @@ LLMFactory 单元测试
 2. 降级顺序配置化
 3. 未知 Provider 处理
 """
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import patch, Mock
+
 from src.lucidpanda.core.engine import LLMFactory
-from src.lucidpanda.config.llm_config import LLMConfigManager
 
 
 class TestLLMFactory:

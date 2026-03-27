@@ -1,10 +1,12 @@
-import requests
 import re
-import pandas as pd
-import akshare as ak
 from datetime import datetime
+
+import akshare as ak
+import requests
+
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.utils import format_iso8601
+
 
 class MarketService:
     """

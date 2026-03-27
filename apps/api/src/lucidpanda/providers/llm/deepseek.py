@@ -1,16 +1,17 @@
 import json
-from typing import Optional, List, Any
+
 from openai import OpenAI
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.providers.llm.base import BaseLLM
 from src.lucidpanda.core.ontology import TAXONOMY
+from src.lucidpanda.providers.llm.base import BaseLLM
 
 # 内容截断上限
 CONTENT_MAX_CHARS = 800
 
 class DeepSeekLLM(BaseLLM):
-    async def analyze_async(self, raw_data, taxonomy: Optional[dict] = None):
+    async def analyze_async(self, raw_data, taxonomy: dict | None = None):
         """异步版本的分析方法"""
         import asyncio
         return await asyncio.to_thread(self.analyze, raw_data, taxonomy)
@@ -19,7 +20,7 @@ class DeepSeekLLM(BaseLLM):
         import asyncio
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data, taxonomy: Optional[dict] = None):
+    def analyze(self, raw_data, taxonomy: dict | None = None):
         import time
         try:
             client = OpenAI(
@@ -67,7 +68,7 @@ class DeepSeekLLM(BaseLLM):
             logger.error(f"DeepSeek JSON 生成失败: {e}")
             raise e
 
-    def analyze_batch(self, news_items, taxonomy: Optional[dict] = None):
+    def analyze_batch(self, news_items, taxonomy: dict | None = None):
         """批量分析"""
         try:
             client = OpenAI(
@@ -97,7 +98,7 @@ class DeepSeekLLM(BaseLLM):
             logger.error(f"DeepSeek 批量分析失败: {e}")
             raise e
 
-    def _get_prompt(self, raw_data, taxonomy: Optional[dict] = None):
+    def _get_prompt(self, raw_data, taxonomy: dict | None = None):
         taxonomy_to_use = taxonomy or TAXONOMY
         content = raw_data.get('content', '')
         if len(content) > CONTENT_MAX_CHARS:

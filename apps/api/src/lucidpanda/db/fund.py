@@ -4,10 +4,12 @@ db/fund.py — 基金域
 基金自选单、持仓、估值、统计、元数据、对账、归因、关系映射。
 """
 from datetime import datetime
+
 from psycopg.types.json import Jsonb
+
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.utils import format_iso8601
 from src.lucidpanda.db.base import DBBase
+from src.lucidpanda.utils import format_iso8601
 
 
 class FundRepo(DBBase):

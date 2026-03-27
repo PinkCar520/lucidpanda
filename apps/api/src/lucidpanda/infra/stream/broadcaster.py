@@ -1,8 +1,10 @@
 import json
-import asyncio
+
 import redis.asyncio as redis
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
+
 
 class RealtimeHub:
     """
@@ -23,7 +25,7 @@ class RealtimeHub:
         await self.connect()
         
         def json_serial(obj):
-            from datetime import datetime, date
+            from datetime import date, datetime
             if isinstance(obj, (datetime, date)):
                 return obj.isoformat()
             if isinstance(obj, (bytes, memoryview)):

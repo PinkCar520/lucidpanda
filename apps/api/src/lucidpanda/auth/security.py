@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
-from typing import Optional, Union, Any
+from typing import Any
+
 from jose import jwt
 from passlib.context import CryptContext
+
 from src.lucidpanda.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -14,7 +16,7 @@ def get_password_hash(password: str) -> str:
     """Generate a bcrypt hash of a password."""
     return pwd_context.hash(password)
 
-def create_access_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
     """Create a signed JWT access token."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -25,7 +27,7 @@ def create_access_token(subject: Union[str, Any], expires_delta: Optional[timede
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-def create_refresh_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+def create_refresh_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
     """Create a signed JWT refresh token."""
     if expires_delta:
         expire = datetime.utcnow() + expires_delta

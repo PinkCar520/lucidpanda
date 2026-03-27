@@ -1,6 +1,8 @@
-from datetime import datetime, date
+from datetime import date, datetime
 from decimal import Decimal
+
 from sqlalchemy.engine.row import RowMapping
+
 
 def format_iso8601(dt: datetime) -> str:
     """Standardize date string for iOS/Web compatibility."""

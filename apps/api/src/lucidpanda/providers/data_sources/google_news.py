@@ -1,10 +1,12 @@
 import re
 import time
 import urllib.parse
+
 import feedparser
-import dateparser
+
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.data_sources.base import BaseDataSource
+
 
 class GoogleNewsSource(BaseDataSource):
     """

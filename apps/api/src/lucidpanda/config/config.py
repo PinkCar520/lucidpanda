@@ -4,6 +4,7 @@ LucidPanda 配置模块
 """
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # =============================================================================

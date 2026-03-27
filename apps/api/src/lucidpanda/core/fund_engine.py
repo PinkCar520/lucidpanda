@@ -1,15 +1,21 @@
+import json
 import os
 import threading
+from datetime import datetime, timedelta
+
 import akshare as ak
 import pandas as pd
-import json
 import redis
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
+
 from src.lucidpanda.core.database import IntelligenceDB
 from src.lucidpanda.core.logger import logger
-from src.lucidpanda.utils.market_calendar import is_market_open, was_market_open_last_night, get_market_status
 from src.lucidpanda.utils import format_iso8601
+from src.lucidpanda.utils.market_calendar import (
+    get_market_status,
+    is_market_open,
+    was_market_open_last_night,
+)
+
 
 class FundEngine:
     def __init__(self, db: IntelligenceDB = None):
@@ -43,7 +49,7 @@ class FundEngine:
             return "HK"
         return "US"
 
-    def _market_day_progress(self, region: str, now_utc: Optional[datetime] = None) -> float:
+    def _market_day_progress(self, region: str, now_utc: datetime | None = None) -> float:
         """
         Return elapsed fraction [0, 1] for the current trading day.
         Used to apportion daily fee drag intraday.
@@ -822,6 +828,7 @@ class FundEngine:
             # --- V1 Production Broadcast ---
             try:
                 import asyncio
+
                 from src.lucidpanda.infra.stream.broadcaster import hub
                 # Fire and forget publication
                 asyncio.create_task(hub.publish("fund_updates", result))
@@ -1472,7 +1479,8 @@ class FundEngine:
         records for all funds in the watchlist.
         Returns the list of missing trade dates that were backfilled.
         """
-        from datetime import date, timedelta
+        from datetime import date
+
         from src.lucidpanda.utils.market_calendar import is_market_open
 
         today = date.today()
@@ -1519,7 +1527,7 @@ class FundEngine:
         
         return backfilled_dates
 
-    def reconcile_official_valuations(self, target_date=None, fund_codes: Optional[List[str]] = None):
+    def reconcile_official_valuations(self, target_date=None, fund_codes: list[str] | None = None):
         """
         Fetch real growth for specific funds in the archive by looking up 
         their historical NAV series. Targeted and precise.
@@ -1588,10 +1596,11 @@ class FundEngine:
 
         logger.info(f"⚖️ Starting Targeted Reconciliation for {len(pending_tasks)} tasks across {len(tasks_by_date)} dates...")
 
-        import time
         import random
-        import requests
         import re
+        import time
+
+        import requests
 
         for trade_date, codes in tasks_by_date.items():
             logger.info(f"📅 Processing reconciliation for {trade_date} ({len(codes)} funds)...")

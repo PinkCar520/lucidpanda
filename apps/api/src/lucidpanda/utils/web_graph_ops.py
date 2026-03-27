@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
 import json
 import time
+from collections.abc import Callable
+from typing import Any
 
 
-def fused_cache_key(limit: int, before_timestamp: Optional[str]) -> str:
+def fused_cache_key(limit: int, before_timestamp: str | None) -> str:
     return json.dumps({"limit": limit, "before_timestamp": before_timestamp}, sort_keys=True)
 
 
@@ -21,10 +22,10 @@ class FusedCacheStore:
         self._redis_client_getter = redis_client_getter
         self._local_cache: dict[str, dict[str, Any]] = {}
 
-    def _redis_key(self, limit: int, before_timestamp: Optional[str]) -> str:
+    def _redis_key(self, limit: int, before_timestamp: str | None) -> str:
         return f"{self.namespace}:{fused_cache_key(limit, before_timestamp)}"
 
-    def get(self, limit: int, before_timestamp: Optional[str]) -> Optional[dict[str, Any]]:
+    def get(self, limit: int, before_timestamp: str | None) -> dict[str, Any] | None:
         redis_client = self._redis_client_getter()
         if redis_client:
             try:
@@ -43,7 +44,7 @@ class FusedCacheStore:
             return None
         return cached["payload"]
 
-    def set(self, limit: int, before_timestamp: Optional[str], payload: dict[str, Any]) -> None:
+    def set(self, limit: int, before_timestamp: str | None, payload: dict[str, Any]) -> None:
         key = fused_cache_key(limit, before_timestamp)
         self._local_cache[key] = {"ts": time.time(), "payload": payload}
 

@@ -13,6 +13,7 @@ core/event_clusterer.py — 事件聚类器
 """
 
 import uuid
+
 from src.lucidpanda.core.logger import logger
 
 # ── Union-Find ────────────────────────────────────────────────────────────────
@@ -150,8 +151,8 @@ class EventClusterer:
         [运维/迁移工具] 为历史数据补全 story_id 和 is_story_lead。
         针对已经 COMPLETED 但 story_id 为空的存量记录，进行回溯式聚类。
         """
-        import uuid
         import asyncio
+        import uuid
         logger.info(f"⏳ 开始执行历史故事线回填，目标限额：{limit}...")
         
         # 1. 查找缺失 story_id 的存量记录

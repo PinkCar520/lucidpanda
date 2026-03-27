@@ -6,11 +6,11 @@ LucidPanda RSS Intelligence Source
 
 import asyncio
 import os
-import time
-from datetime import datetime, timezone
-import calendar
+from datetime import UTC, datetime
+
 import feedparser
 import httpx
+
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.data_sources.base import BaseDataSource
 
@@ -137,12 +137,12 @@ class RSSHubSource(BaseDataSource):
                     }
                 )
                 if dt:
-                    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             except Exception:
                 pass
         
         # Fallback：解析失败或无时间，兜底使用当前数据摄取的绝对 UTC 时间
-        return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     async def _fetch_feed_async(
         self,
@@ -169,7 +169,12 @@ class RSSHubSource(BaseDataSource):
         host = urlparse(url).hostname or ""
         active_client = ssl_client if "reuters" in host else client
 
-        from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+        from tenacity import (
+            retry,
+            retry_if_exception_type,
+            stop_after_attempt,
+            wait_exponential,
+        )
 
         async def _do_request():
             @retry(

@@ -1,9 +1,10 @@
 import asyncio
-import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.prompts.delta_check_v1 import build_delta_check_prompt
 from src.lucidpanda.prompts.refold_v1 import build_refold_prompt
+
 
 class FollowerProcessor:
     """
@@ -15,7 +16,7 @@ class FollowerProcessor:
         self.primary_llm = primary_llm
         self.ai_semaphore = ai_semaphore
 
-    async def process_follower_item_async(self, raw_data: Dict[str, Any]):
+    async def process_follower_item_async(self, raw_data: dict[str, Any]):
         """处理聚类中的 Follower 数据，执行 Delta Check 和 Refold。"""
         source_id = raw_data.get('source_id') or raw_data.get('id')
         lead_id = raw_data.get('parent_lead_id')
@@ -71,7 +72,7 @@ class FollowerProcessor:
             logger.warning(f"Delta Analysis failed, defaulting to True (Safety first): {e}")
             return True
 
-    async def _refold_lead_summary(self, lead_id: str, new_content: str, story_id: Optional[str] = None):
+    async def _refold_lead_summary(self, lead_id: str, new_content: str, story_id: str | None = None):
         """故事线演化：将新发现的增量事实融合进主事件（Lead）的摘要中。"""
         try:
             if story_id:

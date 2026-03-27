@@ -1,5 +1,6 @@
-from datetime import datetime, timedelta, timezone
-from src.lucidpanda.utils.confidence import calc_confidence_score, calc_confidence_level
+from datetime import UTC, datetime, timedelta
+
+from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
 
 
 def test_confidence_score_increases_with_corroboration():
@@ -20,7 +21,7 @@ def test_confidence_level_mapping():
 
 
 def test_confidence_time_decay():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     fresh = calc_confidence_score(
         corroboration_count=3,
         source_credibility_score=0.7,

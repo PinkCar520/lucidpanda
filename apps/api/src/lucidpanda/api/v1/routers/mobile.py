@@ -1,22 +1,23 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, text
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta, timezone
-from src.lucidpanda.infra.database.connection import get_session
-from src.lucidpanda.models.fund import FundMetadata, FundMobileSummary
-from src.lucidpanda.models.intelligence import Intelligence, IntelligenceMobileRead
-from src.lucidpanda.models.macro_event import MacroEvent
+
 from src.lucidpanda.auth.dependencies import get_current_user
 from src.lucidpanda.auth.models import User
-from src.lucidpanda.utils import v1_prepare_json
-from src.lucidpanda.utils.confidence import calc_confidence_score, calc_confidence_level
-from src.lucidpanda.utils.market_calendar import get_market_status
-from src.lucidpanda.services.market_terminal_service import market_terminal_service
 from src.lucidpanda.infra.cache import get_cached, set_cached
+from src.lucidpanda.infra.database.connection import get_session
+from src.lucidpanda.models.intelligence import Intelligence, IntelligenceMobileRead
+from src.lucidpanda.models.macro_event import MacroEvent
+from src.lucidpanda.services.market_terminal_service import market_terminal_service
+from src.lucidpanda.utils import v1_prepare_json
+from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
+from src.lucidpanda.utils.market_calendar import get_market_status
 
 router = APIRouter()
 
-@router.get("/intelligence/{item_id}/ai_summary", response_model=Dict[str, str])
+@router.get("/intelligence/{item_id}/ai_summary", response_model=dict[str, str])
 async def get_mobile_intelligence_ai_summary(
     item_id: int,
     db: Session = Depends(get_session)
@@ -37,7 +38,7 @@ async def get_mobile_intelligence_ai_summary(
         
     return v1_prepare_json({"ai_summary": advice_text})
 
-@router.get("/dashboard/summary", response_model=Dict[str, Any])
+@router.get("/dashboard/summary", response_model=dict[str, Any])
 async def get_mobile_dashboard_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session)
@@ -52,7 +53,7 @@ async def get_mobile_dashboard_summary(
         "critical_alerts": [] # List[IntelligenceMobileRead]
     })
 
-@router.get("/intelligence", response_model=List[IntelligenceMobileRead])
+@router.get("/intelligence", response_model=list[IntelligenceMobileRead])
 async def get_mobile_intelligence(
     limit: int = 20,
     db: Session = Depends(get_session)
@@ -128,7 +129,7 @@ async def get_mobile_intelligence(
     return v1_prepare_json(mobile_items)
 
 
-@router.get("/market/snapshot", response_model=Dict[str, Any])
+@router.get("/market/snapshot", response_model=dict[str, Any])
 async def get_mobile_market_snapshot():
     """
     Fetch real-time market snapshot for iOS terminal.
@@ -140,7 +141,7 @@ async def get_mobile_market_snapshot():
     return v1_prepare_json(snapshot)
 
 
-@router.get("/market/pulse", response_model=Dict[str, Any])
+@router.get("/market/pulse", response_model=dict[str, Any])
 async def get_market_pulse(
     db: Session = Depends(get_session),
 ):
@@ -161,7 +162,7 @@ async def get_market_pulse(
 
     # 2. 近24h高紧急度情报 (urgency_score >= 7)，最多取5条
     # 同时取 sentiment_score 浮点列用于情绪标签
-    since_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+    since_24h = datetime.now(UTC) - timedelta(hours=24)
     top_alerts_raw = db.execute(
         text("""
             SELECT id, timestamp, urgency_score, summary, sentiment_score
@@ -240,7 +241,7 @@ async def get_market_pulse(
     sentiment_trend = []
     
     # 从 24 小时前开始，到当前小时结束
-    start_hour = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(minute=0, second=0, microsecond=0)
+    start_hour = (datetime.now(UTC) - timedelta(hours=24)).replace(minute=0, second=0, microsecond=0)
     for i in range(25):
         current_h = start_hour + timedelta(hours=i)
         # 如果该小时没数据，则使用 0.0 或上一个点的值（这里采用 0.0 保持图表真实性）
@@ -252,7 +253,7 @@ async def get_market_pulse(
 
     # 5. 未来 48h 重要宏观事件 (Upcoming Macro Events)
     # 过滤条件：未来 48 小时，影响等级为 high 或 medium
-    now_dt = datetime.now(timezone.utc)
+    now_dt = datetime.now(UTC)
     until_dt = now_dt + timedelta(hours=48)
     
     upcoming_events_raw = db.exec(
@@ -286,7 +287,7 @@ async def get_market_pulse(
         "sentiment_score": avg_sentiment,
         "sentiment_trend": sentiment_trend,
         "alert_count_24h": sentiment_row["count"] if sentiment_row else 0,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
     })
     set_cached(_CACHE_KEY, result, ttl=_CACHE_TTL)
     return result

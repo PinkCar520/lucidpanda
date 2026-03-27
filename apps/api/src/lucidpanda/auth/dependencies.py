@@ -1,13 +1,15 @@
-from typing import Generator, Optional
+from collections.abc import Generator
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from src.lucidpanda.config import settings
-from src.lucidpanda.auth.security import decode_token
-from src.lucidpanda.auth.schemas import TokenPayload
+from sqlalchemy.orm import Session, sessionmaker
+
 from src.lucidpanda.auth.models import User
+from src.lucidpanda.auth.schemas import TokenPayload
+from src.lucidpanda.auth.security import decode_token
+from src.lucidpanda.config import settings
 
 # Database Setup
 SQLALCHEMY_DATABASE_URL = f"postgresql+psycopg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"

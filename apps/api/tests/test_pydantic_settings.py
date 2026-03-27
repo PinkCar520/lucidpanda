@@ -2,7 +2,12 @@
 Pydantic 配置验证测试
 """
 import pytest
-from src.lucidpanda.config.pydantic_settings import Settings, LLMSettings, EmbeddingSettings
+
+from src.lucidpanda.config.pydantic_settings import (
+    EmbeddingSettings,
+    LLMSettings,
+    Settings,
+)
 
 
 class TestLLMSettings:

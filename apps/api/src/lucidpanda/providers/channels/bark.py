@@ -1,7 +1,9 @@
 import requests
+
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.providers.channels.base import BaseChannel
+
 
 class BarkChannel(BaseChannel):
     def send(self, title, message, source_url=None, db_id=None):

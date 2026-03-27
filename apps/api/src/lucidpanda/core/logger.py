@@ -1,8 +1,10 @@
-import sys
-import os
 import logging
+import os
+import sys
 from logging.handlers import TimedRotatingFileHandler
+
 from src.lucidpanda.config import settings
+
 
 def setup_logger(name="LucidPanda"):
     logger = logging.getLogger(name)
