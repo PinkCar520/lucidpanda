@@ -17,6 +17,23 @@
 **部署方式**：Docker Compose (`docker-compose.yml` + `docker-compose.override.yml`)
 **包管理**：整个 monorepo 统一使用 **pnpm**（根目录 `package.json` 的 `packageManager` 字段锁定版本）。依赖通过根目录 `pnpm-lock.yaml` 统一管理。新增依赖使用 `pnpm add <pkg>`，**禁止使用 `npm install`**。Docker 构建上下文为根目录 `.`，Dockerfile 路径为 `apps/web/Dockerfile`。
 
+**TypeScript 类型规范（Web）**
+官方推荐做法（核心）
+1. 对象结构优先用 `interface`
+   接口用来“命名对象的形状/契约”，适合 API 返回结构、组件 props 等。(https://www.typescriptlang.org/docs/handbook/interfaces.html)
+2. 联合/元组/基础类型组合用 `type`
+   类型别名更适合联合类型、元组、原始类型组合等场景。(https://www.typescriptlang.org/docs/handbook/advanced-types.html)
+3. 需要可扩展/合并的类型，用 `interface`
+   `interface` 支持声明合并（declaration merging），而 `type` 不能“重新打开”扩展。(https://www.typescriptlang.org/docs/handbook/declaration-merging.html)
+4. 声明文件用 `.d.ts`
+   `.d.ts` 是纯类型声明文件，不会生成 JS，适合给无类型库补类型或做全局/模块增强。(https://www.typescriptlang.org/docs/handbook/2/type-declarations)
+5. 扩展第三方模块或全局类型，用模块增强/全局增强
+   需要给已有模块或全局对象补类型时，使用 module augmentation / global augmentation。(https://www.typescriptlang.org/docs/handbook/declaration-merging.html)
+6. 避免 `any`，优先 `unknown` + 类型收窄
+   `any` 会关闭类型检查，应尽量避免；`unknown` 更安全。(https://www.typescriptlang.org/docs/handbook/basic-types.html)
+7. 开启严格模式 / `noImplicitAny`
+   官方建议开启 `strict`，尤其是 `noImplicitAny`，避免隐式 `any`。(https://www.typescriptlang.org/docs/handbook/2/basic-types.html)
+
 ---
 
 ## 🚫 架构红线（不可违反，违反则CI拦截）

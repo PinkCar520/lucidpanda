@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: .
+        working-directory: apps/api
 
     steps:
       - uses: actions/checkout@v4
@@ -88,10 +88,15 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: web
+        working-directory: .  # pnpm-lock.yaml is at monorepo root
 
     steps:
       - uses: actions/checkout@v4
+
+      # pnpm/action-setup MUST come before setup-node when using cache: 'pnpm'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        # version auto-detected from packageManager field in root package.json
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -99,11 +104,8 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter web
 
       # 1. TypeScript 类型检查
       - name: TypeScript Check
