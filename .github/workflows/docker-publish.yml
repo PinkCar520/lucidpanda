@@ -183,7 +183,7 @@ jobs:
         if: steps.check_frontend.outputs.frontend == 'true'
         uses: docker/build-push-action@v5
         with:
-          context: ./apps/web
+          context: .
           file: ./apps/web/Dockerfile
           push: true
           build-args: |
