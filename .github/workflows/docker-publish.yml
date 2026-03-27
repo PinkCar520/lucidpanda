@@ -29,7 +29,7 @@ jobs:
       sha_short: ${{ steps.vars.outputs.sha_short }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Set short SHA
         id: vars
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
@@ -42,7 +42,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Check for backend changes
         id: check_backend
@@ -56,7 +56,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: steps.check_backend.outputs.backend == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -68,7 +68,7 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         if: steps.check_backend.outputs.backend == 'true'
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: pincar/lucidpanda-backend
           tags: |
@@ -77,7 +77,7 @@ jobs:
 
       - name: Build and push backend Docker image
         if: steps.check_backend.outputs.backend == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./apps/api
           file: ./apps/api/Dockerfile.backend
@@ -95,7 +95,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Check for DB changes
         id: check_db
@@ -108,7 +108,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: steps.check_db.outputs.db == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -120,7 +120,7 @@ jobs:
       - name: Extract metadata
         if: steps.check_db.outputs.db == 'true'
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: pincar/lucidpanda-db
           tags: |
@@ -129,7 +129,7 @@ jobs:
 
       - name: Build and push DB Docker image
         if: steps.check_db.outputs.db == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./infra/postgres
           file: ./infra/postgres/Dockerfile
@@ -147,7 +147,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check for frontend changes
         id: check_frontend
@@ -160,7 +160,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: steps.check_frontend.outputs.frontend == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
@@ -172,7 +172,7 @@ jobs:
       - name: Extract metadata (tags, labels) for Docker
         if: steps.check_frontend.outputs.frontend == 'true'
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: pincar/lucidpanda-web
           tags: |
@@ -181,7 +181,7 @@ jobs:
 
       - name: Build and push frontend Docker image
         if: steps.check_frontend.outputs.frontend == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./apps/web/Dockerfile
@@ -202,7 +202,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Pull and Restart Containers
         run: |
