@@ -256,7 +256,7 @@ async def delete_watchlist_group(
         """)
         default_group = db.execute(
             default_group_stmt, {"user_id": str(current_user.id)}
-        ).first()
+        ).mappings().first()
 
         if default_group:
             # 将该分组的基金移至默认分组
@@ -268,7 +268,7 @@ async def delete_watchlist_group(
             db.execute(
                 update_stmt,
                 {
-                    "default_group_id": str(default_group.id),
+                    "default_group_id": str(default_group["id"]),
                     "group_id": group_id,
                     "user_id": str(current_user.id),
                 },
@@ -552,6 +552,16 @@ async def batch_remove_from_watchlist(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.delete("/batch", response_model=dict[str, Any])
+async def batch_remove_from_watchlist_legacy(
+    request: WatchlistBatchRemoveRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+):
+    """兼容旧版 DELETE /batch 接口。"""
+    return await batch_remove_from_watchlist(request, current_user, db)
 
 
 @router.post("/reorder", response_model=dict[str, Any])

@@ -22,6 +22,8 @@ from src.lucidpanda.auth.models import Base
 from src.lucidpanda.config import settings
 from sqlmodel import SQLModel
 
+TEST_USER_ID = "408ba5ca-598d-4ee8-a5be-4352ab5f7918"
+
 
 @compiles(INET, "sqlite")
 def compile_inet_sqlite(_type, _compiler, **_kw) -> str:
@@ -96,12 +98,15 @@ def db_engine():
         with engine.connect() as conn:
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS fund_watchlist (
+                    id TEXT DEFAULT (gen_random_uuid()),
                     user_id TEXT,
                     fund_code TEXT,
                     fund_name TEXT,
+                    group_id TEXT,
                     sort_index INTEGER DEFAULT 0,
                     is_deleted BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (user_id, fund_code)
                 )
             """))
@@ -167,11 +172,10 @@ def override_api_session(db_session):
 def override_api_auth():
     from scripts.core.sse_server import app
     from src.lucidpanda.auth.dependencies import get_current_user
-    from uuid import uuid4
     
     class MockUser:
         def __init__(self):
-            self.id = uuid4()
+            self.id = TEST_USER_ID
             self.username = "testuser"
             
     def _override():
