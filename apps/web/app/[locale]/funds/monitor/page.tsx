@@ -67,14 +67,15 @@ export default function FundMonitorPage() {
     };
 
     const heatmapTraces = React.useMemo(() => {
-        if (!stats?.heatmap || stats.heatmap.length === 0) return null;
+        const heatmap = stats?.heatmap ?? [];
+        if (heatmap.length === 0) return null;
 
-        const dates = Array.from(new Set(stats.heatmap.map((h: any) => h.trade_date))).sort().reverse();
-        const categories = Array.from(new Set(stats.heatmap.map((h: any) => h.category)));
+        const dates = Array.from(new Set(heatmap.map((h: any) => h.trade_date))).sort().reverse();
+        const categories = Array.from(new Set(heatmap.map((h: any) => h.category)));
         
         const zMatrix = dates.map(d => {
             return categories.map(c => {
-                const match = stats.heatmap.find((h: any) => h.trade_date === d && h.category === c);
+                const match = heatmap.find((h: any) => h.trade_date === d && h.category === c);
                 return match ? match.mae : null;
             });
         });
