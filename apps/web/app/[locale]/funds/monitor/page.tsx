@@ -272,8 +272,8 @@ export default function FundMonitorPage() {
                 {/* Anomalies List */}
                 <Card title={t('anomaliesTitle')} action={<Badge variant="bearish">{t('alertsCount', { count: stats?.anomalies?.length || 0 })}</Badge>}>
                     <div className="flex flex-col gap-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
-                        {stats?.anomalies?.length > 0 ? (
-                            stats.anomalies.map((a: any, i: number) => (
+                        {(stats?.anomalies?.length ?? 0) > 0 ? (
+                            stats.anomalies!.map((a: any, i: number) => (
                                 <div key={i} className="group p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-lg flex flex-col gap-2 hover:border-rose-500/50 transition-colors">
                                     <div className="flex justify-between items-center">
                                         <div className="flex items-center gap-2">

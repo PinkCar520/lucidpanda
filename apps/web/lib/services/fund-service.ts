@@ -110,6 +110,16 @@ export interface FundMonitorStats {
     category: string;
     mae: number;
   }>;
+  anomalies?: Array<{
+    trade_date: string;
+    fund_code?: string;
+    fund_name?: string;
+    reason?: string;
+    severity?: string;
+    mae?: number;
+    frozen_sector_attribution?: SectorAttribution;
+    [key: string]: unknown;
+  }>;
   [key: string]: unknown;
 }
 
