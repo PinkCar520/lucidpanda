@@ -14,7 +14,7 @@ FROM node:22-alpine AS base
 RUN corepack enable
 
 # ── Stage: deps ──────────────────────────────────────────────
-# Install only production dependencies for the web workspace
+# Install workspace dependencies needed for build (includes devDeps)
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
