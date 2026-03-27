@@ -68,7 +68,8 @@ class NewsDeduplicator:
         vec = np.array(text_vector).reshape(1, -1)
         
         for v in self.vec_history:
-            if v is None: continue
+            if v is None:
+                continue
             v_2d = np.array(v).reshape(1, -1)
             score = cosine_similarity(vec, v_2d)[0][0]
             if score > self.semantic_threshold:

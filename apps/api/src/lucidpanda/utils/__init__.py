@@ -4,9 +4,10 @@ from decimal import Decimal
 from sqlalchemy.engine.row import RowMapping
 
 
-def format_iso8601(dt: datetime) -> str:
+def format_iso8601(dt: datetime) -> str | None:
     """Standardize date string for iOS/Web compatibility."""
-    if not dt: return None
+    if not dt:
+        return None
     # Ensure it's UTC-ish and formatted as YYYY-MM-DDTHH:mm:ss.sssZ
     return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:23] + 'Z'
 

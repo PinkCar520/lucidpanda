@@ -149,14 +149,14 @@ class FundEngine:
             last_year = str(datetime.now().year - 1)
             try:
                 df = ak.fund_portfolio_hold_em(symbol=fund_code, date=last_year)
-            except:
+            except Exception:
                 df = pd.DataFrame()
             
             if df.empty:
                 current_year = str(datetime.now().year)
                 try:
                     df = ak.fund_portfolio_hold_em(symbol=fund_code, date=current_year)
-                except:
+                except Exception:
                     pass
                 
             if df.empty:
@@ -165,7 +165,8 @@ class FundEngine:
             
             # 2. Sort by quarter to get truly latest
             all_quarters = df['季度'].unique()
-            if len(all_quarters) == 0: return []
+            if len(all_quarters) == 0:
+                return []
             
             latest_quarter = sorted(all_quarters, reverse=True)[0]
             logger.info(f"📅 Latest Report: {latest_quarter}")
@@ -213,7 +214,8 @@ class FundEngine:
             core_name = re.sub(p, '', core_name)
         core_name = core_name.strip()
         
-        if not core_name: return None
+        if not core_name:
+            return None
         
         logger.info(f"🧩 Feeder Detected: '{fund_name}' -> Core: '{core_name}'")
         
@@ -239,7 +241,8 @@ class FundEngine:
         except Exception as e:
             logger.error(f"Shadow identification DB error: {e}")
         finally:
-            if 'conn' in locals() and conn: conn.close()
+            if 'conn' in locals() and conn:
+                conn.close()
             
         return None
 
@@ -290,7 +293,8 @@ class FundEngine:
         """Fetch Fund Name with Redis Cache and Local DB fallback."""
         if self.redis:
             cached_name = self.redis.get(f"fund:name:{fund_code}")
-            if cached_name: return cached_name
+            if cached_name:
+                return cached_name
             
         fund_name = ""
         try:
@@ -302,8 +306,10 @@ class FundEngine:
             # 2. Only if DB missing, try Public API
             if not fund_name:
                 # Force disable proxy for reliability
-                if "HTTP_PROXY" in os.environ: del os.environ["HTTP_PROXY"]
-                if "HTTPS_PROXY" in os.environ: del os.environ["HTTPS_PROXY"]
+                if "HTTP_PROXY" in os.environ:
+                    del os.environ["HTTP_PROXY"]
+                if "HTTPS_PROXY" in os.environ:
+                    del os.environ["HTTPS_PROXY"]
                 
                 info_df = ak.fund_individual_basic_info_xq(symbol=fund_code)
                 fund_name = info_df[info_df.iloc[:,0] == '基金简称'].iloc[0,1]
@@ -311,7 +317,7 @@ class FundEngine:
             if self.redis and fund_name:
                 self.redis.setex(f"fund:name:{fund_code}", 86400 * 7, fund_name) # 7 days
                 
-        except:
+        except Exception:
             pass
         return fund_name or fund_code
 
@@ -321,8 +327,10 @@ class FundEngine:
         Strategy: Redis Hash 'stock:industry:full' -> DB -> Cache
         Returns: { '600519': {'l1': '食品饮料', 'l2': '白酒'} }
         """
-        if not stock_codes: return {}
-        if not self.redis: return {}
+        if not stock_codes:
+            return {}
+        if not self.redis:
+            return {}
         
         # 1. Try Fetch from Redis
         try:
@@ -332,11 +340,11 @@ class FundEngine:
             result = {}
             missing_codes = []
             
-            for code, raw_json in zip(stock_codes, raw_data):
+            for code, raw_json in zip(stock_codes, raw_data, strict=False):
                 if raw_json:
                     try:
                         result[code] = json.loads(raw_json)
-                    except:
+                    except Exception:
                         missing_codes.append(code)
                 else:
                     missing_codes.append(code)
@@ -371,11 +379,12 @@ class FundEngine:
                         # Mark unknowns
                         unknowns = set(missing_codes) - set(result.keys())
                         if unknowns:
-                             unknown_val = {'l1': "其他", 'l2': "其他"}
-                             unknown_json = json.dumps(unknown_val)
-                             unknown_map = {c: unknown_json for c in unknowns}
-                             pipeline.hset("stock:industry:full", mapping=unknown_map)
-                             for c in unknowns: result[c] = unknown_val
+                            unknown_val = {'l1': "其他", 'l2': "其他"}
+                            unknown_json = json.dumps(unknown_val)
+                            unknown_map = {c: unknown_json for c in unknowns}
+                            pipeline.hset("stock:industry:full", mapping=unknown_map)
+                            for c in unknowns:
+                                result[c] = unknown_val
                     pipeline.execute() # Execute pipeline
                 finally:
                     conn.close()
@@ -416,8 +425,10 @@ class FundEngine:
             # Fetch parent ETF/Index price (using efficient SecID logic)
             secid = None
             if parent_code.startswith(('5', '9', '000', 'sh')): 
-                if parent_code.startswith('sh'): secid = parent_code
-                else: secid = f"sh{parent_code}"
+                if parent_code.startswith('sh'):
+                    secid = parent_code
+                else:
+                    secid = f"sh{parent_code}"
             elif parent_code.startswith(('sz', 'hk')):
                 secid = parent_code
             else: 
@@ -433,6 +444,7 @@ class FundEngine:
                     val_part = content.split('=', 1)[1].strip('"')
                     parts = val_part.split('~')
                     if len(parts) > 32:
+                        parent_name = parts[1] if len(parts) > 1 else parent_code
                         price = float(parts[3])
                         pct = float(parts[32])
                         est_growth = pct * ratio
@@ -473,7 +485,7 @@ class FundEngine:
                             "total_weight": ratio * 100,
                             "components": [{
                                 "code": parent_code,
-                                "name": real_name,
+                                "name": parent_name,
                                 "price": price,
                                 "change_pct": pct,
                                 "impact": est_growth,
@@ -520,7 +532,8 @@ class FundEngine:
                 is_syncing = self.redis.get(sync_key) if self.redis else False
                 
                 if not is_syncing:
-                    if self.redis: self.redis.setex(sync_key, 300, "1")
+                    if self.redis:
+                        self.redis.setex(sync_key, 300, "1")
                     threading.Thread(target=self.update_fund_holdings, args=(fund_code,), daemon=True).start()
                 
                 return {
@@ -544,9 +557,10 @@ class FundEngine:
             
             for h in holdings:
                 code = h.get('stock_code') or h.get('code')
-                if not code: continue
+                if not code:
+                    continue
                 holding_codes.add(code)
-                if len(code) == 6 or (len(code) == 5 and code.startswith("0") and not code.startswith("00")): 
+                if len(code) == 6 or (len(code) == 5 and code.startswith("0") and not code.startswith("00")):
                     need_ashare = True
                 elif len(code) == 5:
                     need_hk = True
@@ -558,7 +572,8 @@ class FundEngine:
                 cache_key = f"market:snapshot:{market_type}"
                 if self.redis:
                     c = self.redis.get(cache_key)
-                    if c: return pd.read_json(c)
+                    if c:
+                        return pd.read_json(c)
                 
                 if market_type == 'a':
                     df = ak.stock_zh_a_spot_em()
@@ -590,7 +605,8 @@ class FundEngine:
                                         'price': float(row[price_col]),
                                         'change_pct': float(row[change_col])
                                     }
-                                except: pass
+                                except Exception:
+                                    pass
                 except Exception as e:
                     logger.error(f"Failed to fetch A-share snapshot: {e}")
 
@@ -611,7 +627,8 @@ class FundEngine:
                                         'price': float(row[price_col]),
                                         'change_pct': float(row[change_col])
                                     }
-                                except: pass
+                                except Exception:
+                                    pass
                 except Exception as e:
                     logger.error(f"Failed to fetch HK-share snapshot: {e}")
 
@@ -661,7 +678,8 @@ class FundEngine:
                              # Actually if it was in holdings, it should be in quote_map if 'a' snapshot covered it.
                              # If snapshot 'a' covers all A shares, it should be there.
                              pass
-                         except: pass
+                         except Exception:
+                             pass
 
                     if etf_quote:
                         # 100% weight on ETF for estimation
@@ -805,7 +823,13 @@ class FundEngine:
                 "total_weight": total_weight,
                 "components": components,
                 "sector_attribution": sector_stats,
-                "market_status": get_market_status(infer_market_region(fund_code)),
+                "market_status": get_market_status(
+                    self._infer_market_region_from_meta(
+                        fund_code,
+                        meta=single_meta,
+                        fallback_name=fund_name,
+                    )
+                ),
                 "timestamp": datetime.now(tz_cn).isoformat(),
                 "source": "System Engine" + calibration_note + fx_note,
                 "fee_drag": {
@@ -819,7 +843,8 @@ class FundEngine:
             # Save to DB history
             try:
                 self.db.save_fund_valuation(fund_code, final_est, result)
-            except: pass
+            except Exception:
+                pass
             
             # Set Cache (180s)
             if self.redis:
@@ -832,7 +857,8 @@ class FundEngine:
                 from src.lucidpanda.infra.stream.broadcaster import hub
                 # Fire and forget publication
                 asyncio.create_task(hub.publish("fund_updates", result))
-            except: pass
+            except Exception:
+                pass
             
             return result
             
@@ -943,8 +969,10 @@ class FundEngine:
             final_score = max(0, final_score - 30) # Heavy penalty
         
         level = "medium"
-        if final_score >= 80: level = "high"
-        elif final_score < 50: level = "low"
+        if final_score >= 80:
+            level = "high"
+        elif final_score < 50:
+            level = "low"
         
         return {
             "level": level,
@@ -967,13 +995,13 @@ class FundEngine:
         
         if self.redis:
             cached_meta = self.redis.mget([f"fund:meta:{c}" for c in fund_codes])
-            for code, meta_json in zip(fund_codes, cached_meta):
+            for code, meta_json in zip(fund_codes, cached_meta, strict=False):
                 if meta_json:
                     try:
                         meta = json.loads(meta_json)
                         fund_meta_map[code] = meta
                         fund_name_map[code] = meta['name']
-                    except:
+                    except Exception:
                         missing_meta_codes.append(code)
                 else:
                     missing_meta_codes.append(code)
@@ -1019,8 +1047,10 @@ class FundEngine:
                 p_code = rel['parent_code']
                 secid = None
                 if p_code.startswith(('5', '9', '000', 'sh')): 
-                    if p_code.startswith('sh'): secid = p_code
-                    else: secid = f"sh{p_code}"
+                    if p_code.startswith('sh'):
+                        secid = p_code
+                    else:
+                        secid = f"sh{p_code}"
                 elif p_code.startswith(('sz', 'hk')):
                     secid = p_code
                 else: 
@@ -1029,7 +1059,8 @@ class FundEngine:
 
         # Collect holdings for NON-shadow funds
         for f_code in fund_codes:
-            if f_code in shadow_map: continue
+            if f_code in shadow_map:
+                continue
             
             holdings = self.db.get_fund_holdings(f_code)
             if not holdings:
@@ -1038,7 +1069,8 @@ class FundEngine:
                 is_syncing = self.redis.get(sync_key) if self.redis else False
                 
                 if not is_syncing:
-                    if self.redis: self.redis.setex(sync_key, 300, "1")
+                    if self.redis:
+                        self.redis.setex(sync_key, 300, "1")
                     threading.Thread(target=self.update_fund_holdings, args=(f_code,), daemon=True).start()
                 
                 all_holdings[f_code] = None # Mark as syncing
@@ -1048,17 +1080,22 @@ class FundEngine:
             
             for h in holdings:
                 s_code = h.get('stock_code') or h.get('code')
-                if not s_code: continue
+                if not s_code:
+                    continue
                 
                 # Determine SecID for Market API
                 # Logic: sh6xxxx, sz0xxxx/3xxxx, bj8xxxx/4xxxx, hk0xxxx, usXXXX
                 secid = None
                 if s_code.isdigit():
                     if len(s_code) == 6:
-                        if s_code.startswith('6') or s_code.startswith('9'): secid = f"sh{s_code}"
-                        elif s_code.startswith('0') or s_code.startswith('3'): secid = f"sz{s_code}"
-                        elif s_code.startswith('8') or s_code.startswith('4'): secid = f"bj{s_code}"
-                        else: secid = f"sz{s_code}" # Fallback
+                        if s_code.startswith('6') or s_code.startswith('9'):
+                            secid = f"sh{s_code}"
+                        elif s_code.startswith('0') or s_code.startswith('3'):
+                            secid = f"sz{s_code}"
+                        elif s_code.startswith('8') or s_code.startswith('4'):
+                            secid = f"bj{s_code}"
+                        else:
+                            secid = f"sz{s_code}" # Fallback
                     elif len(s_code) == 5:
                         secid = f"hk{s_code}"
                 else:
@@ -1108,10 +1145,12 @@ class FundEngine:
                 # Parse: v_sh600519="1~Name~Code~Price~LastClose~Open~...~...~PCT~..."
                 for line in content.split(';'):
                     line = line.strip()
-                    if not line: continue
+                    if not line:
+                        continue
                     
                     # line: v_sh600519="1~..."
-                    if '=' not in line: continue
+                    if '=' not in line:
+                        continue
                     
                     key_part, val_part = line.split('=', 1)
                     # key_part: v_sh600519 -> code is sh600519 (remove v_)
@@ -1144,24 +1183,23 @@ class FundEngine:
                                 base_code = actual_market_code[2:]
                                 if base_code not in quotes:
                                     quotes[base_code] = {'price': price, 'change_pct': pct, 'name': real_name}
-                        except: 
+                        except Exception:
                             pass
             except Exception as e:
                 logger.error(f"Batch quote fetch failed: {e}")
 
         # 3. Calculate Valuations
         results = []
-        tz_cn = datetime.now().astimezone().replace(tzinfo=None) # simple local time
-        
         # Pre-fetch industry mappings (Skip if summary)
         industry_map = {}
         if not summary:
             all_stock_codes = []
-            for f_code, holdings in all_holdings.items():
+            for _f_code, holdings in all_holdings.items():
                 if holdings:
                     for h in holdings:
                         s_code = h.get('stock_code') or h.get('code')
-                        if s_code: all_stock_codes.append(s_code)
+                        if s_code:
+                            all_stock_codes.append(s_code)
             industry_map = self._get_industry_map(list(set(all_stock_codes)))
 
         for f_code in fund_codes:
@@ -1440,7 +1478,8 @@ class FundEngine:
         
         count = 0
         for val in valuations:
-            if 'error' in val: continue
+            if 'error' in val:
+                continue
             
             f_code = val['fund_code']
             
@@ -1591,7 +1630,8 @@ class FundEngine:
                 except ValueError:
                     logger.warning(f"Skipping task with invalid trade_date format: {d}")
                     continue
-            if d not in tasks_by_date: tasks_by_date[d] = []
+            if d not in tasks_by_date:
+                tasks_by_date[d] = []
             tasks_by_date[d].append(c)
 
         logger.info(f"⚖️ Starting Targeted Reconciliation for {len(pending_tasks)} tasks across {len(tasks_by_date)} dates...")
@@ -1636,7 +1676,7 @@ class FundEngine:
                                         val = row[7] # index 7 is growth rate
                                         if val and val != "" and val != "nan":
                                             batch_results[f_code] = float(val)
-                                    except:
+                                    except Exception:
                                         continue
                             
                             if batch_results:
@@ -1678,7 +1718,8 @@ class FundEngine:
                                         val = row['日增长率']
                                         if val and str(val) != 'nan':
                                             batch_results[c] = float(val)
-                                    except: continue
+                                    except Exception:
+                                        continue
                                 
                                 if batch_results:
                                     logger.info(f"✅ AkShare Batch matched {len(batch_results)} funds for {trade_date}.")
@@ -1715,7 +1756,8 @@ class FundEngine:
                         for attempt in range(2):
                             try:
                                 df = ak.fund_open_fund_info_em(symbol=code, indicator="单位净值走势")
-                                if not df.empty: break
+                                if not df.empty:
+                                    break
                             except Exception as req_err:
                                 if attempt == 0: 
                                     time.sleep(2)
@@ -1742,14 +1784,15 @@ class FundEngine:
                                                 break
                                     except Exception as backup_err:
                                         logger.error(f"Backup source also failed for {code}: {backup_err}")
-                                        raise req_err
+                                        raise req_err from backup_err
                         
                         if df.empty:
                             logger.warning(f"No NAV history found for {code}")
                             continue
                         
                         # If df was marked as 'done' by backup, move to next fund
-                        if 'done' in df.columns: continue
+                        if 'done' in df.columns:
+                            continue
                         
                         # df usually has columns: ['净值日期', '单位净值', '日增长率', ...]
                         # Convert '净值日期' to date objects for comparison
@@ -1773,8 +1816,10 @@ class FundEngine:
                         logger.error(f"Failed to reconcile {code}: {e}")
             finally:
                 # Restore proxy settings
-                if original_http: os.environ['HTTP_PROXY'] = original_http
-                if original_https: os.environ['HTTPS_PROXY'] = original_https
+                if original_http:
+                    os.environ['HTTP_PROXY'] = original_http
+                if original_https:
+                    os.environ['HTTPS_PROXY'] = original_https
                 
             logger.info(f"✨ Session for {trade_date} finished. {count}/{len(codes)} updated.")
             

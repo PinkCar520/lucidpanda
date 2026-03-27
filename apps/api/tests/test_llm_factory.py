@@ -19,19 +19,19 @@ class TestLLMFactory:
     def test_create_qwen_llm(self):
         """测试创建 Qwen LLM 实例"""
         with patch('src.lucidpanda.core.engine.QwenLLM') as mock_qwen:
-            llm = LLMFactory.create('qwen')
+            LLMFactory.create('qwen')
             mock_qwen.assert_called_once()
 
     def test_create_deepseek_llm(self):
         """测试创建 DeepSeek LLM 实例"""
         with patch('src.lucidpanda.core.engine.DeepSeekLLM') as mock_deepseek:
-            llm = LLMFactory.create('deepseek')
+            LLMFactory.create('deepseek')
             mock_deepseek.assert_called_once()
 
     def test_create_gemini_llm(self):
         """测试创建 Gemini LLM 实例"""
         with patch('src.lucidpanda.core.engine.GeminiLLM') as mock_gemini:
-            llm = LLMFactory.create('gemini')
+            LLMFactory.create('gemini')
             mock_gemini.assert_called_once()
 
     def test_create_unknown_llm(self):

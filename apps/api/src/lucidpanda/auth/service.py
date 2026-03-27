@@ -167,7 +167,7 @@ class AuthService:
         db_token = self.db.query(RefreshToken).filter(
             and_(
                 RefreshToken.token_hash == token_hash,
-                RefreshToken.revoked_at == None,
+                RefreshToken.revoked_at.is_(None),
                 RefreshToken.expires_at > datetime.utcnow()
             )
         ).first()
@@ -248,14 +248,22 @@ class AuthService:
         if not user:
             return None
         
-        if name is not None: user.name = name
-        if nickname is not None: user.nickname = nickname
-        if gender is not None: user.gender = gender
-        if birthday is not None: user.birthday = birthday
-        if location is not None: user.location = location
-        if language_preference is not None: user.language_preference = language_preference
-        if timezone is not None: user.timezone = timezone
-        if theme_preference is not None: user.theme_preference = theme_preference
+        if name is not None:
+            user.name = name
+        if nickname is not None:
+            user.nickname = nickname
+        if gender is not None:
+            user.gender = gender
+        if birthday is not None:
+            user.birthday = birthday
+        if location is not None:
+            user.location = location
+        if language_preference is not None:
+            user.language_preference = language_preference
+        if timezone is not None:
+            user.timezone = timezone
+        if theme_preference is not None:
+            user.theme_preference = theme_preference
         
         self.db.add(user)
         self.db.commit()
@@ -351,10 +359,12 @@ class AuthService:
         db_request = self.db.query(EmailChangeRequest).filter(
             and_(EmailChangeRequest.token_hash == token_hash, EmailChangeRequest.expires_at > datetime.utcnow())
         ).first()
-        if not db_request: return False, "Invalid or expired token"
+        if not db_request:
+            return False, "Invalid or expired token"
         
         user = self.db.query(User).filter(User.id == db_request.user_id).first()
-        if not user: return False, "User not found"
+        if not user:
+            return False, "User not found"
         
         user.email = db_request.new_email
         user.is_verified = True
@@ -387,11 +397,12 @@ class AuthService:
                 PhoneVerificationToken.user_id == user_uuid,
                 PhoneVerificationToken.phone_number == phone_number,
                 PhoneVerificationToken.otp_code_hash == code_hash,
-                PhoneVerificationToken.is_used == False,
+                PhoneVerificationToken.is_used.is_(False),
                 PhoneVerificationToken.expires_at > datetime.utcnow()
             )
         ).first()
-        if not db_token: return False, "Invalid or expired code"
+        if not db_token:
+            return False, "Invalid or expired code"
         
         db_token.is_used = True
         user = self.db.query(User).filter(User.id == user_uuid).first()
@@ -527,7 +538,8 @@ class AuthService:
         user_uuid = self._to_uuid(user_id)
         key_uuid = self._to_uuid(key_id)
         key = self.db.query(APIKey).filter(and_(APIKey.id == key_uuid, APIKey.user_id == user_uuid)).first()
-        if not key: return None
+        if not key:
+            return None
         for k, v in kwargs.items():
             if hasattr(key, k) and v is not None:
                 setattr(key, k, v)
@@ -575,7 +587,7 @@ class AuthService:
     def get_active_sessions(self, user_id: str) -> list[RefreshToken]:
         user_uuid = self._to_uuid(user_id)
         return self.db.query(RefreshToken).filter(
-            and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at == None, RefreshToken.expires_at > datetime.utcnow())
+            and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at.is_(None), RefreshToken.expires_at > datetime.utcnow())
         ).order_by(desc(RefreshToken.created_at)).all()
 
     def revoke_session(self, user_id: str, session_id: int) -> bool:
@@ -592,7 +604,7 @@ class AuthService:
     def revoke_all_sessions(self, user_id: str, exclude_token_hash: str = None) -> int:
         user_uuid = self._to_uuid(user_id)
         query = self.db.query(RefreshToken).filter(
-            and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at == None, RefreshToken.expires_at > datetime.utcnow())
+            and_(RefreshToken.user_id == user_uuid, RefreshToken.revoked_at.is_(None), RefreshToken.expires_at > datetime.utcnow())
         )
         if exclude_token_hash:
             query = query.filter(RefreshToken.token_hash != exclude_token_hash)
@@ -650,7 +662,8 @@ class AuthService:
 
     def generate_password_reset_token(self, email: str) -> str | None:
         user = self.get_user_by_email(email)
-        if not user: return None
+        if not user:
+            return None
         self.db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()
         raw_token = secrets.token_urlsafe(32)
         token_hash = self._hash_token(raw_token)
@@ -662,9 +675,11 @@ class AuthService:
     def reset_password(self, raw_token: str, new_password: str) -> bool:
         token_hash = self._hash_token(raw_token)
         db_token = self.db.query(PasswordResetToken).filter(and_(PasswordResetToken.token_hash == token_hash, PasswordResetToken.expires_at > datetime.utcnow())).first()
-        if not db_token: return False
+        if not db_token:
+            return False
         user = self.db.query(User).filter(User.id == db_token.user_id).first()
-        if not user: return False
+        if not user:
+            return False
         user.hashed_password = get_password_hash(new_password)
         self.db.delete(db_token)
         self.db.commit()

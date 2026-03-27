@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 
 def fused_cache_key(limit: int, before_timestamp: str | None) -> str:
@@ -31,7 +31,7 @@ class FusedCacheStore:
             try:
                 raw = redis_client.get(self._redis_key(limit, before_timestamp))
                 if raw:
-                    return json.loads(raw)
+                    return cast(dict[str, Any], json.loads(raw))
             except Exception:
                 pass
 
@@ -42,7 +42,7 @@ class FusedCacheStore:
         if time.time() - cached["ts"] > self.ttl_seconds:
             self._local_cache.pop(key, None)
             return None
-        return cached["payload"]
+        return cast(dict[str, Any], cached["payload"])
 
     def set(self, limit: int, before_timestamp: str | None, payload: dict[str, Any]) -> None:
         key = fused_cache_key(limit, before_timestamp)

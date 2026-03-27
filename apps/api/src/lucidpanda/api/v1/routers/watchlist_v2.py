@@ -110,7 +110,7 @@ async def get_watchlist_groups(
         
         return v1_prepare_json({"data": groups})
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post("/groups", response_model=dict[str, Any])
 async def create_watchlist_group(
@@ -149,7 +149,7 @@ async def create_watchlist_group(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.put("/groups/{group_id}", response_model=dict[str, Any])
 async def update_watchlist_group(
@@ -216,7 +216,7 @@ async def update_watchlist_group(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.delete("/groups/{group_id}", response_model=dict[str, Any])
 async def delete_watchlist_group(
@@ -273,7 +273,7 @@ async def delete_watchlist_group(
         return v1_prepare_json({"success": True})
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 async def _reorder_watchlist_groups_impl(
     request: WatchlistGroupReorderRequest,
@@ -333,7 +333,7 @@ async def _reorder_watchlist_groups_impl(
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/groups/reorder", response_model=dict[str, Any])
@@ -418,7 +418,7 @@ async def get_watchlist_v2(
             "sync_time": datetime.utcnow().isoformat()
         })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post("/batch-add", response_model=dict[str, Any])
 async def batch_add_to_watchlist(
@@ -477,7 +477,7 @@ async def batch_add_to_watchlist(
         return v1_prepare_json({"results": results})
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post("/batch-remove", response_model=dict[str, Any])
 async def batch_remove_from_watchlist(
@@ -509,7 +509,7 @@ async def batch_remove_from_watchlist(
         return v1_prepare_json({"results": results})
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post("/reorder", response_model=dict[str, Any])
 async def reorder_watchlist(
@@ -561,7 +561,7 @@ async def reorder_watchlist(
         return v1_prepare_json({"success": True})
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.put("/{code}/group", response_model=dict[str, Any])
 async def move_fund_to_group(
@@ -589,7 +589,7 @@ async def move_fund_to_group(
         return v1_prepare_json({"success": True})
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 # ==================== 同步接口 ====================
 
@@ -608,7 +608,7 @@ async def sync_watchlist(
         if since:
             try:
                 since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
-            except:
+            except Exception:
                 since_dt = None
         
         # 获取变更的自选项
@@ -681,7 +681,7 @@ async def sync_watchlist(
             "sync_time": datetime.utcnow().isoformat()
         })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.post("/sync", response_model=dict[str, Any])
 async def submit_sync_operations(
@@ -796,7 +796,7 @@ async def submit_sync_operations(
         return v1_prepare_json({"results": results})
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== 基金 AI 分析 ====================

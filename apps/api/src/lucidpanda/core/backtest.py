@@ -140,7 +140,7 @@ class BacktestEngine:
                 # 至少给 15-30 分钟缓冲时间，等 K 线固化
                 if (now - dt).total_seconds() > 1800:
                     ready_records.append((record, dt))
-            except:
+            except Exception:
                 continue
 
         if not ready_records:
@@ -227,7 +227,8 @@ class BacktestEngine:
                 try:
                     s_p = float(start_price)
                     e_p = float(end_price)
-                    if s_p == 0: continue
+                    if s_p == 0:
+                        continue
                     ret = (e_p - s_p) / s_p * 100
                     total_return += ret
                     if ret > 0:

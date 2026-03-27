@@ -66,7 +66,7 @@ async def get_mobile_intelligence(
         select(Intelligence)
         .where(Intelligence.category == "macro_gold")
         .where(Intelligence.status == "COMPLETED")
-        .where(Intelligence.summary != None)
+        .where(Intelligence.summary.is_not(None))
         .order_by(Intelligence.timestamp.desc())
         .limit(limit)
     )

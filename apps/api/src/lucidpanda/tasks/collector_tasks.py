@@ -168,7 +168,6 @@ async def fetch_single_feed_task(feed_name: str, feed_url: str, category: str) -
             # 原生的 await，快如闪电！
             items, _ = await source._fetch_feed_async(client, ssl_client, config)
 
-        new_count = len(items) if items else 0
         state = _get_feed_state(feed_name)
 
         saved = 0

@@ -63,7 +63,7 @@ class MarketCalendar:
             # We check if it's a trading day first.
             schedule = cal.schedule(start_date=target_date, end_date=target_date)
             return not schedule.empty
-        except:
+        except Exception:
             return target_date.weekday() < 5
 
 # Global helpers

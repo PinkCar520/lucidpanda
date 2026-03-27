@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
 from jose import jwt
 from passlib.context import CryptContext
@@ -10,11 +10,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against a hashed one."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bool(pwd_context.verify(plain_password, hashed_password))
 
 def get_password_hash(password: str) -> str:
     """Generate a bcrypt hash of a password."""
-    return pwd_context.hash(password)
+    return cast(str, pwd_context.hash(password))
 
 def create_access_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
     """Create a signed JWT access token."""
@@ -25,7 +25,7 @@ def create_access_token(subject: str | Any, expires_delta: timedelta | None = No
     
     to_encode = {"exp": expire, "sub": str(subject), "type": "access"}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
+    return cast(str, encoded_jwt)
 
 def create_refresh_token(subject: str | Any, expires_delta: timedelta | None = None) -> str:
     """Create a signed JWT refresh token."""
@@ -36,8 +36,8 @@ def create_refresh_token(subject: str | Any, expires_delta: timedelta | None = N
     
     to_encode = {"exp": expire, "sub": str(subject), "type": "refresh"}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    return encoded_jwt
+    return cast(str, encoded_jwt)
 
-def decode_token(token: str) -> dict:
+def decode_token(token: str) -> dict[str, Any]:
     """Decode a JWT token and return its payload."""
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+    return cast(dict[str, Any], jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]))

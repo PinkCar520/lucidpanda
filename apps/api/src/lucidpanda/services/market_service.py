@@ -75,7 +75,8 @@ class MarketService:
             if match:
                 parts = match.group(1).split(',')
                 return float(parts[1])
-        except: pass
+        except Exception:
+            pass
         return None
 
     def _fetch_fx_rate(self):
@@ -88,8 +89,9 @@ class MarketService:
             if match:
                 parts = match.group(1).split(',')
                 return float(parts[1]) # parts[1] is the current price
-        except: pass
-        return 7.2 # Safety fallback
+        except Exception:
+            pass
+        return 7.2  # Safety fallback
         
     def _fetch_intl_gold_price(self):
         """Fetch COMEX Gold price via AkShare."""
@@ -98,7 +100,8 @@ class MarketService:
             df = ak.futures_global_hist_em(symbol="GC00Y")
             if not df.empty:
                 return float(df.iloc[-1]['最新价'])
-        except: pass
+        except Exception:
+            pass
         return None
 
 market_service = MarketService()

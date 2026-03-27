@@ -32,7 +32,7 @@ async def get_entity_trend(
         }
     except Exception as e:
         logger.error(f"API Error in get_entity_trend: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 @router.get("/pulse/hotspots")
 async def get_hotspots(
@@ -51,4 +51,4 @@ async def get_hotspots(
         }
     except Exception as e:
         logger.error(f"API Error in get_hotspots: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        raise HTTPException(status_code=500, detail="Internal server error") from e

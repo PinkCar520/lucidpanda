@@ -29,9 +29,12 @@ class MarketRepo(DBBase):
         else:
             dt = dt.astimezone(pytz.utc)
         hour = dt.hour
-        if 0 <= hour < 8:   return "ASIA"
-        if 8 <= hour < 15:  return "LONDON"
-        if 15 <= hour < 22: return "NEWYORK"
+        if 0 <= hour < 8:
+            return "ASIA"
+        if 8 <= hour < 15:
+            return "LONDON"
+        if 15 <= hour < 22:
+            return "NEWYORK"
         return "LATE_NY"
 
     def get_advanced_metrics(self, dt, content):
@@ -55,7 +58,7 @@ class MarketRepo(DBBase):
                     """, (dt, dt))
                     exhaustion_score = float(cursor.fetchone()['exhaustion_count'])
             return clustering_score, exhaustion_score
-        except:
+        except Exception:
             return 0, 0.0
 
     def get_market_snapshot(self, ticker_symbol, target_time):
@@ -117,7 +120,8 @@ class MarketRepo(DBBase):
                         val = raw.split("\"")[1].split(",")[1]
                         if val and val != '0':
                             return round(float(val), 3)
-                except: pass
+                except Exception:
+                    pass
                 # 方案 B: AkShare fx_spot_quote (容错解析不同列名)
                 try:
                     df = ak.fx_spot_quote()
@@ -128,7 +132,8 @@ class MarketRepo(DBBase):
                         row = df[df[name_col].str.contains('美元指数|DXY|USDX', case=False, na=False)]
                         if not row.empty:
                             return round(float(row.iloc[0][price_col]), 3)
-                except: pass
+                except Exception:
+                    pass
 
             elif ticker_symbol == "^TNX": # 10年美债收益率
                 # 方案 A: AkShare 债券数据 (最稳定)
@@ -141,7 +146,8 @@ class MarketRepo(DBBase):
                             val = df.iloc[-1][rate_col]
                             if val and float(val) > 0:
                                 return round(float(val), 3)
-                except: pass
+                except Exception:
+                    pass
                 # 方案 B: 新浪
                 try:
                     url = "https://hq.sinajs.cn/list=TB10Y"  # 新浪10年期美债 symbol
@@ -151,7 +157,8 @@ class MarketRepo(DBBase):
                         val = raw.split("\"")[1].split(",")[1]
                         if val and val != '0':
                             return round(float(val), 3)
-                except: pass
+                except Exception:
+                    pass
 
             elif ticker_symbol == "^GVZ": # 黄金波动率 (CBOE GVZ)
                 # GVZ 是 CBOE 衍生出的 OTC 期权指数，国内没有稳定数据源
@@ -176,7 +183,8 @@ class MarketRepo(DBBase):
                     df = ak.futures_global_commodity_sina(symbol="WTI原油")
                     if not df.empty:
                         return round(float(df.iloc[0]['最新价']), 3)
-                except: pass
+                except Exception:
+                    pass
 
             # 3. Cache and Return
             if val is not None:
@@ -184,7 +192,8 @@ class MarketRepo(DBBase):
                     r = redis.from_url(settings.REDIS_URL, decode_responses=True)
                     r.setex(cache_key, 60, str(val)) # 60s TTL
                     # logger.debug(f"💾 Market Cache Set: {ticker_symbol} = {val}")
-                except: pass
+                except Exception:
+                    pass
                 return val
 
             return None

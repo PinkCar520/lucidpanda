@@ -83,7 +83,7 @@ def verify_passkey_registration(
         )
         return passkey
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 @router.post("/passkeys/login/options", response_model=Any)
 def get_passkey_login_options(
@@ -438,7 +438,7 @@ def refresh_token(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal authentication error during session refresh"
-        )
+        ) from e
         
     if not tokens:
         raise HTTPException(
@@ -517,7 +517,7 @@ async def upload_avatar(
         image.save(file_path, "WEBP", quality=85, optimize=True)
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not process image: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Could not process image: {str(e)}") from e
         
     avatar_url = f"/static/avatars/{filename}" 
     auth_service = AuthService(db)
@@ -571,7 +571,7 @@ def verify_email_change(
 @router.post("/forgot-password", response_model=MessageResponse)
 def forgot_password(request: Request, body: ForgotPasswordRequest, db: Session = Depends(get_db)):
     auth_service = AuthService(db)
-    raw_token = auth_service.generate_password_reset_token(body.email)
+    auth_service.generate_password_reset_token(body.email)
     return {"message": "If an account with that email exists, a password reset link has been sent."}
 
 @router.post("/reset-password", response_model=MessageResponse)

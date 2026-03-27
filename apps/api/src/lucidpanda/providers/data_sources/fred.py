@@ -87,7 +87,7 @@ class FredDataSource:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
         dashboard = {}
-        for series_id, res in zip(self.MACRO_INDICATORS.keys(), results):
+        for series_id, res in zip(self.MACRO_INDICATORS.keys(), results, strict=False):
             if isinstance(res, Exception):
                 logger.error(f"⚠️ 获取宏观指标 {series_id} 出现异常：{res}")
                 dashboard[series_id] = None

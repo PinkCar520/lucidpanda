@@ -1,6 +1,6 @@
 import asyncio
 from datetime import date, datetime, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/calendar", tags=["calendar"])
 
 # ==================== DTOs ====================
 
-class EventPeriod(str, Enum):
+class EventPeriod(StrEnum):
     PRE_MARKET = "pre_market"   # 盘前 (BMO)
     DURING_MARKET = "during"    # 盘中
     AFTER_HOURS = "after_hours" # 盘后 (AMC)
@@ -126,8 +126,10 @@ def _extract_yfinance_calendar_dates(cal_df: Any) -> dict[str, Any]:
                         # Try to detect period from timestamp if available
                         if hasattr(value, "hour"):
                             h = value.hour
-                            if h < 12: period = EventPeriod.PRE_MARKET
-                            elif h >= 16: period = EventPeriod.AFTER_HOURS
+                            if h < 12:
+                                period = EventPeriod.PRE_MARKET
+                            elif h >= 16:
+                                period = EventPeriod.AFTER_HOURS
                         
                         result[out_key] = {"date": d, "period": period}
     except Exception:
@@ -371,13 +373,17 @@ async def get_calendar_events(
         )
         for m in db.exec(stmt).all():
             desc_parts = [f"[{m.country}]"]
-            if m.previous_value: desc_parts.append(f"前:{m.previous_value}")
-            if m.forecast_value: desc_parts.append(f"预:{m.forecast_value}")
-            if m.actual_value:   desc_parts.append(f"今:{m.actual_value}")
+            if m.previous_value:
+                desc_parts.append(f"前:{m.previous_value}")
+            if m.forecast_value:
+                desc_parts.append(f"预:{m.forecast_value}")
+            if m.actual_value:
+                desc_parts.append(f"今:{m.actual_value}")
             
             # Try to parse string values to floats for macro_details
             def _try_float(v: str | None) -> float | None:
-                if not v: return None
+                if not v:
+                    return None
                 try:
                     # Clean common symbols like %, $, K, M
                     clean_v = v.replace("%", "").replace("$", "").replace("K", "").replace("M", "").strip()

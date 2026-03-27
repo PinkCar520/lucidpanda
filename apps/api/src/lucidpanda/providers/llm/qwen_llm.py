@@ -123,9 +123,11 @@ class QwenLLM(BaseLLM):
             raise e
 
     def _truncate_content(self, text: str, max_chars: int) -> str:
-        if not text: return ""
+        if not text:
+            return ""
         text = text.strip()
-        if len(text) <= max_chars: return text
+        if len(text) <= max_chars:
+            return text
         return text[:max_chars] + "...（已截断）"
 
     def _get_batch_prompt(self, news_items, taxonomy: dict | None = None):

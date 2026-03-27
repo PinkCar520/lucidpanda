@@ -560,19 +560,24 @@ class IntelligenceRepo(DBBase):
             snaps = market_snapshots or {}
             
             dxy = raw_data.get('dxy_snapshot') or snaps.get("DX-Y.NYB")
-            if dxy is None: dxy = self.get_market_snapshot("DX-Y.NYB", news_time)
+            if dxy is None:
+                dxy = self.get_market_snapshot("DX-Y.NYB", news_time)
             
             us10y = raw_data.get('us10y_snapshot') or snaps.get("^TNX")
-            if us10y is None: us10y = self.get_market_snapshot("^TNX", news_time)
+            if us10y is None:
+                us10y = self.get_market_snapshot("^TNX", news_time)
             
             gvz = raw_data.get('gvz_snapshot') or snaps.get("^GVZ")
-            if gvz is None: gvz = self.get_market_snapshot("^GVZ", news_time)
+            if gvz is None:
+                gvz = self.get_market_snapshot("^GVZ", news_time)
             
             gold = raw_data.get('gold_price_snapshot') or snaps.get("GC=F")
-            if gold is None: gold = self.get_market_snapshot("GC=F", news_time)
+            if gold is None:
+                gold = self.get_market_snapshot("GC=F", news_time)
             
             oil = raw_data.get('oil_price_snapshot') or snaps.get("CL=F")
-            if oil is None: oil = self.get_market_snapshot("CL=F", news_time)
+            if oil is None:
+                oil = self.get_market_snapshot("CL=F", news_time)
 
             # Define the actual save logic
             def _execute_save(active_conn):
@@ -683,7 +688,8 @@ class IntelligenceRepo(DBBase):
         """仅更新标杆节点的分析结果 (用于 Lead Evolution 自动融合阶段)"""
         try:
             def _to_jsonb(val):
-                if val is None: return None
+                if val is None:
+                    return None
                 return Jsonb(val)
                 
             with self._get_conn() as conn:
@@ -744,7 +750,6 @@ class IntelligenceRepo(DBBase):
                         import pickle
                         embedding_binary = pickle.dumps(analysis_result['embedding'])
                     entities = self._normalize_entities(analysis_result.get('entities'))
-                    tags = analysis_result.get('tags')
                     relation_triples = self._normalize_relations(analysis_result.get('relations'))
                     expectation_gap = None
                     agent_trace = analysis_result.get("agent_trace")
@@ -879,7 +884,6 @@ class IntelligenceRepo(DBBase):
             gvz = raw_data.get('gvz_snapshot') or self.get_market_snapshot("^GVZ", news_time)
 
             sentiment_score = analysis_result.get('sentiment_score', 0)
-            orig_score = sentiment_score
             fed_val = raw_data.get('fed_val', 0)
             macro_adj = 0.0
             if fed_val > 0:
@@ -1017,7 +1021,7 @@ class IntelligenceRepo(DBBase):
                     )
                     exists = cursor.fetchone() is not None
             return exists
-        except:
+        except Exception:
             return False
 
     def is_url_duplicate(self, new_url: str, exclude_id: int = None) -> dict:
@@ -1748,4 +1752,3 @@ class IntelligenceRepo(DBBase):
         except Exception as e:
             logger.error(f"find_graph_path 失败 [{from_entity} -> {to_entity}]: {e}")
             return {"paths": [], "max_hops": max_hops, "min_confidence": min_confidence}
-

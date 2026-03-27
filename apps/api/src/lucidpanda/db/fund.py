@@ -173,9 +173,12 @@ class FundRepo(DBBase):
                         dev = est - off
                         abs_dev = abs(dev)
                         status = 'S'
-                        if abs_dev >= 1.0:   status = 'C'
-                        elif abs_dev >= 0.5: status = 'B'
-                        elif abs_dev >= 0.2: status = 'A'
+                        if abs_dev >= 1.0:
+                            status = 'C'
+                        elif abs_dev >= 0.5:
+                            status = 'B'
+                        elif abs_dev >= 0.2:
+                            status = 'A'
                         cursor.execute("""
                             UPDATE fund_valuation_archive
                             SET deviation = %s, abs_deviation = %s, tracking_status = %s
@@ -260,7 +263,8 @@ class FundRepo(DBBase):
 
     def get_fund_stats(self, fund_codes):
         """Batch fetch fund statistics."""
-        if not fund_codes: return {}
+        if not fund_codes:
+            return {}
         try:
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
@@ -394,7 +398,8 @@ class FundRepo(DBBase):
 
     def delete_valuation_records_by_dates(self, dates: list):
         """Physically remove records for specific dates that have no official growth data."""
-        if not dates: return 0
+        if not dates:
+            return 0
         try:
             conn = self.get_connection()
             with conn.cursor() as cursor:
@@ -415,7 +420,8 @@ class FundRepo(DBBase):
 
     def get_fund_metadata_batch(self, fund_codes: list):
         """Fetch multiple fund metadata (name, type, fee rates) in one query."""
-        if not fund_codes: return {}
+        if not fund_codes:
+            return {}
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:
@@ -435,7 +441,8 @@ class FundRepo(DBBase):
 
     def get_fund_names(self, fund_codes: list):
         """Fetch multiple fund names from metadata in one query."""
-        if not fund_codes: return {}
+        if not fund_codes:
+            return {}
         conn = self.get_connection()
         try:
             with conn.cursor() as cursor:

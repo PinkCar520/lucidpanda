@@ -11,6 +11,7 @@ import pytz
 
 from src.lucidpanda.config import settings
 from src.lucidpanda.config.llm_config import LLMConfigManager
+from src.lucidpanda.core.di_container import EngineDependencies
 from src.lucidpanda.core.logger import logger
 
 # Prompt 模块（版本化管理，不再内嵌于代码）
@@ -73,8 +74,6 @@ class LLMFactory:
         # 如果没有可用的备用，返回第一个
         return fallback_order[0] if fallback_order else "qwen"
 
-
-from src.lucidpanda.core.di_container import EngineDependencies
 
 
 class AlphaEngine:
@@ -598,7 +597,7 @@ class AlphaEngine:
             if isinstance(sentiment_json, str):
                 try:
                     data = json.loads(sentiment_json.replace("'", '"'))
-                except:
+                except Exception:
                     data = {'en': sentiment_json}
             else:
                 data = sentiment_json
@@ -609,7 +608,7 @@ class AlphaEngine:
             if 'bearish' in text or 'negative' in text or 'downward' in text or 'pressure' in text:
                 return 'Short'
             return 'Neutral'
-        except:
+        except Exception:
             return 'Neutral'
 
     def _format_message(self, data):
@@ -626,10 +625,12 @@ class AlphaEngine:
             market_impact_str = str(market_implication)
 
         summary = data.get('summary', '')
-        if isinstance(summary, dict): summary = summary.get('zh') or summary.get('en')
+        if isinstance(summary, dict):
+            summary = summary.get('zh') or summary.get('en')
 
         advice = data.get('actionable_advice', '')
-        if isinstance(advice, dict): advice = advice.get('zh') or advice.get('en')
+        if isinstance(advice, dict):
+            advice = advice.get('zh') or advice.get('en')
 
         return f"""
 🚨 【LucidPanda 投资快报】

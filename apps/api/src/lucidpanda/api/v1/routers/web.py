@@ -6,6 +6,7 @@ from typing import Any
 
 import redis
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlmodel import Session, select, text
 
 from src.lucidpanda.auth.dependencies import get_current_user
@@ -194,7 +195,6 @@ async def get_web_intelligence_full(
     results = db.exec(statement).all()
     return {"data": [_with_confidence(item) for item in results]}
 
-from pydantic import BaseModel
 
 
 class WatchlistItemDTO(BaseModel):
