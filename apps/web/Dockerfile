@@ -1,34 +1,53 @@
-FROM node:22-alpine AS base
+# Build context: monorepo root (.)
+# This Dockerfile is referenced via: apps/web/Dockerfile
+# Build command: docker build -f apps/web/Dockerfile .
+# Docker Compose: context: . / dockerfile: apps/web/Dockerfile
+#
+# pnpm workspace layout expected in context root:
+#   pnpm-lock.yaml        ← monorepo lock file
+#   pnpm-workspace.yaml   ← workspace manifest
+#   package.json          ← root package.json
+#   apps/web/package.json ← web package.json
 
-# Install dependencies only when needed
+FROM node:22-alpine AS base
+# Enable corepack for pnpm support (node:22 ships with corepack built-in)
+RUN corepack enable
+
+# ── Stage: deps ──────────────────────────────────────────────
+# Install only production dependencies for the web workspace
 FROM base AS deps
-# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies based on the preferred package manager
-COPY package.json package-lock.json* ./
-RUN npm install --legacy-peer-deps
+# Copy only the files needed for dependency resolution
+# This layer is cached unless lock file or package manifests change
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/web/package.json ./apps/web/
 
-# Rebuild the source code only when needed
+# Install web workspace deps only (pnpm puts them in root node_modules via symlinks)
+RUN pnpm install --frozen-lockfile --filter web
+
+# ── Stage: builder ───────────────────────────────────────────
 FROM base AS builder
 WORKDIR /app
+
+# pnpm workspace layout: root node_modules holds the .pnpm virtual store,
+# apps/web/node_modules holds per-workspace symlinks (e.g. .bin/next → root .pnpm store)
+# Both are required for binaries like `next` to be found during build
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+# Copy full source (Dockerfile.dockerignore excludes node_modules so these won't be overwritten)
 COPY . .
 
-# Next.js collects completely anonymous telemetry data about general usage.
-# Learn more here: https://nextjs.org/telemetry
 ENV NEXT_TELEMETRY_DISABLED=1
-# Increase memory limit for Node.js build process to prevent hangs
 ENV NODE_OPTIONS="--max-old-space-size=2048"
-# Skip Sentry sourcemap upload during Docker build to avoid connectivity/auth hangs
 ENV SENTRY_SKIP_SOURCE_MAP_UPLOAD=true
 
 ARG CACHE_BUST=1
 
-RUN npm run build
+RUN pnpm --filter web run build
 
-# Production image, copy all the files and run next
+# ── Stage: runner ────────────────────────────────────────────
 FROM base AS runner
 WORKDIR /app
 
@@ -38,23 +57,19 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/public ./public
+COPY --from=builder /app/apps/web/public ./public
 
-# Set the correct permission for prerender cache
 RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
-# Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Next.js standalone output (configured in next.config.ts via output: 'standalone')
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
 
 USER nextjs
 
 EXPOSE 3000
-
 ENV PORT=3000
-# set hostname to localhost
 ENV HOSTNAME="0.0.0.0"
 ENV API_INTERNAL_URL="http://api:8001"
 

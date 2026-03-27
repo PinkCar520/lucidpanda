@@ -97,11 +97,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+          cache: 'pnpm'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       # 1. TypeScript 类型检查
       - name: TypeScript Check
@@ -109,7 +111,7 @@ jobs:
 
       # 2. ESLint
       - name: ESLint
-        run: npm run lint
+        run: pnpm run lint
 
       # 3. 单元测试
       - name: Jest Tests

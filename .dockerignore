@@ -1,4 +1,4 @@
-web/
+# ===== 后端 Python 构建无关内容 =====
 .git
 .github/
 .idea/
@@ -8,8 +8,17 @@ __pycache__/
 logs/
 data/
 *.db
-*.sql
+# *.sql 注释掉：infra/postgres/init_extensions.sql 需要被后端镜像COPY
 .env
 .DS_Store
 docs/
 tests/
+
+# ===== 前端 web 构建：允许 apps/web/ 中的源码，排除大文件 =====
+# 注意：不要写 "web/"，那会把 apps/web/ 也排除掉
+apps/web/node_modules/
+apps/web/.next/
+apps/web/.turbo/
+
+# ===== 其他 apps/packages 不需要的目录 =====
+node_modules/

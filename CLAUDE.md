@@ -15,7 +15,7 @@
 | iOS 移动端 | SwiftUI + Swift 5.9 | `mobile/ios/LucidPanda/` |
 
 **部署方式**：Docker Compose (`docker-compose.yml` + `docker-compose.override.yml`)
-**包管理**：`apps/web` 使用 `npm`（以 `apps/web/package-lock.json` 为准）。根目录有 `pnpm workspace` 作为 monorepo 协调层，但 web 子项目的实际包管理器是 **npm**，不得擅自更改。
+**包管理**：整个 monorepo 统一使用 **pnpm**（根目录 `package.json` 的 `packageManager` 字段锁定版本）。依赖通过根目录 `pnpm-lock.yaml` 统一管理。新增依赖使用 `pnpm add <pkg>`，**禁止使用 `npm install`**。Docker 构建上下文为根目录 `.`，Dockerfile 路径为 `apps/web/Dockerfile`。
 
 ---
 

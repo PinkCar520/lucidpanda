@@ -45,8 +45,8 @@ services:
   # Build frontend from local source
   web:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/web/Dockerfile
     # If you need hot reload for Next.js inside Docker, uncomment below:
     # volumes:
     #   - ./apps/web:/app
