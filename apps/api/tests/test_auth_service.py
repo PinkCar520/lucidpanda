@@ -1,4 +1,5 @@
 import pytest
+from sqlmodel import select
 
 from src.lucidpanda.auth.models import APIKey, User
 from src.lucidpanda.auth.service import AuthService
@@ -62,7 +63,7 @@ def test_api_key_lifecycle(auth_service):
 
     # 3. Update Key
     auth_service.update_api_key(user_id, str(api_key.id), name="Updated Key")
-    updated_key = auth_service.db.query(APIKey).get(api_key.id)
+    updated_key = auth_service.db.get(APIKey, api_key.id)
     assert updated_key.name == "Updated Key"
 
     # 4. Revoke Key
@@ -89,14 +90,14 @@ def test_two_fa_lifecycle(auth_service):
     success, msg = auth_service.verify_and_enable_2fa(user_id, secret, code)
     assert success is True
 
-    user_after = auth_service.db.query(User).get(user.id)
+    user_after = auth_service.db.get(User, user.id)
     assert user_after.is_two_fa_enabled is True
     assert user_after.two_fa_secret == secret
 
     # 3. Disable 2FA
     success = auth_service.disable_2fa(user_id)
     assert success is True
-    user_final = auth_service.db.query(User).get(user.id)
+    user_final = auth_service.db.get(User, user.id)
     assert user_final.is_two_fa_enabled is False
     assert user_final.two_fa_secret is None
 
@@ -136,8 +137,12 @@ def test_phone_binding(auth_service):
     from src.lucidpanda.auth.models import PhoneVerificationToken
 
     token = (
-        auth_service.db.query(PhoneVerificationToken)
-        .filter_by(phone_number=phone)
+        auth_service.db.execute(
+            select(PhoneVerificationToken).where(
+                PhoneVerificationToken.phone_number == phone
+            )
+        )
+        .scalars()
         .first()
     )
     assert token is not None

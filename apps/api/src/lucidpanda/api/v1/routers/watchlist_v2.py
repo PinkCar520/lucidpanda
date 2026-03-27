@@ -454,7 +454,7 @@ async def get_watchlist_v2(
             {
                 "data": items,
                 "groups": groups,
-                "sync_time": datetime.utcnow().isoformat(),
+                "sync_time": datetime.now(UTC).isoformat(),
             }
         )
     except Exception as e:
@@ -748,7 +748,7 @@ async def sync_watchlist(
             {
                 "data": items,
                 "groups": groups,
-                "sync_time": datetime.utcnow().isoformat(),
+                "sync_time": datetime.now(UTC).isoformat(),
             }
         )
     except Exception as e:

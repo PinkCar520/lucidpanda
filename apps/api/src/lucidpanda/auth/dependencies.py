@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlmodel import select
 
 from src.lucidpanda.auth.models import User
 from src.lucidpanda.auth.schemas import TokenPayload
@@ -52,7 +53,7 @@ async def get_current_user(
         print(f"[AUTH] Unexpected Error during decode: {e}")
         raise credentials_exception from e
 
-    user = db.query(User).filter(User.id == token_data.sub).first()
+    user = db.execute(select(User).where(User.id == token_data.sub)).scalars().first()
     if user is None:
         print(f"[AUTH] User not found: id={token_data.sub}")
         raise credentials_exception

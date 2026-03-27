@@ -98,7 +98,7 @@ async def get_mobile_intelligence(limit: int = 20, db: Session = Depends(get_ses
             summary_text = item.summary
 
         urgency_score = item.urgency_score if isinstance(item.urgency_score, int) else 0
-        timestamp = item.timestamp or datetime.utcnow()
+        timestamp = item.timestamp or datetime.now(UTC)
 
         sentiment_label = "Neutral"
         if isinstance(item.sentiment, dict):

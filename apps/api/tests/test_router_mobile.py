@@ -2,7 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, text
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 import unittest.mock as mock
 
 # Mock database_poller before anything else
@@ -42,7 +42,7 @@ def test_get_mobile_intelligence_with_data(session: Session):
         summary={"zh": "测试摘要", "en": "Test Summary"},
         sentiment={"zh": "看多", "en": "Bullish"},
         content="测试内容文本",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(UTC),
         urgency_score=8,
         sentiment_score=0.5,
         author="Test Author",
@@ -76,7 +76,7 @@ def test_get_market_pulse_complex(session: Session):
             category="macro_gold",
             status="COMPLETED",
             summary={"zh": f"Point {i}"},
-            timestamp=datetime.utcnow() - timedelta(hours=i),
+            timestamp=datetime.now(UTC) - timedelta(hours=i),
             urgency_score=7 + (i % 3),
             sentiment_score=0.1 * i
         )
@@ -94,7 +94,7 @@ def test_get_mobile_intelligence_ai_summary(session: Session):
     item = Intelligence(
         summary={"zh": "Test"},
         actionable_advice={"zh": "建议买入"},
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(UTC)
     )
     session.add(item)
     session.commit()
@@ -109,7 +109,7 @@ def test_get_mobile_intelligence_different_language(session: Session):
         category="macro_gold",
         status="COMPLETED",
         summary={"en": "Only English Summary"},
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(UTC),
         urgency_score=5
     )
     session.add(item)

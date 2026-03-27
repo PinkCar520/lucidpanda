@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import redis
@@ -334,7 +334,7 @@ async def invalidate_web_fused_cache(current_user: User = Depends(get_current_us
         {
             "success": True,
             "removed": removed,
-            "invalidated_at": datetime.utcnow(),
+            "invalidated_at": datetime.now(UTC),
         }
     )
 
@@ -437,7 +437,7 @@ async def get_web_graph_quality(
           AND timestamp >= :start_date
     """)
     from datetime import timedelta
-    start_date = datetime.utcnow() - timedelta(days=safe_days)
+    start_date = datetime.now(UTC) - timedelta(days=safe_days)
     summary_row = db.execute(summary_sql, {"start_date": start_date}).first()
     summary = dict(summary_row._mapping) if summary_row else {}
 
@@ -527,7 +527,7 @@ async def get_web_graph_quality(
         ORDER BY day ASC
     """)
     from datetime import timedelta
-    start_date = datetime.utcnow() - timedelta(days=safe_days)
+    start_date = datetime.now(UTC) - timedelta(days=safe_days)
     trend_rows = db.execute(trend_sql, {"start_date": start_date}).all()
     trend = []
     for row in trend_rows:
@@ -649,7 +649,7 @@ async def get_web_graph_quality(
             "daily_report": {
                 "days": safe_days,
                 "trend": trend,
-                "report_date": datetime.utcnow().date(),
+                "report_date": datetime.now(UTC).date(),
             },
             "version_compare": {
                 "current_days": safe_days,
@@ -660,7 +660,7 @@ async def get_web_graph_quality(
                     "delta": coverage_delta,
                 },
             },
-            "generated_at": datetime.utcnow(),
+            "generated_at": datetime.now(UTC),
         }
     )
 
@@ -739,7 +739,7 @@ async def get_web_sources_dashboard(
         LIMIT :limit
     """)
     from datetime import timedelta
-    start_date = datetime.utcnow() - timedelta(days=safe_days)
+    start_date = datetime.now(UTC) - timedelta(days=safe_days)
     leaderboard_rows = db.execute(
         leaderboard_sql, {"start_date": start_date, "limit": safe_limit}
     ).all()
@@ -819,7 +819,7 @@ async def get_web_sources_dashboard(
             "leaderboard": leaderboard,
             "trend": trend,
             "overview": overview,
-            "generated_at": datetime.utcnow(),
+            "generated_at": datetime.now(UTC),
         }
     )
 
