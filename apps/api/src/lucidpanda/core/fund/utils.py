@@ -33,12 +33,12 @@ def infer_market_region_from_meta(fund_code: str, meta: dict[str, Any] | None = 
 
 def get_market_day_progress(region: str, now_utc: datetime | None = None) -> float:
     """Return elapsed fraction [0, 1] for the current trading day."""
+    import pytz
+
     # Use timezone-aware UTC now to avoid deprecation warnings
     from datetime import timezone
-
-    import pytz
     now_utc = now_utc or datetime.now(timezone.utc)
-
+    
     if now_utc.tzinfo is None:
         now_utc = pytz.utc.localize(now_utc)
     else:

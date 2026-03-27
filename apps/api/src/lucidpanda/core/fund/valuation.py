@@ -1,11 +1,21 @@
 import json
 import logging
+import os
 import threading
-from datetime import datetime
+import asyncio
+from datetime import datetime, timezone
 from typing import Any
 
+import akshare as ak
+import pandas as pd
 import requests
-from src.lucidpanda.core.fund.holdings import update_fund_holdings
+import pytz
+
+from src.lucidpanda.core.fund.utils import (
+    calculate_fee_drag_pct,
+    get_market_day_progress,
+    infer_market_region_from_meta,
+)
 from src.lucidpanda.core.fund.metadata import (
     get_confidence_level,
     get_fund_name,
@@ -14,10 +24,9 @@ from src.lucidpanda.core.fund.metadata import (
     identify_shadow_etf,
     infer_risk_level,
 )
-from src.lucidpanda.core.fund.utils import (
-    calculate_fee_drag_pct,
-)
+from src.lucidpanda.core.fund.holdings import update_fund_holdings
 from src.lucidpanda.utils import format_iso8601
+from src.lucidpanda.utils.market_calendar import get_market_status
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +217,7 @@ def _batch_valuation_logic(db, redis_client, fund_codes, summary=False):
     for f_code in fund_codes:
         res = _process_single_fund_batch(db, redis_client, f_code, shadow_map, all_holdings, quotes, industry_map, fund_meta_map, fund_name_map, summary)
         results.append(res)
-
+    
     return results
 
 
@@ -265,7 +274,7 @@ def _fetch_batch_quotes(secids: list[str]) -> dict[str, dict[str, Any]]:
 def _process_single_fund_batch(db, redis_client, f_code, shadow_map, all_holdings, quotes, industry_map, fund_meta_map, fund_name_map, summary):
     f_name = fund_name_map.get(f_code, f_code)
     f_meta = fund_meta_map.get(f_code, {})
-
+    
     # Shadow Logic
     if f_code in shadow_map:
         return _calculate_shadow_valuation(db, redis_client, f_code, f_name, f_meta, shadow_map[f_code])
@@ -287,7 +296,7 @@ def _process_single_fund_batch(db, redis_client, f_code, shadow_map, all_holding
         impact = q['change_pct'] * (weight / 100.0) if q else 0.0
         total_impact += impact
         total_weight += weight
-
+        
         if not summary:
             # Sector aggregation...
             ind = industry_map.get(code, {'l1': "其他", 'l2': "其他"})
@@ -301,12 +310,12 @@ def _process_single_fund_batch(db, redis_client, f_code, shadow_map, all_holding
             components.append({"code": code, "impact": impact, "weight": weight, "change_pct": q['change_pct'] if q else 0})
 
     final_est = (total_impact * (100 / total_weight)) if total_weight > 0 else 0.0
-
+    
     # Post-processing (Bias, FX, Fees)
     bias = db.get_recent_bias(f_code)
     final_est -= bias
     if "QDII" in f_name: final_est += db.get_fx_rate_change(_infer_currency(f_name)) * 0.9
-
+    
     fee_drag, _, _, _, _ = calculate_fee_drag_pct(f_code, db, f_meta, f_name)
     final_est -= fee_drag
 
@@ -317,6 +326,6 @@ def _process_single_fund_batch(db, redis_client, f_code, shadow_map, all_holding
     }
     if not summary:
         res.update({"components": components, "sector_attribution": sector_stats})
-
+    
     if redis_client: redis_client.setex(f"fund:valuation:{f_code}", 180, json.dumps(res))
     return res
