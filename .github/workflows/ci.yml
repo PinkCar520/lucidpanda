@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main, develop]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ── 后端质量门禁 ──────────────────────────────
   backend:
@@ -16,7 +19,7 @@ jobs:
         working-directory: apps/api
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -91,17 +94,17 @@ jobs:
         working-directory: .  # pnpm-lock.yaml is at monorepo root
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # pnpm/action-setup MUST come before setup-node when using cache: 'pnpm'
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         # version auto-detected from packageManager field in root package.json
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -125,7 +128,7 @@ jobs:
     name: Docs Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check CLAUDE.md exists
         run: |
