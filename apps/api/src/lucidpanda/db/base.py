@@ -297,6 +297,78 @@ class DBBase:
                 CREATE INDEX IF NOT EXISTS idx_relation_rule_weight ON relation_rule_stats(weight DESC);
             """)
 
+            # ── 用户与认证 (PostgreSQL Only) ───────────────────────────────
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    username VARCHAR(50) UNIQUE,
+                    hashed_password VARCHAR(255) NOT NULL,
+                    name VARCHAR(100),
+                    nickname VARCHAR(100),
+                    avatar_url VARCHAR(255),
+                    role VARCHAR(20) DEFAULT 'user',
+                    is_active BOOLEAN DEFAULT TRUE,
+                    is_verified BOOLEAN DEFAULT FALSE,
+                    language_preference VARCHAR(10) DEFAULT 'en',
+                    timezone VARCHAR(50) DEFAULT 'UTC',
+                    theme_preference VARCHAR(20) DEFAULT 'system',
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+                
+                CREATE TABLE IF NOT EXISTS refresh_tokens (
+                    id SERIAL PRIMARY KEY,
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    token_hash VARCHAR(255) NOT NULL,
+                    device_info JSONB,
+                    ip_address INET,
+                    user_agent TEXT,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    last_active_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    revoked_at TIMESTAMPTZ
+                );
+                CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+
+                CREATE TABLE IF NOT EXISTS user_passkeys (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    credential_id VARCHAR(512) UNIQUE NOT NULL,
+                    public_key TEXT NOT NULL,
+                    sign_count INTEGER NOT NULL DEFAULT 0,
+                    name VARCHAR(100),
+                    transports JSONB,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    last_used_at TIMESTAMPTZ
+                );
+                CREATE INDEX IF NOT EXISTS idx_passkeys_credential_id ON user_passkeys(credential_id);
+
+                CREATE TABLE IF NOT EXISTS email_change_requests (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    old_email VARCHAR(255) NOT NULL,
+                    new_email VARCHAR(255) NOT NULL,
+                    old_email_token_hash VARCHAR(255) UNIQUE,
+                    new_email_token_hash VARCHAR(255) UNIQUE,
+                    old_email_verified_at TIMESTAMPTZ,
+                    new_email_verified_at TIMESTAMPTZ,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    is_completed BOOLEAN DEFAULT FALSE,
+                    is_cancelled BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+                    token_hash VARCHAR(255) UNIQUE NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
             # ── market_indicators ─────────────────────────────────────────
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS market_indicators (

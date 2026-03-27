@@ -15,7 +15,29 @@
 | iOS 移动端 | SwiftUI + Swift 5.9 | `mobile/ios/LucidPanda/` |
 
 **部署方式**：Docker Compose (`docker-compose.yml` + `docker-compose.override.yml`)
-**包管理**：整个 monorepo 统一使用 **pnpm**（根目录 `package.json` 的 `packageManager` 字段锁定版本）。依赖通过根目录 `pnpm-lock.yaml` 统一管理。新增依赖使用 `pnpm add <pkg>`，**禁止使用 `npm install`**。Docker 构建上下文为根目录 `.`，Dockerfile 路径为 `apps/web/Dockerfile`。
+**包管理**：整个 monorepo 统一使用 **pnpm**。
+**数据库初始化**：schema 随容器启动通过 `DBBase._init_db` 自动初始化（含 WebAuthn 和用户中心表）。**无需手动运行 `migrations/` 下的旧脚本**，除非是为了迁移存量数据。
+
+---
+
+## 🚀 快速启动与部署 (新服务器)
+
+1. **基础启动**：
+   ```bash
+   pnpm install
+   docker compose up -d
+   ```
+2. **初始化数据** (仅首次需手动执行一次)：
+   ```bash
+   # 进入 API 容器执行
+   docker exec -it lucid_panda_api /bin/bash
+   
+   # 同步基金/股票基础信息
+   python apps/api/scripts/backfills/sync_fund_metadata.py
+   python apps/api/scripts/backfills/sync_stock_metadata.py
+   # 补全拼音搜索字段
+   python apps/api/scripts/backfills/backfill_all_pinyin.py
+   ```
 
 **TypeScript 类型规范（Web）**
 官方推荐做法（核心）
