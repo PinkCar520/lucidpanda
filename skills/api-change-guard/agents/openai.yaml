@@ -1,0 +1,7 @@
+interface:
+  display_name: "API Change Guard"
+  short_description: "Guardrails for safe LucidPanda API changes"
+  default_prompt: "Use $api-change-guard to safely change a LucidPanda backend API without breaking Web, iOS, or tests."
+
+policy:
+  allow_implicit_invocation: true

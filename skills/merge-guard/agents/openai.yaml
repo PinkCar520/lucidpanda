@@ -1,0 +1,7 @@
+interface:
+  display_name: "Merge Guard"
+  short_description: "Safe merge checks for LucidPanda branches"
+  default_prompt: "Use $merge-guard to verify this LucidPanda branch is clean, scoped correctly, and safe to merge into main."
+
+policy:
+  allow_implicit_invocation: true

@@ -5,11 +5,32 @@ Replaces the old Celery setup with a lightweight, native asyncio TaskIQ broker
 using Redis as the message transport and Result Backend.
 """
 
+import asyncio
+from redis.exceptions import ConnectionError as RedisConnectionError
 from taskiq import TaskiqEvents, TaskiqScheduler, TaskiqState
 from taskiq.schedule_sources import LabelScheduleSource
 from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
 
 from src.lucidpanda.config import settings
+
+
+class RobustListQueueBroker(ListQueueBroker):
+    """
+    Robust version of ListQueueBroker that handles connection errors during shutdown.
+    
+    When TaskIQ worker shuts down, the Redis connection can be closed while the
+    prefetcher is still blocked on BRPOP, leading to redis.exceptions.ConnectionError.
+    This subclass catches and ignores these expected errors.
+    """
+    async def listen(self):
+        try:
+            async for message in super().listen():
+                yield message
+        except (RedisConnectionError, RuntimeError, asyncio.CancelledError):
+            # During shutdown, these errors are expected as the connection or loop 
+            # is closed while the prefetcher is still waiting on BRPOP. 
+            pass
+
 
 # 1. 配置结果后端 (Result Backend) - 可选，如果我们不需要保留任务结果，可以用 Dummy
 redis_result_backend: RedisAsyncResultBackend = RedisAsyncResultBackend(
@@ -17,7 +38,7 @@ redis_result_backend: RedisAsyncResultBackend = RedisAsyncResultBackend(
 )
 
 # 2. 配置主 Broker (ListQueueBroker 代替原有的 Celery Broker)
-broker = ListQueueBroker(
+broker = RobustListQueueBroker(
     url=settings.REDIS_URL,
 ).with_result_backend(redis_result_backend)
 

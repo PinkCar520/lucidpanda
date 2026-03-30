@@ -1,0 +1,7 @@
+interface:
+  display_name: "Bugfix Guard"
+  short_description: "Root-cause workflow for LucidPanda bug fixes"
+  default_prompt: "Use $bugfix-guard to reproduce a LucidPanda bug, isolate the root cause, and fix it without trial-and-error edits."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Frontend API Integration"
+  short_description: "Typed Web API integration for LucidPanda"
+  default_prompt: "Use $frontend-api-integration to connect a LucidPanda Web page or hook to a backend API with stable types and states."
+
+policy:
+  allow_implicit_invocation: true
