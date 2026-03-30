@@ -50,6 +50,8 @@ scheduler = TaskiqScheduler(
 )
 
 # IMPORTANT: Import tasks here to ensure they are registered with the broker/scheduler
+import src.lucidpanda.tasks.collector_tasks
+import src.lucidpanda.tasks.monitor_tasks
 
 
 # 当 FastAPI 或独立的 Worker 启动时，需要初始化这些东西

@@ -9,6 +9,15 @@ struct LucidPandaApp: App {
     // 全局状态管理
     @State private var rootViewModel = AppRootViewModel()
     @AppStorage("appLanguage") private var appLanguage: String = "system"
+    @AppStorage("appAppearance") private var appAppearance: String = "system"
+    
+    private var colorScheme: ColorScheme? {
+        switch appAppearance {
+        case "light": return .light
+        case "dark": return .dark
+        default: return nil
+        }
+    }
     
     // 初始化 SwiftData 容器
     var sharedModelContainer: ModelContainer = {
@@ -57,6 +66,7 @@ struct LucidPandaApp: App {
                 await rootViewModel.checkAuthentication()
             }
             .environment(\.locale, appLanguage == "system" ? .current : Locale(identifier: appLanguage))
+            .preferredColorScheme(colorScheme)
         }
         .modelContainer(sharedModelContainer) // 注入容器
     }

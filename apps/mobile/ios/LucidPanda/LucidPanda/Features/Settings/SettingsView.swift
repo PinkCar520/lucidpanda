@@ -28,6 +28,7 @@ struct SettingsView: View {
     @AppStorage("settings.notifications.price") private var priceAlertsEnabled = true
     @AppStorage("settings.security.biometric_unlock") private var biometricUnlockEnabled = false
     @AppStorage("appLanguage") private var appLanguage: String = "system"
+    @AppStorage("appAppearance") private var appAppearance: String = "system"
 
     let showCloseButton: Bool
 
@@ -514,6 +515,21 @@ struct SettingsView: View {
                         Text("settings.language.system").tag("system")
                         Text("settings.language.en").tag("en")
                         Text("settings.language.zh").tag("zh-Hans")
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                }
+            }
+
+            // MARK: - Appearance
+            Section(header: Text(LocalizedStringKey("settings.item.appearance"))) {
+                HStack {
+                    Text(LocalizedStringKey("settings.item.appearance"))
+                    Spacer()
+                    Picker("", selection: $appAppearance) {
+                        Text("common.system").tag("system")
+                        Text("common.light").tag("light")
+                        Text("common.dark").tag("dark")
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
