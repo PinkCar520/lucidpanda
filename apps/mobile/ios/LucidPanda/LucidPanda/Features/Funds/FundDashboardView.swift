@@ -378,6 +378,7 @@ struct FilterChip: View {
     var color: Color? = nil
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.colorScheme) var colorScheme
 
     var body: some View {
         Button(action: action) {
@@ -388,12 +389,20 @@ struct FilterChip: View {
                     Text(title)
                 }
             }
-            .font(.system(size: 16, weight: .medium))
+            .font(.system(size: 15, weight: .bold))
             .padding(.horizontal, 22)
-            .padding(.vertical, 12)
-            .foregroundStyle(isSelected ? (color ?? .blue) : .primary)
-            .glassEffect(.regular, in: .capsule)
-            .clipShape(Capsule())
+            .padding(.vertical, 10)
+            .foregroundStyle(isSelected ? (colorScheme == .dark ? .white : (color ?? Color.Alpha.brand)) : Color.Alpha.textSecondary)
+            .background(
+                Capsule()
+                    .fill(isSelected 
+                          ? (colorScheme == .dark ? Color.Alpha.brand.opacity(0.3) : (color?.opacity(0.08) ?? Color.Alpha.brand.opacity(0.08))) 
+                          : (colorScheme == .dark ? Color.Alpha.surface : Color.Alpha.surfaceContainerLow))
+            )
+            .overlay(
+                Capsule()
+                    .stroke((color ?? Color.Alpha.brand).opacity(isSelected ? 0.2 : 0), lineWidth: 1)
+            )
         }
     }
 }

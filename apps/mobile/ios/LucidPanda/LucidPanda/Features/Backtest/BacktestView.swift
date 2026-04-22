@@ -12,6 +12,7 @@ struct BacktestView: View {
     @State private var loadingEvidenceDetailId: Int?
     @State private var evidenceDetailError: String?
     @State private var showSettingsPopover = false
+    @Environment(\.colorScheme) var colorScheme
     private let logger = AppLog.dashboard
 
     @AppStorage("backtest.window") private var savedWindow = "1h"
@@ -21,50 +22,38 @@ struct BacktestView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                TaupeTheme.background.ignoresSafeArea()
+                Color.Alpha.background.ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 32) {
                         headerSection
 
-                        if let stats = viewModel.stats {
-                            ZStack {
-                                VStack(spacing: 20) {
-                                    statsGrid(stats)
-                                    hygieneSection(stats)
-                                    sessionChart(stats)
-                                    sessionBreakdownSection(stats)
-                                    environmentSection(stats)
+                        // 1. Configuration Section (Stitch Style)
+                        configurationCard()
 
-                                    if let dist = stats.distribution, !dist.isEmpty {
-                                        distributionChart(dist)
-                                    }
+                        // 2. Results Section (Existing Performance Metrics)
+                        VStack(spacing: 24) {
+                            resultsHeader
 
-                                    if let items = stats.items, !items.isEmpty {
-                                        evidenceListSection(items)
-                                    }
-                                }
-
-                                if stats.count == 0 {
-                                    noDataOverlay
-                                }
+                            if let stats = viewModel.stats {
+                                resultsContent(stats)
+                            } else if viewModel.isLoading {
+                                ProgressView().tint(Color.Alpha.brand).padding(.top, 40)
+                            } else {
+                                emptyStateView
                             }
-
-                        } else if viewModel.isLoading {
-                            ProgressView().tint(.blue).padding(.top, 40)
-                        } else {
-                            emptyStateView
                         }
 
                         if let errorMessage = viewModel.errorMessage {
                             Text(errorMessage)
-                                .font(.caption)
+                                .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(.red)
                                 .padding(.horizontal)
                         }
 
-                        Spacer(minLength: 100)
+                        Spacer(minLength: 120)
                     }
+                    .padding(.bottom, 40)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -111,29 +100,185 @@ struct BacktestView: View {
                         withAnimation(.spring()) { showSettingsPopover.toggle() }
                     } label: {
                         Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 16, weight: .medium))
-                            .padding(10)
-                            .clipShape(Circle())
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color.Alpha.textPrimary)
                     }
                 }
             }
         }
     }
     
-    // MARK: - Sub-View Sections
+    // MARK: - Configuration View
+    
+    private func configurationCard() -> some View {
+        @Bindable var bindable = viewModel
+        return LiquidGlassCard {
+            VStack(alignment: .leading, spacing: 20) {
+                Text("backtest.section.configuration")
+                    .font(.system(size: 11, weight: .black))
+                    .textCase(.uppercase)
+                    .kerning(1.5)
+                    .foregroundStyle(Color.Alpha.textSecondary.opacity(0.7))
+                
+                VStack(spacing: 16) {
+                    // Strategy Type
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("backtest.field.strategy_type")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.Alpha.textPrimary)
+                        
+                        Picker("", selection: $bindable.strategyType) {
+                            ForEach(BacktestViewModel.StrategyType.allCases) { type in
+                                Text(type.localizedName).tag(type)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(colorScheme == .dark ? Color.Alpha.surfaceContainerLow : Color.Alpha.surfaceContainerLow)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    
+                    // Date Range
+                    HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("backtest.field.start_date")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Color.Alpha.textPrimary)
+                            DatePicker("", selection: $bindable.startDate, displayedComponents: .date)
+                                .labelsHidden()
+                                .padding(4)
+                                .background(Color.Alpha.surfaceContainerLow)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("backtest.field.end_date")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(Color.Alpha.textPrimary)
+                            DatePicker("", selection: $bindable.endDate, displayedComponents: .date)
+                                .labelsHidden()
+                                .padding(4)
+                                .background(Color.Alpha.surfaceContainerLow)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    
+                    // Initial Capital
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("backtest.field.capital")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color.Alpha.textPrimary)
+                        
+                        HStack {
+                            Text(verbatim: "$")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.Alpha.textSecondary)
+                            TextField("10,000", value: $bindable.initialCapital, format: .number)
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                                .keyboardType(.numberPad)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
+                        .background(Color.Alpha.surfaceContainerLow)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+                
+                Button {
+                    let generator = UIImpactFeedbackGenerator(style: .heavy)
+                    generator.impactOccurred()
+                    Task { await viewModel.fetchStats() }
+                } label: {
+                    Text("backtest.action.run_btn")
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(colorScheme == .dark ? Color.Alpha.brand : Color(hex: "#8D7D77"))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .shadow(color: Color.black.opacity(0.15), radius: 10, y: 5)
+                }
+                .padding(.top, 12)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    private var resultsHeader: some View {
+        HStack {
+            Text("backtest.section.results")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Color.Alpha.textPrimary)
+            
+            Spacer()
+            
+            if viewModel.isLoading {
+                Text("backtest.status.simulating")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color.Alpha.brand)
+            } else {
+                Text("backtest.status.complete")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textSecondary.opacity(0.5))
+            }
+        }
+        .padding(.horizontal, 24)
+    }
+
+    @ViewBuilder
+    private func resultsContent(_ stats: BacktestStats) -> some View {
+        VStack(spacing: 24) {
+            statsGrid(stats)
+            hygieneSection(stats)
+            sessionChart(stats)
+            sessionBreakdownSection(stats)
+            environmentSection(stats)
+
+            if let dist = stats.distribution, !dist.isEmpty {
+                distributionChart(dist)
+            }
+
+            if let items = stats.items, !items.isEmpty {
+                evidenceListSection(items)
+            }
+        }
+    }
+    
+    // MARK: - Existing UI Components (Refined)
 
     private var headerSection: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("backtest.title")
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(red: 0.06, green: 0.09, blue: 0.16))
+                HStack(spacing: 4) {
+                    Text("backtest.title_prefix")
+                        .font(.system(size: 26, weight: .black))
+                        .foregroundStyle(Color.Alpha.textPrimary)
+                    Text("backtest.title_suffix")
+                        .font(.system(size: 26, weight: .black))
+                        .foregroundStyle(Color.Alpha.brand)
+                }
 
                 Text("backtest.subtitle")
-                    .font(.caption2)
-                    .foregroundStyle(.gray)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textSecondary.opacity(0.6))
+                    .textCase(.uppercase)
+                    .kerning(0.5)
             }
             Spacer()
+            
+            ZStack {
+                Circle()
+                    .fill(Color.Alpha.brand.opacity(0.15))
+                    .frame(width: 36, height: 36)
+                Text("AU")
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(Color.Alpha.brand)
+            }
+            .overlay(Circle().stroke(Color.Alpha.brand.opacity(0.3), lineWidth: 1))
         }
         .padding(.horizontal)
         .padding(.top, 24)
@@ -282,16 +427,19 @@ struct BacktestView: View {
     
     private func statItem(title: LocalizedStringKey, value: String, sub: LocalizedStringKey, color: Color = .primary) -> some View {
         LiquidGlassCard {
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 Text(title)
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(.gray)
+                    .font(.system(size: 9, weight: .black))
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.Alpha.textSecondary.opacity(0.5))
+                
                 Text(value)
-                    .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(color == .primary ? .primary : color)
+                    .font(.system(size: 20, weight: .black, design: .monospaced))
+                    .foregroundStyle(color == .primary ? Color.Alpha.textPrimary : color)
+                
                 Text(sub)
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(.gray.opacity(0.5))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textSecondary.opacity(0.3))
             }
             .frame(maxWidth: .infinity)
         }
@@ -472,23 +620,26 @@ struct BacktestView: View {
     
     private func sensitivityCard(title: LocalizedStringKey, stats: BacktestStats.SessionWinRate?) -> some View {
         LiquidGlassCard {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 10, weight: .black))
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.Alpha.textSecondary.opacity(0.6))
 
                 if let stats = stats {
                     HStack(alignment: .bottom, spacing: 2) {
                         Text(verbatim: "\(Int(stats.winRate))%")
-                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(.blue)
+                            .font(.system(size: 18, weight: .black, design: .monospaced))
+                            .foregroundStyle(Color.Alpha.brand)
                         Text("backtest.metric.win_rate_short")
-                            .font(.system(size: 7))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(Color.Alpha.textSecondary.opacity(0.4))
                             .padding(.bottom, 2)
                     }
                 } else {
-                    Text("backtest.state.insufficient_sample").font(.system(size: 10)).foregroundStyle(.tertiary)
+                    Text("backtest.state.insufficient_sample")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Color.Alpha.textSecondary.opacity(0.3))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

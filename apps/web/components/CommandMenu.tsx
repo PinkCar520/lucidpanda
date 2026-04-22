@@ -85,65 +85,68 @@ export default function CommandMenu() {
             open={open}
             onOpenChange={setOpen}
             label="Global Command Menu"
-            className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh] p-4 bg-slate-950/20 backdrop-blur-sm animate-in fade-in duration-300"
+            className="fixed inset-0 z-[200] flex items-start justify-center pt-[15vh] p-4 bg-on-surface/20 dark:bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-300"
         >
-            <div className="w-full max-w-[640px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="flex items-center px-4 border-b border-slate-100 dark:border-slate-800">
-                    <Search className="w-5 h-5 text-slate-400 mr-3" />
+            <div className="w-full max-w-[640px] bg-surface dark:bg-slate-900 border border-outline-variant/30 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                <div className="flex items-center px-4 border-b border-outline-variant/10 dark:border-slate-800">
+                    <Search className="w-5 h-5 text-on-surface-variant/40 dark:text-slate-500 mr-3" />
                     <Command.Input
                         autoFocus
                         placeholder={tCommand('placeholder')}
                         value={search}
                         onValueChange={setSearch}
-                        className="flex-1 h-14 bg-transparent outline-none text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+                        className="flex-1 h-14 bg-transparent outline-none text-sm font-sans text-on-surface dark:text-slate-100 placeholder:text-on-surface-variant/30 dark:placeholder:text-slate-500"
                     />
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[10px] font-bold text-slate-400">
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-outline-variant/20 dark:border-slate-700 bg-surface-container-low dark:bg-slate-800 text-[10px] font-bold text-on-surface-variant/40 dark:text-slate-500">
                         {tCommand('escLabel')}
                     </div>
                 </div>
 
                 <Command.List className="max-h-[400px] overflow-y-auto p-2 custom-scrollbar">
-                    <Command.Empty className="py-6 text-center text-sm text-slate-500">
+                    <Command.Empty className="py-10 text-center text-sm font-sans text-on-surface-variant/60 dark:text-slate-500">
                         {loading ? (
-                            <div className="flex items-center justify-center gap-2">
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                {tCommand('searching')}
+                            <div className="flex flex-col items-center justify-center gap-3">
+                                <Loader2 className="w-5 h-5 animate-spin text-primary dark:text-blue-500" />
+                                <span className="text-xs uppercase tracking-widest font-bold opacity-50">{tCommand('searching')}</span>
                             </div>
                         ) : (
-                            tCommand('noResults')
+                            <div className="flex flex-col items-center justify-center gap-2 opacity-40">
+                                <Search className="w-8 h-8 mb-2" />
+                                <span>{tCommand('noResults')}</span>
+                            </div>
                         )}
                     </Command.Empty>
 
                     {/* 1. Async Funds Search Results */}
                     {funds.length > 0 && (
-                        <Command.Group heading={tCommand('marketFundsGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <Command.Group heading={tCommand('marketFundsGroup')} className="px-3 py-2 text-[10px] font-bold text-on-surface-variant/40 dark:text-slate-500 uppercase tracking-[0.15em]">
                             {funds.map((fund) => (
                                 <div key={fund.code} className="flex flex-col gap-1 mb-1">
                                     <Command.Item
                                         onSelect={() => runCommand(() => router.push(`/funds?code=${fund.code}`))}
-                                        className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30 aria-selected:text-blue-600 dark:aria-selected:text-blue-400"
+                                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30 aria-selected:text-primary dark:aria-selected:text-blue-400"
                                     >
-                                        <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                                        <div className="w-9 h-9 rounded-lg bg-primary-container/10 dark:bg-emerald-900/30 flex items-center justify-center text-primary dark:text-emerald-500">
                                             <BarChart3 className="w-4 h-4" />
                                         </div>
                                         <div className="flex-1 flex flex-col min-w-0">
-                                            <span className="text-sm font-bold truncate">{fund.name}</span>
-                                            <span className="text-[10px] font-mono opacity-60">{tCommand('viewInFunds')} • {fund.code}</span>
+                                            <span className="text-sm font-bold font-display truncate">{fund.name}</span>
+                                            <span className="text-[10px] font-mono opacity-60 uppercase tracking-tight">{tCommand('viewInFunds')} • {fund.code}</span>
                                         </div>
-                                        <ChevronRight className="w-4 h-4 opacity-30" />
+                                        <ChevronRight className="w-4 h-4 opacity-20" />
                                     </Command.Item>
                                     <Command.Item
                                         onSelect={() => runCommand(() => router.push(`/?code=${fund.code}`))}
-                                        className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-indigo-50 dark:aria-selected:bg-indigo-900/30 aria-selected:text-indigo-600 dark:aria-selected:text-indigo-400"
+                                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/10 dark:aria-selected:bg-indigo-900/30 aria-selected:text-primary dark:aria-selected:text-indigo-400"
                                     >
-                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
+                                        <div className="w-9 h-9 rounded-lg bg-primary-container/20 dark:bg-indigo-900/30 flex items-center justify-center text-primary dark:text-indigo-400">
                                             <Terminal className="w-4 h-4" />
                                         </div>
                                         <div className="flex-1 flex flex-col min-w-0">
-                                            <span className="text-sm font-bold truncate">{tCommand('tradeFund', { fundName: fund.name })}</span>
-                                            <span className="text-[10px] font-mono opacity-60">{tCommand('openInTerminalForExecution')}</span>
+                                            <span className="text-sm font-bold font-display truncate">{tCommand('tradeFund', { fundName: fund.name })}</span>
+                                            <span className="text-[10px] font-mono opacity-60 uppercase tracking-tight">{tCommand('openInTerminalForExecution')}</span>
                                         </div>
-                                        <Zap className="w-4 h-4 opacity-30" />
+                                        <Zap className="w-4 h-4 opacity-20" />
                                     </Command.Item>
                                 </div>
                             ))}
@@ -152,104 +155,104 @@ export default function CommandMenu() {
 
 
                     {/* 1.5 Quick Actions */}
-                    <Command.Group heading={tCommand('quickActionsGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    <Command.Group heading={tCommand('quickActionsGroup')} className="px-3 py-2 text-[10px] font-bold text-on-surface-variant/40 dark:text-slate-500 uppercase tracking-[0.15em] mt-3">
                         <Command.Item
                             onSelect={() => runCommand(() => window.location.reload())}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30"
                         >
-                            <RefreshCw className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{tCommand('reloadAllData')}</span>
+                            <RefreshCw className="w-4 h-4 text-on-surface-variant/40 dark:text-slate-500" />
+                            <span className="text-sm font-medium">{tCommand('reloadAllData')}</span>
                         </Command.Item>
                     </Command.Group>
 
                     {/* 2. Primary Navigation */}
-                    <Command.Group heading={tCommand('navigationGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    <Command.Group heading={tCommand('navigationGroup')} className="px-3 py-2 text-[10px] font-bold text-on-surface-variant/40 dark:text-slate-500 uppercase tracking-[0.15em] mt-3">
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/`))}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30"
                         >
-                            <Terminal className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{tApp('sidebar.terminal')}</span>
+                            <Terminal className="w-4 h-4 text-on-surface-variant/40 dark:text-slate-500" />
+                            <span className="text-sm font-medium">{tApp('sidebar.terminal')}</span>
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/funds`))}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30"
                         >
-                            <BarChart3 className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{tApp('sidebar.alphaFunds')}</span>
+                            <BarChart3 className="w-4 h-4 text-on-surface-variant/40 dark:text-slate-500" />
+                            <span className="text-sm font-medium">{tApp('sidebar.alphaFunds')}</span>
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/backtest`))}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30"
                         >
-                            <Activity className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{tApp('sidebar.backtest')}</span>
+                            <Activity className="w-4 h-4 text-on-surface-variant/40 dark:text-slate-500" />
+                            <span className="text-sm font-medium">{tApp('sidebar.backtest')}</span>
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/graph`))}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30"
                         >
-                            <Network className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{tApp('sidebar.graph')}</span>
+                            <Network className="w-4 h-4 text-on-surface-variant/40 dark:text-slate-500" />
+                            <span className="text-sm font-medium">{tApp('sidebar.graph')}</span>
                         </Command.Item>
                     </Command.Group>
 
                     {/* 3. Account & Settings */}
-                    <Command.Group heading={tCommand('accountSettingsGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    <Command.Group heading={tCommand('accountSettingsGroup')} className="px-3 py-2 text-[10px] font-bold text-on-surface-variant/40 dark:text-slate-500 uppercase tracking-[0.15em] mt-3">
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/settings/account`))}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30"
                         >
-                            <Settings className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{tSettings('accountOverview')}</span>
+                            <Settings className="w-4 h-4 text-on-surface-variant/40 dark:text-slate-500" />
+                            <span className="text-sm font-medium">{tSettings('accountOverview')}</span>
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/settings/profile`))}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30"
                         >
-                            <User className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{tSettings('profile')}</span>
+                            <User className="w-4 h-4 text-on-surface-variant/40 dark:text-slate-500" />
+                            <span className="text-sm font-medium">{tSettings('profile')}</span>
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/settings/api-keys`))}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30"
                         >
-                            <Key className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{tSettings('apiKeys')}</span>
+                            <Key className="w-4 h-4 text-on-surface-variant/40 dark:text-slate-500" />
+                            <span className="text-sm font-medium">{tSettings('apiKeys')}</span>
                         </Command.Item>
                         <Command.Item
                             onSelect={() => runCommand(() => router.push(`/settings/security`))}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors aria-selected:bg-blue-50 dark:aria-selected:bg-blue-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all aria-selected:bg-primary/5 dark:aria-selected:bg-blue-900/30"
                         >
-                            <Shield className="w-4 h-4 text-slate-400" />
-                            <span className="text-sm">{tSettings('security')}</span>
+                            <Shield className="w-4 h-4 text-on-surface-variant/40 dark:text-slate-500" />
+                            <span className="text-sm font-medium">{tSettings('security')}</span>
                         </Command.Item>
                     </Command.Group>
 
                     {/* 4. System Actions */}
-                    <Command.Group heading={tCommand('systemGroup')} className="px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                    <Command.Group heading={tCommand('systemGroup')} className="px-3 py-2 text-[10px] font-bold text-on-surface-variant/40 dark:text-slate-500 uppercase tracking-[0.15em] mt-3">
                         <Command.Item
                             onSelect={() => runCommand(() => atomicSignOut(locale as string))}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors aria-selected:bg-red-50 dark:aria-selected:bg-red-900/30"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 aria-selected:bg-red-500 aria-selected:text-white dark:aria-selected:bg-red-900/40 dark:aria-selected:text-red-400"
                         >
                             <LogOut className="w-4 h-4" />
-                            <span className="text-sm">{tAuth('signOut')}</span>
+                            <span className="text-sm font-bold">{tAuth('signOut')}</span>
                         </Command.Item>
                     </Command.Group>
                 </Command.List>
 
                 {/* Footer */}
-                <div className="px-4 py-3 bg-slate-50 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-medium text-slate-400 uppercase tracking-widest">
-                    <div className="flex items-center gap-4">
-                        <span className="flex items-center gap-1.5">
-                            <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">↑↓</kbd> {tCommand('navigateHint')}
+                <div className="px-4 py-3.5 bg-surface-container-low dark:bg-slate-950/50 border-t border-outline-variant/10 dark:border-slate-800 flex items-center justify-between text-[9px] font-bold text-on-surface-variant/40 dark:text-slate-600 uppercase tracking-[0.1em]">
+                    <div className="flex items-center gap-5">
+                        <span className="flex items-center gap-2">
+                            <kbd className="px-1.5 py-0.5 rounded bg-surface-container-lowest dark:bg-slate-800 border border-outline-variant/20 dark:border-slate-700 shadow-sm text-on-surface-variant/60 dark:text-slate-400">↑↓</kbd> {tCommand('navigateHint')}
                         </span>
-                        <span className="flex items-center gap-1.5">
-                            <kbd className="px-1 py-0.5 rounded bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">ENTER</kbd> {tCommand('selectHint')}
+                        <span className="flex items-center gap-2">
+                            <kbd className="px-1.5 py-0.5 rounded bg-surface-container-lowest dark:bg-slate-800 border border-outline-variant/20 dark:border-slate-700 shadow-sm text-on-surface-variant/60 dark:text-slate-400">ENTER</kbd> {tCommand('selectHint')}
                         </span>
                     </div>
-                    <div className="flex items-center gap-1.5 font-data">
-                        LucidPanda {tCommand('shellVersion')} v1.1
+                    <div className="flex items-center gap-2 font-mono opacity-60">
+                        LUCIDPANDA {tCommand('shellVersion')} V1.2
                     </div>
                 </div>
             </div>

@@ -4,85 +4,35 @@ import AlphaData
 import AlphaCore
 
 struct IntelligenceItemCard: View {
+    enum Style {
+        case featured
+        case standard
+    }
+    
     let item: IntelligenceItem
-
+    let style: Style
+    
     @State private var isPressed: Bool = false
     @State private var showPeek: Bool = false
+    @Environment(\.colorScheme) var colorScheme
+    @Environment(AppRootViewModel.self) private var rootViewModel
 
     var body: some View {
-        LiquidGlassCard {
-            VStack(alignment: .leading, spacing: 14) {
-                // Header row
-                HStack {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bolt.fill")
-                        Text(verbatim: "\(item.urgencyScore)")
-                    }
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(item.urgencyScore >= 8 ? Color.Alpha.down.opacity(0.15) : Color.Alpha.separator.opacity(0.6))
-                    .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.textSecondary)
-                    .clipShape(Capsule())
-
-                    Spacer()
-
-                    Text(dateFormatter.string(from: item.timestamp))
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(Color.Alpha.textSecondary)
-                }
-
-                // Body
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(item.summary)
-                        .font(.system(size: 15, weight: .regular))
-                        .foregroundStyle(Color.Alpha.textPrimary)
-                        .lineLimit(2)
-
-                    Text(item.content)
-                        .font(.caption)
-                        .foregroundStyle(Color.Alpha.textSecondary)
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                }
-
-                // Footer
-                HStack {
-                    Label(item.author, systemImage: "newspaper.fill")
-                        .foregroundStyle(Color.Alpha.textSecondary)
-
-                    Spacer()
-
-                    if let price = item.goldPriceSnapshot {
-                        HStack(spacing: 4) {
-                            Text("dashboard.asset.gold")
-                                .font(.system(size: 8, weight: .medium))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(Color.Alpha.separator.opacity(0.8))
-                                .cornerRadius(4)
-
-                            Text("$\(String(format: "%.1f", price))")
-                                .fontWeight(.semibold)
-                        }
-                        .foregroundStyle(Color.Alpha.textSecondary)
-                    }
-
-                    // Long-press hint icon
-                    Image(systemName: "hand.tap.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.Alpha.textSecondary.opacity(0.7))
-                        .padding(.leading, 6)
-                }
-                .font(.system(size: 10, design: .monospaced))
-                .padding(.top, 4)
+        Group {
+            switch style {
+            case .featured:
+                featuredLayout
+            case .standard:
+                standardLayout
             }
         }
-        .scaleEffect(isPressed ? 0.97 : 1.0)
+        .scaleEffect(isPressed ? 0.98 : 1.0)
         .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
         .onLongPressGesture(minimumDuration: 0.4, pressing: { pressing in
             withAnimation { isPressed = pressing }
         }, perform: {
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
             showPeek = true
         })
         .sheet(isPresented: $showPeek) {
@@ -90,15 +40,146 @@ struct IntelligenceItemCard: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
-        .transition(.asymmetric(
-            insertion: .move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.9)),
-            removal: .opacity
-        ))
+    }
+    
+    // MARK: - Layouts
+
+    private var featuredLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Image placeholder
+            ZStack(alignment: .bottomLeading) {
+                Rectangle()
+                    .fill(Color.Alpha.surfaceContainerLow)
+                    .aspectRatio(16/9, contentMode: .fit)
+                    .overlay(
+                        Image(systemName: "chart.line.uptrend.xyaxis")
+                            .font(.system(size: 40))
+                            .foregroundStyle(Color.Alpha.brand.opacity(0.2))
+                    )
+                
+                HStack(spacing: 8) {
+                    Text("dashboard.badge.featured")
+                        .font(.system(size: 9, weight: .black))
+                        .textCase(.uppercase)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.Alpha.brand.opacity(0.1))
+                        .foregroundStyle(Color.Alpha.brand)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                    
+                    Text("dashboard.read_time.format \(5)")
+                        .font(.system(size: 9, weight: .bold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.Alpha.textSecondary.opacity(0.8))
+                }
+                .padding(16)
+            }
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text(item.summary)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textPrimary)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+
+                Text(item.content)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.Alpha.textSecondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                
+                Text("dashboard.action.read_full")
+                    .font(.system(size: 13, weight: .black))
+                    .textCase(.uppercase)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.Alpha.brand)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .shadow(color: Color.Alpha.brand.opacity(0.25), radius: 5, y: 3)
+            }
+            .padding(20)
+            .background(Color.Alpha.surface)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.Alpha.separator, lineWidth: 1)
+        )
+        .shadow(color: colorScheme == .light ? Color.black.opacity(0.04) : Color.clear, radius: 4, y: 2)
+    }
+
+    private var standardLayout: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 10) {
+                // Meta info
+                HStack(spacing: 8) {
+                    Text(verbatim: "\(item.urgencyScore).0")
+                        .font(.system(size: 10, weight: .black, design: .monospaced))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(item.urgencyScore >= 8 ? Color.Alpha.down.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
+                        .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.brand)
+                        .clipShape(RoundedRectangle(cornerRadius: 2))
+
+                    Text(item.author)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.Alpha.taupe)
+                    
+                    Spacer()
+                    
+                    Text(dateFormatter.string(from: item.timestamp))
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.Alpha.taupe.opacity(0.6))
+                }
+
+                // Summary
+                Text(item.summary)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textPrimary)
+                    .lineLimit(2)
+                    .lineSpacing(2)
+                    .multilineTextAlignment(.leading)
+
+                // Asset Snapshot
+                if let price = item.goldPriceSnapshot {
+                    HStack(spacing: 4) {
+                        Text("dashboard.asset.gold")
+                            .font(.system(size: 8, weight: .black))
+                            .foregroundStyle(Color.Alpha.brand)
+                        Text(String(format: "$%.1f", price))
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color.Alpha.textSecondary)
+                    }
+                }
+            }
+            
+            Spacer()
+            
+            // Thumbnail placeholder
+            Rectangle()
+                .fill(Color.Alpha.surfaceContainerLow)
+                .frame(width: 80, height: 80)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .overlay(
+                    Image(systemName: "newspaper.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Color.Alpha.brand.opacity(0.15))
+                )
+        }
+        .padding(14)
+        .background(Color.Alpha.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.Alpha.separator.opacity(0.5), lineWidth: 1)
+        )
+        .shadow(color: colorScheme == .light ? Color.black.opacity(0.02) : Color.clear, radius: 2, y: 1)
     }
 
     private var dateFormatter: DateFormatter {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.dateFormat = "HH:mm"
         return formatter
     }
 }
@@ -115,120 +196,125 @@ struct IntelligencePeekSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+            ZStack {
+                Color.Alpha.background.ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
 
-                    // Meta row
-                    HStack(spacing: 8) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "bolt.fill")
-                            Text(verbatim: "\(item.urgencyScore)")
-                        }
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(item.urgencyScore >= 8 ? Color.red.opacity(0.15) : TaupeTheme.taupe800.opacity(0.6))
-                        .foregroundStyle(item.urgencyScore >= 8 ? Color.red : TaupeTheme.taupe200)
-                        .clipShape(Capsule())
-
-                        Spacer()
-
-                        Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(TaupeTheme.taupe400)
-                    }
-
-                    // Title
-                    Text(item.summary)
-                        .font(.title3)
-                        .fontWeight( .medium)
-                        .foregroundStyle(Color.Alpha.textPrimary)
-
-                    // Full content
-                    Text(item.content)
-                        .font(.body)
-                        .foregroundStyle(Color.Alpha.textSecondary)
-                        .lineSpacing(5)
-
-                    // Source & Asset row — matching card footer
-                    HStack {
-                        Label(item.author, systemImage: "newspaper.fill")
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(Color.Alpha.textSecondary)
-                        
-                        Spacer()
-                        
-                        if let price = item.goldPriceSnapshot {
+                        // Meta row
+                        HStack(spacing: 8) {
                             HStack(spacing: 4) {
-                                Text("dashboard.asset.gold")
-                                    .font(.system(size: 8, weight: .medium))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 2)
-                                    .background(Color.Alpha.separator.opacity(0.8))
-                                    .cornerRadius(4)
-                                
-                                Text("$\(String(format: "%.1f", price))")
-                                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                Image(systemName: "bolt.fill")
+                                Text(verbatim: "\(item.urgencyScore)")
                             }
-                            .foregroundStyle(Color.Alpha.textSecondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    Divider()
-
-                    // AI Analysis Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Label(LocalizedStringKey("intelligence.analysis.title"), systemImage: "sparkles")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Color.Alpha.brand)
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(item.urgencyScore >= 8 ? Color.Alpha.down.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
+                            .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.brand)
+                            .clipShape(Capsule())
 
                             Spacer()
 
-                            if aiSummary == nil {
-                                Button {
-                                    Task { await runAIAnalysis() }
-                                } label: {
-                                    if isAnalyzing {
-                                        HStack(spacing: 6) {
-                                            ProgressView().scaleEffect(0.75)
-                                            Text(LocalizedStringKey("intelligence.analysis.analyzing"))
-                                                .font(.system(size: 13, weight: .medium))
-                                        }
-                                    } else {
-                                        Text(LocalizedStringKey("intelligence.analysis.start"))
-                                            .font(.system(size: 13, weight: .medium))
-                                            .foregroundStyle(.white)
-                                            .padding(.horizontal, 14)
-                                            .padding(.vertical, 7)
-                                            .background(Color.Alpha.brand)
-                                            .clipShape(Capsule())
-                                    }
+                            Text(item.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(Color.Alpha.taupe)
+                        }
+
+                        // Title
+                        Text(item.summary)
+                            .font(.title3)
+                            .fontWeight( .medium)
+                            .foregroundStyle(Color.Alpha.textPrimary)
+
+                        // Full content
+                        Text(item.content)
+                            .font(.body)
+                            .foregroundStyle(Color.Alpha.textSecondary)
+                            .lineSpacing(5)
+
+                        // Source & Asset row — matching card footer
+                        HStack {
+                            Label(item.author, systemImage: "newspaper.fill")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(Color.Alpha.textSecondary)
+                            
+                            Spacer()
+                            
+                            if let price = item.goldPriceSnapshot {
+                                HStack(spacing: 4) {
+                                    Text("dashboard.asset.gold")
+                                        .font(.system(size: 8, weight: .medium))
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 2)
+                                        .background(Color.Alpha.separator.opacity(0.8))
+                                        .cornerRadius(4)
+                                    
+                                    Text("$\(String(format: "%.1f", price))")
+                                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                                 }
-                                .disabled(isAnalyzing)
+                                .foregroundStyle(Color.Alpha.textSecondary)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                        if let result = aiSummary {
-                            Text(result)
-                                .font(.subheadline)
-                                .foregroundStyle(Color.Alpha.textPrimary.opacity(0.85))
-                                .lineSpacing(4)
-                                .padding(14)
-                                .background(Color.Alpha.brand.opacity(0.06))
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
+                        Divider().background(Color.Alpha.separator)
 
-                        if let err = analyzeError {
-                            Text(err)
-                                .font(.caption)
-                                .foregroundStyle(.red)
+                        // AI Analysis Section
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Label(LocalizedStringKey("intelligence.analysis.title"), systemImage: "sparkles")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(Color.Alpha.brand)
+
+                                Spacer()
+
+                                if aiSummary == nil {
+                                    Button {
+                                        Task { await runAIAnalysis() }
+                                    } label: {
+                                        if isAnalyzing {
+                                            HStack(spacing: 6) {
+                                                ProgressView().scaleEffect(0.75)
+                                                Text(LocalizedStringKey("intelligence.analysis.analyzing"))
+                                                    .font(.system(size: 13, weight: .medium))
+                                                    .foregroundStyle(Color.Alpha.textSecondary)
+                                            }
+                                        } else {
+                                            Text(LocalizedStringKey("intelligence.analysis.start"))
+                                                .font(.system(size: 13, weight: .medium))
+                                                .foregroundStyle(.white)
+                                                .padding(.horizontal, 14)
+                                                .padding(.vertical, 7)
+                                                .background(Color.Alpha.brand)
+                                                .clipShape(Capsule())
+                                        }
+                                    }
+                                    .disabled(isAnalyzing)
+                                }
+                            }
+
+                            if let result = aiSummary {
+                                Text(result)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color.Alpha.textPrimary.opacity(0.85))
+                                    .lineSpacing(4)
+                                    .padding(14)
+                                    .background(Color.Alpha.brand.opacity(0.06))
+                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                            }
+
+                            if let err = analyzeError {
+                                Text(err)
+                                    .font(.caption)
+                                    .foregroundStyle(Color.Alpha.down)
+                            }
                         }
                     }
+                    .padding(20)
                 }
-                .padding(20)
             }
             .navigationTitle(LocalizedStringKey("intelligence.analysis.quick_view"))
             .navigationBarTitleDisplayMode(.inline)

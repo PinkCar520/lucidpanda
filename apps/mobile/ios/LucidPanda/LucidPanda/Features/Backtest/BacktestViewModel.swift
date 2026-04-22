@@ -11,10 +11,35 @@ class BacktestViewModel {
     private let logger = AppLog.dashboard
     var stats: BacktestStats?
     var isLoading = false
+    var errorMessage: String?
+    
+    // --- Signal Filter Config (Existing) ---
     var selectedWindow: String = "1h"
     var minScore: Int = 8
     var sentiment: String = "bearish"
-    var errorMessage: String?
+    
+    // --- Simulation Config (New) ---
+    var strategyType: StrategyType = .meanReversion
+    var startDate: Date = Calendar.current.date(byAdding: .month, value: -6, to: Date()) ?? Date()
+    var endDate: Date = Date()
+    var initialCapital: Double = 10000
+    
+    enum StrategyType: String, CaseIterable, Identifiable {
+        case meanReversion = "mean-reversion"
+        case momentum = "momentum"
+        case breakout = "breakout"
+        case arbitrage = "arbitrage"
+        
+        var id: String { rawValue }
+        var localizedName: String {
+            switch self {
+            case .meanReversion: return String(localized: "backtest.strategy.mean_reversion")
+            case .momentum: return String(localized: "backtest.strategy.momentum")
+            case .breakout: return String(localized: "backtest.strategy.breakout")
+            case .arbitrage: return String(localized: "backtest.strategy.arbitrage")
+            }
+        }
+    }
     
     private var pendingRefreshTask: Task<Void, Never>?
     private var inFlightFetchTask: Task<Void, Never>?

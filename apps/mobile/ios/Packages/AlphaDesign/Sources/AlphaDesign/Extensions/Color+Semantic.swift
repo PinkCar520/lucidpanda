@@ -7,13 +7,67 @@ public extension Color {
     struct Alpha {
         // MARK: - Brand & Interactive Structure
         
-        /// Brand accent color (#B35919) - Gold Quant Orange
-        public static let brand = Color(hex: "#B35919")
+        /// Brand accent color (#b35919) - Editorial Gold
+        public static var brand: Color {
+            Color(hex: "#b35919")
+        }
         
-        /// Primary brand color.
-        public static let primary = brand
+        public static var primary: Color { brand }
         
-        // MARK: - Taupe Scale (Tailwind Stone/Taupe equivalent)
+        /// Secondary brand color (#D4A373)
+        public static var primaryContainer: Color {
+            Color(UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark
+                    ? UIColor(hex: "#1E3A8A")
+                    : UIColor(hex: "#D4A373")
+            })
+        }
+        
+        // MARK: - Surface Hierarchy (The Quiet Editorial)
+        
+        public static var surface: Color {
+            Color(UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark
+                    ? UIColor(hex: "#1E1E1E")
+                    : UIColor(hex: "#ffffff") // card / white
+            })
+        }
+        
+        public static var surfaceContainerLow: Color {
+            Color(UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark
+                    ? UIColor(hex: "#121212")
+                    : UIColor(hex: "#f4f3f1") // surface-container-low
+            })
+        }
+        
+        public static var surfaceContainerLowest: Color {
+            Color(UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark
+                    ? UIColor(hex: "#1E1E1E")
+                    : UIColor(hex: "#FFFFFF") // surface-container-lowest
+            })
+        }
+        
+        public static var surfaceDim: Color {
+            Color(UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark
+                    ? UIColor(hex: "#0C0A09")
+                    : UIColor(hex: "#DBDAD7") // surface-dim
+            })
+        }
+        
+        /// Dynamic Taupe for metadata and secondary headers
+        public static var taupe: Color {
+            Color(UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark
+                    ? UIColor(hex: "#8D827A") // Taupe for dark
+                    : UIColor(hex: "#6b645f") // Darkened Taupe for light
+            })
+        }
+        
+        // MARK: - Foundational Tokens (Taupe Scale)
+        
         public static let taupe50  = Color(hex: "#F5F5F4")
         public static let taupe100 = Color(hex: "#E7E5E4")
         public static let taupe200 = Color(hex: "#D6D3D1")
@@ -27,61 +81,60 @@ public extension Color {
         
         // MARK: - Semantic Mappings
         
-        /// App Background (#121212 in Design)
         public static var background: Color {
             Color(UIColor { traitCollection in
                 traitCollection.userInterfaceStyle == .dark
                     ? UIColor(hex: "#121212")
-                    : UIColor(hex: "#F5F5F4")
+                    : UIColor(hex: "#f8f8f7") // Off-white
             })
         }
         
-        /// Surface color (Cards, Modals) (#1E1E1E in Design)
-        public static var surface: Color {
-            Color(UIColor { traitCollection in
-                traitCollection.userInterfaceStyle == .dark
-                    ? UIColor(hex: "#1E1E1E")
-                    : UIColor(hex: "#FFFFFF")
-            })
-        }
-        
-        /// Borders and separators.
         public static var separator: Color {
             Color(UIColor { traitCollection in
                 traitCollection.userInterfaceStyle == .dark
                     ? UIColor(hex: "#292524")
-                    : UIColor(hex: "#E7E5E4")
+                    : UIColor(hex: "#E5E7EB") // gray-200
             })
         }
         
         // MARK: - Financial Semantics
         
         /// Up / Bullish (Emerald Green)
-        public static let up = Color(hex: "#10B981")
+        public static var up: Color {
+            Color(UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark
+                    ? UIColor(hex: "#10B981")
+                    : UIColor(hex: "#059669") // Slightly deeper green for light mode
+            })
+        }
         
         /// Down / Bearish (Rose Red)
-        public static let down = Color(hex: "#EF4444")
+        public static var down: Color {
+            Color(UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark
+                    ? UIColor(hex: "#EF4444")
+                    : UIColor(hex: "#DC2626") // Slightly deeper red for light mode
+            })
+        }
         
         /// Neutral / Flat
         public static let neutral = Color(hex: "#78716C")
         
         // MARK: - Typography
         
-        /// Primary Text
         public static var textPrimary: Color {
             Color(UIColor { traitCollection in
                 traitCollection.userInterfaceStyle == .dark
-                    ? UIColor(hex: "#E7E5E4") // Taupe 100
-                    : UIColor(hex: "#0C0A09") // Taupe 900
+                    ? UIColor(hex: "#E7E5E4")
+                    : UIColor(hex: "#1a1a1a") // Primary text
             })
         }
         
-        /// Secondary Text
         public static var textSecondary: Color {
             Color(UIColor { traitCollection in
                 traitCollection.userInterfaceStyle == .dark
-                    ? UIColor(hex: "#A8A29E") // Taupe 300
-                    : UIColor(hex: "#57534E") // Taupe 500
+                    ? UIColor(hex: "#A8A29E")
+                    : UIColor(hex: "#4b5563") // gray-600
             })
         }
     }

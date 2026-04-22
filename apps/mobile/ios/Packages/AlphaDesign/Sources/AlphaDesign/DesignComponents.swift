@@ -13,6 +13,7 @@ public struct LiquidGlassCard<Content: View>: View {
     let content: Content
     var backgroundColor: Color?
     var showBorder: Bool
+    @Environment(\.colorScheme) var colorScheme
 
     public init(backgroundColor: Color? = nil, showBorder: Bool = false, @ViewBuilder content: () -> Content) {
         self.backgroundColor = backgroundColor
@@ -22,20 +23,17 @@ public struct LiquidGlassCard<Content: View>: View {
 
     public var body: some View {
         content
-            .padding(18)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(backgroundColor ?? Color.Alpha.surface)
             )
             .overlay(
-                Group {
-                    if showBorder {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .stroke(Color.Alpha.separator.opacity(0.22), lineWidth: 0.6)
-                    }
-                }
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(colorScheme == .dark ? Color(hex: "#2D2D2D") : Color.Alpha.separator, lineWidth: 1)
             )
+            .shadow(color: colorScheme == .light ? Color.black.opacity(0.05) : Color.clear, radius: 2, y: 1)
     }
 }
 

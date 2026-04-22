@@ -2,13 +2,25 @@
 @import "tailwindcss";
 
 :root {
-  /* Light Mode (AlphaFunds Style) */
-  --background: #ffffff;
-  --foreground: #0f172a;
-  --card-bg: #ffffff;
-  --card-border: #e2e8f0;
+  /* Light Mode (The Quiet Editorial) */
+  --background: #faf9f6; /* surface */
+  --foreground: #1a1c1a; /* on-surface */
+  
+  --surface: #faf9f6;
+  --surface-container-low: #f4f3f1;
+  --surface-container-lowest: #ffffff;
+  --surface-dim: #dbdad7;
+  
+  --primary: #7d562d;
+  --primary-container: #d4a373;
+  --on-primary: #ffffff;
+  --on-surface: #1a1c1a;
+  --on-surface-variant: #4b4845;
+  --outline-variant: rgba(212, 196, 183, 0.2); /* 20% opacity */
   
   --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Work Sans', sans-serif;
+  --font-display: 'Manrope', sans-serif;
 
   /* Liquid Glass Variables */
   --lg-glass: #bbbbbc;
@@ -20,9 +32,21 @@
 }
 
 .dark {
-  /* Dark Mode (Zen / Professional) */
+  /* Dark Mode (Existing Zen / Professional) */
   --background: #020617; /* Slate 950 */
   --foreground: #f8fafc;
+  --surface: #0f172a;
+  --surface-container-low: #1e293b;
+  --surface-container-lowest: #0f172a;
+  --surface-dim: #020617;
+  
+  --primary: #3b82f6;
+  --primary-container: #1e3a8a;
+  --on-primary: #ffffff;
+  --on-surface: #f8fafc;
+  --on-surface-variant: #94a3b8;
+  --outline-variant: rgba(30, 41, 59, 0.5);
+
   --card-bg: rgba(15, 23, 42, 0.6);
   --card-border: rgba(30, 41, 59, 0.4);
 }

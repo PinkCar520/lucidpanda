@@ -9,6 +9,7 @@ import NextTopLoader from 'nextjs-toploader';
 import QueryProvider from '@/components/providers/QueryProvider';
 import { AuthManager } from '@/components/auth/AuthManager';
 import { Toaster } from 'sonner';
+import VoiceOrb from '@/components/voice/VoiceOrb';
 
 export async function generateMetadata({
     params
@@ -57,6 +58,7 @@ export default async function LocaleLayout({
                                 <Shell>
                                     {children}
                                     <Toaster richColors closeButton position="top-right" />
+                                    <VoiceOrb />
                                 </Shell>
                             </AuthManager>
                         </QueryProvider>

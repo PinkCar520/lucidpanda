@@ -39,23 +39,10 @@ struct FundDiscoverView: View {
     // Group Selection
     @State private var showGroupSelection = false
     @State private var pendingFundToAdd: FundSearchResult?
+    @Environment(\.colorScheme) var colorScheme
 
     @AppStorage("recent_fund_searches") private var recentSearchesData: Data = Data()
     @State private var recentSearches: [FundSearchHistoryItem] = []
-    
-    // MARK: - Theme Constants
-    private struct TaupeTheme {
-        static let background = Color(red: 12/255, green: 10/255, blue: 9/255)
-        static let primary = Color(red: 179/255, green: 89/255, blue: 25/255)
-        static let taupe100 = Color(red: 231/255, green: 229/255, blue: 228/255)
-        static let taupe200 = Color(red: 214/255, green: 211/255, blue: 209/255)
-        static let taupe300 = Color(red: 168/255, green: 162/255, blue: 158/255)
-        static let taupe400 = Color(red: 120/255, green: 113/255, blue: 108/255)
-        static let taupe500 = Color(red: 87/255, green: 83/255, blue: 78/255)
-        static let taupe600 = Color(red: 68/255, green: 64/255, blue: 60/255)
-        static let taupe700 = Color(red: 41/255, green: 37/255, blue: 36/255)
-        static let taupe800 = Color(red: 28/255, green: 25/255, blue: 23/255)
-    }
 
     // MARK: - Trending Data
     private struct TrendingTag: Identifiable {
@@ -86,7 +73,7 @@ struct FundDiscoverView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                TaupeTheme.background.ignoresSafeArea()
+                Color.Alpha.background.ignoresSafeArea()
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 32) {
@@ -108,8 +95,8 @@ struct FundDiscoverView: View {
                                     sectionHeader("funds.discover.suggested_reading")
                                     Spacer()
                                     Button(LocalizedStringKey("funds.discover.view_all")) { }
-                                        .font(.system(size: 11, weight: .bold))
-                                        .foregroundStyle(TaupeTheme.primary)
+                                        .font(.system(size: 11, weight: .black))
+                                        .foregroundStyle(Color.Alpha.brand)
                                 }
                                 
                                 VStack(spacing: 24) {
@@ -143,8 +130,7 @@ struct FundDiscoverView: View {
                                         Spacer()
                                         Button(LocalizedStringKey("common.action.clear")) { clearRecentSearches() }
                                             .font(.system(size: 10, weight: .bold))
-                                            .kerning(-0.5)
-                                            .foregroundStyle(TaupeTheme.taupe500)
+                                            .foregroundStyle(Color.Alpha.textSecondary.opacity(0.6))
                                     }
                                     VStack(spacing: 0) {
                                         ForEach(recentSearches) { item in
@@ -158,9 +144,9 @@ struct FundDiscoverView: View {
                             // 4. Search Results
                             VStack(spacing: 16) {
                                 if viewModel.isLoading {
-                                    ProgressView().tint(TaupeTheme.primary).padding(.top, 20)
+                                    ProgressView().tint(Color.Alpha.brand).padding(.top, 20)
                                 } else if filteredResults.isEmpty && !viewModel.results.isEmpty {
-                                    Text("funds.search.filters.empty").foregroundStyle(TaupeTheme.taupe500).padding(.top, 20)
+                                    Text("funds.search.filters.empty").foregroundStyle(Color.Alpha.textSecondary).padding(.top, 20)
                                 } else if viewModel.results.isEmpty && searchText.count >= 2 {
                                     emptyStateView.padding(.top, 40)
                                 } else {
@@ -175,7 +161,7 @@ struct FundDiscoverView: View {
                     }
                     .padding(.vertical, 24)
                 }
-                .background(TaupeTheme.background)
+                .background(Color.Alpha.background)
                 .toolbar {
                     if !searchText.isEmpty {
                         ToolbarItem(placement: .topBarLeading) {
@@ -187,8 +173,14 @@ struct FundDiscoverView: View {
                                         }
                                     } label: {
                                         Text(LocalizedStringKey(filter.rawValue))
-                                            .foregroundStyle(searchFilter == filter ? TaupeTheme.primary : TaupeTheme.taupe400)
-                                            .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundStyle(searchFilter == filter ? (colorScheme == .dark ? .white : Color.Alpha.brand) : Color.Alpha.textSecondary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(
+                                                Capsule()
+                                                    .fill(searchFilter == filter ? Color.Alpha.brand.opacity(0.1) : Color.clear)
+                                            )
                                     }
                                 }
                             }
@@ -225,15 +217,15 @@ struct FundDiscoverView: View {
     private func sectionHeader(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .textCase(.uppercase)
-            .font(.system(size: 11, weight: .bold))
+            .font(.system(size: 11, weight: .black))
             .kerning(1.5)
-            .foregroundStyle(TaupeTheme.taupe400)
+            .foregroundStyle(Color.Alpha.textSecondary.opacity(0.7))
     }
 
     private func tagPill(_ title: LocalizedStringKey, code: String) -> some View {
         Button { searchText = code } label: {
-            Text(title).font(.system(size: 13, weight: .medium)).foregroundStyle(TaupeTheme.taupe100)
-                .padding(.horizontal, 16).padding(.vertical, 8).background(TaupeTheme.taupe700).clipShape(Capsule())
+            Text(title).font(.system(size: 13, weight: .bold)).foregroundStyle(Color.Alpha.textPrimary)
+                .padding(.horizontal, 16).padding(.vertical, 10).background(colorScheme == .dark ? Color.Alpha.surface : Color.Alpha.surfaceContainerLow).clipShape(Capsule())
         }.buttonStyle(.plain)
     }
 
@@ -243,25 +235,25 @@ struct FundDiscoverView: View {
                 image.resizable()
                     .aspectRatio(contentMode: .fill)
             } placeholder: {
-                Rectangle().fill(TaupeTheme.taupe800)
+                Rectangle().fill(Color.Alpha.surfaceContainerLow)
             }
-            .frame(width: 80, height: 80)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(TaupeTheme.taupe700, lineWidth: 0.5))
+            .frame(width: 90, height: 90)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.Alpha.separator, lineWidth: 0.5))
             
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(category)
                     .textCase(.uppercase)
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(TaupeTheme.primary)
+                    .font(.system(size: 10, weight: .black))
+                    .foregroundStyle(Color.Alpha.brand)
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(TaupeTheme.taupe100)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textPrimary)
                     .lineLimit(2)
                     .lineSpacing(2)
                 Text(time)
-                    .font(.system(size: 12))
-                    .foregroundStyle(TaupeTheme.taupe400)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.Alpha.textSecondary.opacity(0.6))
             }
         }
     }
@@ -269,23 +261,23 @@ struct FundDiscoverView: View {
     private func historyRow(item: FundSearchHistoryItem) -> some View {
         Button { searchText = item.code } label: {
             HStack(spacing: 12) {
-                Image(systemName: "clock")
-                    .font(.system(size: 14))
-                    .foregroundStyle(TaupeTheme.taupe500)
+                Image(systemName: "clock.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.Alpha.textSecondary.opacity(0.4))
                 Text(item.name)
-                    .font(.system(size: 14))
-                    .foregroundStyle(TaupeTheme.taupe300)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.Alpha.textPrimary)
                 Spacer()
                 Button {
                     removeRecentSearch(code: item.code)
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12))
-                        .foregroundStyle(TaupeTheme.taupe600)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.Alpha.textSecondary.opacity(0.3))
                 }
             }
             .padding(.vertical, 14)
-            .border(width: 1, edges: [.bottom], color: TaupeTheme.taupe800.opacity(0.5))
+            .border(width: 0.5, edges: [.bottom], color: Color.Alpha.separator)
         }.buttonStyle(.plain)
     }
 
@@ -298,39 +290,39 @@ struct FundDiscoverView: View {
                 saveRecentSearch(code: fund.code, name: fund.name)
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(fund.name).font(.system(size: 15, weight: .medium)).foregroundStyle(isAdded ? .secondary : TaupeTheme.taupe100).lineLimit(1)
+                    Text(fund.name).font(.system(size: 16, weight: .bold)).foregroundStyle(isAdded ? Color.Alpha.textSecondary : Color.Alpha.textPrimary).lineLimit(1)
                     HStack(spacing: 6) {
-                        Text(fund.code).font(.system(size: 10, design: .monospaced)).foregroundStyle(TaupeTheme.taupe400)
-                            .padding(.horizontal, 4).padding(.vertical, 2).background(TaupeTheme.taupe800).clipShape(RoundedRectangle(cornerRadius: 2))
+                        Text(fund.code).font(.system(size: 11, weight: .bold, design: .monospaced)).foregroundStyle(Color.Alpha.textSecondary.opacity(0.7))
+                            .padding(.horizontal, 6).padding(.vertical, 2).background(Color.Alpha.surfaceContainerLow).clipShape(RoundedRectangle(cornerRadius: 4))
                         if let type = fund.type, !type.isEmpty {
-                            Text(type).font(.system(size: 9, weight: .bold)).foregroundStyle(TaupeTheme.primary)
+                            Text(type).font(.system(size: 9, weight: .black)).foregroundStyle(Color.Alpha.brand)
                         }
                     }
                 }
             }.buttonStyle(.plain)
             Spacer()
             if let valuation = viewModel.valuations[fund.code] {
-                Text(String(format: "%+.2f%%", valuation.estimatedGrowth)).font(.system(size: 14, weight: .bold, design: .monospaced))
+                Text(String(format: "%+.2f%%", valuation.estimatedGrowth)).font(.system(size: 15, weight: .black, design: .monospaced))
                     .foregroundStyle(valuation.estimatedGrowth > 0 ? Color.Alpha.down : (valuation.estimatedGrowth < 0 ? Color.Alpha.up : Color.Alpha.neutral))
             }
             LiquidAddButton(isAdded: isAdded) {
                 if !isAdded { pendingFundToAdd = fund; showGroupSelection = true } else { await performRemove(fund: fund) }
             }
-        }.padding(.vertical, 12).padding(.horizontal, 16).border(width: 0.5, edges: [.bottom], color: TaupeTheme.taupe800)
+        }.padding(.vertical, 14).padding(.horizontal, 16).border(width: 0.5, edges: [.bottom], color: Color.Alpha.separator)
     }
     
     private var emptyStateView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "doc.text.magnifyingglass").font(.system(size: 40)).foregroundStyle(TaupeTheme.taupe700)
-            Text("funds.search.not_found").font(.subheadline).foregroundStyle(TaupeTheme.taupe500)
-        }.frame(maxWidth: .infinity).padding(.vertical, 60)
+            Image(systemName: "magnifyingglass.circle.fill").font(.system(size: 48)).foregroundStyle(Color.Alpha.textSecondary.opacity(0.2))
+            Text("funds.search.not_found").font(.system(size: 14, weight: .bold)).foregroundStyle(Color.Alpha.textSecondary.opacity(0.5))
+        }.frame(maxWidth: .infinity).padding(.vertical, 80)
     }
 
     private var toastView: some View {
-        HStack(spacing: 8) {
-            Image(systemName: toastType.icon).foregroundStyle(toastType.color)
-            Text(toastMessage).foregroundStyle(TaupeTheme.taupe100)
-        }.font(.system(size: 13, weight: .medium)).padding(.vertical, 12).padding(.horizontal, 20).background(TaupeTheme.taupe800).clipShape(Capsule()).padding(.bottom, 20).shadow(color: .black.opacity(0.3), radius: 10)
+        HStack(spacing: 10) {
+            Image(systemName: toastType.icon).foregroundStyle(toastType.color).font(.system(size: 16, weight: .bold))
+            Text(toastMessage).foregroundStyle(Color.Alpha.textPrimary).font(.system(size: 14, weight: .bold))
+        }.padding(.vertical, 14).padding(.horizontal, 24).background(Color.Alpha.surfaceContainerLowest).clipShape(Capsule()).padding(.bottom, 30).shadow(color: Color.black.opacity(0.12), radius: 20, x: 0, y: 10)
     }
 
     // MARK: - Logic (Preserved)

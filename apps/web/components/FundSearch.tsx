@@ -225,10 +225,10 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
     const displayItems = query ? searchResults : getRecommendations();
 
     return (
-        <div className="relative" ref={dropdownRef}>
+        <div className="relative font-sans" ref={dropdownRef}>
             {/* Search Input */}
-            <div className="relative">
-                <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+            <div className="relative group">
+                <Search className="absolute left-3 top-2.5 w-4 h-4 text-on-surface-variant/50 dark:text-slate-500 group-focus-within:text-primary transition-colors" />
                 <input
                     ref={inputRef}
                     type="text"
@@ -237,7 +237,7 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
                     onFocus={() => setIsOpen(true)}
                     onKeyDown={handleKeyDown}
                     placeholder={t('addPlaceholder')}
-                    className="w-full bg-white border border-slate-200 rounded-md py-2 pl-9 pr-8 text-sm focus:border-blue-600 outline-none transition-colors text-slate-900 placeholder-slate-400"
+                    className="w-full bg-surface-container-low dark:bg-slate-900/50 border-none dark:border dark:border-slate-800 rounded-lg py-2.5 pl-9 pr-8 text-sm focus:bg-surface-container-lowest dark:focus:bg-slate-900 focus:ring-1 focus:ring-outline-variant/30 dark:focus:ring-emerald-500/20 outline-none transition-all text-on-surface dark:text-slate-200 placeholder-on-surface-variant/40 dark:placeholder-slate-500"
                 />
                 {query && (
                     <button
@@ -245,7 +245,7 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
                             setQuery('');
                             inputRef.current?.focus();
                         }}
-                        className="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600"
+                        className="absolute right-2 top-2.5 text-on-surface-variant/40 hover:text-on-surface dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -254,17 +254,17 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
 
             {/* Dropdown */}
             {isOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-md shadow-2xl max-h-80 overflow-y-auto flex flex-col min-h-[100px]">
+                <div className="absolute z-50 w-full mt-2 bg-surface/70 dark:bg-slate-900/95 backdrop-blur-xl border border-outline-variant dark:border-slate-800 rounded-xl shadow-2xl max-h-80 overflow-y-auto flex flex-col min-h-[100px] animate-in fade-in slide-in-from-top-2 duration-200">
                     {/* Content Layer */}
                     <div className={`flex-1 flex flex-col transition-opacity duration-200 ${isLoading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
                         {displayItems.length > 0 ? (
                             <>
                                 {/* Header */}
-                                <div className="px-3 py-2 border-b border-slate-100 shrink-0 bg-white sticky top-0 z-10">
-                                    <div className="flex items-center gap-2 text-xs text-slate-500 uppercase tracking-wider">
+                                <div className="px-4 py-3 shrink-0 sticky top-0 z-10 bg-transparent">
+                                    <div className="flex items-center gap-2 text-[10px] text-on-surface-variant/60 dark:text-slate-500 font-bold uppercase tracking-[0.1em]">
                                         {query ? (
                                             <>
-                                                <Search className="w-3 3" />
+                                                <Search className="w-3 h-3" />
                                                 <span>{t('searchMatches')} ({searchResults.length})</span>
                                             </>
                                         ) : (
@@ -279,7 +279,7 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
                                                             e.stopPropagation();
                                                             clearHistory();
                                                         }}
-                                                        className="text-[10px] text-blue-600 hover:text-blue-700 normal-case tracking-normal"
+                                                        className="text-[10px] text-primary dark:text-blue-400 hover:opacity-70 normal-case tracking-normal font-bold"
                                                     >
                                                         {t('clearHistory')}
                                                     </button>
@@ -290,7 +290,7 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
                                 </div>
 
                                 {/* Results List */}
-                                <div className="py-1">
+                                <div className="pb-2">
                                     {displayItems.map((fund, index) => {
                                         const isActive = index === activeIndex;
                                         const isHistory = !query && searchHistory.some(h => h.code === fund.code);
@@ -302,50 +302,46 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
                                                 onClick={() => !isAdded && handleSelect(fund)}
                                                 onMouseEnter={() => setActiveIndex(index)}
                                                 disabled={isAdded}
-                                                className={`w-full px-3 py-2 text-left transition-colors ${isActive
-                                                    ? 'bg-blue-50 border-l-2 border-blue-600'
-                                                    : 'hover:bg-slate-50 border-l-2 border-transparent'
-                                                    } ${isAdded ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className={`w-full px-4 py-3 text-left transition-all ${isActive
+                                                    ? 'bg-primary/5 dark:bg-blue-900/20'
+                                                    : 'hover:bg-surface-container-low dark:hover:bg-slate-800/40'
+                                                    } ${isAdded ? 'opacity-40 cursor-not-allowed' : ''} border-none`}
                                             >
-                                                <div className="flex items-start justify-between gap-2">
+                                                <div className="flex items-start justify-between gap-3">
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-sm text-slate-800 truncate">
+                                                            <span className={`font-bold text-sm ${isActive ? 'text-primary dark:text-blue-400' : 'text-on-surface dark:text-slate-200'} truncate`}>
                                                                 {fund.name}
                                                             </span>
                                                             {isHistory && (
-                                                                <Clock className="w-3 h-3 text-slate-500 shrink-0" />
+                                                                <Clock className="w-3 h-3 text-on-surface-variant/40 dark:text-slate-600 shrink-0" />
                                                             )}
                                                             {isAdded && (
-                                                                <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded-full font-mono border border-slate-200">
+                                                                <span className="text-[9px] px-1.5 py-0.5 bg-surface-dim dark:bg-slate-800 text-on-surface-variant/60 dark:text-slate-500 rounded-sm font-bold uppercase tracking-wider">
                                                                     {t('addedLabel')}
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            <span className="font-mono text-xs text-slate-500">
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="font-mono text-[10px] text-on-surface-variant/50 dark:text-slate-500 bg-surface-container-low dark:bg-slate-950/40 px-1 rounded">
                                                                 {fund.code}
                                                             </span>
                                                             {fund.type && (
-                                                                <>
-                                                                    <span className="text-slate-700">•</span>
-                                                                    <span className="text-xs text-slate-600">
-                                                                        {fund.type}
-                                                                    </span>
-                                                                </>
+                                                                <span className="text-[10px] text-on-surface-variant/40 dark:text-slate-600 font-medium">
+                                                                    {fund.type}
+                                                                </span>
                                                             )}
                                                             {fund.company && (
-                                                                <>
-                                                                    <span className="text-slate-700">•</span>
-                                                                    <span className="text-xs text-slate-600 truncate">
-                                                                        {fund.company}
-                                                                    </span>
-                                                                </>
+                                                                <span className="text-[10px] text-on-surface-variant/40 dark:text-slate-600 truncate max-w-[120px]">
+                                                                    • {fund.company}
+                                                                </span>
                                                             )}
                                                         </div>
                                                     </div>
                                                     {!isAdded && (
-                                                        <Plus className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                                                        <div className={`mt-0.5 transition-transform duration-300 ${isActive ? 'translate-x-0 opacity-100' : 'translate-x-2 opacity-0'}`}>
+                                                            <Plus className="w-4 h-4 text-primary dark:text-blue-400" />
+                                                        </div>
                                                     )}
                                                 </div>
                                             </button>
@@ -354,21 +350,22 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
                                 </div>
 
                                 {/* Footer Hint */}
-                                <div className="px-3 py-2 border-t border-slate-100 bg-slate-50 mt-auto sticky bottom-0">
-                                    <p className="text-xs text-slate-500">
-                                        <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] text-slate-400">↑</kbd>
-                                        <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] ml-1 text-slate-400">↓</kbd>
-                                        {' '}{t('navNavigate')} {' '}
-                                        <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] text-slate-400">Enter</kbd>
-                                        {' '}{t('navSelect')} {' '}
-                                        <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[10px] text-slate-400">Esc</kbd>
-                                        {' '}{t('navClose')}
+                                <div className="px-4 py-2.5 bg-surface-container-low/50 dark:bg-slate-950/40 mt-auto sticky bottom-0 backdrop-blur-md">
+                                    <p className="text-[9px] text-on-surface-variant/40 dark:text-slate-500 font-bold uppercase tracking-widest flex items-center gap-3">
+                                        <span className="flex items-center gap-1">
+                                            <kbd className="px-1 py-0.5 bg-surface-container-lowest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded text-[9px]">↑↓</kbd>
+                                            {t('navNavigate')}
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                            <kbd className="px-1 py-0.5 bg-surface-container-lowest dark:bg-slate-800 border border-outline-variant dark:border-slate-700 rounded text-[9px]">ENTER</kbd>
+                                            {t('navSelect')}
+                                        </span>
                                     </p>
                                 </div>
                             </>
                         ) : query && !isLoading ? (
-                            <div className="p-8 text-center flex-1 flex flex-col items-center justify-center">
-                                <p className="text-sm text-slate-500 mb-3">{t('noResults')}</p>
+                            <div className="p-10 text-center flex-1 flex flex-col items-center justify-center">
+                                <p className="text-sm text-on-surface-variant dark:text-slate-500 mb-4">{t('noResults')}</p>
                                 <button
                                     onClick={() => {
                                         onAddFund(query.trim(), '');
@@ -376,24 +373,24 @@ export default function FundSearch({ onAddFund, existingCodes }: FundSearchProps
                                         setQuery('');
                                         setIsOpen(false);
                                     }}
-                                    className="px-4 py-2 bg-blue-50 text-blue-600 rounded-md text-xs font-medium hover:bg-blue-100 transition-colors border border-blue-100"
+                                    className="px-5 py-2.5 bg-primary dark:bg-blue-600 text-on-primary rounded-lg text-xs font-bold hover:opacity-90 transition-all shadow-lg shadow-primary/20 dark:shadow-blue-500/10"
                                 >
                                     {t('addDirectly', { query: query.trim() })}
                                 </button>
                             </div>
                         ) : !query && searchHistory.length === 0 ? (
-                            <div className="p-8 text-center text-slate-400">
-                                <Search className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                                <p className="text-sm text-slate-400">{t('promptSearch')}</p>
+                            <div className="p-10 text-center text-on-surface-variant/20 dark:text-slate-800 flex flex-col items-center justify-center">
+                                <Search className="w-10 h-10 mb-3" />
+                                <p className="text-sm font-display font-bold text-on-surface-variant/40 dark:text-slate-600">{t('promptSearch')}</p>
                             </div>
                         ) : null}
                     </div>
 
-                    {/* Loading Overlay - Prevents Flickering by overlaying instead of replacing */}
+                    {/* Loading Overlay */}
                     {isLoading && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/10 backdrop-blur-[1px] z-20">
-                            <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full mb-2"></div>
-                            {displayItems.length === 0 && <p className="text-xs text-slate-500 animate-pulse">{t('scanningPool')}</p>}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/20 dark:bg-slate-950/20 backdrop-blur-[2px] z-20">
+                            <div className="animate-spin w-6 h-6 border-2 border-primary dark:border-blue-500 border-t-transparent rounded-full mb-3"></div>
+                            {displayItems.length === 0 && <p className="text-[10px] text-primary dark:text-blue-400 font-bold uppercase tracking-widest animate-pulse">{t('scanningPool')}</p>}
                         </div>
                     )}
                 </div>

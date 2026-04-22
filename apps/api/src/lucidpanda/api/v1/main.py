@@ -7,6 +7,7 @@ from src.lucidpanda.api.v1.routers import (
     mobile,
     watchlist_v2,
     web,
+    voice,
 )
 
 api_v1_router = APIRouter(prefix="/api/v1")
@@ -27,3 +28,6 @@ api_v1_router.include_router(calendar.router, tags=["Calendar"])
 
 # Analytics & Knowledge Hub
 api_v1_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
+
+# Voice Copilot API
+api_v1_router.include_router(voice.router, prefix="/voice", tags=["Voice V1"])

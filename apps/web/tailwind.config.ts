@@ -12,7 +12,29 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
-
+        surface: {
+          DEFAULT: "var(--surface)",
+          container: {
+            low: "var(--surface-container-low)",
+            lowest: "var(--surface-container-lowest)",
+          },
+          dim: "var(--surface-dim)",
+        },
+        primary: {
+          DEFAULT: "var(--primary)",
+          container: "var(--primary-container)",
+          on: "var(--on-primary)",
+        },
+        "on-surface": {
+          DEFAULT: "var(--on-surface)",
+          variant: "var(--on-surface-variant)",
+        },
+        "outline-variant": "var(--outline-variant)",
+      },
+      fontFamily: {
+        mono: ["var(--font-mono)"],
+        sans: ["var(--font-sans)"],
+        display: ["var(--font-display)"],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',

@@ -45,7 +45,8 @@ interface MarketData {
   [key: string]: unknown;
 }
 
-const asText = (value: LocalizedText): string => {
+const asText = (value: LocalizedText | null | undefined): string => {
+  if (!value) return '';
   if (typeof value === 'string') return value;
   return value['en'] || value['zh'] || Object.values(value)[0] || '';
 };

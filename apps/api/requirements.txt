@@ -18,6 +18,7 @@ psycopg[binary,pool]
 fastapi
 sse-starlette
 uvicorn
+websockets>=11.0.0
 simhash
 dateparser
 pytz
