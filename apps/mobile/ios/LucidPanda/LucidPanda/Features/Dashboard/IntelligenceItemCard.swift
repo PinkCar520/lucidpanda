@@ -46,16 +46,20 @@ struct IntelligenceItemCard: View {
 
     private var featuredLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Image placeholder
+            // Image with real project assets
             ZStack(alignment: .bottomLeading) {
-                Rectangle()
-                    .fill(Color.Alpha.surfaceContainerLow)
+                let imageName = item.id % 2 == 0 ? "featured_1" : "featured_2"
+                
+                // Base 16:9 container to prevent distortion
+                Color.clear
                     .aspectRatio(16/9, contentMode: .fit)
                     .overlay(
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.system(size: 40))
-                            .foregroundStyle(Color.Alpha.brand.opacity(0.2))
+                        Image(imageName)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
                     )
+                    .clipped()
+                    .overlay(Color.black.opacity(0.1)) // Subtle darkening for text readability
                 
                 HStack(spacing: 8) {
                     Text("dashboard.badge.featured")
@@ -63,14 +67,15 @@ struct IntelligenceItemCard: View {
                         .textCase(.uppercase)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.Alpha.brand.opacity(0.1))
-                        .foregroundStyle(Color.Alpha.brand)
+                        .background(Color.Alpha.brand.opacity(0.8)) // More solid on real images
+                        .foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                     
                     Text("dashboard.read_time.format \(5)")
                         .font(.system(size: 9, weight: .bold))
                         .textCase(.uppercase)
-                        .foregroundStyle(Color.Alpha.textSecondary.opacity(0.8))
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.3), radius: 2)
                 }
                 .padding(16)
             }

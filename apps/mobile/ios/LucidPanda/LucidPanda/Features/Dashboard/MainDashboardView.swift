@@ -12,6 +12,7 @@ struct MainDashboardView: View {
     @Environment(AppRootViewModel.self) private var rootViewModel
     @State private var isSettingsPresented = false
     @State private var isPulseSheetPresented = false
+    @State private var isDeepAnalysisPresented = false
 
     @State private var currentTime = Date()
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -102,47 +103,77 @@ struct MainDashboardView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $isPulseSheetPresented) {
+            MarketPulseSheet(viewModel: rootViewModel.marketPulseViewModel)
+                .presentationDetents([PresentationDetent.fraction(0.7), PresentationDetent.large])
+                .presentationDragIndicator(Visibility.visible)
+        }
+        .sheet(isPresented: $isDeepAnalysisPresented) {
+            GoldDeepAnalysisSheet(pulseData: rootViewModel.marketPulseViewModel.pulseData)
+                .presentationDetents([PresentationDetent.large])
+                .presentationDragIndicator(Visibility.visible)
+        }
     }
     
     private var goldTickerHeader: some View {
-        HStack {
-            HStack(spacing: 8) {
+        HStack(spacing: 0) {
+            // Part 1: Pulse trigger for Global Pulse
+            Button {
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+                isPulseSheetPresented = true
+            } label: {
                 Circle()
                     .fill(Color.Alpha.brand)
-                    .frame(width: 6, height: 6)
+                    .frame(width: 8, height: 8)
                     .opacity(isTickerAnimating ? 1 : 0.3)
-                    .animation(.easeInOut(duration: 0.8).repeatForever(), value: isTickerAnimating)
-                
-                Text("dashboard.ticker.gold_label")
-                    .font(.system(size: 10, weight: .black))
-                    .textCase(.uppercase)
-                    .kerning(1.2)
-                    .foregroundStyle(Color.Alpha.brand)
+                    .scaleEffect(isTickerAnimating ? 1.2 : 0.8)
+                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isTickerAnimating)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .contentShape(Rectangle())
             }
-            
-            Spacer()
-            
-            if let pulse = rootViewModel.marketPulseViewModel.pulseData {
-                HStack(spacing: 12) {
-                    Text(String(format: "$%.2f", pulse.marketSnapshot.gold.price))
-                        .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Color.Alpha.textPrimary)
+            .buttonStyle(.plain)
+
+            // Part 2: Deep Analysis trigger
+            Button {
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+                isDeepAnalysisPresented = true
+            } label: {
+                HStack(spacing: 8) {
+                    Text("dashboard.ticker.gold_label")
+                        .font(.system(size: 10, weight: .black))
+                        .textCase(.uppercase)
+                        .kerning(1.2)
+                        .foregroundStyle(Color.Alpha.brand)
                     
-                    Text(String(format: "%+.2f%%", pulse.marketSnapshot.gold.changePercent))
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.down.opacity(0.15))
-                        .foregroundStyle(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                    Spacer()
+                    
+                    if let pulse = rootViewModel.marketPulseViewModel.pulseData {
+                        HStack(spacing: 12) {
+                            Text(String(format: "$%.2f", pulse.marketSnapshot.gold.price))
+                                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(Color.Alpha.textPrimary)
+                            
+                            Text(String(format: "%+.2f%%", pulse.marketSnapshot.gold.changePercent))
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.down.opacity(0.15))
+                                .foregroundStyle(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                        }
+                    }
                 }
+                .padding(.trailing, 16)
+                .padding(.vertical, 14)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
         .background(Color.Alpha.surface.opacity(0.85))
         .background(.ultraThinMaterial)
-        .overlay(Divider().background(Color.Alpha.separator), alignment: .bottom)
         .onAppear { isTickerAnimating = true }
     }
 
@@ -170,14 +201,6 @@ struct MainDashboardView: View {
                 .foregroundStyle(Color.Alpha.taupe)
             
             Spacer()
-            
-            Button {
-                // Action
-            } label: {
-                Text("common.action.view_all")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundStyle(Color.Alpha.brand)
-            }
             
             searchAndFilterBar
                 .padding(.leading, 8)

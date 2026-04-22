@@ -269,16 +269,6 @@ struct BacktestView: View {
                     .kerning(0.5)
             }
             Spacer()
-            
-            ZStack {
-                Circle()
-                    .fill(Color.Alpha.brand.opacity(0.15))
-                    .frame(width: 36, height: 36)
-                Text("AU")
-                    .font(.system(size: 12, weight: .black))
-                    .foregroundStyle(Color.Alpha.brand)
-            }
-            .overlay(Circle().stroke(Color.Alpha.brand.opacity(0.3), lineWidth: 1))
         }
         .padding(.horizontal)
         .padding(.top, 24)

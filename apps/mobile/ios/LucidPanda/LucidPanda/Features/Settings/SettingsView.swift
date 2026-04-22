@@ -39,7 +39,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(uiColor: .systemGroupedBackground)
+                Color.Alpha.background
                     .ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 28) {
@@ -93,15 +93,20 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             content()
         }
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.Alpha.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(Color.Alpha.separator, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.02), radius: 8, x: 0, y: 4)
         .padding(.horizontal, 20)
     }
 
     private func sectionHeader(title: LocalizedStringKey) -> some View {
         Text(title)
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(.secondary)
+            .font(.system(size: 11, weight: .black))
+            .foregroundStyle(Color.Alpha.taupe)
             .textCase(.uppercase)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 36)
@@ -129,11 +134,12 @@ struct SettingsView: View {
                                 .resizable()
                                 .scaledToFill()
                         } placeholder: {
-                            Circle().fill(Color(uiColor: .systemFill))
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(Color.Alpha.surfaceDim)
                         }
                     } else {
-                        Circle()
-                            .fill(Color.blue)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(Color.Alpha.primaryContainer)
                             .overlay(
                                 Text(initial)
                                     .font(.system(size: 36, weight: .heavy, design: .rounded))
@@ -142,16 +148,21 @@ struct SettingsView: View {
                     }
                 }
                 .frame(width: 88, height: 88)
-                .clipShape(Circle())
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .stroke(Color.Alpha.brand, lineWidth: 2)
+                )
 
                 PhotosPicker(selection: $avatarItem, matching: .images) {
                     ZStack {
-                        Circle()
-                            .fill(Color(uiColor: .systemBackground))
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(Color.Alpha.surface)
                             .frame(width: 28, height: 28)
+                            .shadow(color: .black.opacity(0.1), radius: 2)
                         Image(systemName: "camera.fill")
                             .font(.system(size: 14))
-                            .foregroundStyle(Color.blue)
+                            .foregroundStyle(Color.Alpha.brand)
                     }
                 }
                 .onChange(of: avatarItem) { _, newItem in
@@ -180,11 +191,11 @@ struct SettingsView: View {
 
             VStack(spacing: 6) {
                 Text(displayName)
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textPrimary)
                 Text(displayEmail)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.Alpha.taupe)
             }
         }
         .frame(maxWidth: .infinity)
@@ -198,25 +209,25 @@ struct SettingsView: View {
                 NavigationLink(destination: accountSettingsSubView) {
                     HStack(spacing: 16) {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color.blue)
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(Color.blue.opacity(0.1))
                                 .frame(width: 32, height: 32)
                             Image(systemName: "person.badge.shield.checkmark.fill")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color.blue)
                         }
                         
                         Text("settings.account_security")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.primary)
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Color.Alpha.textPrimary)
                         
                         Spacer()
                         
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.Alpha.taupe)
                     }
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                     .padding(.horizontal, 16)
                 }
                 .buttonStyle(.plain)
@@ -227,45 +238,44 @@ struct SettingsView: View {
     private var profileEditCard: some View {
         VStack(spacing: 0) {
             sectionHeader(title: "settings.section.basic_info")
-            NavigationLink(destination: profileEditSheet) {
-                HStack(spacing: 16) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.indigo)
-                            .frame(width: 32, height: 32)
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(LocalizedStringKey("settings.section.basic_info"))
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.primary)
-                        if let nickname = rootViewModel.userProfile?.nickname, !nickname.isEmpty {
-                            Text(nickname)
-                                .font(.system(size: 13))
-                                .foregroundStyle(.secondary)
-                        } else if let email = rootViewModel.userProfile?.email {
-                            Text(email)
-                                .font(.system(size: 13))
-                                .foregroundStyle(.secondary)
+            premiumCard {
+                NavigationLink(destination: profileEditSheet) {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(Color.indigo.opacity(0.1))
+                                .frame(width: 32, height: 32)
+                            Image(systemName: "person.crop.circle.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.indigo)
                         }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(LocalizedStringKey("settings.section.basic_info"))
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.Alpha.textPrimary)
+                            if let nickname = rootViewModel.userProfile?.nickname, !nickname.isEmpty {
+                                Text(nickname)
+                                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(Color.Alpha.taupe)
+                            } else if let email = rootViewModel.userProfile?.email {
+                                Text(email)
+                                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(Color.Alpha.taupe)
+                            }
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.Alpha.taupe)
                     }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
                 }
-                .padding(.vertical, 12)
-                .padding(.horizontal, 16)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .background(Color(uiColor: .secondarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .padding(.horizontal, 16)
         }
     }
 
@@ -281,48 +291,101 @@ struct SettingsView: View {
     @State private var profileSaveError: String? = nil
 
     private var accountSettingsSubView: some View {
-        List {
-            Section(header: Text(LocalizedStringKey("settings.section.account_actions"))) {
-                NavigationLink(destination: passwordSheet) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "lock.shield.fill")
-                            .foregroundStyle(.blue)
-                            .frame(width: 24)
-                        Text(LocalizedStringKey("settings.action.change_password"))
-                            .foregroundStyle(.primary)
+        ZStack {
+            Color.Alpha.background.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 24) {
+                    VStack(spacing: 0) {
+                        sectionHeader(title: "settings.section.account_actions")
+                        premiumCard {
+                            VStack(spacing: 0) {
+                                NavigationLink(destination: passwordSheet) {
+                                    settingsNavigationRow(icon: "lock.shield.fill", titleKey: "settings.action.change_password", color: .blue, showDivider: true)
+                                }
+                                .buttonStyle(.plain)
+                                
+                                NavigationLink(destination: twoFactorSheet) {
+                                    settingsNavigationRow(icon: "key.viewfinder", titleKey: "settings.action.two_factor", color: .orange, showDivider: false)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    
+                    VStack(spacing: 0) {
+                        sectionHeader(title: "settings.section.sessions")
+                        premiumCard {
+                            NavigationLink(destination: sessionsSheet) {
+                                HStack(spacing: 16) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                            .fill(Color.blue.opacity(0.1))
+                                            .frame(width: 32, height: 32)
+                                        Image(systemName: "desktopcomputer.and.iphone")
+                                            .font(.system(size: 14, weight: .semibold))
+                                            .foregroundStyle(Color.blue)
+                                    }
+                                    
+                                    Text("settings.active_sessions")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(Color.Alpha.textPrimary)
+                                    
+                                    Spacer()
+                                    
+                                    Text(hasLoadedSessions ? "\(sessions.count)" : "—")
+                                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(Color.Alpha.taupe)
+                                    
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(Color.Alpha.taupe)
+                                }
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 16)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
-                
-                NavigationLink(destination: twoFactorSheet) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "key.viewfinder")
-                            .foregroundStyle(.orange)
-                            .frame(width: 24)
-                        Text(LocalizedStringKey("settings.action.two_factor"))
-                            .foregroundStyle(.primary)
-                    }
-                }
-                
-            }
-            
-            Section(header: Text(LocalizedStringKey("settings.section.sessions"))) {
-                NavigationLink(destination: sessionsSheet) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "desktopcomputer.and.iphone")
-                            .foregroundStyle(.blue)
-                            .frame(width: 24)
-                        Text(LocalizedStringKey("settings.active_sessions"))
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(hasLoadedSessions ? "\(sessions.count)" : "—")
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                .padding(.top, 16)
+                .padding(.bottom, 32)
             }
         }
-        .listStyle(.insetGrouped)
         .navigationTitle(LocalizedStringKey("settings.account_security"))
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func settingsNavigationRow(icon: String, titleKey: LocalizedStringKey, color: Color, showDivider: Bool) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(color.opacity(0.1))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(color)
+                }
+                
+                Text(titleKey)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textPrimary)
+                
+                Spacer()
+                
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.Alpha.taupe)
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 16)
+            
+            if showDivider {
+                Divider()
+                    .background(Color.Alpha.separator)
+                    .padding(.leading, 64)
+            }
+        }
     }
 
     private var notificationsCard: some View {
@@ -352,13 +415,14 @@ struct SettingsView: View {
     private var logoutCard: some View {
         Button(action: { Task { await logoutCurrentSession() } }) {
             Text("settings.action.logout")
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
         }
-        .background(Color.red.opacity(0.9))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.Alpha.down)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
         .padding(.horizontal, 20)
         .padding(.top, 10)
         .disabled(isLoggingOut)
@@ -369,8 +433,8 @@ struct SettingsView: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 12) {
                 ZStack {
-                    Circle()
-                        .fill(color.opacity(0.12))
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(color.opacity(0.1))
                         .frame(width: 40, height: 40)
                     Image(systemName: icon)
                         .foregroundStyle(color)
@@ -378,13 +442,17 @@ struct SettingsView: View {
                 }
 
                 Text(titleKey)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textPrimary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
-            .background(Color(uiColor: .tertiarySystemGroupedBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Color.Alpha.surface)
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(Color.Alpha.separator, lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }
@@ -393,28 +461,30 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             HStack(spacing: 16) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(color)
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(color.opacity(0.1))
                         .frame(width: 32, height: 32)
                     Image(systemName: icon)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(color)
                 }
                 
                 Text(titleKey)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.primary)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textPrimary)
                 
                 Spacer()
                 
                 Toggle("", isOn: isOn)
                     .labelsHidden()
+                    .tint(Color.Alpha.brand)
             }
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .padding(.horizontal, 16)
             
             if showDivider {
                 Divider()
+                    .background(Color.Alpha.separator)
                     .padding(.leading, 64)
             }
         }
@@ -485,73 +555,108 @@ struct SettingsView: View {
     }
 
     private var profileEditSheet: some View {
-        List {
-            // MARK: - Basic Info
-            Section(header: Text(LocalizedStringKey("settings.section.basic_info"))) {
-                // Email — read-only
-                HStack {
-                    Text(LocalizedStringKey("settings.field.email"))
-                        .frame(width: 80, alignment: .leading)
-                    Spacer()
-                    Text(rootViewModel.userProfile?.email ?? "—")
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                HStack {
-                    Text(LocalizedStringKey("settings.field.nickname"))
-                        .frame(width: 80, alignment: .leading)
-                    TextField(LocalizedStringKey("settings.field.nickname.placeholder"), text: $profileNickname)
-                        .multilineTextAlignment(.trailing)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            // MARK: - Language Preference
-            Section(header: Text(LocalizedStringKey("settings.item.language"))) {
-                HStack {
-                    Text(LocalizedStringKey("settings.item.language"))
-                    Spacer()
-                    Picker("", selection: $appLanguage) {
-                        Text("settings.language.system").tag("system")
-                        Text("settings.language.en").tag("en")
-                        Text("settings.language.zh").tag("zh-Hans")
+        ZStack {
+            Color.Alpha.background.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 24) {
+                    // MARK: - Basic Info
+                    VStack(spacing: 0) {
+                        sectionHeader(title: "settings.section.basic_info")
+                        premiumCard {
+                            VStack(spacing: 0) {
+                                // Email — read-only
+                                settingsValueRow(label: "settings.field.email", value: rootViewModel.userProfile?.email ?? "—", showDivider: true)
+                                
+                                HStack(spacing: 16) {
+                                    Text(LocalizedStringKey("settings.field.nickname"))
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(Color.Alpha.textPrimary)
+                                        .frame(width: 80, alignment: .leading)
+                                    
+                                    TextField(LocalizedStringKey("settings.field.nickname.placeholder"), text: $profileNickname)
+                                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                                        .multilineTextAlignment(.trailing)
+                                        .foregroundStyle(Color.Alpha.taupe)
+                                }
+                                .padding(.vertical, 14)
+                                .padding(.horizontal, 16)
+                            }
+                        }
                     }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                }
-            }
 
-            // MARK: - Appearance
-            Section(header: Text(LocalizedStringKey("settings.item.appearance"))) {
-                HStack {
-                    Text(LocalizedStringKey("settings.item.appearance"))
-                    Spacer()
-                    Picker("", selection: $appAppearance) {
-                        Text("common.system").tag("system")
-                        Text("common.light").tag("light")
-                        Text("common.dark").tag("dark")
+                    // MARK: - App Preferences
+                    VStack(spacing: 0) {
+                        sectionHeader(title: "settings.section.preferences")
+                        premiumCard {
+                            VStack(spacing: 0) {
+                                HStack(spacing: 16) {
+                                    Text(LocalizedStringKey("settings.item.language"))
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(Color.Alpha.textPrimary)
+                                    Spacer()
+                                    Picker("", selection: $appLanguage) {
+                                        Text("settings.language.system").tag("system")
+                                        Text("settings.language.en").tag("en")
+                                        Text("settings.language.zh").tag("zh-Hans")
+                                    }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                    .tint(Color.Alpha.brand)
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 16)
+                                
+                                Divider()
+                                    .background(Color.Alpha.separator)
+                                    .padding(.leading, 16)
+                                
+                                HStack(spacing: 16) {
+                                    Text(LocalizedStringKey("settings.item.appearance"))
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(Color.Alpha.textPrimary)
+                                    Spacer()
+                                    Picker("", selection: $appAppearance) {
+                                        Text("common.system").tag("system")
+                                        Text("common.light").tag("light")
+                                        Text("common.dark").tag("dark")
+                                    }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                    .tint(Color.Alpha.brand)
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 16)
+                            }
+                        }
                     }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                }
-            }
 
-            // MARK: - Gender
-            Section(header: Text(LocalizedStringKey("settings.field.gender"))) {
-                HStack {
-                    Text(LocalizedStringKey("settings.field.gender"))
-                    Spacer()
-                    Picker("", selection: $profileGender) {
-                        Text(LocalizedStringKey("settings.field.gender.unset")).tag("")
-                        Text(LocalizedStringKey("settings.field.gender.male")).tag("male")
-                        Text(LocalizedStringKey("settings.field.gender.female")).tag("female")
+                    // MARK: - Gender
+                    VStack(spacing: 0) {
+                        sectionHeader(title: "settings.field.gender")
+                        premiumCard {
+                            HStack(spacing: 16) {
+                                Text(LocalizedStringKey("settings.field.gender"))
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(Color.Alpha.textPrimary)
+                                Spacer()
+                                Picker("", selection: $profileGender) {
+                                    Text(LocalizedStringKey("settings.field.gender.unset")).tag("")
+                                    Text(LocalizedStringKey("settings.field.gender.male")).tag("male")
+                                    Text(LocalizedStringKey("settings.field.gender.female")).tag("female")
+                                }
+                                .pickerStyle(.menu)
+                                .labelsHidden()
+                                .tint(Color.Alpha.brand)
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                        }
                     }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
                 }
+                .padding(.top, 16)
+                .padding(.bottom, 32)
             }
         }
-        .listStyle(.insetGrouped)
         .navigationTitle(LocalizedStringKey("settings.section.basic_info"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -564,7 +669,7 @@ struct SettingsView: View {
                     } else {
                         Image(systemName: "checkmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.Alpha.brand)
                     }
                 }
                 .disabled(isProfileSaving)
@@ -587,6 +692,32 @@ struct SettingsView: View {
             if let profile = rootViewModel.userProfile {
                 profileNickname = profile.nickname ?? ""
                 profileGender   = profile.gender ?? ""
+            }
+        }
+    }
+
+    private func settingsValueRow(label: LocalizedStringKey, value: String, showDivider: Bool) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                Text(label)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textPrimary)
+                    .frame(width: 80, alignment: .leading)
+                
+                Spacer()
+                
+                Text(value)
+                    .font(.system(size: 14, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Color.Alpha.taupe)
+                    .lineLimit(1)
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            
+            if showDivider {
+                Divider()
+                    .background(Color.Alpha.separator)
+                    .padding(.leading, 16)
             }
         }
     }
@@ -642,9 +773,8 @@ struct SettingsView: View {
     }
 
     private var passwordSheet: some View {
-
         ZStack {
-            Color(uiColor: .systemGroupedBackground)
+            Color.Alpha.background
                 .ignoresSafeArea()
             
             ScrollView {
@@ -655,26 +785,34 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 16) {
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("settings.field.current_password")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(.secondary)
+                                        .font(.system(size: 11, weight: .black))
+                                        .foregroundStyle(Color.Alpha.taupe)
+                                        .textCase(.uppercase)
                                     SecureField("settings.field.current_password", text: $currentPassword)
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.system(size: 14, weight: .medium, design: .monospaced))
                                         .padding(14)
-                                        .background(Color(uiColor: .tertiarySystemGroupedBackground))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                                        .background(Color.Alpha.surfaceDim)
+                                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                                .stroke(Color.Alpha.separator, lineWidth: 1)
+                                        )
                                 }
 
                                 VStack(alignment: .leading, spacing: 8) {
                                     Text("settings.field.new_password")
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(.secondary)
+                                        .font(.system(size: 11, weight: .black))
+                                        .foregroundStyle(Color.Alpha.taupe)
+                                        .textCase(.uppercase)
                                     SecureField("settings.field.new_password", text: $newPassword)
-                                        .font(.system(size: 16, weight: .medium))
+                                        .font(.system(size: 14, weight: .medium, design: .monospaced))
                                         .padding(14)
-                                        .background(Color(uiColor: .tertiarySystemGroupedBackground))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                                        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                                        .background(Color.Alpha.surfaceDim)
+                                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                                .stroke(Color.Alpha.separator, lineWidth: 1)
+                                        )
                                 }
                             }
                             .padding(16)
@@ -683,8 +821,8 @@ struct SettingsView: View {
 
                     if let errorMessage = passwordErrorMessage {
                         Text(errorMessage)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(errorMessage.contains("✅") ? .green : .red)
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .foregroundStyle(errorMessage.contains("✅") ? Color.Alpha.up : Color.Alpha.down)
                             .padding(.horizontal, 32)
                     }
                 }
@@ -700,11 +838,11 @@ struct SettingsView: View {
                     Task { await changePassword() }
                 } label: {
                     if isPasswordChanging {
-                        ProgressView()
+                        ProgressView().scaleEffect(0.8)
                     } else {
                         Image(systemName: "checkmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle((currentPassword.isEmpty || newPassword.count < 6) ? Color.secondary.opacity(0.3) : Color.blue)
+                            .foregroundStyle((currentPassword.isEmpty || newPassword.count < 6) ? Color.Alpha.taupe.opacity(0.3) : Color.Alpha.brand)
                     }
                 }
                 .allowsHitTesting(!(currentPassword.isEmpty || newPassword.count < 6 || isPasswordChanging))
@@ -756,25 +894,22 @@ struct SettingsView: View {
 
     private var twoFactorSheet: some View {
         ZStack {
-            Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
+            Color.Alpha.background.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 4) {
                     // Toggle row
-                    VStack(spacing: 0) {
+                    premiumCard {
                         HStack {
                             Text(LocalizedStringKey("settings.two_factor.authenticator_app"))
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundStyle(.primary)
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.Alpha.textPrimary)
                             Spacer()
                             Toggle("", isOn: $is2FAEnabled)
                                 .labelsHidden()
-                                .tint(.green)
+                                .tint(Color.Alpha.brand)
                         }
-                        .padding(14)
+                        .padding(16)
                     }
-                    .background(Color(uiColor: .secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .padding(.horizontal, 16)
                     .onChange(of: is2FAEnabled) { oldValue, newValue in
                         if newValue && !oldValue {
                             twoFAQRImageData = nil
@@ -784,11 +919,12 @@ struct SettingsView: View {
                             showing2FASetupModal = true
                         }
                     }
+                    
                     Text(LocalizedStringKey("settings.two_factor.hint_description"))
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 4)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Color.Alpha.taupe)
+                        .padding(.horizontal, 36)
+                        .padding(.top, 8)
                 }
                 .padding(.top, 16)
                 .padding(.bottom, 32)
@@ -801,7 +937,7 @@ struct SettingsView: View {
                 Button(action: { dismiss() }) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.Alpha.brand)
                 }
             }
         }
@@ -812,76 +948,91 @@ struct SettingsView: View {
     
     private var twoFactorSetupModal: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // QR Code display
-                    Group {
-                        if is2FALoading {
-                            ProgressView()
-                                .frame(width: 180, height: 180)
-                        } else if let data = twoFAQRImageData,
-                                  let uiImage = UIImage(data: data) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .interpolation(.none)
-                                .scaledToFit()
-                                .frame(width: 180, height: 180)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        } else {
-                            Image(systemName: "qrcode")
-                                .font(.system(size: 80, weight: .ultraLight))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 180, height: 180)
-                        }
-                    }
-                    .padding(.top, 24)
-
-                    Text(LocalizedStringKey("settings.dialog.two_factor.hint"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-
-                    // Code input
-                    TextField("000000", text: $twoFACode)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.center)
-                        .font(.system(size: 28, weight: .semibold, design: .monospaced))
-                        .padding(12)
-                        .background(Color(uiColor: .secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .padding(.horizontal, 48)
-
-                    if let err = twoFAErrorMessage {
-                        Text(err)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
-                    }
-
-                    Button(action: {
-                        Task { await verify2FA() }
-                    }) {
+            ZStack {
+                Color.Alpha.background.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // QR Code display
                         Group {
-                            if is2FAVerifying {
+                            if is2FALoading {
                                 ProgressView()
-                                    .tint(.white)
+                                    .frame(width: 180, height: 180)
+                            } else if let data = twoFAQRImageData,
+                                      let uiImage = UIImage(data: data) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .interpolation(.none)
+                                    .scaledToFit()
+                                    .frame(width: 180, height: 180)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                            .stroke(Color.Alpha.separator, lineWidth: 1)
+                                    )
                             } else {
-                                Text("settings.security.verify_and_enable")
-                                    .font(.headline)
+                                Image(systemName: "qrcode")
+                                    .font(.system(size: 80, weight: .ultraLight))
+                                    .foregroundStyle(Color.Alpha.taupe)
+                                    .frame(width: 180, height: 180)
+                                    .background(Color.Alpha.surfaceDim)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                             }
                         }
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(twoFACode.count == 6 ? Color.blue : Color.blue.opacity(0.35))
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .padding(.top, 24)
+
+                        Text(LocalizedStringKey("settings.dialog.two_factor.hint"))
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color.Alpha.taupe)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+
+                        // Code input
+                        TextField("000000", text: $twoFACode)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.center)
+                            .font(.system(size: 32, weight: .black, design: .monospaced))
+                            .padding(16)
+                            .background(Color.Alpha.surfaceDim)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .stroke(Color.Alpha.separator, lineWidth: 1)
+                            )
+                            .padding(.horizontal, 48)
+
+                        if let err = twoFAErrorMessage {
+                            Text(err)
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                .foregroundStyle(Color.Alpha.down)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+                        }
+
+                        Button(action: {
+                            Task { await verify2FA() }
+                        }) {
+                            Group {
+                                if is2FAVerifying {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Text("settings.security.verify_and_enable")
+                                        .font(.system(size: 15, weight: .black))
+                                        .textCase(.uppercase)
+                                }
+                            }
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(twoFACode.count == 6 ? Color.Alpha.brand : Color.Alpha.brand.opacity(0.3))
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                        }
+                        .disabled(twoFACode.count != 6 || is2FAVerifying)
+                        .padding(.horizontal, 32)
                     }
-                    .disabled(twoFACode.count != 6 || is2FAVerifying)
-                    .padding(.horizontal, 32)
+                    .padding(.bottom, 32)
                 }
-                .padding(.bottom, 32)
             }
             .presentationDetents([.fraction(0.75), .large])
             .presentationDragIndicator(.visible)
@@ -893,7 +1044,7 @@ struct SettingsView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(Color.Alpha.textPrimary)
                     }
                 }
             }
@@ -955,47 +1106,41 @@ struct SettingsView: View {
 
     private var sessionsSheet: some View {
         ZStack {
-            Color(uiColor: .systemGroupedBackground).ignoresSafeArea()
+            Color.Alpha.background.ignoresSafeArea()
             ScrollView {
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("settings.active_sessions")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
-                        Spacer()
-                        Button {
-                            Task { await loadSessions() }
-                        } label: {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .foregroundStyle(.secondary)
-                        .disabled(isSessionsLoading)
-                    }
-                    .padding(.horizontal, 32)
-                    .padding(.top, 4)
-                    .padding(.bottom, -4)
-
+                VStack(spacing: 24) {
                     VStack(spacing: 0) {
-                        sessionListContent
-                            .padding(12)
+                        HStack {
+                            sectionHeader(title: "settings.active_sessions")
+                            Spacer()
+                            Button {
+                                Task { await loadSessions() }
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(Color.Alpha.brand)
+                            }
+                            .padding(.horizontal, 36)
+                            .padding(.bottom, 6)
+                            .disabled(isSessionsLoading)
+                        }
+
+                        premiumCard {
+                            sessionListContent
+                                .padding(16)
+                        }
                     }
-                    .background(Color(uiColor: .secondarySystemGroupedBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .padding(.horizontal, 16)
 
                     if let sessionErrorMessage {
                         VStack(spacing: 0) {
-                            Text(sessionErrorMessage)
-                                .font(.system(size: 13))
-                                .foregroundStyle(.red)
-                                .padding(12)
+                            sectionHeader(title: "common.error")
+                            premiumCard {
+                                Text(sessionErrorMessage)
+                                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(Color.Alpha.down)
+                                    .padding(16)
+                            }
                         }
-                        .frame(maxWidth: .infinity)
-                        .background(Color(uiColor: .secondarySystemGroupedBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .padding(.horizontal, 16)
                     }
                 }
                 .padding(.top, 16)
@@ -1012,7 +1157,7 @@ struct SettingsView: View {
                 Button(action: { dismiss() }) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.Alpha.brand)
                 }
             }
         }
@@ -1026,42 +1171,52 @@ struct SettingsView: View {
     @ViewBuilder
     private var sessionListContent: some View {
         if isSessionsLoading {
-            HStack(spacing: 10) {
-                ProgressView()
+            HStack(spacing: 12) {
+                ProgressView().scaleEffect(0.8)
                 Text("settings.session.loading")
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.Alpha.taupe)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 12)
         } else if sessions.isEmpty {
             Text("settings.session.empty")
-                .foregroundStyle(.secondary)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Color.Alpha.taupe)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.vertical, 12)
         } else {
-            VStack(spacing: 12) {
+            VStack(spacing: 16) {
                 ForEach(sessions) { session in
-                    HStack(spacing: 12) {
-                        Image(systemName: session.isCurrent ? "iphone" : "desktopcomputer")
-                            .foregroundStyle(session.isCurrent ? .blue : .secondary)
-                            .frame(width: 24)
+                    HStack(spacing: 16) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(session.isCurrent ? Color.Alpha.brand.opacity(0.1) : Color.Alpha.taupe.opacity(0.1))
+                                .frame(width: 32, height: 32)
+                            Image(systemName: session.isCurrent ? "iphone" : "desktopcomputer")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(session.isCurrent ? Color.Alpha.brand : Color.Alpha.taupe)
+                        }
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(session.deviceName)
-                                .font(.subheadline.weight(.medium))
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.Alpha.textPrimary)
                             Text(session.metaLine)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                .foregroundStyle(Color.Alpha.taupe)
                         }
                         Spacer()
 
                         if session.isCurrent {
                             Text("settings.session.current")
-                                .font(.caption2.weight(.medium))
+                                .font(.system(size: 10, weight: .black))
+                                .textCase(.uppercase)
                                 .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(Color.blue.opacity(0.12))
-                                .clipShape(Capsule())
+                                .padding(.vertical, 4)
+                                .background(Color.Alpha.brand.opacity(0.1))
+                                .foregroundStyle(Color.Alpha.brand)
+                                .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
                         } else {
                             Toggle("", isOn: Binding(
                                 get: { true },
@@ -1072,14 +1227,14 @@ struct SettingsView: View {
                                 }
                             ))
                             .labelsHidden()
-                            .tint(.green)
-                            .scaleEffect(0.9)
+                            .tint(Color.Alpha.brand)
+                            .scaleEffect(0.8)
                         }
                     }
 
                     if session.id != sessions.last?.id {
                         Divider()
-                            .opacity(0.35)
+                            .background(Color.Alpha.separator)
                     }
                 }
             }

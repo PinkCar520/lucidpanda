@@ -7,6 +7,15 @@
     "$%@" : {
 
     },
+    "09:00" : {
+
+    },
+    "15:00" : {
+
+    },
+    "21:00" : {
+
+    },
     "app.funds.added_%@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -124,9 +133,6 @@
           }
         }
       }
-    },
-    "AU" : {
-
     },
     "auth.action.back_to_login" : {
       "extractionState" : "stale",
@@ -1457,6 +1463,7 @@
       }
     },
     "common.action.view_all" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1719,6 +1726,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请选择一项"
+          }
+        }
+      }
+    },
+    "common.status.live" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live Updates"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实时更新"
           }
         }
       }
@@ -4289,7 +4312,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "分析中..."
+            "value" : "深度分析中..."
           }
         }
       }
@@ -4317,13 +4340,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start Analysis"
+            "value" : "Start AI Analysis"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "立即分析"
+            "value" : "开始 AI 专项分析"
           }
         }
       }
@@ -4433,6 +4456,55 @@
     "Item at %@" : {
 
     },
+    "market.action.invest_now" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invest Now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即申购"
+          }
+        }
+      }
+    },
+    "market.action.reports" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reports"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "研究报告"
+          }
+        }
+      }
+    },
+    "market.analysis.gold_pro" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gold Quant Pro"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "黄金量化专业版"
+          }
+        }
+      }
+    },
     "market.asset.dxy" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4463,6 +4535,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "伦敦金"
+          }
+        }
+      }
+    },
+    "market.asset.gold_spot" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spot Gold (XAU/USD)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "现货黄金 (XAU/USD)"
           }
         }
       }
@@ -4548,6 +4636,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在加载市场数据..."
+          }
+        }
+      }
+    },
+    "market.metric.alpha" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alpha (vs SPX)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "超额收益 (vs 标普500)"
+          }
+        }
+      }
+    },
+    "market.metric.daily_change" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Daily Change"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当日变动"
+          }
+        }
+      }
+    },
+    "market.metric.nav" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Net Asset Value (NAV)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单位净值 (NAV)"
+          }
+        }
+      }
+    },
+    "market.metric.total_aum" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total AUM"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "管理总规模"
           }
         }
       }
@@ -4853,6 +5009,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 周"
+          }
+        }
+      }
+    },
+    "market.section.quant_performance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quantitative Performance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "量化绩效指标"
+          }
+        }
+      }
+    },
+    "market.section.valuation_summary" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Valuation Summary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "估值摘要"
           }
         }
       }
