@@ -17,6 +17,15 @@ struct IntelligenceItemCard: View {
     @Environment(\.colorScheme) var colorScheme
     @Environment(AppRootViewModel.self) private var rootViewModel
 
+    private var formattedTime: String {
+        Self.timeFormatter.string(from: item.timestamp)
+    }
+    
+    private var formattedGoldPrice: String? {
+        guard let price = item.goldPriceSnapshot else { return nil }
+        return String(format: "$%.1f", price)
+    }
+
     var body: some View {
         Group {
             switch style {
@@ -26,6 +35,7 @@ struct IntelligenceItemCard: View {
                 standardLayout
             }
         }
+        .compositingGroup() // 🚀 Optimization: Reduce rendering passes during scroll
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
         .onLongPressGesture(minimumDuration: 0.4, pressing: { pressing in
@@ -133,7 +143,7 @@ struct IntelligenceItemCard: View {
                     
                     Spacer()
                     
-                    Text(dateFormatter.string(from: item.timestamp))
+                    Text(formattedTime)
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundStyle(Color.Alpha.taupe.opacity(0.6))
                 }
@@ -147,12 +157,12 @@ struct IntelligenceItemCard: View {
                     .multilineTextAlignment(.leading)
 
                 // Asset Snapshot
-                if let price = item.goldPriceSnapshot {
+                if let priceString = formattedGoldPrice {
                     HStack(spacing: 4) {
                         Text("dashboard.asset.gold")
                             .font(.system(size: 8, weight: .black))
                             .foregroundStyle(Color.Alpha.brand)
-                        Text(String(format: "$%.1f", price))
+                        Text(priceString)
                             .font(.system(size: 10, weight: .bold, design: .monospaced))
                             .foregroundStyle(Color.Alpha.textSecondary)
                     }
@@ -182,11 +192,11 @@ struct IntelligenceItemCard: View {
         .shadow(color: colorScheme == .light ? Color.black.opacity(0.02) : Color.clear, radius: 2, y: 1)
     }
 
-    private var dateFormatter: DateFormatter {
+    private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter
-    }
+    }()
 }
 
 // MARK: - Quick Peek Sheet

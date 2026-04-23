@@ -10,39 +10,33 @@ public struct FundSparkline: View {
     }
     
     public var body: some View {
-        GeometryReader { geometry in
-            if data.count < 2 {
-                EmptyView()
-            } else {
-                let color = isPositive ? Color.red : Color.green
+        Canvas { context, size in
+            guard data.count >= 2 else { return }
+            
+            let color = isPositive ? Color.red : Color.green
+            var path = Path()
+            
+            for (index, value) in data.enumerated() {
+                let x = size.width * CGFloat(index) / CGFloat(data.count - 1)
+                let y = size.height * (1 - CGFloat(value))
                 
-                Path { path in
-                    for (index, value) in data.enumerated() {
-                        let x = geometry.size.width * CGFloat(index) / CGFloat(data.count - 1)
-                        let y = geometry.size.height * (1 - CGFloat(value))
-                        
-                        if index == 0 {
-                            path.move(to: CGPoint(x: x, y: y))
-                        } else {
-                            path.addLine(to: CGPoint(x: x, y: y))
-                        }
-                    }
+                if index == 0 {
+                    path.move(to: CGPoint(x: x, y: y))
+                } else {
+                    path.addLine(to: CGPoint(x: x, y: y))
                 }
-                .stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                
-                // Area fill
-                Path { path in
-                    path.move(to: CGPoint(x: 0, y: geometry.size.height))
-                    for (index, value) in data.enumerated() {
-                        let x = geometry.size.width * CGFloat(index) / CGFloat(data.count - 1)
-                        let y = geometry.size.height * (1 - CGFloat(value))
-                        path.addLine(to: CGPoint(x: x, y: y))
-                    }
-                    path.addLine(to: CGPoint(x: geometry.size.width, y: geometry.size.height))
-                    path.closeSubpath()
-                }
-                .fill(color.opacity(0.1))
             }
+            
+            // Draw stroke
+            context.stroke(path, with: .color(color), lineWidth: 1.5)
+            
+            // Draw area fill
+            var fillPath = path
+            fillPath.addLine(to: CGPoint(x: size.width, y: size.height))
+            fillPath.addLine(to: CGPoint(x: 0, y: size.height))
+            fillPath.closeSubpath()
+            
+            context.fill(fillPath, with: .color(color.opacity(0.1)))
         }
     }
 }

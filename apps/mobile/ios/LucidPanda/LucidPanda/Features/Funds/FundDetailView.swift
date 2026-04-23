@@ -10,9 +10,9 @@ struct FundDetailView: View {
     @Environment(\.colorScheme) var colorScheme
     
     // --- 交互状态分离 ---
-    @State private var filteredSector: (name: String, stat: SectorStat)? = nil // 饼图联动：原地过滤
-    @State private var selectedSectorForSheet: (name: String, stat: SectorStat)? = nil // 列表交互：弹窗
-    @State private var showAllHoldings = false // 持仓全量弹窗触发
+    @State private var filteredSector: (name: String, stat: SectorStat)? = nil 
+    @State private var selectedSectorForSheet: (name: String, stat: SectorStat)? = nil 
+    @State private var showAllHoldings = false 
     @State private var analysisTab: AnalysisTab = .sector
     
     init(valuation: FundValuation) {
@@ -24,43 +24,9 @@ struct FundDetailView: View {
             LiquidBackground()
             
             List {
-                Group {
-                    headerSection
-                    
-                    if let stats = viewModel.valuation.stats {
-                        actuarialMatrixSection(stats: stats)
-                    }
-                    
-                    smartAlarmSection
-                    
-                    if let confidence = viewModel.valuation.confidence {
-                        confidenceReportSection(confidence: confidence)
-                    }
-                    
-                    analysisSwitcherSection
-                    
-                    if !viewModel.linkedIntelligence.isEmpty {
-                        linkedIntelligenceSection
-                    }
-                }
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
-                Group {
-                    historyLedgerSection
-                    
-                    Text(LocalizedStringKey("funds.disclaimer"))
-                        .font(.system(size: 11, weight: .regular))
-                        .foregroundStyle(.secondary.opacity(0.8))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                        .padding(.top, 20)
-                        .padding(.bottom, 40)
-                        .frame(maxWidth: .infinity)
-                }
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+                mainContentSection
+                
+                footerSection
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -93,8 +59,60 @@ struct FundDetailView: View {
                 .presentationDragIndicator(.visible)
         }
     }
+
+    // MARK: - Body Decomposition (To prevent compiler timeout)
+
+    @ViewBuilder
+    private var mainContentSection: some View {
+        Group {
+            headerSection
+            
+            if let stats = viewModel.valuation.stats {
+                actuarialMatrixSection(stats: stats)
+                    .compositingGroup()
+            }
+            
+            smartAlarmSection
+                .compositingGroup()
+            
+            if let confidence = viewModel.valuation.confidence {
+                confidenceReportSection(confidence: confidence)
+                    .compositingGroup()
+            }
+            
+            analysisSwitcherSection
+                .compositingGroup()
+            
+            if !viewModel.linkedIntelligence.isEmpty {
+                linkedIntelligenceSection
+            }
+        }
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+    }
+
+    @ViewBuilder
+    private var footerSection: some View {
+        Group {
+            historyLedgerSection
+                .compositingGroup()
+            
+            Text(LocalizedStringKey("funds.disclaimer"))
+                .font(.system(size: 11, weight: .regular))
+                .foregroundStyle(.secondary.opacity(0.8))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 40)
+                .frame(maxWidth: .infinity)
+        }
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets(top: 12, leading: 0, bottom: 12, trailing: 0))
+    }
     
-    // MARK: - Sub-View Sections
+    // MARK: - UI Sub-sections
     
     private var headerSection: some View {
         VStack(spacing: 8) {
@@ -262,7 +280,6 @@ struct FundDetailView: View {
             if let attribution = viewModel.valuation.sectorAttribution, !attribution.isEmpty {
                 let sortedSectors = attribution.sorted { $0.value.weight > $1.value.weight }
                 
-                // Visual Overview (Interactive - Precise Radial Trigger)
                 LiquidGlassCard {
                     Chart(sortedSectors, id: \.key) { name, stat in
                         SectorMark(
@@ -317,65 +334,10 @@ struct FundDetailView: View {
                 }
                 .padding(.horizontal)
                 
-                // Dynamic Linked List
                 VStack(spacing: 10) {
                     if let selected = filteredSector {
-                        // MODE A: Inline Drill-down (Stocks in selected sector)
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text(selected.name)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text(
-                                    String(
-                                        format: NSLocalizedString("funds.detail.sector.components_count_format", comment: ""),
-                                        selected.stat.sub?.count ?? 0
-                                    )
-                                )
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .padding(.horizontal, 4)
-                            
-                            if let subItems = selected.stat.sub, !subItems.isEmpty {
-                                let sortedSubs = subItems.sorted { $0.value.impact > $1.value.impact }
-                                ForEach(sortedSubs, id: \.key) { name, subStat in
-                                    Button {
-                                        selectedSectorForSheet = selected
-                                    } label: {
-                                        LiquidGlassCard {
-                                            HStack {
-                                                VStack(alignment: .leading, spacing: 2) {
-                                                    Text(name)
-                                                        .font(.system(size: 13, weight: .medium))
-                                                    Text(
-                                                        String(
-                                                            format: NSLocalizedString("funds.detail.sector.position_format", comment: ""),
-                                                            subStat.weight
-                                                        )
-                                                    )
-                                                        .font(.system(size: 9))
-                                                        .foregroundStyle(.secondary)
-                                                }
-                                                Spacer()
-                                                Text(String(format: "%+.3f%%", subStat.impact))
-                                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                                    .foregroundStyle(subStat.impact >= 0 ? Color.Alpha.down : Color.Alpha.up)
-                                                
-                                                Image(systemName: "chevron.right")
-                                                    .font(.system(size: 10, weight: .medium))
-                                                    .foregroundStyle(.tertiary)
-                                            }
-                                        }
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        }
-                        .transition(.opacity)
+                        inlineDrillDownList(selected: selected)
                     } else {
-                        // MODE B: Overview View (All sectors)
                         ForEach(sortedSectors, id: \.key) { name, stat in
                             Button {
                                 selectedSectorForSheet = (name, stat)
@@ -390,12 +352,7 @@ struct FundDetailView: View {
                                         VStack(alignment: .leading, spacing: 2) {
                                             Text(name)
                                                 .font(.system(size: 13, weight: .medium))
-                                            Text(
-                                                String(
-                                                    format: NSLocalizedString("funds.detail.sector.weight_format", comment: ""),
-                                                    stat.weight
-                                                )
-                                            )
+                                            Text(String(format: NSLocalizedString("funds.detail.sector.weight_format", comment: ""), stat.weight))
                                                 .font(.system(size: 9))
                                                 .foregroundStyle(.secondary)
                                         }
@@ -429,6 +386,53 @@ struct FundDetailView: View {
                 .padding(.horizontal)
             }
         }
+    }
+
+    @ViewBuilder
+    private func inlineDrillDownList(selected: (name: String, stat: SectorStat)) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(selected.name)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(String(format: NSLocalizedString("funds.detail.sector.components_count_format", comment: ""), selected.stat.sub?.count ?? 0))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 4)
+            
+            if let subItems = selected.stat.sub, !subItems.isEmpty {
+                let sortedSubs = subItems.sorted { $0.value.impact > $1.value.impact }
+                ForEach(sortedSubs, id: \.key) { name, subStat in
+                    Button {
+                        selectedSectorForSheet = selected
+                    } label: {
+                        LiquidGlassCard {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(name)
+                                        .font(.system(size: 13, weight: .medium))
+                                    Text(String(format: NSLocalizedString("funds.detail.sector.position_format", comment: ""), subStat.weight))
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(String(format: "%+.3f%%", subStat.impact))
+                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
+                                    .foregroundStyle(subStat.impact >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .transition(.opacity)
     }
     
     private var linkedIntelligenceSection: some View {
@@ -498,36 +502,38 @@ struct FundDetailView: View {
     
     @ViewBuilder
     private var portfolioPenetrationSection: some View {
-        HStack {
-            Text("funds.detail.holdings.title")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(colorScheme == .dark ? .white : .black)
-            
-            Spacer()
-            
-            if viewModel.valuation.components.count > 3 {
-                Button {
-                    showAllHoldings = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Text("funds.detail.holdings.view_all")
-                        Image(systemName: "chevron.right")
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("funds.detail.holdings.title")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(colorScheme == .dark ? .white : .black)
+                
+                Spacer()
+                
+                if viewModel.valuation.components.count > 3 {
+                    Button {
+                        showAllHoldings = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("funds.detail.holdings.view_all")
+                            Image(systemName: "chevron.right")
+                        }
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.blue)
                     }
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.blue)
                 }
             }
-        }
-        .padding(.horizontal)
-        .padding(.top, 12)
-        
-        let topComponents = viewModel.valuation.components
-            .sorted { abs($0.impact) > abs($1.impact) }
-            .prefix(3)
-        
-        ForEach(topComponents) { component in
-            HoldingRow(component: component)
-                .padding(.horizontal)
+            .padding(.horizontal)
+            .padding(.top, 12)
+            
+            let topComponents = viewModel.valuation.components
+                .sorted { abs($0.impact) > abs($1.impact) }
+                .prefix(3)
+            
+            ForEach(topComponents) { component in
+                HoldingRow(component: component)
+                    .padding(.horizontal)
+            }
         }
     }
     
@@ -539,12 +545,7 @@ struct FundDetailView: View {
                 .padding(.horizontal)
             
             if viewModel.isHistoryLoading {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                        .padding()
-                    Spacer()
-                }
+                HStack { Spacer(); ProgressView().padding(); Spacer() }
             } else if viewModel.history.isEmpty {
                 LiquidGlassCard {
                     Text("funds.detail.history.empty")
@@ -558,7 +559,6 @@ struct FundDetailView: View {
                 let historyRecords = viewModel.history
                 LiquidGlassCard {
                     VStack(spacing: 0) {
-                        // Table Header
                         HStack {
                             Text("funds.detail.history.header.date").frame(width: 70, alignment: .leading)
                             Spacer()
@@ -571,39 +571,22 @@ struct FundDetailView: View {
                         .foregroundStyle(.secondary)
                         .padding(.bottom, 12)
                         
-                                    ForEach(historyRecords, id: \.tradeDate) { record in
-                                        VStack(spacing: 0) {
-                                            Divider().opacity(0.5)
-                                            HStack {
-                                                Text(formatDateString(record.tradeDate))
-                                                    .font(.system(size: 10, design: .monospaced))
-                                                    .frame(width: 70, alignment: .leading)
-                                                
-                                                Spacer()
-                                                
-                                                let est = record.frozenEstGrowth ?? 0.0
-                                                Text(formatPct(est))
-                                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                                    .foregroundStyle(est >= 0 ? Color.Alpha.down : Color.Alpha.up)
-                                                    .frame(width: 60, alignment: .trailing)
-                                                
-                                                let official = record.officialGrowth ?? 0.0
-                                                Text(formatPct(official))
-                                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                                    .foregroundStyle(official >= 0 ? Color.Alpha.down : Color.Alpha.up)
-                                                    .frame(width: 60, alignment: .trailing)
-                                                
-                                                Text(formatPct(record.deviation ?? 0.0))
-                                                    .font(.system(size: 10, design: .monospaced))
-                                                    .foregroundStyle(.secondary)
-                                                    .frame(width: 60, alignment: .trailing)
-                                                
-                                                accuracyBadge(record.trackingStatus ?? "-")
-                                                    .frame(width: 40, alignment: .trailing)
-                                            }
-                                            .padding(.vertical, 10)
-                                        }
-                                    }
+                        ForEach(historyRecords, id: \.tradeDate) { record in
+                            VStack(spacing: 0) {
+                                Divider().opacity(0.5)
+                                HStack {
+                                    Text(formatDateString(record.tradeDate)).font(.system(size: 10, design: .monospaced)).frame(width: 70, alignment: .leading)
+                                    Spacer()
+                                    let est = record.frozenEstGrowth ?? 0.0
+                                    Text(formatPct(est)).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(est >= 0 ? Color.Alpha.down : Color.Alpha.up).frame(width: 60, alignment: .trailing)
+                                    let official = record.officialGrowth ?? 0.0
+                                    Text(formatPct(official)).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(official >= 0 ? Color.Alpha.down : Color.Alpha.up).frame(width: 60, alignment: .trailing)
+                                    Text(formatPct(record.deviation ?? 0.0)).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).frame(width: 60, alignment: .trailing)
+                                    accuracyBadge(record.trackingStatus ?? "-").frame(width: 40, alignment: .trailing)
+                                }
+                                .padding(.vertical, 10)
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal)
@@ -614,22 +597,16 @@ struct FundDetailView: View {
     // MARK: - Helper Types
 
     private enum AnalysisTab: String, CaseIterable, Identifiable {
-        case sector
-        case holdings
-
+        case sector, holdings
         var id: String { rawValue }
-
         var title: LocalizedStringKey {
             switch self {
-            case .sector:
-                return "funds.detail.sector.title"
-            case .holdings:
-                return "funds.detail.holdings.title"
+            case .sector: return "funds.detail.sector.title"
+            case .holdings: return "funds.detail.holdings.title"
             }
         }
     }
     
-    // Identifiable wrapper for SectorStat to use with .sheet
     private struct IdentifiableSector: Identifiable {
         var id: String { name }
         let name: String
@@ -639,13 +616,7 @@ struct FundDetailView: View {
     // MARK: - Subviews Helpers
     
     private func accuracyBadge(_ status: String) -> some View {
-        Text(status)
-            .font(.system(size: 9, weight: .medium))
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
-            .background(statusColor(status).opacity(0.1))
-            .foregroundStyle(statusColor(status))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
+        Text(status).font(.system(size: 9, weight: .medium)).padding(.horizontal, 4).padding(.vertical, 2).background(statusColor(status).opacity(0.1)).foregroundStyle(statusColor(status)).clipShape(RoundedRectangle(cornerRadius: 4))
     }
     
     private func statusColor(_ status: String) -> Color {
@@ -666,40 +637,26 @@ struct FundDetailView: View {
         if let dateObj = Formatters.yearMonthDayParser.date(from: date) {
             return Formatters.monthDayFormatter.string(from: dateObj)
         }
-        return String(date.suffix(5)) // Fallback to original logic if parsing fails
+        return String(date.suffix(5))
     }
     
     private func actuarialStat(label: LocalizedStringKey, value: String, grade: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
+            Text(label).font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(value)
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
-                Text(grade)
-                    .font(.system(size: 10, weight: .medium))
-                    .padding(.horizontal, 4)
-                    .background(color.opacity(0.1))
-                    .foregroundStyle(color)
-                    .clipShape(RoundedRectangle(cornerRadius: 2))
+                Text(value).font(.system(size: 16, weight: .medium, design: .monospaced))
+                Text(grade).font(.system(size: 10, weight: .medium)).padding(.horizontal, 4).background(color.opacity(0.1)).foregroundStyle(color).clipShape(RoundedRectangle(cornerRadius: 2))
             }
         }
     }
     
     private func periodReturn(label: LocalizedStringKey, value: Double?) -> some View {
         VStack(spacing: 4) {
-            Text(label)
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.secondary)
+            Text(label).font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary)
             if let val = value {
-                Text(Formatters.signedPercentFormatter(fractionDigits: 1).string(from: NSNumber(value: val / 100.0)) ?? "\(val.formatted(.number.precision(.fractionLength(1))))%")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(val >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                Text(Formatters.signedPercentFormatter(fractionDigits: 1).string(from: NSNumber(value: val / 100.0)) ?? "\(val.formatted(.number.precision(.fractionLength(1))))%").font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(val >= 0 ? Color.Alpha.down : Color.Alpha.up)
             } else {
-                Text("common.symbol.dash")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                Text("common.symbol.dash").font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
             }
         }
     }
@@ -715,12 +672,9 @@ struct FundDetailView: View {
 
     private func marketStatusColor(_ status: MarketSessionStatus) -> Color {
         switch status {
-        case .open:
-            return Color.Alpha.up
-        case .lunchBreak:
-            return .orange
-        case .closed:
-            return .gray
+        case .open: return Color.Alpha.up
+        case .lunchBreak: return .orange
+        case .closed: return .gray
         }
     }
 }
@@ -736,33 +690,16 @@ struct HoldingRow: View {
         LiquidGlassCard(backgroundColor: bgColor) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(component.name)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(colorScheme == .dark ? .white : .black)
-                    Text(component.code)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                    Text(component.name).font(.system(size: 14, weight: .medium)).foregroundStyle(colorScheme == .dark ? .white : .black)
+                    Text(component.code).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: component.changePct / 100.0)) ?? "\(component.changePct.formatted(.number.precision(.fractionLength(2))))%")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
-                        .foregroundStyle(component.changePct >= 0 ? Color.Alpha.down : Color.Alpha.up)
-                    
+                    Text(Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: component.changePct / 100.0)) ?? "\(component.changePct.formatted(.number.precision(.fractionLength(2))))%").font(.system(size: 14, weight: .medium, design: .monospaced)).foregroundStyle(component.changePct >= 0 ? Color.Alpha.down : Color.Alpha.up)
                     HStack(spacing: 4) {
-                        Text(
-                            String(
-                                format: NSLocalizedString("funds.detail.holdings.weight_format", comment: ""),
-                                String(format: "%.1f", component.weight)
-                            )
-                        )
+                        Text(String(format: NSLocalizedString("funds.detail.holdings.weight_format", comment: ""), String(format: "%.1f", component.weight)))
                         Text("common.symbol.bullet")
-                        Text(
-                            String(
-                                format: NSLocalizedString("funds.detail.holdings.contribution_format", comment: ""),
-                                String(format: "%.3f", component.impact)
-                            )
-                        )
+                        Text(String(format: NSLocalizedString("funds.detail.holdings.contribution_format", comment: ""), String(format: "%.3f", component.impact)))
                     }
                     .font(.system(size: 8))
                     .foregroundStyle(.secondary)
@@ -781,10 +718,7 @@ struct HoldingsPenetrationView: View {
     @Environment(\.dismiss) var dismiss
     
     enum SortMode {
-        case impact
-        case weight
-        case performance
-
+        case impact, weight, performance
         var label: LocalizedStringKey {
             switch self {
             case .impact: return "funds.detail.holdings.sort.impact"
@@ -792,7 +726,6 @@ struct HoldingsPenetrationView: View {
             case .performance: return "funds.detail.holdings.sort.performance"
             }
         }
-
         var icon: String {
             switch self {
             case .impact: return "bolt.fill"
@@ -803,10 +736,7 @@ struct HoldingsPenetrationView: View {
     }
     
     var filteredResults: [FundComponent] {
-        let list = searchText.isEmpty 
-            ? components 
-            : components.filter { $0.name.contains(searchText) || $0.code.contains(searchText.uppercased()) }
-        
+        let list = searchText.isEmpty ? components : components.filter { $0.name.contains(searchText) || $0.code.contains(searchText.uppercased()) }
         return list.sorted { a, b in
             switch sortMode {
             case .impact: return abs(a.impact) > abs(b.impact)
@@ -820,51 +750,29 @@ struct HoldingsPenetrationView: View {
         NavigationStack {
             ZStack {
                 LiquidBackground()
-                
                 VStack(spacing: 0) {
-                    // Search & Filter Header
                     VStack(spacing: 12) {
                         HStack {
-                            Image(systemName: "magnifyingglass")
-                                .foregroundStyle(.secondary)
-                            TextField(String(localized: "funds.detail.holdings.search_prompt"), text: $searchText)
-                                .textFieldStyle(.plain)
+                            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                            TextField(String(localized: "funds.detail.holdings.search_prompt"), text: $searchText).textFieldStyle(.plain)
                         }
-                        .padding(10)
-                        .background(Color.secondary.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        
+                        .padding(10).background(Color.secondary.opacity(0.1)).clipShape(RoundedRectangle(cornerRadius: 10))
                         HStack(spacing: 8) {
                             ForEach([SortMode.impact, .weight, .performance], id: \.self) { mode in
-                                Button {
-                                    withAnimation(.spring()) { sortMode = mode }
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: mode.icon)
-                                        Text(mode.label)
-                                    }
-                                    .font(.system(size: 11, weight: .medium))
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
+                                Button { withAnimation(.spring()) { sortMode = mode } } label: {
+                                    HStack(spacing: 4) { Image(systemName: mode.icon); Text(mode.label) }
+                                    .font(.system(size: 11, weight: .medium)).padding(.horizontal, 12).padding(.vertical, 6)
                                     .background(sortMode == mode ? Color.blue : Color.secondary.opacity(0.1))
-                                    .foregroundStyle(sortMode == mode ? .white : .primary)
-                                    .clipShape(Capsule())
+                                    .foregroundStyle(sortMode == mode ? .white : .primary).clipShape(Capsule())
                                 }
                             }
                             Spacer()
                         }
-                    }
-                    .padding()
-                    .background(Color.clear)
-                    
+                    }.padding().background(Color.clear)
                     ScrollView {
                         LazyVStack(spacing: 10) {
-                            ForEach(filteredResults) { component in
-                                HoldingRow(component: component)
-                            }
-                        }
-                        .padding()
-                        .padding(.bottom, 20)
+                            ForEach(filteredResults) { component in HoldingRow(component: component) }
+                        }.padding().padding(.bottom, 20)
                     }
                 }
             }
@@ -872,11 +780,7 @@ struct HoldingsPenetrationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.primary)
-                    }
+                    Button { dismiss() } label: { Image(systemName: "xmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(.primary) }
                 }
             }
         }

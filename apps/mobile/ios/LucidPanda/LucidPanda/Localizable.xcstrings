@@ -2668,6 +2668,7 @@
       }
     },
     "funds.compact.no_data" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

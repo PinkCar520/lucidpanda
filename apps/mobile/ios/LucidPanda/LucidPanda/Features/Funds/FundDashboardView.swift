@@ -30,9 +30,8 @@ struct FundDashboardView: View {
     @State private var showDeleteConfirmation = false
     @State private var pendingDeleteFund: FundValuation?
     @State private var showCreateGroupSheet = false
-    @State private var selectedFund: FundValuation?
+    @State private var navigationFund: FundValuation?
 
-    @State private var showFundDetail = false
     @State private var showGroupManager = false
     @State private var pendingMoveFundForManager: FundValuation?
     @State private var showCreateGroupOnly = false
@@ -78,11 +77,6 @@ struct FundDashboardView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { dashboardToolbar }
                 .toolbar(removing: .title)
-                .navigationDestination(isPresented: $showFundDetail) {
-                    if let fund = selectedFund {
-                        FundDetailView(valuation: fund)
-                    }
-                }
         }
         .modelContext(modelContext)
         .task {
@@ -155,7 +149,7 @@ struct FundDashboardView: View {
 
     private var dashboardContent: some View {
         ZStack(alignment: .top) {
-            TaupeTheme.background.ignoresSafeArea()
+            Color.Alpha.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // 顶部过滤器
@@ -177,25 +171,15 @@ struct FundDashboardView: View {
                     } else {
                         ForEach(displayList) { valuation in
                             Button {
-                                selectedFund = valuation
-                                showFundDetail = true
+                                navigationFund = valuation
                             } label: {
                                 FundCompactCard(
                                     valuation: valuation
                                 )
+                                .padding(.horizontal, 16)
                             }
-                            .buttonStyle(LiquidScaleButtonStyle())
-                            .scrollTransition(
-                                topLeading: .interactive,
-                                bottomTrailing: .interactive
-                            ) { content, phase in
-                                content
-                                    .opacity(phase.isIdentity ? 1 : (phase.value < 0 ? 0.3 : 1))
-                                    .scaleEffect(phase.isIdentity ? 1 : (phase.value < 0 ? 0.85 : 1))
-                                    .offset(y: phase.value < 0 ? (phase.value * 50) : 0)
-                                    .blur(radius: phase.value < 0 ? (abs(phase.value) * 5) : 0)
-                            }
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .buttonStyle(.plain)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -231,6 +215,9 @@ struct FundDashboardView: View {
                 .scrollContentBackground(.hidden)
                 .refreshable {
                     await viewModel.fetchWatchlist()
+                }
+                .navigationDestination(item: $navigationFund) { valuation in
+                    FundDetailView(valuation: valuation)
                 }
             }
         }

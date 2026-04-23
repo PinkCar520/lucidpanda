@@ -13,6 +13,7 @@ struct MainDashboardView: View {
     @State private var isSettingsPresented = false
     @State private var isPulseSheetPresented = false
     @State private var isDeepAnalysisPresented = false
+    @State private var selectedItem: IntelligenceItem?
 
     @State private var currentTime = Date()
     private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -30,46 +31,65 @@ struct MainDashboardView: View {
                     // 1. Sticky Real-time Ticker
                     goldTickerHeader
                     
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 0) {
-                            let displayItems = viewModel.items.isEmpty ? cachedItems.map { IntelligenceItem(from: $0) } : viewModel.filteredItems
+                    List {
+                        let displayItems = viewModel.items.isEmpty ? cachedItems.map { IntelligenceItem(from: $0) } : viewModel.filteredItems
 
-                            if displayItems.isEmpty {
-                                emptyStateView.padding(.top, 100)
-                            } else {
-                                // 2. Featured Analysis (Top item)
-                                if let featured = displayItems.first {
-                                    NavigationLink(destination: IntelligenceDetailView(item: featured)) {
-                                        IntelligenceItemCard(item: featured, style: .featured)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .padding(.horizontal)
-                                    .padding(.vertical, 20)
+                        if displayItems.isEmpty {
+                            emptyStateView
+                                .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .padding(.top, 100)
+                        } else {
+                            // 2. Featured Analysis (Top item)
+                            if let featured = displayItems.first {
+                                Button {
+                                    selectedItem = featured
+                                } label: {
+                                    IntelligenceItemCard(item: featured, style: .featured)
                                 }
-
-                                // 3. News Section
-                                VStack(alignment: .leading, spacing: 20) {
-                                    sectionHeaderView
-
-                                    LazyVStack(spacing: 12) {
-                                        ForEach(Array(displayItems.dropFirst().enumerated()), id: \.element.id) { index, item in
-                                            NavigationLink(destination: IntelligenceDetailView(item: item)) {
-                                                IntelligenceItemCard(item: item, style: .standard)
-                                            }
-                                            .buttonStyle(LiquidScaleButtonStyle())
-                                        }
-                                    }
-                                    .padding(.horizontal)
-                                }
-                                .padding(.top, 8)
+                                .buttonStyle(LiquidScaleButtonStyle())
+                                .listRowInsets(EdgeInsets(top: 20, leading: 16, bottom: 20, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
                             }
 
-                            Spacer(minLength: 120)
+                            // 3. News Section (Title & List) - Exact Original Layout
+                            sectionHeaderView
+                                .padding(.vertical, 16)
+                                .listRowInsets(EdgeInsets()) // Neutralize List row padding
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+
+                            ForEach(Array(displayItems.dropFirst().enumerated()), id: \.element.id) { index, item in
+                                Button {
+                                    selectedItem = item
+                                } label: {
+                                    IntelligenceItemCard(item: item, style: .standard)
+                                }
+                                .buttonStyle(LiquidScaleButtonStyle())
+                                .padding(.horizontal) // Match original container padding
+                            }
+                            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
                         }
+                        
+                        Color.clear.frame(height: 100)
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .refreshable {
+                        await viewModel.startIntelligenceStream()
                     }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(item: $selectedItem) { item in
+                IntelligenceDetailView(item: item)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -209,11 +229,15 @@ struct MainDashboardView: View {
     }
 
     private var utcDateFormatter: DateFormatter {
+        Self.sharedUtcFormatter
+    }
+    
+    private static let sharedUtcFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         formatter.timeZone = TimeZone(abbreviation: "UTC")
         return formatter
-    }
+    }()
 
     private var statusColor: Color {
         switch viewModel.connectionStatus {
@@ -285,7 +309,9 @@ struct MainDashboardView: View {
             .padding(.top, 15)
 
             VStack {
-                NavigationLink(destination: IntelligenceDetailView(item: item)) {
+                Button {
+                    selectedItem = item
+                } label: {
                     IntelligenceItemCard(item: item, style: .standard)
                 }
                 .buttonStyle(LiquidScaleButtonStyle())
