@@ -85,7 +85,7 @@ class FredDataSource:
     # 增加缓存机制，防止频繁抓取（宏观数据变化极慢，无需实时请求）
     _cache: dict = {}
     _last_fetch_time: datetime | None = None
-    _CACHE_TTL_SECONDS: int = 300  # 缓存 5 分钟
+    _CACHE_TTL_SECONDS: int = 3600  # 缓存 1 小时 (推荐生产设置)
 
     async def fetch_macro_dashboard(self) -> dict:
         """
