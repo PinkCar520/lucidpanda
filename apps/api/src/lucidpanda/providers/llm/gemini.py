@@ -14,6 +14,16 @@ BATCH_CONTENT_CHARS = 400  # 批量分析每条最多输入字符数
 
 
 class GeminiLLM(BaseLLM):
+    def _get_client(self) -> genai.Client:
+        """根据配置获取 Gemini 客户端（AI Studio 或 Vertex AI）"""
+        if settings.GEMINI_USE_VERTEXAI:
+            return genai.Client(
+                vertexai=True,
+                project=settings.GOOGLE_CLOUD_PROJECT,
+                location=settings.GOOGLE_CLOUD_LOCATION,
+            )
+        return genai.Client(api_key=settings.GEMINI_API_KEY)
+
     async def analyze_async(self, raw_data, taxonomy: dict | None = None):
         """异步版本的分析方法"""
         import asyncio
@@ -27,7 +37,7 @@ class GeminiLLM(BaseLLM):
 
     def analyze(self, raw_data, taxonomy: dict | None = None):
         try:
-            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            client = self._get_client()
 
             config = {
                 "temperature": 0.2,
@@ -53,7 +63,7 @@ class GeminiLLM(BaseLLM):
 
     def generate_json(self, prompt: str, temperature: float = 0.2):
         try:
-            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            client = self._get_client()
             config = {
                 "temperature": temperature,
                 "response_mime_type": "application/json",
@@ -69,7 +79,7 @@ class GeminiLLM(BaseLLM):
 
     def analyze_batch(self, news_items, taxonomy: dict | None = None):
         try:
-            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+            client = self._get_client()
 
             config = {
                 "temperature": 0.2,

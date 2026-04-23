@@ -35,6 +35,9 @@ class LLMSettings(BaseModel):
     gemini_model: str = Field(default="gemini-2.5-flash", description="Gemini 模型")
     gemini_batch_model: str = Field(default="gemini-2.0-flash-lite")
     gemini_embedding_model: str = Field(default="models/gemini-embedding-001")
+    gemini_use_vertexai: bool = Field(default=False, description="是否使用 Vertex AI")
+    google_cloud_project: str | None = Field(default=None, description="Google Cloud 项目 ID")
+    google_cloud_location: str = Field(default="us-central1", description="Google Cloud 区域")
 
     # DeepSeek
     deepseek_api_key: str | None = Field(default=None)
@@ -182,6 +185,18 @@ class Settings(BaseSettings):
     @property
     def GEMINI_MODEL(self) -> str:
         return self.llm.gemini_model
+
+    @property
+    def GEMINI_USE_VERTEXAI(self) -> bool:
+        return self.llm.gemini_use_vertexai
+
+    @property
+    def GOOGLE_CLOUD_PROJECT(self) -> str | None:
+        return self.llm.google_cloud_project
+
+    @property
+    def GOOGLE_CLOUD_LOCATION(self) -> str:
+        return self.llm.google_cloud_location
 
     @property
     def DEEPSEEK_API_KEY(self) -> str | None:

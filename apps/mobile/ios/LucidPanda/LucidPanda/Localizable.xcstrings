@@ -1764,6 +1764,7 @@
       }
     },
     "common.symbol.bullet" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1780,6 +1781,7 @@
       }
     },
     "common.symbol.dash" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2668,7 +2670,6 @@
       }
     },
     "funds.compact.no_data" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2800,6 +2801,7 @@
       }
     },
     "funds.detail.history.empty" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2848,6 +2850,7 @@
       }
     },
     "funds.detail.history.header.deviation" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2912,6 +2915,7 @@
       }
     },
     "funds.detail.holdings.contribution_format" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3046,6 +3050,7 @@
       }
     },
     "funds.detail.holdings.weight_format" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3266,6 +3271,7 @@
       }
     },
     "funds.detail.sector.components_count_format" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3282,6 +3288,7 @@
       }
     },
     "funds.detail.sector.empty" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3298,6 +3305,7 @@
       }
     },
     "funds.detail.sector.position_format" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3330,6 +3338,7 @@
       }
     },
     "funds.detail.sector.weight_format" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

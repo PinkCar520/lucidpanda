@@ -113,6 +113,7 @@ services:
     command: python scripts/core/run.py
     volumes:
       - ./logs:/app/logs
+      - ./secrets/gcp-key.json:/app/secrets/gcp-key.json:ro
     env_file:
       - .env
       - .env.ai
@@ -226,6 +227,7 @@ services:
     command: taskiq worker src.lucidpanda.core.taskiq_broker:broker --workers 2
     volumes:
       - ./logs:/app/logs
+      - ./secrets/gcp-key.json:/app/secrets/gcp-key.json:ro
     env_file:
       - .env
       - .env.ai
@@ -305,6 +307,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./uploads:/app/uploads
+      - ./secrets/gcp-key.json:/app/secrets/gcp-key.json:ro
     env_file:
       - .env
       - .env.ai
