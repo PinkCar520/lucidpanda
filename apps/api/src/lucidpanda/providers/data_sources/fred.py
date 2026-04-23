@@ -82,12 +82,27 @@ class FredDataSource:
 
         return results
 
+    # 增加缓存机制，防止频繁抓取（宏观数据变化极慢，无需实时请求）
+    _cache: dict = {}
+    _last_fetch_time: datetime | None = None
+    _CACHE_TTL_SECONDS: int = 300  # 缓存 5 分钟
+
     async def fetch_macro_dashboard(self) -> dict:
         """
         并发抓取，瞬间拉齐当前所有的宏观底座核心数据！
+        带 5 分钟内存缓存。
         """
         if not self.api_key:
             return {}
+
+        # 检查缓存
+        now = datetime.now(UTC)
+        if (
+            self._last_fetch_time
+            and (now - self._last_fetch_time).total_seconds() < self._CACHE_TTL_SECONDS
+        ):
+            logger.debug("🔄 使用 FRED 宏观快照内存缓存")
+            return self._cache
 
         logger.info("🇺🇸 开始调用美联储 FRED 官方接口拉取大盘快照...")
 
@@ -105,6 +120,11 @@ class FredDataSource:
                 dashboard[series_id] = None
             elif res and len(res) > 0:
                 dashboard[series_id] = res[0]
+
+        # 更新缓存
+        if any(dashboard.values()):
+            self._cache = dashboard
+            self._last_fetch_time = now
 
         logger.info(
             f"✅ 美联储宏观快照获取完毕，成功获取 {len([k for k, v in dashboard.items() if v])} 项指标。"
