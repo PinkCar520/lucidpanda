@@ -70,7 +70,7 @@ EQUITY_US_FEEDS = [
         "US/Eastern",
     ),
     ("Yahoo Finance-News", "https://finance.yahoo.com/news/rssindex", "US/Eastern"),
-    ("Reuters-Business", "http://rsshub:1200/reuters/business", "Europe/London"),
+    ("Reuters-Business", "http://rsshub:1200/reuters/business?sophi=true", "Europe/London"),
 ]
 
 # 汇总所有信源并标记分类
