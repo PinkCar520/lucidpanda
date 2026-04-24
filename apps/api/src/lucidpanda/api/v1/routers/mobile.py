@@ -111,7 +111,6 @@ async def get_mobile_intelligence(limit: int = 20, db: Session = Depends(get_ses
     """
     statement = (
         select(Intelligence)
-        .where(Intelligence.category == "macro_gold")
         .where(Intelligence.status == "COMPLETED")
         .where(col(Intelligence.summary).is_not(None))
         .order_by(col(Intelligence.timestamp).desc())
