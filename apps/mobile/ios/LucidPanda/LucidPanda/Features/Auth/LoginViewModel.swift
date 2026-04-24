@@ -66,7 +66,7 @@ class LoginViewModel {
             onSuccess?()
             
         } catch {
-            errorMessage = "登录失败：邮箱或密码错误"
+            errorMessage = NSLocalizedString("auth.error.invalid_credentials", comment: "")
             logger.error("Login failed: \(error.localizedDescription, privacy: .public)")
         }
         
@@ -76,7 +76,7 @@ class LoginViewModel {
     @MainActor
     func performRegister() async {
         guard canSubmit else {
-            errorMessage = "请检查输入的信息格式"
+            errorMessage = NSLocalizedString("auth.validation.invalid_format", comment: "")
             return
         }
         isLoading = true
@@ -94,12 +94,12 @@ class LoginViewModel {
                 method: "POST",
                 body: request
             )
-            successMessage = "注册成功，请返回登录"
+            successMessage = NSLocalizedString("auth.success.registered", comment: "")
             mode = .login
             password = ""
             confirmPassword = ""
         } catch {
-            errorMessage = parseFriendlyError(error, fallback: "注册失败，请稍后再试")
+            errorMessage = parseFriendlyError(error, fallback: NSLocalizedString("auth.error.register_failed", comment: ""))
             logger.error("Register failed: \(error.localizedDescription, privacy: .public)")
         }
 
@@ -109,7 +109,7 @@ class LoginViewModel {
     @MainActor
     func performPasswordReset() async {
         guard !email.isEmpty else {
-            errorMessage = "请输入有效的电子邮箱"
+            errorMessage = NSLocalizedString("auth.validation.invalid_email", comment: "")
             return
         }
         isLoading = true
@@ -125,7 +125,7 @@ class LoginViewModel {
             )
             successMessage = response.message
         } catch {
-            errorMessage = parseFriendlyError(error, fallback: "发送失败，请稍后再试")
+            errorMessage = parseFriendlyError(error, fallback: NSLocalizedString("auth.error.forgot_password_failed", comment: ""))
             logger.error("Forgot password failed: \(error.localizedDescription, privacy: .public)")
         }
 

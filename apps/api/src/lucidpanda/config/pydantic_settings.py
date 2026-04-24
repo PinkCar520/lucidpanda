@@ -43,6 +43,8 @@ class LLMSettings(BaseModel):
     deepseek_api_key: str | None = Field(default=None)
     deepseek_base_url: str = Field(default="https://api.deepseek.com")
     deepseek_model: str = Field(default="deepseek-chat")
+    deepseek_thinking: str = Field(default="disabled", description="DeepSeek V4 思考模式: enabled | disabled")
+    deepseek_reasoning_effort: str = Field(default="medium", description="推理强度: low | medium | high")
 
     @field_validator("llm_fallback_order")
     @classmethod
@@ -209,6 +211,14 @@ class Settings(BaseSettings):
     @property
     def DEEPSEEK_BASE_URL(self) -> str:
         return self.llm.deepseek_base_url
+
+    @property
+    def DEEPSEEK_THINKING(self) -> str:
+        return self.llm.deepseek_thinking
+
+    @property
+    def DEEPSEEK_REASONING_EFFORT(self) -> str:
+        return self.llm.deepseek_reasoning_effort
 
     @property
     def DASHSCOPE_API_KEY(self) -> str | None:

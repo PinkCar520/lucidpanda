@@ -23,7 +23,7 @@ class DeepSeekLLM(BaseLLM):
 
         return await asyncio.to_thread(self.generate_json, prompt, temperature)
 
-    def analyze(self, raw_data, taxonomy: dict | None = None):
+    def analyze(self, raw_data, taxonomy: dict | None = None, enable_thinking: bool | None = None):
         import time
 
         try:
@@ -33,17 +33,32 @@ class DeepSeekLLM(BaseLLM):
 
             prompt = self._get_prompt(raw_data, taxonomy)
 
+            # 决定是否开启思考模式：
+            # 1. 如果调用时显式传入了 enable_thinking，则以传入值为准。
+            # 2. 否则，读取环境变量 DEEPSEEK_THINKING 的配置。
+            is_thinking_active = enable_thinking if enable_thinking is not None else (settings.DEEPSEEK_THINKING == "enabled")
+
             logger.info(
-                f"📤 [DeepSeek] 发起请求 -> Base: {settings.DEEPSEEK_BASE_URL} | Model: {settings.DEEPSEEK_MODEL}"
+                f"📤 [DeepSeek] 发起请求 -> Model: {settings.DEEPSEEK_MODEL} | Thinking: {is_thinking_active}"
             )
 
+            # 构建请求参数
+            kwargs = {
+                "model": settings.DEEPSEEK_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.3 if not is_thinking_active else 0.6,
+            }
+
+            # 如果开启了思考模式，注入 V4 标准参数
+            if is_thinking_active:
+                kwargs["extra_body"] = {
+                    "thinking": {"type": "enabled"},
+                    "reasoning_effort": settings.DEEPSEEK_REASONING_EFFORT
+                }
+
             start_time = time.time()
-            response = client.chat.completions.create(
-                model=settings.DEEPSEEK_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-                temperature=0.3,
-            )
+            response = client.chat.completions.create(**kwargs)
             elapsed = time.time() - start_time
 
             raw_text = response.choices[0].message.content or ""
@@ -60,12 +75,23 @@ class DeepSeekLLM(BaseLLM):
             client = OpenAI(
                 api_key=settings.DEEPSEEK_API_KEY, base_url=settings.DEEPSEEK_BASE_URL
             )
-            response = client.chat.completions.create(
-                model=settings.DEEPSEEK_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-                temperature=temperature,
-            )
+            
+            is_thinking_active = (settings.DEEPSEEK_THINKING == "enabled")
+            
+            kwargs = {
+                "model": settings.DEEPSEEK_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "response_format": {"type": "json_object"},
+                "temperature": temperature if not is_thinking_active else 0.6,
+            }
+            
+            if is_thinking_active:
+                kwargs["extra_body"] = {
+                    "thinking": {"type": "enabled"},
+                    "reasoning_effort": settings.DEEPSEEK_REASONING_EFFORT
+                }
+
+            response = client.chat.completions.create(**kwargs)
             raw_text = response.choices[0].message.content or ""
             return json.loads(raw_text or "{}")
         except Exception as e:
@@ -83,13 +109,23 @@ class DeepSeekLLM(BaseLLM):
             from src.lucidpanda.providers.llm.gemini import GeminiLLM
 
             prompt = GeminiLLM()._get_batch_prompt(news_items, taxonomy)
+            
+            is_thinking_active = (settings.DEEPSEEK_THINKING == "enabled")
 
-            response = client.chat.completions.create(
-                model=settings.DEEPSEEK_MODEL,
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
-                temperature=0.3,
-            )
+            kwargs = {
+                "model": settings.DEEPSEEK_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.3 if not is_thinking_active else 0.6,
+            }
+            
+            if is_thinking_active:
+                kwargs["extra_body"] = {
+                    "thinking": {"type": "enabled"},
+                    "reasoning_effort": settings.DEEPSEEK_REASONING_EFFORT
+                }
+
+            response = client.chat.completions.create(**kwargs)
 
             results = json.loads(response.choices[0].message.content or "{}")
 

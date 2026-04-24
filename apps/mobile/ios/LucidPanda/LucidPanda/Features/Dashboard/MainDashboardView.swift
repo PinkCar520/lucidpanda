@@ -88,8 +88,7 @@ struct MainDashboardView: View {
                 IntelligenceDetailView(item: item)
             }
             .toolbar {
-                ToolbarSpacer(.flexible)
-                ToolbarItem {
+                ToolbarItem(placement: .topBarLeading) {
                     // Button 1: Real-time Market Status & Label
                     Button {
                         let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -98,13 +97,13 @@ struct MainDashboardView: View {
                     } label: {
                         HStack(spacing: 8) {
                             Circle()
-                                .fill(Color.Alpha.brand)
+                                .fill(statusColor)
                                 .frame(width: 8, height: 8)
                                 .opacity(isTickerAnimating ? 1 : 0.3)
                                 .scaleEffect(isTickerAnimating ? 1.2 : 0.8)
                                 .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isTickerAnimating)
                             
-                            Text("GOLD")
+                            Text(LocalizedStringKey("dashboard.asset.gold.live_label"))
                                 .font(.system(size: 11, weight: .black))
                                 .foregroundStyle(Color.Alpha.brand)
                         }
@@ -115,7 +114,7 @@ struct MainDashboardView: View {
                     .onAppear { isTickerAnimating = true }
                     .fixedSize(horizontal: true, vertical: false)
                 }
-
+                
                 ToolbarSpacer(.fixed)
 
                 ToolbarItem {
@@ -146,10 +145,10 @@ struct MainDashboardView: View {
                         .fixedSize(horizontal: true, vertical: false)
                     }
                 }
+
+                ToolbarSpacer(.flexible)
                 
-                ToolbarSpacer(.fixed)
-                
-                ToolbarItem {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isSettingsPresented = true
                     } label: {
@@ -252,11 +251,11 @@ struct MainDashboardView: View {
     private var statusColor: Color {
         switch viewModel.connectionStatus {
         case "dashboard.connection.live":
-            return Color.Alpha.up
+            return Color.Alpha.down
         case "dashboard.connection.connecting":
             return Color.Alpha.brand
         default:
-            return Color.Alpha.down
+            return Color.Alpha.up
         }
     }
 

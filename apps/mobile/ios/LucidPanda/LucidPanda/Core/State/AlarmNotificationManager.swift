@@ -21,8 +21,8 @@ public class AlarmNotificationManager {
     
     public func sendValuationAlarm(fundName: String, changePct: Double, threshold: Double) {
         let content = UNMutableNotificationContent()
-        content.title = "⚠️ [异常波动预警] \(fundName)"
-        content.body = "盘中估值当前波动为 \(String(format: "%.2f", changePct))%，已突破 \(String(format: "%.2f", threshold))% 的 2σ 统计边界。"
+        content.title = String(format: NSLocalizedString("alarm.notification.title %@", comment: ""), fundName)
+        content.body = String(format: NSLocalizedString("alarm.notification.body %@ %@", comment: ""), String(format: "%.2f", changePct), String(format: "%.2f", threshold))
         content.sound = .defaultCritical
         
         let request = UNNotificationRequest(

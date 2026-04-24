@@ -16,6 +16,38 @@
     "21:00" : {
 
     },
+    "alarm.notification.body %@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "alarm.notification.body %1$@ %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "盘中估值当前波动为 %@%%，已突破 %@%% 的 2σ 统计边界。"
+          }
+        }
+      }
+    },
+    "alarm.notification.title %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⚠️ [Price Volatility Alert] %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⚠️ [异常波动预警] %@"
+          }
+        }
+      }
+    },
     "app.funds.added_%@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -270,6 +302,57 @@
         }
       }
     },
+    "auth.error.forgot_password_failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to send, please try again later"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送失败，请稍后再试"
+          }
+        }
+      }
+    },
+    "auth.error.invalid_credentials" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign-in failed. Please check your email or password."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录失败，请检查邮箱或密码"
+          }
+        }
+      }
+    },
+    "auth.error.register_failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registration failed, please try again later"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "注册失败，请稍后再试"
+          }
+        }
+      }
+    },
     "auth.footer.powered_by" : {
       "localizations" : {
         "en" : {
@@ -314,6 +397,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "当前设备不支持 Passkey。"
+          }
+        }
+      }
+    },
+    "auth.success.registered" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Registration successful, please sign in"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "注册成功，请返回登录"
+          }
+        }
+      }
+    },
+    "auth.validation.invalid_email" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please enter a valid email address"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入有效的电子邮箱"
+          }
+        }
+      }
+    },
+    "auth.validation.invalid_format" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Please check the input format"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请检查输入的信息格式"
           }
         }
       }
@@ -1924,6 +2058,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "黄金"
+          }
+        }
+      }
+    },
+    "dashboard.asset.gold.live_label" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LIVE GOLD"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LIVE GOLD"
           }
         }
       }
@@ -4302,9 +4453,6 @@
         }
       }
     },
-    "GOLD" : {
-
-    },
     "intelligence.analysis.analyzing" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5609,6 +5757,39 @@
         }
       }
     },
+    "settings.password.error_format %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to change password: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修改密码失败：%@"
+          }
+        }
+      }
+    },
+    "settings.password.success" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✅ Password successfully changed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✅ 密码修改成功"
+          }
+        }
+      }
+    },
     "settings.profile.save_success" : {
       "localizations" : {
         "en" : {
@@ -5777,6 +5958,38 @@
         }
       }
     },
+    "settings.session.error.load_failed %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to load sessions: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加载会话失败：%@"
+          }
+        }
+      }
+    },
+    "settings.session.error.revoke_failed %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to revoke session: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "撤销会话失败：%@"
+          }
+        }
+      }
+    },
     "settings.session.loading" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -5845,6 +6058,40 @@
         }
       }
     },
+    "settings.two_factor.error.invalid_code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid code. Please try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "验证码无效，请重试。"
+          }
+        }
+      }
+    },
+    "settings.two_factor.error.load_qr_failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to load QR code"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加载二维码失败"
+          }
+        }
+      }
+    },
     "settings.two_factor.hint_description" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5908,6 +6155,104 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开 Web 端"
+          }
+        }
+      }
+    },
+    "sync.error.conflict %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync conflict: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同步冲突：%@"
+          }
+        }
+      }
+    },
+    "sync.error.network %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Network error: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "网络错误：%@"
+          }
+        }
+      }
+    },
+    "sync.error.not_authenticated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not authenticated, please sign in first"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未登录，请先登录"
+          }
+        }
+      }
+    },
+    "sync.error.offline" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline, operations queued"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "离线状态，操作已加入队列"
+          }
+        }
+      }
+    },
+    "sync.error.remote %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote error: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "远程错误：%@"
+          }
+        }
+      }
+    },
+    "sync.error.server %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server error: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器错误：%@"
           }
         }
       }

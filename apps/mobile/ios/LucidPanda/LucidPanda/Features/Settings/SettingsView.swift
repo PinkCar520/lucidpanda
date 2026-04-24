@@ -511,7 +511,7 @@ struct SettingsView: View {
             let endpoint = SessionListEndpoint(refreshToken: refreshToken)
             sessions = try await APIClient.shared.request(endpoint)
         } catch {
-            sessionErrorMessage = "Failed to load sessions: \(error.localizedDescription)"
+            sessionErrorMessage = String(format: NSLocalizedString("settings.session.error.load_failed %@", comment: ""), error.localizedDescription)
         }
     }
 
@@ -523,7 +523,7 @@ struct SettingsView: View {
             let _: MessageResponseDTO = try await APIClient.shared.request(endpoint)
             sessions.removeAll { $0.id == sessionID }
         } catch {
-            sessionErrorMessage = "Failed to revoke session: \(error.localizedDescription)"
+            sessionErrorMessage = String(format: NSLocalizedString("settings.session.error.revoke_failed %@", comment: ""), error.localizedDescription)
         }
     }
 
@@ -874,10 +874,10 @@ struct SettingsView: View {
             newPassword = ""
             
             // 显示成功提示
-            passwordErrorMessage = "✅ Password successfully changed"
+            passwordErrorMessage = NSLocalizedString("settings.password.success", comment: "")
             logger.info("Password changed: \(response.message, privacy: .public)")
         } catch {
-            passwordErrorMessage = "修改密码失败：\(error.localizedDescription)"
+            passwordErrorMessage = String(format: NSLocalizedString("settings.password.error_format %@", comment: ""), error.localizedDescription)
         }
         
         isPasswordChanging = false
@@ -1079,7 +1079,7 @@ struct SettingsView: View {
                 twoFAQRImageData = data
             }
         } catch {
-            twoFAErrorMessage = "Failed to load QR code"
+            twoFAErrorMessage = NSLocalizedString("settings.two_factor.error.load_qr_failed", comment: "")
         }
     }
 
@@ -1100,7 +1100,7 @@ struct SettingsView: View {
             is2FAEnabled = true
             showing2FASetupModal = false
         } catch {
-            twoFAErrorMessage = "Invalid code. Please try again."
+            twoFAErrorMessage = NSLocalizedString("settings.two_factor.error.invalid_code", comment: "")
         }
     }
 

@@ -20,17 +20,17 @@ enum WatchlistSyncError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .networkError(let error):
-            return "网络错误：\(error.localizedDescription)"
+            return String(format: NSLocalizedString("sync.error.network %@", comment: ""), error.localizedDescription)
         case .serverError(let message):
-            return "服务器错误：\(message)"
+            return String(format: NSLocalizedString("sync.error.server %@", comment: ""), message)
         case .syncConflict(let message):
-            return "同步冲突：\(message)"
+            return String(format: NSLocalizedString("sync.error.conflict %@", comment: ""), message)
         case .remoteError(let message):
-            return "远程错误：\(message)"
+            return String(format: NSLocalizedString("sync.error.remote %@", comment: ""), message)
         case .notAuthenticated:
-            return "未登录，请先登录"
+            return NSLocalizedString("sync.error.not_authenticated", comment: "")
         case .offline:
-            return "离线状态，操作已加入队列"
+            return NSLocalizedString("sync.error.offline", comment: "")
         }
     }
 }
