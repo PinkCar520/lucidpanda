@@ -7,6 +7,7 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
     public let author: String
     public let summary: String
     public let content: String
+    public let image_url: String?
     public let sentiment: String
     public let urgencyScore: Int
     public let goldPriceSnapshot: Double?
@@ -23,6 +24,9 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
     public let price12h: Double?
     public let price24h: Double?
 
+    // 快捷访问
+    public var imageUrl: String? { image_url }
+
     // 手动定义的 public memberwise initializer
     public init(
         id: Int,
@@ -30,6 +34,7 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
         author: String,
         summary: String,
         content: String,
+        image_url: String? = nil,
         sentiment: String,
         urgencyScore: Int,
         goldPriceSnapshot: Double?,
@@ -47,6 +52,7 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
         self.author = author
         self.summary = summary
         self.content = content
+        self.image_url = image_url
         self.sentiment = sentiment
         self.urgencyScore = urgencyScore
         self.goldPriceSnapshot = goldPriceSnapshot
@@ -68,6 +74,7 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
         author = try container.decode(String.self, forKey: .author)
         urgencyScore = try container.decode(Int.self, forKey: .urgencyScore)
         goldPriceSnapshot = try container.decodeIfPresent(Double.self, forKey: .goldPriceSnapshot)
+        image_url = try container.decodeIfPresent(String.self, forKey: .image_url)
         
         dxySnapshot = try container.decodeIfPresent(Double.self, forKey: .dxySnapshot)
         us10ySnapshot = try container.decodeIfPresent(Double.self, forKey: .us10ySnapshot)
@@ -107,7 +114,7 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, timestamp, author, summary, content
+        case id, timestamp, author, summary, content, image_url
         case sentiment = "sentiment_label" // 保持默认映射用于向后兼容
         case urgencyScore = "urgency_score"
         case goldPriceSnapshot = "gold_price_snapshot"

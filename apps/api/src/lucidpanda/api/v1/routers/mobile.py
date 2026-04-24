@@ -138,6 +138,7 @@ async def get_mobile_intelligence(limit: int = 20, db: Session = Depends(get_ses
                 author=item.author or "Unknown",
                 summary=summary_text,
                 content=content_text,
+                image_url=item.image_url,
                 urgency_score=urgency_score,
                 sentiment_label=sentiment_label,
                 gold_price_snapshot=item.gold_price_snapshot,

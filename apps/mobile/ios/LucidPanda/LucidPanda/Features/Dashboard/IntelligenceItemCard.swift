@@ -56,20 +56,33 @@ struct IntelligenceItemCard: View {
 
     private var featuredLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Image with real project assets
+            // Image with real project assets or remote URL
             ZStack(alignment: .bottomLeading) {
-                let imageName = item.id % 2 == 0 ? "featured_1" : "featured_2"
-                
-                // Base 16:9 container to prevent distortion
-                Color.clear
-                    .aspectRatio(16/9, contentMode: .fit)
-                    .overlay(
-                        Image(imageName)
+                if let urlString = item.imageUrl, let url = URL(string: urlString) {
+                    AsyncImage(url: url) { image in
+                        image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                    )
+                    } placeholder: {
+                        Color.Alpha.surfaceDim
+                    }
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(16/9, contentMode: .fit)
                     .clipped()
-                    .overlay(Color.black.opacity(0.1)) // Subtle darkening for text readability
+                } else {
+                    let imageName = item.id % 2 == 0 ? "featured_1" : "featured_2"
+                    // Base 16:9 container to prevent distortion
+                    Color.clear
+                        .aspectRatio(16/9, contentMode: .fit)
+                        .overlay(
+                            Image(imageName)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        )
+                        .clipped()
+                }
+                
+                Color.black.opacity(0.1) // Subtle darkening for text readability
                 
                 HStack(spacing: 8) {
                     Text("dashboard.badge.featured")
@@ -171,16 +184,31 @@ struct IntelligenceItemCard: View {
             
             Spacer()
             
-            // Thumbnail placeholder
-            Rectangle()
-                .fill(Color.Alpha.surfaceContainerLow)
+            // Thumbnail with real image support
+            if let urlString = item.imageUrl, let url = URL(string: urlString) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(Color.Alpha.surfaceContainerLow)
+                        .overlay(ProgressView().scaleEffect(0.5))
+                }
                 .frame(width: 80, height: 80)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
-                .overlay(
-                    Image(systemName: "newspaper.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(Color.Alpha.brand.opacity(0.15))
-                )
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.Alpha.separator.opacity(0.3), lineWidth: 0.5))
+            } else {
+                Rectangle()
+                    .fill(Color.Alpha.surfaceContainerLow)
+                    .frame(width: 80, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .overlay(
+                        Image(systemName: "newspaper.fill")
+                            .font(.system(size: 24))
+                            .foregroundStyle(Color.Alpha.brand.opacity(0.15))
+                    )
+            }
         }
         .padding(14)
         .background(Color.Alpha.surface)

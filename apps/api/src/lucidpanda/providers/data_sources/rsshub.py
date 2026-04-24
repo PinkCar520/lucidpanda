@@ -214,6 +214,36 @@ class RSSHubSource(BaseDataSource):
     def _is_noise(self, text: str) -> bool:
         return any(kw in text for kw in _NOISE_KEYWORDS)
 
+    def _extract_rss_image(self, entry) -> str | None:
+        """
+        [多维图像嗅探]
+        1. 尝试 media_content (常见于 Bloomberg/CNBC)
+        2. 尝试 enclosures (传统 RSS)
+        3. 解析 summary/description 中的 <img> 标签 (RSSHub 默认行为)
+        """
+        # A. Media Content
+        media_content = getattr(entry, "media_content", None)
+        if media_content and len(media_content) > 0:
+            return media_content[0].get("url")
+
+        # B. Enclosures
+        enclosures = getattr(entry, "enclosures", None)
+        if enclosures and len(enclosures) > 0:
+            for enc in enclosures:
+                if enc.get("type", "").startswith("image/"):
+                    return enc.get("href")
+
+        # C. HTML Scraper from summary
+        summary_html = getattr(entry, "summary", "") or getattr(entry, "description", "")
+        if summary_html:
+            import re
+
+            match = re.search(r'<img [^>]*src="([^"]+)"', summary_html)
+            if match:
+                return match.group(1)
+
+        return None
+
     def _passes_category_filter(self, category: str, text: str) -> bool:
         """根据情报分类应用不同的过滤策略。"""
         if category == "macro_gold":
@@ -351,6 +381,7 @@ class RSSHubSource(BaseDataSource):
                             "content": f"{title}. {summary}",
                             "url": getattr(entry, "link", url),
                             "id": item_id,
+                            "image_url": self._extract_rss_image(entry),
                         }
                     )
                 status["new_items"] = len(items)

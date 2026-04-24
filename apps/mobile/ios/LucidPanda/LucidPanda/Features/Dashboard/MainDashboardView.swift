@@ -88,7 +88,8 @@ struct MainDashboardView: View {
                 IntelligenceDetailView(item: item)
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarSpacer(.flexible)
+                ToolbarItem {
                     // Button 1: Real-time Market Status & Label
                     Button {
                         let generator = UIImpactFeedbackGenerator(style: .medium)
@@ -110,11 +111,12 @@ struct MainDashboardView: View {
                     }
                     .buttonStyle(.plain)
                     .onAppear { isTickerAnimating = true }
+                    .fixedSize(horizontal: true, vertical: false)
                 }
 
                 ToolbarSpacer(.fixed)
 
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem {
                     // Button 2: Numerical Data (Price & Change)
                     if let pulse = rootViewModel.marketPulseViewModel.pulseData {
                         Button {
@@ -137,32 +139,29 @@ struct MainDashboardView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .fixedSize(horizontal: true, vertical: false)
                     }
                 }
-
-                ToolbarItem(placement: .topBarTrailing) {
+                
+                ToolbarSpacer(.fixed)
+                
+                ToolbarItem {
                     Button {
                         isSettingsPresented = true
                     } label: {
-                        if let avatarUrl = rootViewModel.userProfile?.avatarUrl {
-                            let absoluteUrl = URL(string: avatarUrl, relativeTo: APIClient.shared.baseURL)
+                        if let avatarUrl = rootViewModel.userProfile?.avatarUrl, 
+                           let absoluteUrl = URL(string: avatarUrl, relativeTo: APIClient.shared.baseURL) {
                             AsyncImage(url: absoluteUrl) { image in
                                 image
                                     .resizable()
                                     .scaledToFill()
                             } placeholder: {
-                                Color.clear
+                                initialText
                             }
                             .frame(width: 28, height: 28)
                             .clipShape(Circle())
                         } else {
-                            let displayEmail = rootViewModel.userProfile?.email ?? "root@lucidpanda.com"
-                            let initial = String(displayEmail.prefix(1)).uppercased()
-                            
-                            Text(initial)
-                                .font(.system(size: 16, weight: .black))
-                                .foregroundStyle(Color.Alpha.brand)
-                                .frame(width: 28, height: 28)
+                            initialText
                         }
                     }
                 }
@@ -195,6 +194,16 @@ struct MainDashboardView: View {
     }
     
     @State private var isTickerAnimating = false
+
+    private var initialText: some View {
+        let displayEmail = rootViewModel.userProfile?.email ?? "root@lucidpanda.com"
+        let initial = String(displayEmail.prefix(1)).uppercased()
+        
+        return Text(initial)
+            .font(.system(size: 16, weight: .black))
+            .foregroundStyle(Color.Alpha.brand)
+            .frame(width: 28, height: 28)
+    }
 
     private var searchAndFilterBar: some View {
         Menu {
