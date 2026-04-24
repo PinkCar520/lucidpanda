@@ -35,6 +35,12 @@ class FundSearchViewModel {
         
         isDiscoveryLoading = false
     }
+
+    @MainActor
+    func fetchIntelligenceDetail(id: Int) async throws -> IntelligenceItem {
+        // 使用 BFF 详情接口获取完整数据（包含正文内容）
+        return try await APIClient.shared.fetch(path: "/api/v1/web/intelligence/\(id)")
+    }
     
     @MainActor
     func performSearch() async {

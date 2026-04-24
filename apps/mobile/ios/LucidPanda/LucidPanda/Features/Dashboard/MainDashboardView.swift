@@ -144,16 +144,26 @@ struct MainDashboardView: View {
                     Button {
                         isSettingsPresented = true
                     } label: {
-                        let displayEmail = rootViewModel.userProfile?.email ?? "root@lucidpanda.com"
-                        let initial = String(displayEmail.prefix(1)).uppercased()
-                        
-                        Text(initial)
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundStyle(Color.Alpha.brand)
+                        if let avatarUrl = rootViewModel.userProfile?.avatarUrl {
+                            let absoluteUrl = URL(string: avatarUrl, relativeTo: APIClient.shared.baseURL)
+                            AsyncImage(url: absoluteUrl) { image in
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                            } placeholder: {
+                                Color.clear
+                            }
                             .frame(width: 28, height: 28)
-                            .background(Color.Alpha.brand.opacity(0.15))
                             .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.Alpha.brand.opacity(0.3), lineWidth: 1))
+                        } else {
+                            let displayEmail = rootViewModel.userProfile?.email ?? "root@lucidpanda.com"
+                            let initial = String(displayEmail.prefix(1)).uppercased()
+                            
+                            Text(initial)
+                                .font(.system(size: 16, weight: .black))
+                                .foregroundStyle(Color.Alpha.brand)
+                                .frame(width: 28, height: 28)
+                        }
                     }
                 }
             }

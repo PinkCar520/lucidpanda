@@ -21,7 +21,7 @@ struct LoginView: View {
     var body: some View {
         ZStack {
             // 1. Clean Premium Background
-            Color(uiColor: .systemBackground)
+            Color.Alpha.background
                 .ignoresSafeArea()
                 
             GeometryReader { proxy in
@@ -71,11 +71,11 @@ struct LoginView: View {
             VStack(spacing: 12) {
                 Image(systemName: "chart.line.uptrend.xyaxis.circle.fill")
                     .font(.system(size: 44))
-                    .foregroundStyle(Color.blue)
+                    .foregroundStyle(Color.Alpha.brand)
                 
                 Text(verbatim: "LucidPanda")
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Color.Alpha.textPrimary)
             }
             .padding(.bottom, 12)
             
@@ -84,11 +84,11 @@ struct LoginView: View {
                 VStack(spacing: 8) {
                     Text(viewModel.mode == .register ? "auth.action.register_title" : "auth.action.reset_password_title")
                         .font(.system(size: 20, weight: .medium)) // 适度缩小字号
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(Color.Alpha.textPrimary)
                     
                     Text(viewModel.mode == .register ? "auth.action.create_account_desc" : "auth.action.send_verification_code")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.Alpha.textSecondary)
                 }
                 .padding(.bottom, 8)
             }
@@ -139,7 +139,7 @@ struct LoginView: View {
                     Text(err)
                 }
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.red)
+                .foregroundStyle(Color.Alpha.up)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .transition(.opacity)
             }
@@ -149,7 +149,7 @@ struct LoginView: View {
                     Text(suc)
                 }
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.green)
+                .foregroundStyle(Color.Alpha.down)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .transition(.opacity)
             }
@@ -182,7 +182,7 @@ struct LoginView: View {
                 .frame(height: 48)
                 .background(
                     Capsule()
-                        .fill(viewModel.canSubmit ? Color.blue : Color.secondary.opacity(0.4))
+                        .fill(viewModel.canSubmit ? Color.Alpha.brand : Color.Alpha.textSecondary.opacity(0.4))
                 )
             }
             .buttonStyle(.plain)
@@ -201,12 +201,12 @@ struct LoginView: View {
                 }
             }
             .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.Alpha.textSecondary)
             .padding(.top, 4)
             
             // WebAuthn Passkey Section
             if viewModel.mode == .login {
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(Color.Alpha.separator)
                     .padding(.vertical, 8)
                 
                 Button {
@@ -214,7 +214,7 @@ struct LoginView: View {
                 } label: {
                     HStack(spacing: 8) {
                         if viewModel.isPasskeyLoading {
-                            ProgressView().tint(.primary)
+                            ProgressView().tint(Color.Alpha.textPrimary)
                                 .frame(width: 20, height: 20)
                         } else {
                             Image(systemName: "faceid")
@@ -223,14 +223,15 @@ struct LoginView: View {
                         }
                         Text(LocalizedStringKey("auth.action.passkey_login"))
                             .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.Alpha.textPrimary)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(Color(uiColor: .systemBackground))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Color.Alpha.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(Color.Alpha.separator, lineWidth: 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -246,7 +247,7 @@ struct LoginView: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 18))
-                .foregroundStyle(focusedField == field ? Color.accentColor : .secondary)
+                .foregroundStyle(focusedField == field ? Color.Alpha.brand : Color.Alpha.textSecondary)
                 .frame(width: 24)
             
             if isSecure {
@@ -254,12 +255,14 @@ struct LoginView: View {
                     .focused($focusedField, equals: field)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
+                    .foregroundStyle(Color.Alpha.textPrimary)
             } else {
                 TextField(placeholder, text: text)
                     .focused($focusedField, equals: field)
                     .textInputAutocapitalization(.never)
                     .keyboardType(field == .email ? .emailAddress : .default)
                     .autocorrectionDisabled(true)
+                    .foregroundStyle(Color.Alpha.textPrimary)
                     .submitLabel((field == .email && viewModel.mode == .forgotPassword) || field == .confirmPassword ? .go : .next)
                     .onSubmit {
                         if field == .email {
@@ -285,18 +288,18 @@ struct LoginView: View {
             if field == .password {
                 Button { showPassword.toggle() } label: {
                     Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.Alpha.textSecondary)
                         .frame(width: 24, height: 24)
                 }
             }
         }
         .padding(.horizontal, 16)
         .frame(height: 52)
-        .background(Color(uiColor: .systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(Color.Alpha.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(focusedField == field ? Color.accentColor.opacity(0.8) : Color.primary.opacity(0.15), lineWidth: focusedField == field ? 1.5 : 1)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(focusedField == field ? Color.Alpha.brand.opacity(0.8) : Color.Alpha.separator, lineWidth: focusedField == field ? 1.5 : 1)
         )
     }
     

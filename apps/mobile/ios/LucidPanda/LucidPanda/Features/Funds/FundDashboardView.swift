@@ -411,6 +411,8 @@ struct GroupManagerView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                Color.Alpha.background.ignoresSafeArea()
+
                 List {
                     Section {
                         ForEach(groups) { group in
@@ -420,14 +422,18 @@ struct GroupManagerView: View {
                             } label: {
                                 HStack {
                                     Text(group.name)
-                                        .foregroundStyle(.primary)
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(Color.Alpha.textPrimary)
                                     Spacer()
                                     if selectedGroupId == group.id {
                                         Image(systemName: "checkmark")
-                                            .foregroundStyle(.blue)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(Color.Alpha.brand)
                                     }
                                 }
                             }
+                            .listRowBackground(Color.Alpha.surface)
+                            .listRowSeparatorTint(Color.Alpha.separator)
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
                                     pendingDeleteGroup = group
@@ -450,17 +456,22 @@ struct GroupManagerView: View {
                             } label: {
                                 HStack {
                                     Text("funds.group.all")
-                                        .foregroundStyle(.primary)
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundStyle(Color.Alpha.textPrimary)
                                     Spacer()
                                     if selectedGroupId == nil {
                                         Image(systemName: "checkmark")
-                                            .foregroundStyle(.blue)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundStyle(Color.Alpha.brand)
                                     }
                                 }
                             }
+                            .listRowBackground(Color.Alpha.surface)
+                            .listRowSeparatorTint(Color.Alpha.separator)
                         }
                     }
                 }
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle(mode == .filter ? Text(LocalizedStringKey("funds.group.manage_title")) : Text(LocalizedStringKey("funds.group.move_title")))
             .navigationBarTitleDisplayMode(.inline)
@@ -481,6 +492,7 @@ struct GroupManagerView: View {
                 if mode == .filter {
                     ToolbarItem(placement: .topBarTrailing) {
                         EditButton()
+                            .foregroundStyle(Color.Alpha.brand)
                     }
                 }
                 ToolbarItem(placement: .topBarLeading) {
@@ -489,7 +501,7 @@ struct GroupManagerView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(Color.Alpha.textPrimary)
                     }
                 }
             }
@@ -510,16 +522,53 @@ struct CreateGroupForm: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("funds.group.name_placeholder", text: $groupName)
-                        .autocapitalization(.none)
-                        .focused($isGroupNameFocused)
-                } header: {
-                    Text(LocalizedStringKey("funds.group.name"))
+            ZStack {
+                Color.Alpha.background.ignoresSafeArea()
+                
+                VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text(LocalizedStringKey("funds.group.name"))
+                            .font(.system(size: 11, weight: .black))
+                            .foregroundStyle(Color.Alpha.taupe)
+                            .textCase(.uppercase)
+                            .padding(.horizontal, 4)
+                        
+                        HStack(spacing: 12) {
+                            Image(systemName: "folder.badge.plus")
+                                .font(.system(size: 18))
+                                .foregroundStyle(isGroupNameFocused ? Color.Alpha.brand : Color.Alpha.taupe)
+                                .frame(width: 24)
+                            
+                            TextField(LocalizedStringKey("funds.group.name_placeholder"), text: $groupName)
+                                .focused($isGroupNameFocused)
+                                .textInputAutocapitalization(.none)
+                                .autocorrectionDisabled(true)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(Color.Alpha.textPrimary)
+                                .submitLabel(.done)
+                                .onSubmit {
+                                    if !groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                        onCreate(groupName, "folder.badge.plus", "#007AFF")
+                                        dismiss()
+                                    }
+                                }
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(height: 56)
+                        .background(Color.Alpha.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(isGroupNameFocused ? Color.Alpha.brand.opacity(0.8) : Color.Alpha.separator, lineWidth: isGroupNameFocused ? 1.5 : 1)
+                        )
+                    }
+                    .padding(.horizontal, 20)
+                    
+                    Spacer()
                 }
+                .padding(.top, 24)
             }
-            .navigationTitle("funds.group.new")
+            .navigationTitle(LocalizedStringKey("funds.group.new"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -528,22 +577,28 @@ struct CreateGroupForm: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(Color.Alpha.textPrimary)
                     }
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        onCreate(groupName, "folder.badge.plus", "#007AFF")
-                        dismiss()
+                        let trimmed = groupName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmed.isEmpty {
+                            onCreate(trimmed, "folder.badge.plus", "#007AFF")
+                            dismiss()
+                        }
                     } label: {
                         Image(systemName: "checkmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.Alpha.brand.opacity(0.3) : Color.Alpha.brand)
                     }
+                    .disabled(groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             .task {
+                // Delay focus slightly to ensure smooth presentation animation
+                try? await Task.sleep(nanoseconds: 500_000_000)
                 isGroupNameFocused = true
             }
         }

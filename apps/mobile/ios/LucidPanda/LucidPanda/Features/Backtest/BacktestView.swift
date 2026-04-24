@@ -277,83 +277,85 @@ struct BacktestView: View {
     private var settingsSheet: some View {
         NavigationStack {
             ZStack {
+                Color.Alpha.background.ignoresSafeArea()
+
                 ScrollView {
-                    VStack(spacing: 20) {
+                    VStack(spacing: 24) {
                         // 最小分数设置
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Label("backtest.setting.min_score", systemImage: "star.fill")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(.blue)
-                                Spacer()
-                                Text(verbatim: "\(viewModel.minScore) / 10")
-                                    .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                    .foregroundStyle(.primary)
-                            }
+                        LiquidGlassCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                HStack {
+                                    Label("backtest.setting.min_score", systemImage: "star.fill")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(Color.Alpha.brand)
+                                    Spacer()
+                                    Text(verbatim: "\(viewModel.minScore) / 10")
+                                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                        .foregroundStyle(Color.Alpha.textPrimary)
+                                }
 
-                            Slider(value: Binding(get: { Double(viewModel.minScore) }, set: { viewModel.minScore = Int($0) }), in: 1...10, step: 1)
-                                .tint(.blue)
+                                Slider(value: Binding(get: { Double(viewModel.minScore) }, set: { viewModel.minScore = Int($0) }), in: 1...10, step: 1)
+                                    .tint(Color.Alpha.brand)
 
-                            HStack {
-                                Text(verbatim: "1")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text(verbatim: "10")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
-                            }
+                                HStack {
+                                    Text(verbatim: "1")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(Color.Alpha.textSecondary)
+                                    Spacer()
+                                    Text(verbatim: "10")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(Color.Alpha.textSecondary)
+                                }
 
-                            if let hint = scoreHint {
-                                Label(hint, systemImage: "exclamationmark.triangle.fill")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundStyle(.orange)
-                                    .padding(.vertical, 4)
-                                    .padding(.horizontal, 8)
-                                    .background(Color.orange.opacity(0.1))
-                                    .cornerRadius(6)
+                                if let hint = scoreHint {
+                                    Label(hint, systemImage: "exclamationmark.triangle.fill")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(Color.Alpha.brand)
+                                        .padding(.vertical, 4)
+                                        .padding(.horizontal, 8)
+                                        .background(Color.Alpha.brand.opacity(0.1))
+                                        .cornerRadius(4)
+                                }
                             }
                         }
-
-                        Divider()
-                            .background(Color.gray.opacity(0.2))
 
                         // 时间窗口设置
-                        VStack(alignment: .leading, spacing: 12) {
-                            Label("backtest.setting.window", systemImage: "clock.fill")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.blue)
+                        LiquidGlassCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Label("backtest.setting.window", systemImage: "clock.fill")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(Color.Alpha.brand)
 
-                            Picker("backtest.metric.window", selection: $viewModel.selectedWindow) {
-                                Text("backtest.window.15m").tag("15m")
-                                Text("backtest.window.1h").tag("1h")
-                                Text("backtest.window.4h").tag("4h")
-                                Text("backtest.window.12h").tag("12h")
-                                Text("backtest.window.24h").tag("24h")
+                                Picker("backtest.metric.window", selection: $viewModel.selectedWindow) {
+                                    Text("backtest.window.15m").tag("15m")
+                                    Text("backtest.window.1h").tag("1h")
+                                    Text("backtest.window.4h").tag("4h")
+                                    Text("backtest.window.12h").tag("12h")
+                                    Text("backtest.window.24h").tag("24h")
+                                }
+                                .pickerStyle(.segmented)
+                                .font(.system(size: 12, weight: .medium))
                             }
-                            .pickerStyle(.segmented)
-                            .font(.system(size: 12, weight: .medium))
                         }
 
-                        Divider()
-                            .background(Color.gray.opacity(0.2))
-
                         // 交易方向设置
-                        VStack(alignment: .leading, spacing: 12) {
-                            Label("backtest.setting.direction", systemImage: "arrow.up.arrow.down")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.blue)
+                        LiquidGlassCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Label("backtest.setting.direction", systemImage: "arrow.up.arrow.down")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(Color.Alpha.brand)
 
-                            Picker("backtest.metric.direction", selection: $viewModel.sentiment) {
-                                Text("backtest.direction.bearish_label").tag("bearish")
-                                Text("backtest.direction.bullish_label").tag("bullish")
+                                Picker("backtest.metric.direction", selection: $viewModel.sentiment) {
+                                    Text("backtest.direction.bearish_label").tag("bearish")
+                                    Text("backtest.direction.bullish_label").tag("bullish")
+                                }
+                                .pickerStyle(.segmented)
+                                .font(.system(size: 12, weight: .medium))
                             }
-                            .pickerStyle(.segmented)
-                            .font(.system(size: 12, weight: .medium))
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.top, 16)
+                    .padding(.top, 24)
                     .padding(.bottom, 32)
                 }
             }
@@ -366,7 +368,7 @@ struct BacktestView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(Color.Alpha.textPrimary)
                     }
                 }
                 
@@ -379,7 +381,7 @@ struct BacktestView: View {
                     } label: {
                         Image(systemName: "checkmark")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.Alpha.brand)
                     }
                 }
             }

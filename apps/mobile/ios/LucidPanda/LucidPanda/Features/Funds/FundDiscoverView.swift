@@ -36,6 +36,10 @@ struct FundDiscoverView: View {
     @State private var toastMessage = ""
     @State private var toastType: ToastType = .success
     
+    // Discovery Navigation & Loading
+    @State private var selectedIntelligence: IntelligenceItem?
+    @State private var loadingReadingId: Int?
+    
     // Group Selection
     @State private var showGroupSelection = false
     @State private var pendingFundToAdd: FundSearchResult?
@@ -98,16 +102,25 @@ struct FundDiscoverView: View {
                                     VStack(spacing: 24) {
                                         ForEach(viewModel.suggestedReading) { item in
                                             Button {
-                                                // TODO: Navigate to detail based on ID
+                                                Task { await navigateToReading(item) }
                                             } label: {
-                                                readingItem(
-                                                    category: LocalizedStringKey(item.categoryKey),
-                                                    title: item.title,
-                                                    time: item.timestamp.formatted(date: .omitted, time: .shortened),
-                                                    imageUrl: item.imageUrl
-                                                )
+                                                ZStack(alignment: .trailing) {
+                                                    readingItem(
+                                                        category: LocalizedStringKey(item.categoryKey),
+                                                        title: item.title,
+                                                        time: item.timestamp.formatted(date: .omitted, time: .shortened),
+                                                        imageUrl: item.imageUrl
+                                                    )
+                                                    
+                                                    if loadingReadingId == item.id {
+                                                        ProgressView()
+                                                            .tint(Color.Alpha.brand)
+                                                            .padding(.trailing, 8)
+                                                    }
+                                                }
                                             }
-                                            .buttonStyle(.plain)
+                                            .buttonStyle(LiquidScaleButtonStyle())
+                                            .disabled(loadingReadingId != nil)
                                         }
                                     }
                                 }
@@ -183,6 +196,9 @@ struct FundDiscoverView: View {
                 if showAddedToast {
                     VStack { Spacer(); toastView }.transition(.move(edge: .bottom).combined(with: .opacity)).zIndex(100)
                 }
+            }
+            .navigationDestination(item: $selectedIntelligence) { item in
+                IntelligenceDetailView(item: item)
             }
             .navigationDestination(item: $selectedFundToView) { valuation in
                 FundDetailView(valuation: valuation)
@@ -319,6 +335,21 @@ struct FundDiscoverView: View {
     }
 
     // MARK: - Logic (Preserved)
+    private func navigateToReading(_ reading: SuggestedReadingDTO) async {
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred()
+        
+        loadingReadingId = reading.id
+        defer { loadingReadingId = nil }
+        
+        do {
+            let detail = try await viewModel.fetchIntelligenceDetail(id: reading.id)
+            selectedIntelligence = detail
+        } catch {
+            print("Failed to fetch reading detail: \(error)")
+        }
+    }
+
     private func performAdd(fund: FundSearchResult, groupId: String?) async {
         addedFunds.insert(fund.code); toastMessage = String(format: String(localized: "app.funds.added_%@"), arguments: [fund.name]); toastType = .success
         withAnimation(.spring()) { showAddedToast = true }; saveRecentSearch(code: fund.code, name: fund.name)

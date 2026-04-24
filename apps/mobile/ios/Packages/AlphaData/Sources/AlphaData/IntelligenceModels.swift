@@ -60,7 +60,7 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
         self.price24h = price24h
     }
 
-    // 2026 生产级：支持多语言内容解析 (FastAPI 返回的可能是 JSON 对象)
+    // 2026 生产级：支持多语言内容解析 (FastAPI 返回的可能是 JSON 对象或扁平字符串)
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(Int.self, forKey: .id)
@@ -69,7 +69,6 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
         urgencyScore = try container.decode(Int.self, forKey: .urgencyScore)
         goldPriceSnapshot = try container.decodeIfPresent(Double.self, forKey: .goldPriceSnapshot)
         
-        // 新增字段解码
         dxySnapshot = try container.decodeIfPresent(Double.self, forKey: .dxySnapshot)
         us10ySnapshot = try container.decodeIfPresent(Double.self, forKey: .us10ySnapshot)
         oilSnapshot = try container.decodeIfPresent(Double.self, forKey: .oilSnapshot)
@@ -79,29 +78,37 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
         price12h = try container.decodeIfPresent(Double.self, forKey: .price12h)
         price24h = try container.decodeIfPresent(Double.self, forKey: .price24h)
 
-        // 处理潜在的本地化 JSON 结构 (对齐 web/page.tsx 的 getLocalizedText)
+        // --- 核心修复：健壮性解码逻辑 ---
+        
+        let rawContainer = try decoder.container(keyedBy: DynamicCodingKeys.self)
+
+        // 1. 解码 Summary (兼容 summary 字典或字符串)
         if let summaryDict = try? container.decode([String: String].self, forKey: .summary) {
             summary = summaryDict["zh"] ?? summaryDict["en"] ?? ""
         } else {
-            summary = try container.decode(String.self, forKey: .summary)
+            summary = (try? container.decode(String.self, forKey: .summary)) ?? ""
         }
 
+        // 2. 解码 Content (兼容 content 字典或字符串)
         if let contentDict = try? container.decode([String: String].self, forKey: .content) {
             content = contentDict["zh"] ?? contentDict["en"] ?? ""
         } else {
-            content = try container.decode(String.self, forKey: .content)
+            content = (try? container.decode(String.self, forKey: .content)) ?? ""
         }
 
-        if let sentimentDict = try? container.decode([String: String].self, forKey: .sentiment) {
-            sentiment = sentimentDict["zh"] ?? sentimentDict["en"] ?? ""
+        // 3. 解码 Sentiment (尝试 sentiment_label -> sentiment 字典 -> sentiment 字符串)
+        if let label = try? rawContainer.decode(String.self, forKey: DynamicCodingKeys(stringValue: "sentiment_label")!) {
+            sentiment = label
+        } else if let sentimentDict = try? rawContainer.decode([String: String].self, forKey: DynamicCodingKeys(stringValue: "sentiment")!) {
+            sentiment = sentimentDict["zh"] ?? sentimentDict["en"] ?? "Neutral"
         } else {
-            sentiment = try container.decode(String.self, forKey: .sentiment)
+            sentiment = (try? rawContainer.decode(String.self, forKey: DynamicCodingKeys(stringValue: "sentiment")!)) ?? "Neutral"
         }
     }
 
     enum CodingKeys: String, CodingKey {
         case id, timestamp, author, summary, content
-        case sentiment = "sentiment_label"
+        case sentiment = "sentiment_label" // 保持默认映射用于向后兼容
         case urgencyScore = "urgency_score"
         case goldPriceSnapshot = "gold_price_snapshot"
         case dxySnapshot = "dxy_snapshot"
@@ -112,6 +119,14 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
         case price4h = "price_4h"
         case price12h = "price_12h"
         case price24h = "price_24h"
+    }
+    
+    // 用于动态键查找的辅助结构
+    private struct DynamicCodingKeys: CodingKey {
+        var stringValue: String
+        init?(stringValue: String) { self.stringValue = stringValue }
+        var intValue: Int?
+        init?(intValue: Int) { return nil }
     }
 }
 
