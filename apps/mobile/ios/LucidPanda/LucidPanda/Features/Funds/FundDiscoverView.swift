@@ -44,21 +44,6 @@ struct FundDiscoverView: View {
     @AppStorage("recent_fund_searches") private var recentSearchesData: Data = Data()
     @State private var recentSearches: [FundSearchHistoryItem] = []
 
-    // MARK: - Trending Data
-    private struct TrendingTag: Identifiable {
-        let id = UUID()
-        let titleKey: String
-        let code: String
-    }
-    
-    private let trendingTags: [TrendingTag] = [
-        .init(titleKey: "funds.discover.suggestion.bosera_gold", code: "159937"),
-        .init(titleKey: "funds.discover.suggestion.huaan_gold", code: "518880"),
-        .init(titleKey: "funds.discover.suggestion.efund_info", code: "161128"),
-        .init(titleKey: "funds.discover.suggestion.csi300", code: "510300"),
-        .init(titleKey: "funds.discover.suggestion.nasdaq100", code: "513100")
-    ]
-
     private var filteredResults: [FundSearchResult] {
         switch searchFilter {
         case .all:
@@ -81,9 +66,17 @@ struct FundDiscoverView: View {
                             // 1. Trending Tags
                             VStack(alignment: .leading, spacing: 16) {
                                 sectionHeader("funds.discover.trending_tags")
-                                FlowLayout(spacing: 8) {
-                                    ForEach(trendingTags) { tag in
-                                        tagPill(LocalizedStringKey(tag.titleKey), code: tag.code)
+                                
+                                if viewModel.isDiscoveryLoading && viewModel.trendingTags.isEmpty {
+                                    HStack {
+                                        ProgressView().scaleEffect(0.8)
+                                        Text("common.loading").font(.caption).foregroundStyle(.secondary)
+                                    }
+                                } else {
+                                    FlowLayout(spacing: 8) {
+                                        ForEach(viewModel.trendingTags) { tag in
+                                            tagPill(tag.title, code: tag.code)
+                                        }
                                     }
                                 }
                             }
@@ -99,25 +92,24 @@ struct FundDiscoverView: View {
                                         .foregroundStyle(Color.Alpha.brand)
                                 }
                                 
-                                VStack(spacing: 24) {
-                                    readingItem(
-                                        category: "funds.discover.category.market_analysis",
-                                        title: "funds.discover.reading.item1.title",
-                                        time: "funds.discover.reading.item1.time",
-                                        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuA7f1ahwmbrfvbNU0wVtYYroTd2qSegbWhQvw2_UtnMfEHO_QwYTxYd-0MDByZ8rZxXntsxRUKYj5mqRKJOJKIWks6zP6eHJDo_TzV5ryk7vh_UihD2aHCzx7dHABtyc1ouTBJxtrcoamDW2Tdtew-9RjMKXZU28OgitohU9WMy-b4VNbpfNYbruUuCb8NwoQV6D5j8JdcgyoraWJnW45NFK4DO4xQuncEUKVjU8zqN7KfRLZC26ri3-VlML1tFcJQj3EVQBdqBb2U"
-                                    )
-                                    readingItem(
-                                        category: "funds.discover.category.economy",
-                                        title: "funds.discover.reading.item2.title",
-                                        time: "funds.discover.reading.item2.time",
-                                        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuApDBYf5R8L4lzTgroIXOIlZIs_jWPaU_fCkvYN04_Ai0h5SwWcvmjWg1ZdznAZtPqRI0YsLFvVHDXquqJTMocU30ZfjFBybaJJgeHDh93_SGZ3ZwkBsoch8VX_vpouG9hrHnWwdNzNllarBYeKlZGUu45QHS_Rrsi3wd3aPq-Tpz_ZBR9G4P-NWemvLTU-GRGQ-YKIbhG1zdZCAtPNSHjX-ZRbIBPO9m3nRlXtdb9NaUbaeIhuIcTklVO_gnMiygZUTa2xVzq6LE4"
-                                    )
-                                    readingItem(
-                                        category: "funds.discover.category.technical_insight",
-                                        title: "funds.discover.reading.item3.title",
-                                        time: "funds.discover.reading.item3.time",
-                                        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAxmYcg8IkAtVHSexT_hDbs_PvovGWlT9VocU8JWWsERzHvAaK7pN2JjVzSA4HcSIqEValuegITwodDKovzTRXuirdHzDoKTE_X0Adz1O1SsHBJwrFiO8T3YXACNJYJqJGXp72x2Vq-mpDsyjkEZeQR2S8HBrXLnlgA1op1HNpqkqkpQWeUjGP1fe_v2Tci58yM5VaH1Z7GiskJqBZFialeMUuZzE00w0Hlls0w4YeQyN0FTuUaTImgkT2XQ1jC8PnLaRHmsLiSCWEg-7A"
-                                    )
+                                if viewModel.isDiscoveryLoading && viewModel.suggestedReading.isEmpty {
+                                    ProgressView().padding(.vertical, 20)
+                                } else {
+                                    VStack(spacing: 24) {
+                                        ForEach(viewModel.suggestedReading) { item in
+                                            Button {
+                                                // TODO: Navigate to detail based on ID
+                                            } label: {
+                                                readingItem(
+                                                    category: LocalizedStringKey(item.categoryKey),
+                                                    title: item.title,
+                                                    time: item.timestamp.formatted(date: .omitted, time: .shortened),
+                                                    imageUrl: item.imageUrl
+                                                )
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
                                 }
                             }
                             .padding(.horizontal, 16)
@@ -206,9 +198,10 @@ struct FundDiscoverView: View {
                 viewModel.query = searchText
                 Task { await viewModel.performSearch() }
             }
-            .onAppear {
+            .task {
                 loadRecentSearches()
-                Task { await watchlistViewModel.fetchGroups() }
+                await viewModel.fetchDiscovery()
+                await watchlistViewModel.fetchGroups()
             }
         }
     }
@@ -222,14 +215,14 @@ struct FundDiscoverView: View {
             .foregroundStyle(Color.Alpha.textSecondary.opacity(0.7))
     }
 
-    private func tagPill(_ title: LocalizedStringKey, code: String) -> some View {
+    private func tagPill(_ title: String, code: String) -> some View {
         Button { searchText = code } label: {
             Text(title).font(.system(size: 13, weight: .bold)).foregroundStyle(Color.Alpha.textPrimary)
                 .padding(.horizontal, 16).padding(.vertical, 10).background(colorScheme == .dark ? Color.Alpha.surface : Color.Alpha.surfaceContainerLow).clipShape(Capsule())
         }.buttonStyle(.plain)
     }
 
-    private func readingItem(category: LocalizedStringKey, title: LocalizedStringKey, time: LocalizedStringKey, imageUrl: String) -> some View {
+    private func readingItem(category: LocalizedStringKey, title: String, time: String, imageUrl: String) -> some View {
         HStack(spacing: 16) {
             AsyncImage(url: URL(string: imageUrl)) { image in
                 image.resizable()

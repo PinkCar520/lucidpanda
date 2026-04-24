@@ -13,7 +13,28 @@ class FundSearchViewModel {
     var valuations: [String: FundValuation] = [:]
     var isLoading = false
     
+    // Discovery Data
+    var trendingTags: [TrendingTagDTO] = []
+    var suggestedReading: [SuggestedReadingDTO] = []
+    var isDiscoveryLoading = false
+    
     private var searchTask: Task<Void, Never>?
+    
+    @MainActor
+    func fetchDiscovery() async {
+        guard !isDiscoveryLoading else { return }
+        isDiscoveryLoading = true
+        
+        do {
+            let response: DiscoverResponse = try await APIClient.shared.fetch(path: "/api/v1/mobile/discover")
+            self.trendingTags = response.trendingTags
+            self.suggestedReading = response.suggestedReading
+        } catch {
+            logger.error("Failed to fetch discovery data: \(error.localizedDescription, privacy: .public)")
+        }
+        
+        isDiscoveryLoading = false
+    }
     
     @MainActor
     func performSearch() async {

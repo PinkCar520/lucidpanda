@@ -353,3 +353,60 @@ async def get_market_pulse(
     )
     set_cached(_CACHE_KEY, result, ttl=_CACHE_TTL)
     return result
+
+
+@router.get("/discover", response_model=dict[str, Any])
+async def get_mobile_discover(db: Session = Depends(get_session)):
+    """
+    Discovery feed for mobile.
+    Returns trending fund tags and suggested readings.
+    """
+    # 1. Trending Tags (Backend-curated or analytics-driven)
+    # In a real app, this might come from a 'trending' table or cache.
+    trending_tags = [
+        {"title": "博时黄金", "code": "159937"},
+        {"title": "华安黄金", "code": "518880"},
+        {"title": "易方达黄金", "code": "161128"},
+        {"title": "沪深300", "code": "510300"},
+        {"title": "纳指100", "code": "513100"},
+    ]
+
+    # 2. Suggested Reading (High-urgency intelligence items)
+    statement = (
+        select(Intelligence)
+        .where(Intelligence.status == "COMPLETED")
+        .where(Intelligence.urgency_score >= 8)
+        .order_by(col(Intelligence.timestamp).desc())
+        .limit(3)
+    )
+    results = db.exec(statement).all()
+
+    suggested_reading = []
+    for item in results:
+        # Resolve best summary text
+        summary_text = "分析中..."
+        if isinstance(item.summary, dict):
+            summary_text = item.summary.get("zh") or item.summary.get("en") or summary_text
+        elif isinstance(item.summary, str):
+            summary_text = item.summary
+
+        # Resolve category (mocking for now based on actual intelligence category)
+        category_key = "funds.discover.category.market_analysis"
+        if item.category == "macro_gold":
+            category_key = "funds.discover.category.economy"
+
+        # Mock image URLs based on ID or category
+        image_url = f"https://picsum.photos/seed/{item.id}/400/400"
+
+        suggested_reading.append({
+            "id": item.id,
+            "category_key": category_key,
+            "title": summary_text,
+            "timestamp": item.timestamp.isoformat(),
+            "imageUrl": image_url
+        })
+
+    return v1_prepare_json({
+        "trending_tags": trending_tags,
+        "suggested_reading": suggested_reading
+    })
