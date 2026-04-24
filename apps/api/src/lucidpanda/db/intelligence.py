@@ -680,8 +680,8 @@ class IntelligenceRepo(DBBase):
                             source_id, author, content, url, timestamp,
                             market_session, clustering_score, exhaustion_score,
                             dxy_snapshot, us10y_snapshot, gvz_snapshot, gold_price_snapshot, oil_price_snapshot,
-                            fed_regime, embedding, source_name, category
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            fed_regime, embedding, source_name, category, image_url
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (source_id) DO NOTHING
                         RETURNING id
                     """,
@@ -705,6 +705,7 @@ class IntelligenceRepo(DBBase):
                             embedding_binary,
                             raw_data.get("source"),
                             raw_data.get("category", "macro_gold"),
+                            raw_data.get("image_url"),
                         ),
                     )
                     row = cursor.fetchone()
