@@ -1,7 +1,8 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from sqlmodel import Session, col, select, text
 
 from src.lucidpanda.auth.dependencies import get_current_user
@@ -16,6 +17,48 @@ from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confiden
 from src.lucidpanda.utils.market_calendar import get_market_status
 
 router = APIRouter()
+
+
+@router.get("/image")
+async def proxy_external_image(url: str = Query(..., description="External image URL to proxy")):
+    """
+    图像穿透代理 (Image Proxy)
+    解决国内 iOS 客户端无法直接访问境外媒体（Bloomberg/Reuters等）图片的问题。
+    利用 API 容器自带的 HTTP_PROXY (singbox) 将图片拉取并流式返回给客户端。
+    """
+    import httpx
+    
+    # 简单的安全校验，防止 SSRF 或滥用
+    if not url.startswith("http"):
+        raise HTTPException(status_code=400, detail="Invalid image URL")
+
+    # 获取系统级的代理配置（在 docker-compose 中配置的 HTTP_PROXY=http://singbox:7890）
+    import os
+    proxies = {}
+    http_proxy = os.getenv("HTTP_PROXY") or os.getenv("http_proxy")
+    https_proxy = os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")
+    if http_proxy:
+        proxies["http://"] = http_proxy
+    if https_proxy:
+        proxies["https://"] = https_proxy
+
+    async def image_streamer():
+        # 使用配置了代理的异步客户端
+        async with httpx.AsyncClient(proxies=proxies if proxies else None, verify=False) as client:
+            try:
+                # 使用 stream 模式，不把整张图吃进内存，边下边传给 iOS
+                async with client.stream("GET", url, timeout=10.0) as response:
+                    if response.status_code != 200:
+                        yield b""
+                        return
+                    async for chunk in response.aiter_bytes():
+                        yield chunk
+            except Exception as e:
+                import logging
+                logging.error(f"Image Proxy failed for {url}: {e}")
+                yield b""
+
+    return StreamingResponse(image_streamer(), media_type="image/jpeg")
 
 
 @router.get("/intelligence/{item_id}/ai_summary", response_model=dict[str, str])

@@ -240,7 +240,10 @@ struct FundDiscoverView: View {
 
     private func readingItem(category: LocalizedStringKey, title: String, time: String, imageUrl: String) -> some View {
         HStack(spacing: 16) {
-            AsyncImage(url: URL(string: imageUrl)) { image in
+            let encodedUrl = imageUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+            let proxyUrl = URL(string: "/api/v1/mobile/image?url=\(encodedUrl)", relativeTo: APIClient.shared.baseURL)
+            
+            AsyncImage(url: proxyUrl) { image in
                 image.resizable()
                     .aspectRatio(contentMode: .fill)
             } placeholder: {

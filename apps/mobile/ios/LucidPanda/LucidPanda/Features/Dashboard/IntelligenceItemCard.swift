@@ -52,13 +52,18 @@ struct IntelligenceItemCard: View {
         }
     }
     
+    private func proxyURL(for originalString: String) -> URL? {
+        guard let encoded = originalString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
+        return URL(string: "/api/v1/mobile/image?url=\(encoded)", relativeTo: APIClient.shared.baseURL)
+    }
+
     // MARK: - Layouts
 
     private var featuredLayout: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Image with real project assets or remote URL
             ZStack(alignment: .bottomLeading) {
-                if let urlString = item.imageUrl, let url = URL(string: urlString) {
+                if let urlString = item.imageUrl, let url = proxyURL(for: urlString) {
                     AsyncImage(url: url) { image in
                         image
                             .resizable()
@@ -185,7 +190,7 @@ struct IntelligenceItemCard: View {
             Spacer()
             
             // Thumbnail with real image support
-            if let urlString = item.imageUrl, let url = URL(string: urlString) {
+            if let urlString = item.imageUrl, let url = proxyURL(for: urlString) {
                 AsyncImage(url: url) { image in
                     image
                         .resizable()
