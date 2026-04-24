@@ -118,11 +118,11 @@ struct FundDetailView: View {
         VStack(spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 LiquidTicker(value: viewModel.liveGrowth, precision: 2, prefix: viewModel.liveGrowth >= 0 ? "+" : "")
-                    .foregroundStyle(viewModel.liveGrowth >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                    .foregroundStyle(viewModel.liveGrowth >= 0 ? Color.Alpha.up : Color.Alpha.down)
 
                 Text(Formatters.signedPercentFormatter(fractionDigits: 0).percentSymbol ?? "%")
                     .font(.system(size: 16, weight: .medium, design: .monospaced))
-                    .foregroundStyle(viewModel.liveGrowth >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                    .foregroundStyle(viewModel.liveGrowth >= 0 ? Color.Alpha.up : Color.Alpha.down)
             }
 
             TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -345,7 +345,7 @@ struct FundDetailView: View {
                                 LiquidGlassCard {
                                     HStack(spacing: 12) {
                                         RoundedRectangle(cornerRadius: 4)
-                                            .fill(stat.impact >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                                            .fill(stat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                                             .frame(width: 4, height: 24)
                                             .opacity(0.8)
                                         
@@ -361,7 +361,7 @@ struct FundDetailView: View {
                                         
                                         Text(String(format: "%+.2f%%", stat.impact))
                                             .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                            .foregroundStyle(stat.impact >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                                            .foregroundStyle(stat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                                         
                                         Image(systemName: "chevron.right")
                                             .font(.system(size: 10, weight: .medium))
@@ -420,7 +420,7 @@ struct FundDetailView: View {
                                 Spacer()
                                 Text(String(format: "%+.3f%%", subStat.impact))
                                     .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                    .foregroundStyle(subStat.impact >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                                    .foregroundStyle(subStat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                                 
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 10, weight: .medium))
@@ -578,9 +578,9 @@ struct FundDetailView: View {
                                     Text(formatDateString(record.tradeDate)).font(.system(size: 10, design: .monospaced)).frame(width: 70, alignment: .leading)
                                     Spacer()
                                     let est = record.frozenEstGrowth ?? 0.0
-                                    Text(formatPct(est)).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(est >= 0 ? Color.Alpha.down : Color.Alpha.up).frame(width: 60, alignment: .trailing)
+                                    Text(formatPct(est)).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(est >= 0 ? Color.Alpha.up : Color.Alpha.down).frame(width: 60, alignment: .trailing)
                                     let official = record.officialGrowth ?? 0.0
-                                    Text(formatPct(official)).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(official >= 0 ? Color.Alpha.down : Color.Alpha.up).frame(width: 60, alignment: .trailing)
+                                    Text(formatPct(official)).font(.system(size: 10, weight: .medium, design: .monospaced)).foregroundStyle(official >= 0 ? Color.Alpha.up : Color.Alpha.down).frame(width: 60, alignment: .trailing)
                                     Text(formatPct(record.deviation ?? 0.0)).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).frame(width: 60, alignment: .trailing)
                                     accuracyBadge(record.trackingStatus ?? "-").frame(width: 40, alignment: .trailing)
                                 }
@@ -654,7 +654,7 @@ struct FundDetailView: View {
         VStack(spacing: 4) {
             Text(label).font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary)
             if let val = value {
-                Text(Formatters.signedPercentFormatter(fractionDigits: 1).string(from: NSNumber(value: val / 100.0)) ?? "\(val.formatted(.number.precision(.fractionLength(1))))%").font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(val >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                Text(Formatters.signedPercentFormatter(fractionDigits: 1).string(from: NSNumber(value: val / 100.0)) ?? "\(val.formatted(.number.precision(.fractionLength(1))))%").font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(val >= 0 ? Color.Alpha.up : Color.Alpha.down)
             } else {
                 Text("common.symbol.dash").font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
             }
@@ -663,9 +663,9 @@ struct FundDetailView: View {
     
     private func confidenceColor(_ level: String) -> Color {
         switch level {
-        case "high": return Color.Alpha.up
+        case "high": return .green
         case "medium": return .blue
-        case "low": return Color.Alpha.down
+        case "low": return .red
         default: return .gray
         }
     }
@@ -695,7 +695,7 @@ struct HoldingRow: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: component.changePct / 100.0)) ?? "\(component.changePct.formatted(.number.precision(.fractionLength(2))))%").font(.system(size: 14, weight: .medium, design: .monospaced)).foregroundStyle(component.changePct >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                    Text(Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: component.changePct / 100.0)) ?? "\(component.changePct.formatted(.number.precision(.fractionLength(2))))%").font(.system(size: 14, weight: .medium, design: .monospaced)).foregroundStyle(component.changePct >= 0 ? Color.Alpha.up : Color.Alpha.down)
                     HStack(spacing: 4) {
                         Text(String(format: NSLocalizedString("funds.detail.holdings.weight_format", comment: ""), String(format: "%.1f", component.weight)))
                         Text("common.symbol.bullet")

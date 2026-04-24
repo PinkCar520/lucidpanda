@@ -99,21 +99,21 @@ public extension Color {
         
         // MARK: - Financial Semantics
         
-        /// Up / Bullish (Emerald Green)
+        /// Up / Bullish (Rose Red) - Chinese Standard
         public static var up: Color {
-            Color(UIColor { traitCollection in
-                traitCollection.userInterfaceStyle == .dark
-                    ? UIColor(hex: "#10B981")
-                    : UIColor(hex: "#059669") // Slightly deeper green for light mode
-            })
-        }
-        
-        /// Down / Bearish (Rose Red)
-        public static var down: Color {
             Color(UIColor { traitCollection in
                 traitCollection.userInterfaceStyle == .dark
                     ? UIColor(hex: "#EF4444")
                     : UIColor(hex: "#DC2626") // Slightly deeper red for light mode
+            })
+        }
+        
+        /// Down / Bearish (Emerald Green) - Chinese Standard
+        public static var down: Color {
+            Color(UIColor { traitCollection in
+                traitCollection.userInterfaceStyle == .dark
+                    ? UIColor(hex: "#10B981")
+                    : UIColor(hex: "#059669") // Slightly deeper green for light mode
             })
         }
         

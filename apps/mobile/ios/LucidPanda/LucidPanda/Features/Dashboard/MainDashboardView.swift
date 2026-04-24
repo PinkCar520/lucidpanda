@@ -28,9 +28,6 @@ struct MainDashboardView: View {
                 Color.Alpha.background.ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // 1. Sticky Real-time Ticker
-                    goldTickerHeader
-                    
                     List {
                         let displayItems = viewModel.items.isEmpty ? cachedItems.map { IntelligenceItem(from: $0) } : viewModel.filteredItems
 
@@ -91,6 +88,58 @@ struct MainDashboardView: View {
                 IntelligenceDetailView(item: item)
             }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    // Button 1: Real-time Market Status & Label
+                    Button {
+                        let generator = UIImpactFeedbackGenerator(style: .medium)
+                        generator.impactOccurred()
+                        isPulseSheetPresented = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color.Alpha.brand)
+                                .frame(width: 8, height: 8)
+                                .opacity(isTickerAnimating ? 1 : 0.3)
+                                .scaleEffect(isTickerAnimating ? 1.2 : 0.8)
+                                .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isTickerAnimating)
+                            
+                            Text("GOLD")
+                                .font(.system(size: 11, weight: .black))
+                                .foregroundStyle(Color.Alpha.brand)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .onAppear { isTickerAnimating = true }
+                }
+
+                ToolbarSpacer(.fixed)
+
+                ToolbarItem(placement: .topBarLeading) {
+                    // Button 2: Numerical Data (Price & Change)
+                    if let pulse = rootViewModel.marketPulseViewModel.pulseData {
+                        Button {
+                            let generator = UIImpactFeedbackGenerator(style: .light)
+                            generator.impactOccurred()
+                            isDeepAnalysisPresented = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(String(format: "$%.2f", pulse.marketSnapshot.gold.price))
+                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(Color.Alpha.textPrimary)
+                                
+                                Text(String(format: "%+.2f%%", pulse.marketSnapshot.gold.changePercent))
+                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 2)
+                                    .background(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.down.opacity(0.15))
+                                    .foregroundStyle(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
+                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isSettingsPresented = true
@@ -135,68 +184,6 @@ struct MainDashboardView: View {
         }
     }
     
-    private var goldTickerHeader: some View {
-        HStack(spacing: 0) {
-            // Part 1: Pulse trigger for Global Pulse
-            Button {
-                let generator = UIImpactFeedbackGenerator(style: .medium)
-                generator.impactOccurred()
-                isPulseSheetPresented = true
-            } label: {
-                Circle()
-                    .fill(Color.Alpha.brand)
-                    .frame(width: 8, height: 8)
-                    .opacity(isTickerAnimating ? 1 : 0.3)
-                    .scaleEffect(isTickerAnimating ? 1.2 : 0.8)
-                    .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isTickerAnimating)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            // Part 2: Deep Analysis trigger
-            Button {
-                let generator = UIImpactFeedbackGenerator(style: .light)
-                generator.impactOccurred()
-                isDeepAnalysisPresented = true
-            } label: {
-                HStack(spacing: 8) {
-                    Text("dashboard.ticker.gold_label")
-                        .font(.system(size: 10, weight: .black))
-                        .textCase(.uppercase)
-                        .kerning(1.2)
-                        .foregroundStyle(Color.Alpha.brand)
-                    
-                    Spacer()
-                    
-                    if let pulse = rootViewModel.marketPulseViewModel.pulseData {
-                        HStack(spacing: 12) {
-                            Text(String(format: "$%.2f", pulse.marketSnapshot.gold.price))
-                                .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(Color.Alpha.textPrimary)
-                            
-                            Text(String(format: "%+.2f%%", pulse.marketSnapshot.gold.changePercent))
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.down.opacity(0.15))
-                                .foregroundStyle(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
-                                .clipShape(RoundedRectangle(cornerRadius: 4))
-                        }
-                    }
-                }
-                .padding(.trailing, 16)
-                .padding(.vertical, 14)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-        .background(Color.Alpha.surface.opacity(0.85))
-        .background(.ultraThinMaterial)
-        .onAppear { isTickerAnimating = true }
-    }
-
     @State private var isTickerAnimating = false
 
     private var searchAndFilterBar: some View {
@@ -293,7 +280,7 @@ struct MainDashboardView: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
                 Circle()
-                    .fill(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.brand)
+                    .fill(item.urgencyScore >= 8 ? Color.Alpha.up : Color.Alpha.brand)
                     .frame(width: 10, height: 10)
                     .overlay(
                         Circle().stroke(Color.Alpha.surface, lineWidth: 2)

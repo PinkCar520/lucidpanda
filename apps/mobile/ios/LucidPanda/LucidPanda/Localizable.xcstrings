@@ -89,13 +89,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Valuation"
+            "value" : "Watchlist"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "行情估值"
+            "value" : "自选列表"
           }
         }
       }
@@ -106,13 +106,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Home"
+            "value" : "Intelligence"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "首页"
+            "value" : "市场情报"
           }
         }
       }
@@ -1764,7 +1764,6 @@
       }
     },
     "common.symbol.bullet" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1781,7 +1780,6 @@
       }
     },
     "common.symbol.dash" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2384,6 +2382,7 @@
       }
     },
     "dashboard.ticker.gold_label" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2670,6 +2669,7 @@
       }
     },
     "funds.compact.no_data" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2801,7 +2801,6 @@
       }
     },
     "funds.detail.history.empty" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2850,7 +2849,6 @@
       }
     },
     "funds.detail.history.header.deviation" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2915,7 +2913,6 @@
       }
     },
     "funds.detail.holdings.contribution_format" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3050,7 +3047,6 @@
       }
     },
     "funds.detail.holdings.weight_format" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3271,7 +3267,6 @@
       }
     },
     "funds.detail.sector.components_count_format" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3288,7 +3283,6 @@
       }
     },
     "funds.detail.sector.empty" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3305,7 +3299,6 @@
       }
     },
     "funds.detail.sector.position_format" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3338,7 +3331,6 @@
       }
     },
     "funds.detail.sector.weight_format" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4309,6 +4301,9 @@
           }
         }
       }
+    },
+    "GOLD" : {
+
     },
     "intelligence.analysis.analyzing" : {
       "extractionState" : "stale",

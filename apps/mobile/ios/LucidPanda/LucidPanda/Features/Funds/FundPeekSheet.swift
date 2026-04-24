@@ -28,7 +28,7 @@ struct FundPeekSheet: View {
                             
                             Text(Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: valuation.estimatedGrowth / 100.0)) ?? "\(valuation.estimatedGrowth.formatted(.number.precision(.fractionLength(2))))%")
                                 .font(.system(size: 20, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(valuation.estimatedGrowth >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                                .foregroundStyle(valuation.estimatedGrowth >= 0 ? Color.Alpha.up : Color.Alpha.down)
                         }
                         
                         Text(valuation.fundCode)
@@ -170,7 +170,7 @@ struct FundPeekSheet: View {
                 .foregroundStyle(.secondary)
             Text(Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: quote.changePercent)) ?? "\(quote.changePercent.formatted(.number.precision(.fractionLength(2))))%")
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(quote.changePercent >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                .foregroundStyle(quote.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)

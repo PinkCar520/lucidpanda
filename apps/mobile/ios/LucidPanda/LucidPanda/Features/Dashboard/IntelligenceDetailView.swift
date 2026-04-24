@@ -22,8 +22,8 @@ struct IntelligenceDetailView: View {
                                 .font(.system(size: 11, weight: .black, design: .monospaced))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(item.urgencyScore >= 8 ? Color.red.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
-                                .foregroundStyle(item.urgencyScore >= 8 ? Color.red : Color.Alpha.brand)
+                                .background(item.urgencyScore >= 8 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
+                                .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.up : Color.Alpha.brand)
                                 .clipShape(RoundedRectangle(cornerRadius: 2))
                             
                             Text(item.author)

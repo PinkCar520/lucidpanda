@@ -65,8 +65,8 @@ struct MarketPulseCapsule: View {
     
     private func sentimentColor(_ sentiment: String) -> Color {
         switch sentiment {
-        case "bullish": return Color.Alpha.down // 红色 (中国习惯)
-        case "bearish": return Color.Alpha.up   // 绿色 (中国习惯)
+        case "bullish": return Color.Alpha.up   // 红色 (中国习惯)
+        case "bearish": return Color.Alpha.down // 绿色 (中国习惯)
         default: return Color.Alpha.neutral
         }
     }

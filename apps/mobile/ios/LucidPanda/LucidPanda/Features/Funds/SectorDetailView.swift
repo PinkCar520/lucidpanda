@@ -29,7 +29,7 @@ struct SectorDetailView: View {
                                 .foregroundStyle(.secondary)
                             Text(String(format: "%+.3f%%", stat.impact))
                                 .font(.system(size: 20, weight: .semibold, design: .monospaced))
-                                .foregroundStyle(stat.impact >= 0 ? .red : .green)
+                                .foregroundStyle(stat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                         }
                         Spacer()
                     }
@@ -63,7 +63,7 @@ struct SectorDetailView: View {
                                         Spacer()
                                         Text(String(format: "%+.3f%%", subStat.impact))
                                             .font(.system(size: 14, weight: .medium, design: .monospaced))
-                                            .foregroundStyle(subStat.impact >= 0 ? .red : .green)
+                                            .foregroundStyle(subStat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                                     }
                                 }
                             }

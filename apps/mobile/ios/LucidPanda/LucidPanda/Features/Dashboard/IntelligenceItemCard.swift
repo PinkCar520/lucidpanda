@@ -133,8 +133,8 @@ struct IntelligenceItemCard: View {
                         .font(.system(size: 10, weight: .black, design: .monospaced))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(item.urgencyScore >= 8 ? Color.Alpha.down.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
-                        .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.brand)
+                        .background(item.urgencyScore >= 8 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
+                        .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.up : Color.Alpha.brand)
                         .clipShape(RoundedRectangle(cornerRadius: 2))
 
                     Text(item.author)
@@ -226,8 +226,8 @@ struct IntelligencePeekSheet: View {
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(item.urgencyScore >= 8 ? Color.Alpha.down.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
-                            .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : Color.Alpha.brand)
+                            .background(item.urgencyScore >= 8 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
+                            .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.up : Color.Alpha.brand)
                             .clipShape(Capsule())
 
                             Spacer()

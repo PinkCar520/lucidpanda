@@ -182,7 +182,7 @@ struct FundCompactCard: View, Equatable {
         switch risk {
         case "R1", "R2": return .blue
         case "R3": return .orange
-        case "R4": return Color.Alpha.down
+        case "R4": return .red
         case "R5": return .purple
         default: return .gray
         }
@@ -201,7 +201,7 @@ struct FundCompactCard: View, Equatable {
         switch level {
         case "high": return .green
         case "medium": return .blue
-        case "low": return Color.Alpha.down
+        case "low": return .red
         default: return .gray
         }
     }

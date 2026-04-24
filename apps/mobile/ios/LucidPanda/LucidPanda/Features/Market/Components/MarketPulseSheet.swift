@@ -123,7 +123,7 @@ struct MarketPulseSheet: View {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(
                             LinearGradient(
-                                colors: [Color.Alpha.up, Color.Alpha.neutral, Color.Alpha.down],
+                                colors: [Color.Alpha.down, Color.Alpha.neutral, Color.Alpha.up],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -216,7 +216,7 @@ struct MarketPulseSheet: View {
                 HStack(spacing: 4) {
                     Text(verbatim: "\(quote.changePercent >= 0 ? "+" : "")\(String(format: "%.2f%%", quote.changePercent))")
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
-                        .foregroundStyle(quote.changePercent >= 0 ? Color.Alpha.down : Color.Alpha.up)
+                        .foregroundStyle(quote.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
                 }
             }
         }
@@ -231,15 +231,15 @@ struct MarketPulseSheet: View {
                     .padding(.horizontal)
             } else {
                 ForEach(alerts) { alert in
-                    LiquidGlassCard(backgroundColor: Color.Alpha.down.opacity(0.05)) {
+                    LiquidGlassCard(backgroundColor: Color.Alpha.up.opacity(0.05)) {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
                                 Text("market.pulse.urgency_score \(alert.urgencyScore)")
                                     .font(.system(size: 9, weight: .semibold))
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
-                                    .background(Color.Alpha.down.opacity(0.1))
-                                    .foregroundStyle(Color.Alpha.down)
+                                    .background(Color.Alpha.up.opacity(0.1))
+                                    .foregroundStyle(Color.Alpha.up)
                                     .clipShape(Capsule())
 
                                 Spacer()
@@ -327,8 +327,8 @@ struct MarketPulseSheet: View {
 
     private func sentimentColor(_ sentiment: String) -> Color {
         switch sentiment {
-        case "bullish": return Color.Alpha.down
-        case "bearish": return Color.Alpha.up
+        case "bullish": return Color.Alpha.up
+        case "bearish": return Color.Alpha.down
         default: return Color.Alpha.neutral
         }
     }
