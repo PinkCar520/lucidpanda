@@ -96,7 +96,7 @@ struct MainDashboardView: View {
                         generator.impactOccurred()
                         isPulseSheetPresented = true
                     } label: {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 8) {
                             Circle()
                                 .fill(Color.Alpha.brand)
                                 .frame(width: 8, height: 8)
@@ -108,6 +108,8 @@ struct MainDashboardView: View {
                                 .font(.system(size: 11, weight: .black))
                                 .foregroundStyle(Color.Alpha.brand)
                         }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
                     }
                     .buttonStyle(.plain)
                     .onAppear { isTickerAnimating = true }
@@ -124,7 +126,7 @@ struct MainDashboardView: View {
                             generator.impactOccurred()
                             isDeepAnalysisPresented = true
                         } label: {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 Text(String(format: "$%.2f", pulse.marketSnapshot.gold.price))
                                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
                                     .foregroundStyle(Color.Alpha.textPrimary)
@@ -137,6 +139,8 @@ struct MainDashboardView: View {
                                     .foregroundStyle(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
                                     .clipShape(RoundedRectangle(cornerRadius: 4))
                             }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
                         }
                         .buttonStyle(.plain)
                         .fixedSize(horizontal: true, vertical: false)

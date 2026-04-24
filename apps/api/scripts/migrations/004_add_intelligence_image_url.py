@@ -2,14 +2,14 @@
 Migration: Add image_url to intelligence table
 Date: 2026-04-24
 """
-from src.lucidpanda.infra.database.connection import get_session
+from src.lucidpanda.infra.database.connection import engine
 from sqlalchemy import text
 from sqlmodel import Session
 
 def migrate():
     print("🚀 Starting migration: add image_url to intelligence...")
     
-    with Session(get_session().bind) as session:
+    with Session(engine) as session:
         try:
             # 1. 检查列是否存在
             check_sql = text("""
