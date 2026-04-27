@@ -3,7 +3,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from pydantic import BaseModel, Field
 from sqlmodel import Session, text
 
@@ -1184,14 +1184,21 @@ async def get_fund_ai_analysis(
 @router.get("/{fund_code}/ai_narrative", response_model=dict[str, Any])
 async def get_fund_ai_narrative(
     fund_code: str,
+    accept_language: str | None = Header(None, alias="Accept-Language"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session),
 ):
     """
     针对单支基金的深度 AI 叙事分析。
     结合基金持仓板块、近期关联情报，通过 Gemini 生成一份临时的深度洞察。
+    支持国际化：根据 Accept-Language 自动切换 AI 生成语言。
     """
-    _cache_key = f"api:fund:narrative:{fund_code}"
+    # 判定语言偏好
+    lang = "zh"
+    if accept_language and ("en" in accept_language.lower() or "us" in accept_language.lower()):
+        lang = "en"
+
+    _cache_key = f"api:fund:narrative:{lang}:{fund_code}"
     _cache_ttl = 300  # 5分钟缓存
 
     cached = get_cached(_cache_key)
@@ -1239,8 +1246,30 @@ async def get_fund_ai_narrative(
             advice = advice.get("zh") or advice.get("en")
         intel_context += f"{idx+1}. 情报: {summary}\n   建议: {advice}\n"
 
-    # 3. 构造 Prompt
-    prompt = f"""
+    # 3. 构造 Prompt (根据语言切换)
+    if lang == "en":
+        prompt = f"""
+You are a senior fund analyst. Please generate a concise "AI Narrative Summary" for the following fund, combining its sector holdings and recent market intelligence.
+
+Fund Name: {fund_name} ({fund_code})
+Primary Sectors: {', '.join(sectors) if sectors else 'Unknown'}
+
+Recent Market Intelligence:
+{intel_context if intel_context else 'No direct intelligence available. Please analyze based on sector performance.'}
+
+Requirements:
+1. Professional and concise language, length between 60-100 words.
+2. Clearly state the impact of the current market environment on the fund's sectors (Bullish or Bearish).
+3. Provide a clear short-term outlook.
+4. Return in JSON format with the field "narrative".
+
+Example Return:
+{{
+  "narrative": "Gold holdings are under pressure due to Fed's hawkish tone, bearish in short term. While weakening non-farm data provides support, geopolitical risk premiums are receding. Watch for support at 2300 level."
+}}
+"""
+    else:
+        prompt = f"""
 你是一位资深基金分析师。请针对以下基金，结合其持仓板块和最新市场情报，生成一段精炼的“AI 叙事摘要”。
 
 基金名称: {fund_name} ({fund_code})
@@ -1264,7 +1293,7 @@ async def get_fund_ai_narrative(
     try:
         llm = GeminiLLM()
         result = await llm.generate_json_async(prompt)
-        narrative = result.get("narrative", "AI 分析引擎暂时无法生成叙事。")
+        narrative = result.get("narrative", "AI 分析引擎暂时无法生成叙事。" if lang == "zh" else "AI engine failed to generate narrative.")
         
         final_res = {
             "fund_code": fund_code,
@@ -1275,4 +1304,5 @@ async def get_fund_ai_narrative(
         return final_res
     except Exception as e:
         logger.error(f"Gemini narrative generation failed for {fund_code}: {e}")
-        return {"narrative": "AI 实时分析服务暂时不可用，请稍后再试。", "error": str(e)}
+        error_msg = "AI 实时分析服务暂时不可用，请稍后再试。" if lang == "zh" else "AI analysis service is temporarily unavailable."
+        return {"narrative": error_msg, "error": str(e)}

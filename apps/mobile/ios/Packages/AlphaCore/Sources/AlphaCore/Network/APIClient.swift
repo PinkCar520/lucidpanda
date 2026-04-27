@@ -96,6 +96,7 @@ public actor APIClient {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
+        request.setValue(APIClient.acceptLanguageString, forHTTPHeaderField: "Accept-Language")
         request = await applyAccessToken(to: request)
 
         return try await perform(request, allowRefreshRetry: true)
@@ -110,6 +111,7 @@ public actor APIClient {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
+        request.setValue(APIClient.acceptLanguageString, forHTTPHeaderField: "Accept-Language")
 
         request = await applyAccessToken(to: request)
 
@@ -135,6 +137,7 @@ public actor APIClient {
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
+        request.setValue(APIClient.acceptLanguageString, forHTTPHeaderField: "Accept-Language")
         
         request = await applyAccessToken(to: request)
         
@@ -187,6 +190,7 @@ public actor APIClient {
         request.httpMethod = endpoint.method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(APIClient.userAgentString, forHTTPHeaderField: "User-Agent")
+        request.setValue(APIClient.acceptLanguageString, forHTTPHeaderField: "Accept-Language")
 
         if let customHeaders = endpoint.headers {
             for (header, value) in customHeaders {
@@ -291,6 +295,10 @@ public actor APIClient {
         #else
         return "LucidPanda/1.0"
         #endif
+    }
+
+    private static var acceptLanguageString: String {
+        return Bundle.main.preferredLocalizations.first ?? "en"
     }
 }
 
