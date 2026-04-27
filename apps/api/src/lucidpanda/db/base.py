@@ -236,8 +236,14 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS is_story_lead BOOLEAN DEFAULT FALSE;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS category TEXT;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS tags JSONB;",
+                "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS local_image_path TEXT;",
             ]:
                 cursor.execute(col_sql)
+
+            # 确保上传目录存在
+            import os
+            uploads_dir = os.path.join(settings.BASE_DIR, "src", "lucidpanda", "uploads", "news")
+            os.makedirs(uploads_dir, exist_ok=True)
             cursor.execute(
                 "UPDATE intelligence SET corroboration_count = 1 WHERE corroboration_count IS NULL;"
             )

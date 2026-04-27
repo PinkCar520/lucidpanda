@@ -28,6 +28,7 @@ from src.lucidpanda.providers.llm.deepseek import DeepSeekLLM
 from src.lucidpanda.providers.llm.gemini import GeminiLLM
 from src.lucidpanda.providers.llm.qwen_llm import QwenLLM
 from src.lucidpanda.services.agent_tools import call_tool
+from src.lucidpanda.utils.image_downloader import image_downloader
 
 
 class LLMFactory:
@@ -175,6 +176,11 @@ class AlphaEngine:
                         summary_text = summary.get("en", "") or str(summary)
                     elif isinstance(summary, str):
                         summary_text = summary
+                    else:
+                        summary_text = str(summary) if summary is not None else ""
+
+                    if not isinstance(summary_text, str):
+                        summary_text = str(summary_text)
 
                     text = (
                         summary_text
@@ -258,6 +264,45 @@ class AlphaEngine:
             await asyncio.gather(*follower_tasks)
 
         logger.info("<<< 本轮分析完成。")
+
+    async def _cleanup_old_images(self, hours: int = 24):
+        """物理删除超过 X 小时的本地新闻图片"""
+        import time
+        from pathlib import Path
+        
+        upload_dir = Path(settings.BASE_DIR) / "uploads" / "news"
+        if not upload_dir.exists():
+            return
+            
+        now = time.time()
+        count = 0
+        for f in upload_dir.glob("*"):
+            if f.is_file() and (now - f.stat().st_mtime) > (hours * 3600):
+                try:
+                    f.unlink()
+                    count += 1
+                except Exception as e:
+                    logger.warning(f"删除旧图片失败 {f}: {e}")
+        
+        if count > 0:
+            logger.info(f"🧹 已物理清理 {count} 张超过 {hours} 小时的本地缓存图片。")
+
+    async def _download_news_image(self, source_id: str, image_url: str):
+        """异步下载新闻图片并回填路径"""
+        if not image_url:
+            return
+            
+        local_path = await image_downloader.download_image(image_url)
+        if local_path:
+            try:
+                await asyncio.to_thread(
+                    self.db.execute,
+                    "UPDATE intelligence SET local_image_path = %s WHERE source_id = %s",
+                    (local_path, source_id)
+                )
+                logger.debug(f"🖼️ 图片已缓存: {source_id} -> {local_path}")
+            except Exception as e:
+                logger.error(f"回填本地图片路径失败: {e}")
 
     async def _process_single_item_async(self, raw_data):
         """单条情报的异步处理状态机"""
@@ -532,6 +577,15 @@ class AlphaEngine:
                         self.db.upsert_knowledge_graph, source_id, analysis_result
                     )
                     await self._trigger_trade_and_dispatch(analysis_result, raw_data)
+
+                    # 5. 后置异步任务：下载图片并清理旧缓存
+                    if raw_data.get("image_url"):
+                        asyncio.create_task(
+                            self._download_news_image(source_id, raw_data["image_url"])
+                        )
+                    
+                    # 每次处理完一条，都有机会触发一次轻量清理
+                    asyncio.create_task(self._cleanup_old_images(hours=24))
                 else:
                     raise ValueError(
                         "AI analysis returned empty result or missing summary"
