@@ -152,52 +152,72 @@ class FundEngine:
         )
 
     def update_fund_holdings(self, fund_code):
-        """Fetch latest holdings from Market Provider and save to DB."""
-        logger.info(f"🔍 Fetching holdings for fund: {fund_code}")
+        """
+        Phase 1: Full Portfolio Analysis.
+        Fetch latest holdings and merge with last full report (Annual/Semi-annual) 
+        to maintain a 100% coverage 'Base Portfolio'.
+        """
+        logger.info(f"🔍 Fetching FULL holdings for fund: {fund_code}")
 
-        # Temporary disable proxy for data fetching (some sources often fail with proxies)
+        # Disable proxy for data fetching
         original_http = os.environ.get("HTTP_PROXY")
         original_https = os.environ.get("HTTPS_PROXY")
         os.environ["HTTP_PROXY"] = ""
         os.environ["HTTPS_PROXY"] = ""
 
         try:
-            # 1. Try last year first (most common case)
-            last_year = str(datetime.now().year - 1)
-            try:
-                df = ak.fund_portfolio_hold_em(symbol=fund_code, date=last_year)
-            except Exception:
-                df = pd.DataFrame()
-
-            if df.empty:
-                current_year = str(datetime.now().year)
+            # 1. Fetch data from last 2 years to get enough report history
+            dfs = []
+            for year in [datetime.now().year, datetime.now().year - 1]:
                 try:
-                    df = ak.fund_portfolio_hold_em(symbol=fund_code, date=current_year)
+                    df_y = ak.fund_portfolio_hold_em(symbol=fund_code, date=str(year))
+                    if not df_y.empty:
+                        dfs.append(df_y)
                 except Exception:
-                    pass
+                    continue
 
-            if df.empty:
+            if not dfs:
                 logger.warning(f"No holdings found for {fund_code}")
                 return []
 
-            # 2. Sort by quarter to get truly latest
-            all_quarters = df["季度"].unique()
-            if len(all_quarters) == 0:
+            df_all = pd.concat(dfs)
+            all_quarters = sorted(df_all["季度"].unique(), reverse=True)
+            
+            if not all_quarters:
                 return []
 
-            latest_quarter = sorted(all_quarters, reverse=True)[0]
-            logger.info(f"📅 Latest Report: {latest_quarter}")
+            # 2. Identify Latest Report and Last FULL Report (Mid-year or Annual)
+            latest_q = all_quarters[0]
+            full_reports = [q for q in all_quarters if "年报" in q or "中报" in q]
+            last_full = full_reports[0] if full_reports else latest_q
 
-            latest_df = df[df["季度"] == latest_quarter]
+            logger.info(f"📅 Latest: {latest_q}, Last Full: {last_full}")
 
+            # 3. Build Merged Portfolio
+            # - Start with the full report (contains many smaller holdings)
+            # - Update/Overwrite with the latest quarter (top 10 usually)
+            full_df = df_all[df_all["季度"] == last_full].copy()
+            latest_df = df_all[df_all["季度"] == latest_q].copy()
+
+            # Merge Strategy: 
+            # 1. Take all from latest
+            # 2. Take from full report where stock NOT in latest
+            # 3. Normalize remaining weight so total is logical
+            
+            latest_codes = set(latest_df["股票代码"].astype(str).tolist())
+            rem_full_df = full_df[~full_df["股票代码"].astype(str).isin(latest_codes)]
+            
+            # Combine
+            final_df = pd.concat([latest_df, rem_full_df])
+            
             holdings = []
-            for _, row in latest_df.iterrows():
+            for _, row in final_df.iterrows():
                 holdings.append(
                     {
                         "code": str(row["股票代码"]),
                         "name": str(row["股票名称"]),
                         "weight": float(row["占净值比例"]),
-                        "report_date": latest_quarter,
+                        "report_date": latest_q if str(row["股票代码"]) in latest_codes else last_full,
                     }
                 )
 
@@ -206,14 +226,101 @@ class FundEngine:
             return holdings
 
         except Exception as e:
-            logger.error(f"Update Holdings Failed: {e}")
+            logger.error(f"Update Full Holdings Failed: {e}")
             return []
         finally:
-            # Restore proxy if needed
-            if original_http:
-                os.environ["HTTP_PROXY"] = original_http
-            if original_https:
-                os.environ["HTTPS_PROXY"] = original_https
+            if original_http: os.environ["HTTP_PROXY"] = original_http
+            if original_https: os.environ["HTTPS_PROXY"] = original_https
+
+    def perform_rbsa_analysis(self, fund_code, days=40):
+        """
+        Phase 2: RBSA (Return-Based Style Analysis).
+        Regress fund returns against a basket of indices to find dynamic weights.
+        Used to detect style drift (e.g., Growth -> Value).
+        """
+        logger.info(f"🧪 Running RBSA Style Analysis for {fund_code}...")
+        
+        try:
+            import numpy as np
+            from scipy.optimize import minimize
+
+            # 1. Fetch Historical NAV (Returns) for Fund
+            nav_history = self.db.get_valuation_history(fund_code, limit=days)
+            if len(nav_history) < 15:
+                return None # Not enough data
+            
+            fund_rets = []
+            dates = []
+            for i in range(len(nav_history) - 1):
+                # growth is (current - prev) / prev
+                curr = nav_history[i]["official_growth"]
+                if curr is not None:
+                    fund_rets.append(curr / 100.0) # Convert % to decimal
+                    dates.append(nav_history[i]["trade_date"])
+
+            if not fund_rets: return None
+
+            # 2. Fetch Returns for Benchmark Indices
+            # Candidate Basket: HS300, CYB, HSTECH, US-TECH, BOND
+            benchmarks = {
+                "hs300": "sh000300",
+                "cyb": "sz399006",
+                "hstech": "hkHSTECH",
+                "consumption": "sz399997",
+                "tech": "sh000821",
+                "bond": "sh000012"
+            }
+            
+            bench_rets_matrix = []
+            valid_names = []
+            
+            for name, code in benchmarks.items():
+                # We need historical daily growth for these dates
+                # Optimization: In production, pre-fetch these to a cache
+                try:
+                    # Mock fetching for now, using get_index_returns_batch from DB if exists
+                    # or simple loop
+                    rets = self.db.get_index_historical_returns(code, dates)
+                    if len(rets) == len(fund_rets):
+                        bench_rets_matrix.append(rets)
+                        valid_names.append(name)
+                except Exception:
+                    continue
+            
+            if not bench_rets_matrix: return None
+            
+            X = np.array(bench_rets_matrix).T # Days x Indices
+            y = np.array(fund_rets)           # Days
+            
+            # 3. Optimization: Constrained Linear Regression
+            # Min sum((y - Xw)^2) 
+            # s.t. sum(w) = 1, w_i >= 0
+            n_indices = len(valid_names)
+            
+            def objective(w):
+                return np.sum((y - np.dot(X, w))**2)
+            
+            cons = ({'type': 'eq', 'fun': lambda w: np.sum(w) - 1.0})
+            bounds = [(0, 1) for _ in range(n_indices)]
+            w0 = np.ones(n_indices) / n_indices
+            
+            res = minimize(objective, w0, method='SLSQP', bounds=bounds, constraints=cons)
+            
+            if res.success:
+                weights = {valid_names[i]: round(float(res.x[i]), 4) for i in range(n_indices)}
+                # Calculate R2
+                ss_res = np.sum((y - np.dot(X, res.x))**2)
+                ss_tot = np.sum((y - np.mean(y))**2)
+                r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+                
+                logger.info(f"✅ RBSA Success: R2={r2:.2f}, Style: {weights}")
+                self.db.save_rbsa_weights(fund_code, weights, r2)
+                return weights
+            
+            return None
+        except Exception as e:
+            logger.error(f"RBSA Failed: {e}")
+            return None
 
     def _identify_shadow_etf(self, fund_code, fund_name):
         """
@@ -438,6 +545,48 @@ class FundEngine:
         except Exception as e:
             logger.error(f"Industry map fetch failed: {e}")
             return {}
+
+    def _get_fallback_index_for_fund(self, fund_code, fund_name, fund_meta):
+        """
+        Identify the most relevant index for filling the 'unmapped' weight gap.
+        """
+        f_type = str(fund_meta.get("type", ""))
+        name_type = f"{fund_name}|{f_type}"
+
+        # 1. Sector Specific Mappings
+        SECTOR_MAP = {
+            "医疗|医药|生物|药": "sz399989",      # 中证医疗
+            "半导体|芯片|集成电路": "sh000821",   # 中证全指半导体
+            "白酒|酒|消费|食品": "sz399997",      # 中证白酒
+            "新能源|光伏|电池|锂电": "sz399808",    # 中证新能源
+            "军工|航空|航天": "sz399967",        # 中证军工
+            "银行|金融|保险": "sh000922",        # 中证全指金融
+            "证券|券商": "sz399975",            # 证券公司
+            "传媒|互联网|游戏": "sz399971",      # 中证传媒
+            "有色|资源|煤炭|钢铁": "sh000819",   # 中证有色
+        }
+
+        for keywords, index_code in SECTOR_MAP.items():
+            if any(k in name_type for k in keywords.split("|")):
+                return index_code
+
+        # 2. Broad Market Mappings based on Type
+        if "创业板" in name_type:
+            return "sz399006"
+        if "科创" in name_type:
+            return "sh000688"
+        if "恒生" in name_type or "港股" in name_type:
+            return "hkHSTECH"
+        if "美股" in name_type or "纳斯" in name_type or "标普" in name_type:
+            return "sh513100" # Proxy ETF for US
+
+        # 3. Default Fallbacks
+        if any(k in f_type for k in ["偏股", "普通股票", "指数型-股票"]):
+            return "sh000300" # 沪深300 as baseline
+        if any(k in f_type for k in ["偏债", "债券", "混合二级"]):
+            return "sh000012" # 上证国债指数
+        
+        return "sh000300"
 
     def calculate_realtime_valuation(self, fund_code):
         """Calculate live estimated NAV growth based on holdings (Source: Market Data)."""
@@ -857,10 +1006,45 @@ class FundEngine:
                 sector_stats[l1]["sub"][l2]["impact"] += current_impact
                 sector_stats[l1]["sub"][l2]["weight"] += weight
 
-            # 5. Normalize
+            # 5. Asset Allocation & Fallback (Shadow Industry)
             final_est = 0.0
-            if total_weight > 0:
-                final_est = total_impact * (100 / total_weight)
+            shadow_note = ""
+            if total_weight >= 85.0:
+                 # High coverage, standard normalization is safe
+                 final_est = total_impact * (100 / total_weight)
+            elif total_weight > 0:
+                 # Low coverage, fill gap with Industry Proxy
+                 remaining_weight = 100.0 - total_weight
+                 proxy_code = self._get_fallback_index_for_fund(fund_code, fund_name, single_meta)
+                 proxy_impact = 0.0
+                 if proxy_code:
+                    # Using efficient GTImg for proxy check
+                    try:
+                        import requests
+                        p_secid = f"sh{proxy_code}" if proxy_code.startswith(("0", "6", "9")) else f"sz{proxy_code}"
+                        if proxy_code.startswith("hk"): p_secid = proxy_code
+                        
+                        p_res = requests.get(f"http://qt.gtimg.cn/q={p_secid}", timeout=2)
+                        p_content = p_res.content.decode("gbk", errors="ignore")
+                        if "=" in p_content:
+                            p_parts = p_content.split("=")[1].split("~")
+                            if len(p_parts) > 32:
+                                p_pct = float(p_parts[32])
+                                proxy_impact = p_pct * (remaining_weight / 100.0)
+                                shadow_note = f" (Shadow Fill: {proxy_code} {remaining_weight:.1f}%)"
+                                components.append({
+                                    "code": proxy_code,
+                                    "name": f"影子补全({p_parts[1]})",
+                                    "price": float(p_parts[3]),
+                                    "change_pct": p_pct,
+                                    "impact": proxy_impact,
+                                    "weight": remaining_weight,
+                                    "is_shadow": True
+                                })
+                    except Exception:
+                        pass
+                 
+                 final_est = total_impact + proxy_impact
 
             # Fetch Fund Name
             fund_name = self._get_fund_name(fund_code)
@@ -904,7 +1088,7 @@ class FundEngine:
                 "fund_code": fund_code,
                 "fund_name": fund_name,
                 "estimated_growth": round(final_est, 4),
-                "total_weight": total_weight,
+                "total_weight": total_weight if not shadow_note else 100.0,
                 "components": components,
                 "sector_attribution": sector_stats,
                 "market_status": get_market_status(
@@ -915,7 +1099,8 @@ class FundEngine:
                     )
                 ),
                 "timestamp": datetime.now(tz_cn).isoformat(),
-                "source": "System Engine" + calibration_note + fx_note,
+                "source": "System Engine" + calibration_note + fx_note + shadow_note,
+                "confidence": self._get_confidence_level(fund_code, total_weight, single_meta),
                 "fee_drag": {
                     "annual_fee_pct": round(float(annual_fee), 6),
                     "daily_fee_pct": round(float(daily_fee), 6),
@@ -988,84 +1173,91 @@ class FundEngine:
 
     def _get_confidence_level(self, fund_code, current_weight, fund_meta):
         """
-        Mature Confidence Engine: Calculates a weighted score based on multiple dimensions.
-        Accuracy (60%) + Coverage (30%) + Freshness/Type (10%)
-        Includes Portfolio Drift Detection (3-day consistency check).
+        Implementation of Option 3: Multi-stage Confidence Warning (Reliability).
+        
+        Rules:
+        - High: Within 14 days of quarterly report release + High accuracy.
+        - Medium: > 60 days since report (Possible Rebalance) + Moderate accuracy.
+        - Low: Recent drift (>0.3% for 3 consecutive days) OR Poor historical accuracy.
         """
-        # 1. Accuracy Score (60 points max)
+        import pytz
+        from datetime import date
+
+        # 0. Fetch necessary data
         perf = self.db.get_fund_performance_metrics(fund_code, days=7)
-        mae = perf["avg_mae"]
-        acc_score = 0
+        mae = perf.get("avg_mae")
+        
+        holdings = self.db.get_fund_holdings(fund_code)
+        report_date_str = holdings[0].get("report_date", "") if holdings else ""
+        
+        recent_history = self.db.get_recent_tracking_statuses(fund_code, limit=3)
+        
+        # 1. Calculate Age Factor
+        days_since_report = 999
+        if report_date_str:
+            try:
+                # Standard formats: '2023-12-31' or '2023Q4'
+                # If it's a quarter format like 2023Q4, we treat report release as ~20 days after quarter end
+                if "Q" in report_date_str:
+                    y, q = report_date_str.split("Q")
+                    month_end = {"1": 3, "2": 6, "3": 9, "4": 12}[q]
+                    r_date = date(int(y), month_end, 28) # Approximation
+                else:
+                    r_date = datetime.strptime(report_date_str, "%Y-%m-%d").date()
+                
+                days_since_report = (date.today() - r_date).days
+            except Exception:
+                pass
+
+        # 2. Analyze Drift (3-day consistency check)
+        is_drifting = False
+        if len(recent_history) >= 3:
+            # Check if last 3 days deviation all > 0.3%
+            is_drifting = all(abs(h["deviation"]) > 0.3 for h in recent_history)
+
+        # 3. Decision Engine
+        level = "medium"
+        score = 60
         reasons = []
 
-        # --- NEW: Portfolio Drift Detection ---
-        recent_history = self.db.get_recent_tracking_statuses(fund_code, limit=3)
-        is_suspected_rebalance = False
-        if len(recent_history) >= 3:
-            # If all last 3 statuses are NOT 'S' (Precise)
-            not_precise = all(h["status"] != "S" for h in recent_history)
-            # And average deviation is significant
-            avg_drift = sum(abs(h["deviation"]) for h in recent_history) / 3
-            if not_precise and avg_drift > 0.6:
-                is_suspected_rebalance = True
-                reasons.append("portfolio_drift")
-
-        if mae is None:
-            acc_score = 40  # Neutral for new funds
-            reasons.append("new_fund")
-        elif mae < 0.2:
-            acc_score = 60
-            reasons.append("accuracy_high")
-        elif mae < 0.5:
-            acc_score = 45
-            reasons.append("accuracy_medium")
-        elif mae < 1.0:
-            acc_score = 20
-            reasons.append("accuracy_low")
-        else:
-            acc_score = 0
-            reasons.append("accuracy_poor")
-
-        # 2. Coverage Score (30 points max)
-        cov_score = 0
-        if current_weight >= 90:
-            cov_score = 30
-            reasons.append("coverage_full")
-        elif current_weight >= 70:
-            cov_score = 20
-            reasons.append("coverage_high")
-        elif current_weight >= 40:
-            cov_score = 10
-            reasons.append("coverage_partial")
-        else:
-            cov_score = 0
-            reasons.append("coverage_low")
-
-        # 3. Type & Freshness (10 points max)
-        type_score = 10
-        f_type = str(fund_meta.get("type", ""))
-        if "QDII" in f_type:
-            type_score = 5
-            reasons.append("qdii_lag")
-        if "FOF" in f_type:
-            type_score = 0
-            reasons.append("fof_complexity")
-
-        # Apply Rebalance Penalty
-        final_score = acc_score + cov_score + type_score
-        if is_suspected_rebalance:
-            final_score = max(0, final_score - 30)  # Heavy penalty
-
-        level = "medium"
-        if final_score >= 80:
+        # --- Stage 1: High Confidence Check ---
+        if days_since_report <= 14 and (mae is None or mae < 0.2):
             level = "high"
-        elif final_score < 50:
+            score = 90
+            reasons.append("new_report")
+            if mae is not None:
+                reasons.append("accuracy_high")
+        
+        # --- Stage 2: Low Confidence Check (Takes Priority over High/Medium) ---
+        elif is_drifting or (mae is not None and mae >= 0.5):
             level = "low"
+            score = 30
+            if is_drifting:
+                reasons.append("significant_drift")
+            if mae is not None and mae >= 0.5:
+                reasons.append("accuracy_poor")
+            if days_since_report > 60:
+                reasons.append("outdated_report")
+
+        # --- Stage 3: Medium Confidence / Default ---
+        else:
+            level = "medium"
+            score = 60
+            if days_since_report > 60:
+                reasons.append("possible_rebalance")
+            if mae is not None and mae < 0.5:
+                reasons.append("accuracy_medium")
+
+        # Coverage Penalty
+        if current_weight < 70:
+            score = max(0, score - 20)
+            reasons.append("coverage_low")
 
         return {
             "level": level,
-            "score": final_score,
-            "is_suspected_rebalance": is_suspected_rebalance,
+            "score": score,
+            "is_suspected_rebalance": is_drifting or (days_since_report > 60),
+            "days_since_report": days_since_report,
             "reasons": reasons,
         }
 

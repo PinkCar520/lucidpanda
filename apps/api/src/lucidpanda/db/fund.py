@@ -721,7 +721,44 @@ class FundRepo(DBBase):
         finally:
             conn.close()
 
-    # ── 关系映射 ──────────────────────────────────────────────────────────
+    # ── RBSA 归因 ──────────────────────────────────────────────────────────
+
+    def save_rbsa_weights(self, fund_code, weights, r2_score):
+        """Save RBSA (Return-Based Style Analysis) weights to DB."""
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO fund_rbsa_weights (fund_code, weights, r2_score, updated_at)
+                        VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                        ON CONFLICT (fund_code) DO UPDATE SET
+                            weights = EXCLUDED.weights,
+                            r2_score = EXCLUDED.r2_score,
+                            updated_at = CURRENT_TIMESTAMP
+                    """,
+                        (fund_code, Jsonb(weights), r2_score),
+                    )
+                    conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Save RBSA Weights Failed: {e}")
+            return False
+
+    def get_rbsa_weights(self, fund_code):
+        """Fetch RBSA weights for a fund."""
+        try:
+            with self._get_conn() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT weights, r2_score FROM fund_rbsa_weights WHERE fund_code = %s",
+                        (fund_code,),
+                    )
+                    row = cursor.fetchone()
+            return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"Get RBSA Weights Failed: {e}")
+            return None
 
     def get_fund_relationship(self, sub_code):
         """Retrieve the parent/shadow mapping for a fund."""
