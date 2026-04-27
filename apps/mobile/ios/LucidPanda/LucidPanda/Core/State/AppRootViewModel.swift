@@ -4,7 +4,7 @@ import SwiftUI
 import AlphaCore
 import OSLog
 
-public struct UserProfileDTO: Decodable {
+public struct UserProfileDTO: Codable {
     public let id: String
     public let email: String
     public let username: String?
@@ -32,6 +32,8 @@ public struct UserProfileDTO: Decodable {
 @Observable
 public class AppRootViewModel {
     private let logger = AppLog.root
+    private let profileCacheKey = "com.pincar.cache.user_profile"
+    
     public enum AppState {
         case loading
         case unauthenticated
@@ -42,7 +44,22 @@ public class AppRootViewModel {
     public var userProfile: UserProfileDTO?
     public var marketPulseViewModel = MarketPulseViewModel()
     
-    public init() {}
+    public init() {
+        loadProfileFromCache()
+    }
+    
+    private func loadProfileFromCache() {
+        if let data = UserDefaults.standard.data(forKey: profileCacheKey),
+           let cached = try? JSONDecoder().decode(UserProfileDTO.self, from: data) {
+            self.userProfile = cached
+        }
+    }
+    
+    private func saveProfileToCache(_ profile: UserProfileDTO) {
+        if let data = try? JSONEncoder().encode(profile) {
+            UserDefaults.standard.set(data, forKey: profileCacheKey)
+        }
+    }
     
     @MainActor
     public func checkAuthentication() async {
@@ -67,6 +84,7 @@ public class AppRootViewModel {
         if currentState == newState {
             if newState == .unauthenticated {
                 userProfile = nil
+                UserDefaults.standard.removeObject(forKey: profileCacheKey)
             }
             return
         }
@@ -76,6 +94,8 @@ public class AppRootViewModel {
             marketPulseViewModel.stop()
             Task { await SSEResolver.shared.stop() }
             AuthTokenStore.clear()
+            userProfile = nil
+            UserDefaults.standard.removeObject(forKey: profileCacheKey)
         }
         withAnimation(.easeOut(duration: 0.2)) {
             self.currentState = newState
@@ -86,8 +106,6 @@ public class AppRootViewModel {
                 await fetchUserProfile() 
                 await marketPulseViewModel.start()
             }
-        } else {
-            self.userProfile = nil
         }
     }
     
@@ -98,6 +116,7 @@ public class AppRootViewModel {
 
         do {
             let profile: UserProfileDTO = try await APIClient.shared.fetch(path: "/api/v1/auth/me")
+            saveProfileToCache(profile)
             withAnimation(.easeOut(duration: 0.2)) {
                 self.userProfile = profile
             }

@@ -6,6 +6,7 @@ import Foundation
 /// 市场快照数据（四大品种）
 public struct MarketSnapshot: Codable {
     public let gold: MarketQuote
+    public let goldCny: MarketQuote?
     public let dxy: MarketQuote
     public let oil: MarketQuote
     public let us10y: MarketQuote
@@ -13,6 +14,7 @@ public struct MarketSnapshot: Codable {
     
     enum CodingKeys: String, CodingKey {
         case gold, dxy, oil
+        case goldCny = "gold_cny"
         case us10y = "us10y"
         case lastUpdated = "last_updated"
     }

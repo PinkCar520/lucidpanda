@@ -104,7 +104,11 @@ async def get_mobile_dashboard_summary(
 
 
 @router.get("/intelligence", response_model=list[IntelligenceMobileRead])
-async def get_mobile_intelligence(limit: int = 20, db: Session = Depends(get_session)):
+async def get_mobile_intelligence(
+    category: str | None = Query(None, description="Optional category filter (e.g. macro_gold)"),
+    limit: int = Query(20, ge=1, le=100, description="Max number of items to return"),
+    db: Session = Depends(get_session)
+):
     """
     Trimmed intelligence feed for mobile.
     Only returns essential fields to save bandwidth.
@@ -113,9 +117,12 @@ async def get_mobile_intelligence(limit: int = 20, db: Session = Depends(get_ses
         select(Intelligence)
         .where(Intelligence.status == "COMPLETED")
         .where(col(Intelligence.summary).is_not(None))
-        .order_by(col(Intelligence.timestamp).desc())
-        .limit(limit)
     )
+    
+    if category:
+        statement = statement.where(Intelligence.category == category)
+        
+    statement = statement.order_by(col(Intelligence.timestamp).desc()).limit(limit)
     results = db.exec(statement).all()
 
     # Transformation logic from rich JSONB to flat mobile string

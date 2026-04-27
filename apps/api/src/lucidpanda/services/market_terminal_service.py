@@ -20,7 +20,7 @@ class MarketTerminalService:
 
     def get_market_snapshot(self):
         """
-        获取市场快照（四大品种实时报价）
+        获取市场快照（多品种实时报价）
         """
         now = datetime.now().timestamp()
 
@@ -31,17 +31,16 @@ class MarketTerminalService:
                 return entry["data"]
 
         try:
-            # 并行获取四个品种数据
+            # 并行获取各品种数据
             gold_data = self._fetch_gold()
+            gold_cny_data = self._fetch_gold_cny()
             dxy_data = self._fetch_dxy()
             oil_data = self._fetch_oil()
             us10y_data = self._fetch_us10y()
 
-            if not all([gold_data, dxy_data, oil_data, us10y_data]):
-                logger.warning("Some market data fetch failed")
-
             data = {
                 "gold": gold_data or self._empty_quote("GC=F", "黄金"),
+                "gold_cny": gold_cny_data or self._empty_quote("AU9999", "上海金"),
                 "dxy": dxy_data or self._empty_quote("DXY", "美元指数"),
                 "oil": oil_data or self._empty_quote("CL=F", "原油"),
                 "us10y": us10y_data or self._empty_quote("US10Y", "美债 10Y"),
@@ -55,39 +54,54 @@ class MarketTerminalService:
             logger.error(f"Failed to fetch market snapshot: {e}")
             return None
 
-    def _fetch_gold(self):
-        """获取黄金数据（COMEX 黄金 - 新浪财经 hf_GC）"""
+    def _fetch_gold_cny(self):
+        """获取上海金数据 (AU9999) - 新浪财经"""
         try:
-            url = "https://hq.sinajs.cn/list=hf_GC"
-            resp = requests.get(
-                url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"}
-            )
-            raw = resp.text
-            if '="' in raw and len(raw.split('"')[1].split(",")) > 8:
-                parts = raw.split('"')[1].split(",")
-                current = float(parts[0])  # 最新价
-                prev_close = float(parts[8])  # 昨日收盘价
+            url = "http://hq.sinajs.cn/list=s_sh000001,sz399001,gds_AU9999"
+            headers = {"Referer": "http://finance.sina.com.cn"}
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                # 解析格式: var hq_str_gds_AU9999="上海金,614.50,1.25,0.20,...";
+                match = re.search(r'hq_str_gds_AU9999="([^"]+)"', resp.text)
+                if match:
+                    parts = match.group(1).split(",")
+                    price = float(parts[1])
+                    change = float(parts[2])
+                    change_pct = float(parts[3])
+                    return {
+                        "symbol": "AU9999",
+                        "name": "上海金",
+                        "price": price,
+                        "change": change,
+                        "changePercent": change_pct
+                    }
+            return None
+        except Exception as e:
+            logger.error(f"Failed to fetch gold_cny: {e}")
+            return None
 
-                if prev_close > 0:
-                    change = current - prev_close
-                    change_pct = (change / prev_close) * 100
-                else:
-                    change, change_pct = 0.0, 0.0
-
+    def _fetch_gold(self):
+        """获取黄金数据（伦敦金现货 - 对标国际基准）"""
+        try:
+            # 使用 akshare 获取实时伦敦金现货行情 (XAU/USD)
+            df = ak.gold_zh_spot_qhkd()
+            row = df[df["名称"].str.contains("伦敦金|London Gold", case=False, na=False)]
+            
+            if not row.empty:
+                current = float(row.iloc[0]["最新价"])
+                change = float(row.iloc[0]["涨跌额"])
+                change_pct = float(row.iloc[0]["涨跌幅"])
+                
                 return {
-                    "symbol": "GC=F",
-                    "name": "黄金",
+                    "symbol": "XAU",
+                    "name": "伦敦金",
                     "price": current,
                     "change": round(change, 2),
                     "changePercent": round(change_pct, 2),
-                    "high_24h": float(parts[4]) if float(parts[4]) > 0 else None,
-                    "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
-                    "open": float(parts[2]) if float(parts[2]) > 0 else current,
-                    "previous_close": prev_close,
                     "timestamp": datetime.now(),
                 }
         except Exception as e:
-            logger.error(f"Failed to fetch gold data: {e}")
+            logger.error(f"Failed to fetch London Gold spot: {e}")
         return None
 
     def _fetch_dxy(self):

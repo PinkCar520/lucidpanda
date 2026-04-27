@@ -119,31 +119,38 @@ struct MainDashboardView: View {
 
                 ToolbarItem {
                     // Button 2: Numerical Data (Price & Change)
-                    if let pulse = rootViewModel.marketPulseViewModel.pulseData {
-                        Button {
-                            let generator = UIImpactFeedbackGenerator(style: .light)
-                            generator.impactOccurred()
-                            isDeepAnalysisPresented = true
-                        } label: {
-                            HStack(spacing: 8) {
-                                Text(String(format: "$%.2f", pulse.marketSnapshot.gold.price))
+                    Button {
+                        let generator = UIImpactFeedbackGenerator(style: .light)
+                        generator.impactOccurred()
+                        isDeepAnalysisPresented = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            HStack(spacing: 2) {
+                                Text(verbatim: "$")
                                     .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(Color.Alpha.textPrimary)
                                 
-                                Text(String(format: "%+.2f%%", pulse.marketSnapshot.gold.changePercent))
-                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 2)
-                                    .background(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.down.opacity(0.15))
-                                    .foregroundStyle(pulse.marketSnapshot.gold.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
-                                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                                Text(String(format: "%.2f", rootViewModel.marketPulseViewModel.pulseData?.marketSnapshot.gold.price ?? 0.00))
+                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    .contentTransition(.numericText())
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .foregroundStyle(Color.Alpha.textPrimary)
+                            
+                            let change = rootViewModel.marketPulseViewModel.pulseData?.marketSnapshot.gold.changePercent ?? 0.00
+                            Text(String(format: "%+.2f%%", change))
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .background(change >= 0 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.down.opacity(0.15))
+                                .foregroundStyle(change >= 0 ? Color.Alpha.up : Color.Alpha.down)
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
                         }
-                        .buttonStyle(.plain)
-                        .fixedSize(horizontal: true, vertical: false)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .opacity(rootViewModel.marketPulseViewModel.pulseData == nil ? 0.3 : 1.0)
                     }
+                    .buttonStyle(.plain)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .disabled(rootViewModel.marketPulseViewModel.pulseData == nil)
                 }
 
                 ToolbarSpacer(.flexible)

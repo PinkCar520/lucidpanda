@@ -193,25 +193,44 @@ struct MarketPulseSheet: View {
                 .font(.system(size: 16, weight: .medium))
                 .padding(.horizontal)
             
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                marketQuoteItem(snapshot.gold, name: LocalizedStringKey("market.asset.gold"))
-                marketQuoteItem(snapshot.dxy, name: LocalizedStringKey("market.asset.dxy"))
-                marketQuoteItem(snapshot.oil, name: LocalizedStringKey("market.asset.oil"))
-                marketQuoteItem(snapshot.us10y, name: LocalizedStringKey("market.asset.us10y"))
+            VStack(spacing: 12) {
+                // 1. 黄金双品种 (国际/国内)
+                HStack(spacing: 12) {
+                    marketQuoteItem(snapshot.gold, name: LocalizedStringKey("market.asset.gold"))
+                    if let cny = snapshot.goldCny {
+                        marketQuoteItem(cny, name: "上海金", unit: "元/克")
+                    }
+                }
+                
+                // 2. 宏观三剑客
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    marketQuoteItem(snapshot.dxy, name: LocalizedStringKey("market.asset.dxy"))
+                    marketQuoteItem(snapshot.oil, name: LocalizedStringKey("market.asset.oil"))
+                    marketQuoteItem(snapshot.us10y, name: LocalizedStringKey("market.asset.us10y"))
+                }
             }
             .padding(.horizontal)
         }
     }
     
-    private func marketQuoteItem(_ quote: MarketQuote, name: LocalizedStringKey) -> some View {
+    private func marketQuoteItem(_ quote: MarketQuote, name: LocalizedStringKey, unit: String? = nil) -> some View {
         LiquidGlassCard(backgroundColor: Color.primary.opacity(0.03)) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(name)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text(name)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    
+                    if let unit = unit {
+                        Text(unit)
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary.opacity(0.6))
+                    }
+                }
 
-                Text(String(format: "%.2f", quote.price))
+                Text(String(format: quote.price > 1000 ? "%.1f" : "%.2f", quote.price))
                     .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                    .contentTransition(.numericText())
 
                 HStack(spacing: 4) {
                     Text(verbatim: "\(quote.changePercent >= 0 ? "+" : "")\(String(format: "%.2f%%", quote.changePercent))")
@@ -219,6 +238,7 @@ struct MarketPulseSheet: View {
                         .foregroundStyle(quote.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
     

@@ -60,6 +60,7 @@ public struct GoldDeepAnalysisSheet: View {
                     Text(pulseData.map { String(format: "$%.2f", $0.marketSnapshot.gold.price) } ?? "$2,342.15")
                         .font(.system(size: 28, weight: .black, design: .monospaced))
                         .foregroundStyle(Color.Alpha.textPrimary)
+                        .contentTransition(.numericText())
                 }
                 
                 Spacer()
