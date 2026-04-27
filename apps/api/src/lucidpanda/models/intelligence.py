@@ -17,6 +17,7 @@ class IntelligenceBase(SQLModel):
         default="macro_gold", index=True
     )  # macro_gold | equity_cn | equity_us
     image_url: str | None = None
+    local_image_path: str | None = None
 
     # Complex fields using JSONB for performance and Web requirements
     summary: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB))
@@ -72,6 +73,7 @@ class IntelligenceMobileRead(SQLModel):
     summary: str  # Flattened for mobile
     content: str  # Full content for peek sheet
     image_url: str | None = None
+    local_image_path: str | None = None
     urgency_score: int
     sentiment_label: str  # Derived for mobile
     gold_price_snapshot: float | None = None

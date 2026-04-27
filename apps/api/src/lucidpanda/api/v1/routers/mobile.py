@@ -246,6 +246,7 @@ async def get_mobile_intelligence(
                 summary=str(summary_text),
                 content=str(content_text),
                 image_url=getattr(item, "image_url", None),
+                local_image_path=getattr(item, "local_image_path", None),
                 urgency_score=urgency_score,
                 sentiment_label=sentiment_label,
                 gold_price_snapshot=item.gold_price_snapshot,
