@@ -1006,45 +1006,104 @@ class FundEngine:
                 sector_stats[l1]["sub"][l2]["impact"] += current_impact
                 sector_stats[l1]["sub"][l2]["weight"] += weight
 
-            # 5. Asset Allocation & Fallback (Shadow Industry)
+            # 5. Asset Allocation & Fallback (Shadow Industry & RBSA)
             final_est = 0.0
             shadow_note = ""
-            if total_weight >= 85.0:
-                 # High coverage, standard normalization is safe
-                 final_est = total_impact * (100 / total_weight)
-            elif total_weight > 0:
-                 # Low coverage, fill gap with Industry Proxy
-                 remaining_weight = 100.0 - total_weight
-                 proxy_code = self._get_fallback_index_for_fund(fund_code, fund_name, single_meta)
-                 proxy_impact = 0.0
-                 if proxy_code:
-                    # Using efficient GTImg for proxy check
-                    try:
-                        import requests
-                        p_secid = f"sh{proxy_code}" if proxy_code.startswith(("0", "6", "9")) else f"sz{proxy_code}"
-                        if proxy_code.startswith("hk"): p_secid = proxy_code
+            rbsa_note = ""
+            
+            # --- RBSA Style Analysis Integration ---
+            rbsa_data = self.db.get_rbsa_weights(fund_code)
+            rbsa_impact = 0.0
+            rbsa_weight_sum = 0.0
+            
+            if rbsa_data and rbsa_data.get("weights"):
+                weights = rbsa_data["weights"]
+                r2 = rbsa_data.get("r2_score", 0)
+                # Benchmark code mapping (re-use from RBSA logic)
+                benchmarks = {
+                    "hs300": "sh000300", "cyb": "sz399006", "hstech": "hkHSTECH",
+                    "consumption": "sz399997", "tech": "sh000821", "bond": "sh000012"
+                }
+                
+                for style_name, w in weights.items():
+                    if w > 0.05: # Only count significant styles
+                        p_code = benchmarks.get(style_name)
+                        if not p_code: continue
                         
-                        p_res = requests.get(f"http://qt.gtimg.cn/q={p_secid}", timeout=2)
-                        p_content = p_res.content.decode("gbk", errors="ignore")
-                        if "=" in p_content:
-                            p_parts = p_content.split("=")[1].split("~")
-                            if len(p_parts) > 32:
-                                p_pct = float(p_parts[32])
-                                proxy_impact = p_pct * (remaining_weight / 100.0)
-                                shadow_note = f" (Shadow Fill: {proxy_code} {remaining_weight:.1f}%)"
-                                components.append({
-                                    "code": proxy_code,
-                                    "name": f"影子补全({p_parts[1]})",
-                                    "price": float(p_parts[3]),
-                                    "change_pct": p_pct,
-                                    "impact": proxy_impact,
-                                    "weight": remaining_weight,
-                                    "is_shadow": True
-                                })
-                    except Exception:
-                        pass
-                 
-                 final_est = total_impact + proxy_impact
+                        # Efficient price fetch (re-using GTImg logic)
+                        try:
+                            p_secid = f"sh{p_code}" if p_code.startswith(("0", "6", "9")) else f"sz{p_code}"
+                            if p_code.startswith("hk"): p_secid = p_code
+                            
+                            p_res = requests.get(f"http://qt.gtimg.cn/q={p_secid}", timeout=2)
+                            p_content = p_res.content.decode("gbk", errors="ignore")
+                            if "=" in p_content:
+                                p_parts = p_content.split("=")[1].split("~")
+                                if len(p_parts) > 32:
+                                    p_pct = float(p_parts[32])
+                                    rbsa_impact += p_pct * w
+                                    rbsa_weight_sum += w
+                                    if not any(c['code'] == p_code for c in components):
+                                        components.append({
+                                            "code": p_code,
+                                            "name": f"RBSA风格({p_parts[1]})",
+                                            "price": float(p_parts[3]),
+                                            "change_pct": p_pct,
+                                            "impact": p_pct * w,
+                                            "weight": w * 100,
+                                            "is_rbsa": True
+                                        })
+                        except Exception:
+                            continue
+                
+                if rbsa_weight_sum > 0:
+                    rbsa_note = f" (RBSA Blend R2={r2:.2f})"
+
+            # --- Hybrid Blending Logic ---
+            conf = self._get_confidence_level(fund_code, total_weight, single_meta)
+            
+            # alpha is the weight of the HOLDING-based estimate
+            # If confidence is high, alpha = 0.9. If low, alpha = 0.3
+            alpha = 0.7 
+            if conf["level"] == "high": alpha = 0.9
+            elif conf["level"] == "low": alpha = 0.3
+            
+            if rbsa_impact != 0:
+                holding_est = total_impact * (100 / total_weight) if total_weight > 0 else 0
+                final_est = alpha * holding_est + (1 - alpha) * rbsa_impact
+                rbsa_note += f" [H:{int(alpha*100)}%/R:{int((1-alpha)*100)}%]"
+            else:
+                # Fallback to previous Shadow Industry logic if RBSA failed
+                if total_weight >= 85.0:
+                    final_est = total_impact * (100 / total_weight)
+                elif total_weight > 0:
+                    remaining_weight = 100.0 - total_weight
+                    proxy_code = self._get_fallback_index_for_fund(fund_code, fund_name, single_meta)
+                    proxy_impact = 0.0
+                    if proxy_code:
+                        try:
+                            p_secid = f"sh{proxy_code}" if proxy_code.startswith(("0", "6", "9")) else f"sz{proxy_code}"
+                            p_res = requests.get(f"http://qt.gtimg.cn/q={p_secid}", timeout=2)
+                            p_content = p_res.content.decode("gbk", errors="ignore")
+                            if "=" in p_content:
+                                p_parts = p_content.split("=")[1].split("~")
+                                if len(p_parts) > 32:
+                                    p_pct = float(p_parts[32])
+                                    proxy_impact = p_pct * (remaining_weight / 100.0)
+                                    shadow_note = f" (Shadow Fill: {proxy_code} {remaining_weight:.1f}%)"
+                                    components.append({
+                                        "code": proxy_code,
+                                        "name": f"影子补全({p_parts[1]})",
+                                        "price": float(p_parts[3]),
+                                        "change_pct": p_pct,
+                                        "impact": proxy_impact,
+                                        "weight": remaining_weight,
+                                        "is_shadow": True
+                                    })
+                        except Exception: pass
+                    final_est = total_impact + proxy_impact
+            
+            # --- End Blending ---
 
             # Fetch Fund Name
             fund_name = self._get_fund_name(fund_code)
@@ -1054,18 +1113,14 @@ class FundEngine:
             tz_cn = pytz.timezone("Asia/Shanghai")
 
             # --- Dynamic Auto-Calibration ---
-            # Fetch the average bias from the last 7 days to auto-correct "style drift"
             dynamic_bias = self.db.get_recent_bias(fund_code, days=7)
             calibration_note = ""
-            if abs(dynamic_bias) > 0.001:  # Only apply if significant (>0.01%)
-                final_est -= (
-                    dynamic_bias  # Subtract bias because deviation = est - official
-                )
+            if abs(dynamic_bias) > 0.001:
+                final_est -= dynamic_bias
                 calibration_note = f" (Auto-Calibrated {(-dynamic_bias):+.2f}%)"
 
             # --- FX Compensation for QDII ---
             fx_note = ""
-            # Check if it's a QDII fund (usually contains 'QDII' in name or metadata)
             if "QDII" in fund_name or "(QDII)" in fund_name:
                 currency = "USD/CNY"
                 if any(k in fund_name for k in ["恒生", "港", "HK", "H股"]):
@@ -1074,7 +1129,6 @@ class FundEngine:
                     currency = "JPY/CNY"
 
                 fx_change = self.db.get_fx_rate_change(currency)
-                # Assume 90% exposure to FX
                 fx_impact = fx_change * 0.9
                 final_est += fx_impact
                 fx_note = f" (FX {currency} {fx_impact:+.2f}%)"
@@ -1088,19 +1142,12 @@ class FundEngine:
                 "fund_code": fund_code,
                 "fund_name": fund_name,
                 "estimated_growth": round(final_est, 4),
-                "total_weight": total_weight if not shadow_note else 100.0,
+                "total_weight": 100.0,
                 "components": components,
                 "sector_attribution": sector_stats,
-                "market_status": get_market_status(
-                    self._infer_market_region_from_meta(
-                        fund_code,
-                        meta=single_meta,
-                        fallback_name=fund_name,
-                    )
-                ),
-                "timestamp": datetime.now(tz_cn).isoformat(),
-                "source": "System Engine" + calibration_note + fx_note + shadow_note,
-                "confidence": self._get_confidence_level(fund_code, total_weight, single_meta),
+                "timestamp": format_iso8601(datetime.now()),
+                "source": "System Engine" + calibration_note + fx_note + shadow_note + rbsa_note,
+                "confidence": conf,
                 "fee_drag": {
                     "annual_fee_pct": round(float(annual_fee), 6),
                     "daily_fee_pct": round(float(daily_fee), 6),

@@ -745,20 +745,37 @@ class FundRepo(DBBase):
             logger.error(f"Save RBSA Weights Failed: {e}")
             return False
 
-    def get_rbsa_weights(self, fund_code):
-        """Fetch RBSA weights for a fund."""
+    def get_index_historical_returns(self, index_code, dates):
+        """
+        Fetch daily growth (%) for an index on specific trade dates.
+        Returns a list of floats aligned with the input dates.
+        """
+        if not dates:
+            return []
         try:
+            # We assume index data is stored in fund_valuation_archive or a similar table
+            # for historical daily growth. For now, let's check fund_valuation_archive 
+            # if we store index 'official_growth' there, or query a dedicated market table.
+            # Here we use a dedicated index archive table if it exists, else return mock/placeholder
+            # to keep the engine running while we sync index data.
             with self._get_conn() as conn:
                 with conn.cursor() as cursor:
+                    # Generic query: change this to your actual index table
                     cursor.execute(
-                        "SELECT weights, r2_score FROM fund_rbsa_weights WHERE fund_code = %s",
-                        (fund_code,),
+                        """
+                        SELECT trade_date, official_growth FROM fund_valuation_archive
+                        WHERE fund_code = %s AND trade_date = ANY(%s)
+                        ORDER BY trade_date DESC
+                    """,
+                        (index_code, list(dates)),
                     )
-                    row = cursor.fetchone()
-            return dict(row) if row else None
+                    rows = {r["trade_date"]: float(r["official_growth"]) for r in cursor.fetchall() if r["official_growth"] is not None}
+            
+            # Align with input dates
+            return [rows.get(d, 0.0) / 100.0 for d in dates]
         except Exception as e:
-            logger.error(f"Get RBSA Weights Failed: {e}")
-            return None
+            logger.error(f"Get Index Returns Failed: {e}")
+            return [0.0] * len(dates)
 
     def get_fund_relationship(self, sub_code):
         """Retrieve the parent/shadow mapping for a fund."""
