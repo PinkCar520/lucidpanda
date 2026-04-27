@@ -4,6 +4,9 @@
     "%@.0" : {
 
     },
+    "%@%%" : {
+
+    },
     "$%@" : {
 
     },
@@ -1747,6 +1750,9 @@
           }
         }
       }
+    },
+    "common.label.confidence" : {
+
     },
     "common.label.date" : {
       "extractionState" : "stale",
@@ -4239,6 +4245,26 @@
         }
       }
     },
+    "funds.peek.ai_narrative" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Narrative Insight"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 叙事洞察"
+          }
+        }
+      }
+    },
+    "funds.peek.analyze_button" : {
+
+    },
     "funds.peek.analyzing_with_ai" : {
       "localizations" : {
         "en" : {
@@ -4388,6 +4414,26 @@
           }
         }
       }
+    },
+    "funds.peek.sector_attribution" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sector Attribution"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "板块归因"
+          }
+        }
+      }
+    },
+    "funds.peek.trend_7d" : {
+
     },
     "funds.search.filter.all" : {
       "extractionState" : "stale",

@@ -13,6 +13,7 @@ from src.lucidpanda.core.fund_engine import FundEngine
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.infra.cache import get_cached, set_cached
 from src.lucidpanda.infra.database.connection import get_session
+from src.lucidpanda.providers.llm.gemini import GeminiLLM
 from src.lucidpanda.services.embedding_service import embedding_service
 from src.lucidpanda.services.market_terminal_service import market_terminal_service
 from src.lucidpanda.utils import v1_prepare_json
@@ -907,10 +908,10 @@ async def get_fund_ai_analysis(
 ):
     """
     单支基金 AI 市场分析 — 为 iOS 长按弹窗提供数据。
-    返回：基金基本信息 + 近7天关联情报（基于 fund_name 关键词匹配）+ 整体市场快照
+    返回：基金基本信息 + 板块归因 + 近7天关联情报 + 整体市场快照
     缓存：60s 个人 + 基金级 Redis 缓存
     """
-    _cache_key = f"api:fund:ai:{current_user.id}:{fund_code}"
+    _cache_key = f"api:fund:ai:v2:{current_user.id}:{fund_code}"
     _cache_ttl = 60  # 秒
 
     cached = get_cached(_cache_key)
@@ -929,20 +930,26 @@ async def get_fund_ai_analysis(
         raise HTTPException(status_code=404, detail="基金不在自选列表中")
     fund_name: str = row[0]
 
-    # 规范化基金名，提取核心标的 (如: "华夏沪深300ETF" -> "沪深300")
+    # 获取基金板块归因 (从 FundEngine 获取实时估值快照/缓存)
+    engine = FundEngine()
+    valuation = await asyncio.to_thread(
+        engine.calculate_realtime_valuation, fund_code
+    )
+    sector_attribution = valuation.get("sector_attribution") if valuation else None
+
+    # 规范化基金名，提取核心标的
     core_name = normalize_fund_name(fund_name)
 
     # 判定基金所属市场与情报分类偏好
-    # A股基金通常为6位纯数字，美股/港股通常包含字母或不同长度
     is_a_share = fund_code.isdigit() and len(fund_code) == 6
     preferred_categories = (
         ["equity_cn", "macro_gold"] if is_a_share else ["equity_us", "macro_gold"]
     )
 
-    # 2. 混合检索关联情报 (Hybrid Search: Keyword + Semantic)
+    # 2. 混合检索关联情报
     since_7d = datetime.now(UTC) - timedelta(days=7)
 
-    # 2.1 关键词检索 (Keyword Search)
+    # 2.1 关键词检索
     kw_raw: list[dict[str, Any]] = [
         dict(r)
         for r in db.execute(
@@ -973,14 +980,11 @@ async def get_fund_ai_analysis(
         .all()
     ]
 
-    # 2.2 语义检索 (Semantic Search)
+    # 2.2 语义检索
     vec_raw: list[dict[str, Any]] = []
     if core_name:
         try:
-            # 使用 asyncio.to_thread 防止阻塞事件循环 (CPU 密集型编码)
             vec = await asyncio.to_thread(embedding_service.encode, core_name)
-            # 使用 pgvector <=> 余弦距离查询 (1 - 距离 = 相似度)
-            # 阈值设为 0.70 以保证关联性
             vec_raw = [
                 dict(r)
                 for r in db.execute(
@@ -1000,10 +1004,9 @@ async def get_fund_ai_analysis(
                 .all()
             ]
         except Exception as e:
-            # 语义搜索失败时不影响主业务流程，降级至关键词检索
             logger.warning(f"⚠️ Semantic search failed for {fund_code}: {e}")
 
-    # 2.3 结果合并与去重 (按 ID 排重，保留关键词优先权)
+    # 2.3 结果合并与去重
     seen_ids = set()
     merged_raw: list[dict[str, Any]] = []
     for row_map in list(kw_raw) + list(vec_raw):
@@ -1011,7 +1014,6 @@ async def get_fund_ai_analysis(
             merged_raw.append(row_map)
             seen_ids.add(row_map["id"])
 
-    # 重新按紧急度和时间排序，取 Top 5
     merged_raw.sort(
         key=lambda x: (
             x["urgency_score"],
@@ -1021,24 +1023,17 @@ async def get_fund_ai_analysis(
     )
     related_raw: list[dict[str, Any]] = merged_raw[:5]
 
-    # --- 2.4 智能降级逻辑 (Smart Fallback) ---
+    # --- 2.4 智能降级逻辑 ---
     is_fallback = False
     fallback_source = None
 
     if not related_raw:
         try:
-            # 1. 获取基金所属板块 (从 FundEngine 获取实时估值快照/缓存)
-            engine = FundEngine()
-            valuation = await asyncio.to_thread(
-                engine.calculate_realtime_valuation, fund_code
-            )
-
-            # 2. 提取权重最高的 L2 或 L1 板块
+            # 提取权重最高的板块用于降级搜索
             sectors = []
-            if valuation and "sector_attribution" in valuation:
-                # 展平板块字典并排序
+            if sector_attribution:
                 flat_sectors = []
-                for l1, info in valuation["sector_attribution"].items():
+                for l1, info in sector_attribution.items():
                     if l1 != "其他":
                         flat_sectors.append(
                             {"name": l1, "weight": info["weight"], "level": "L1"}
@@ -1054,11 +1049,8 @@ async def get_fund_ai_analysis(
                             )
 
                 flat_sectors.sort(key=lambda x: x["weight"], reverse=True)
-                sectors = [
-                    s["name"] for s in flat_sectors[:2]
-                ]  # 取前两个权重最高的板块
+                sectors = [s["name"] for s in flat_sectors[:2]]
 
-            # 3. 如果有板块信息，尝试搜索板块相关情报
             if sectors:
                 fallback_kw = sectors[0]
                 fallback_raw: list[dict[str, Any]] = [
@@ -1089,7 +1081,6 @@ async def get_fund_ai_analysis(
                     is_fallback = True
                     fallback_source = f"行业视角: {fallback_kw}"
 
-            # 4. 极致降级：如果依然没有，搜索 "A股" 或 "市场" 整体宏观情报
             if not related_raw:
                 macro_raw: list[dict[str, Any]] = [
                     dict(r)
@@ -1140,7 +1131,6 @@ async def get_fund_ai_analysis(
         ):
             advice_text = row_map["actionable_advice"]
 
-        # 使用 sentiment_score 浮点列直接得到情绪标签
         score = (
             float(row_map["sentiment_score"])
             if row_map["sentiment_score"] is not None
@@ -1164,7 +1154,6 @@ async def get_fund_ai_analysis(
             }
         )
 
-    # 3. 合并最高紧急度情报的可操作建议作为综合 AI 建议
     top_advice = None
     if related_intelligence:
         for item in related_intelligence:
@@ -1172,7 +1161,6 @@ async def get_fund_ai_analysis(
                 top_advice = item["advice"]
                 break
 
-    # 4. 实时市场快照（降级处理）
     snapshot = market_terminal_service.get_market_snapshot()
 
     result = v1_prepare_json(
@@ -1184,9 +1172,107 @@ async def get_fund_ai_analysis(
             "fallback_source": fallback_source,
             "top_advice": top_advice,
             "related_intelligence": related_intelligence,
+            "sector_attribution": sector_attribution,
             "market_snapshot": snapshot,
             "generated_at": datetime.now(UTC).isoformat(),
         }
     )
     set_cached(_cache_key, result, ttl=_cache_ttl)
     return result
+
+
+@router.get("/{fund_code}/ai_narrative", response_model=dict[str, Any])
+async def get_fund_ai_narrative(
+    fund_code: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session),
+):
+    """
+    针对单支基金的深度 AI 叙事分析。
+    结合基金持仓板块、近期关联情报，通过 Gemini 生成一份临时的深度洞察。
+    """
+    _cache_key = f"api:fund:narrative:{fund_code}"
+    _cache_ttl = 300  # 5分钟缓存
+
+    cached = get_cached(_cache_key)
+    if cached is not None:
+        return cached
+
+    # 1. 获取基金基本面与板块
+    engine = FundEngine()
+    valuation = await asyncio.to_thread(
+        engine.calculate_realtime_valuation, fund_code
+    )
+    if not valuation:
+        raise HTTPException(status_code=404, detail="无法获取基金估值数据")
+
+    fund_name = valuation.get("fund_name", "未知基金")
+    sectors = []
+    if "sector_attribution" in valuation:
+        for s_name, s_info in valuation["sector_attribution"].items():
+            if s_name != "其他":
+                sectors.append(f"{s_name}({s_info['weight']:.1f}%)")
+
+    # 2. 获取近期关联情报摘要
+    since_3d = datetime.now(UTC) - timedelta(days=3)
+    core_name = normalize_fund_name(fund_name)
+    intelligence_rows = db.execute(
+        text("""
+            SELECT summary, actionable_advice
+            FROM intelligence
+            WHERE timestamp > :since
+              AND (content ILIKE :kw OR summary::text ILIKE :kw)
+              AND summary IS NOT NULL
+            ORDER BY urgency_score DESC
+            LIMIT 3
+        """),
+        {"since": since_3d, "kw": f"%{core_name}%"},
+    ).mappings().all()
+
+    intel_context = ""
+    for idx, row in enumerate(intelligence_rows):
+        summary = row["summary"]
+        if isinstance(summary, dict):
+            summary = summary.get("zh") or summary.get("en")
+        advice = row["actionable_advice"]
+        if isinstance(advice, dict):
+            advice = advice.get("zh") or advice.get("en")
+        intel_context += f"{idx+1}. 情报: {summary}\n   建议: {advice}\n"
+
+    # 3. 构造 Prompt
+    prompt = f"""
+你是一位资深基金分析师。请针对以下基金，结合其持仓板块和最新市场情报，生成一段精炼的“AI 叙事摘要”。
+
+基金名称: {fund_name} ({fund_code})
+主要持仓板块: {', '.join(sectors) if sectors else '未知'}
+
+近期市场情报:
+{intel_context if intel_context else '暂无直接关联情报，请基于板块表现进行分析。'}
+
+要求:
+1. 语言专业、简练，字数在 80-120 字之间。
+2. 明确指出当前市场环境对该基金持仓板块的影响（利好或利空）。
+3. 给出明确的短期展望。
+4. 必须以 JSON 格式返回，包含字段 "narrative"。
+
+示例返回:
+{{
+  "narrative": "持仓黄金受美联储鹰派言论影响，短期看空。虽然非农数据走弱提供支撑，但地缘政治风险溢价正在回落，建议关注 2300 关口支撑位。"
+}}
+"""
+
+    try:
+        llm = GeminiLLM()
+        result = await llm.generate_json_async(prompt)
+        narrative = result.get("narrative", "AI 分析引擎暂时无法生成叙事。")
+        
+        final_res = {
+            "fund_code": fund_code,
+            "narrative": narrative,
+            "generated_at": datetime.now(UTC).isoformat()
+        }
+        set_cached(_cache_key, final_res, ttl=_cache_ttl)
+        return final_res
+    except Exception as e:
+        logger.error(f"Gemini narrative generation failed for {fund_code}: {e}")
+        return {"narrative": "AI 实时分析服务暂时不可用，请稍后再试。", "error": str(e)}

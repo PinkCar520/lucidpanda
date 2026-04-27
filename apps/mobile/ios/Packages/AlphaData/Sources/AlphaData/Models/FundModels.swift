@@ -174,6 +174,7 @@ public struct FundAIAnalysisResponse: Codable {
     public let fallbackSource: String?
     public let topAdvice: String?
     public let relatedIntelligence: [FundRelatedIntelligence]
+    public let sectorAttribution: [String: SectorStat]?
     public let marketSnapshot: MarketSnapshot?
     public let generatedAt: Date
 
@@ -185,7 +186,27 @@ public struct FundAIAnalysisResponse: Codable {
         case fallbackSource = "fallback_source"
         case topAdvice = "top_advice"
         case relatedIntelligence = "related_intelligence"
+        case sectorAttribution = "sector_attribution"
         case marketSnapshot = "market_snapshot"
+        case generatedAt = "generated_at"
+    }
+}
+
+/// 基金深度 AI 叙事分析响应
+public struct FundAINarrativeResponse: Codable {
+    public let fundCode: String
+    public let narrative: String
+    public let generatedAt: Date
+
+    public init(fundCode: String, narrative: String, generatedAt: Date) {
+        self.fundCode = fundCode
+        self.narrative = narrative
+        self.generatedAt = generatedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case fundCode = "fund_code"
+        case narrative
         case generatedAt = "generated_at"
     }
 }

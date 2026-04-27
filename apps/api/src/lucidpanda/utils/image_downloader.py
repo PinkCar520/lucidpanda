@@ -50,10 +50,10 @@ class ImageDownloader:
                         f.write(response.content)
                     return True
                 else:
-                    logger.debug(f"下载尝试失败 (HTTP {response.status_code}, trust_env={trust_env}): {url}")
+                    logger.info(f"下载尝试失败 (HTTP {response.status_code}, trust_env={trust_env}): {url}")
                     return False
         except Exception as e:
-            logger.debug(f"下载尝试异常 ({type(e).__name__}, trust_env={trust_env}): {url}")
+            logger.info(f"下载尝试异常 ({type(e).__name__}: {e}, trust_env={trust_env}): {url}")
             return False
 
     async def download_image(self, url: str) -> str | None:
