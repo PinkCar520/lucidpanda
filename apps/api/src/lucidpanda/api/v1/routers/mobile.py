@@ -237,17 +237,103 @@ async def get_market_pulse(
     if cached is not None:
         return cached
 
+import json
+from src.lucidpanda.utils import v1_prepare_json, format_iso8601
+
+@router.get("/market/pulse", response_model=dict[str, Any])
+async def get_market_pulse(
+    db: Session = Depends(get_session),
+):
+    """
+    宏观市场脉搏 — 为悬浮胶囊提供聚合数据。
+    返回：四大品种快照 + 近24h高紧急度情报摘要 + 整体市场情绪
+    缓存：30s 全局 Redis 缓存（非个人化数据）
+    """
+    _CACHE_KEY = "api:market:pulse"
+    _CACHE_TTL = 30  # 秒
+
+    cached = get_cached(_CACHE_KEY)
+    if cached is not None:
+        return cached
+
+    # 复用逻辑计算脉搏数据
+    pulse_data = await _calculate_market_pulse(db)
+    
+    set_cached(_CACHE_KEY, pulse_data, _CACHE_TTL)
+    return pulse_data
+
+@router.get("/market/pulse/stream")
+async def market_pulse_stream(
+    db: Session = Depends(get_session),
+):
+    """
+    SSE 流：实时推送市场脉搏数据 (用于 iOS 极速跳动)。
+    """
+    from sse_starlette.sse import EventSourceResponse
+    import asyncio
+
+    async def event_generator():
+        while True:
+            try:
+                # 获取最新脉搏
+                pulse_data = await _calculate_market_pulse(db)
+                yield {
+                    "data": json.dumps(v1_prepare_json(pulse_data))
+                }
+                # 每 10 秒推送一次 (平衡性能与实时性)
+                await asyncio.sleep(10)
+            except Exception as e:
+                logger.error(f"Market SSE Error: {e}")
+                break
+
+    return EventSourceResponse(event_generator())
+
+async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
+    """核心脉搏计算逻辑（抽取以复用）"""
     # 1. 四大品种实时快照
     snapshot = market_terminal_service.get_market_snapshot()
 
     # 2. 近24h高紧急度情报 (urgency_score >= 7)，最多取5条
-    # 同时取 sentiment_score 浮点列用于情绪标签
     since_24h = datetime.now(UTC) - timedelta(hours=24)
     top_alerts_raw = (
         db.execute(
             text("""
             SELECT id, timestamp, urgency_score, summary, sentiment_score
             FROM intelligence
+            WHERE timestamp >= :since AND urgency_score >= 7 AND status = 'COMPLETED'
+            ORDER BY timestamp DESC
+            LIMIT 5
+            """),
+            {"since": since_24h},
+        ).mappings().all()
+    )
+    
+    top_alerts = [
+        {
+            "id": row["id"],
+            "timestamp": row["timestamp"].iso8601() if hasattr(row["timestamp"], "iso8601") else format_iso8601(row["timestamp"]),
+            "urgency_score": row["urgency_score"],
+            "summary": json.loads(row["summary"]).get("zh", "") if isinstance(row["summary"], str) and row["summary"].startswith("{") else row["summary"],
+            "sentiment": "bullish" if row["sentiment_score"] > 0 else ("bearish" if row["sentiment_score"] < 0 else "neutral")
+        }
+        for row in top_alerts_raw
+    ]
+
+    # 3. 汇总整体情绪
+    avg_sentiment = db.execute(
+        text("SELECT AVG(sentiment_score) FROM intelligence WHERE timestamp >= :since AND status = 'COMPLETED'"),
+        {"since": since_24h}
+    ).scalar() or 0.0
+
+    return {
+        "market_snapshot": snapshot,
+        "top_alerts": top_alerts,
+        "overall_sentiment": "bullish" if avg_sentiment > 0.1 else ("bearish" if avg_sentiment < -0.1 else "neutral"),
+        "overall_sentiment_zh": "看多" if avg_sentiment > 0.1 else ("看空" if avg_sentiment < -0.1 else "中性"),
+        "sentiment_score": round(avg_sentiment, 2),
+        "alert_count_24h": len(top_alerts),
+        "generated_at": format_iso8601(datetime.now())
+    }
             WHERE timestamp > :since
               AND urgency_score >= 7
               AND summary IS NOT NULL
