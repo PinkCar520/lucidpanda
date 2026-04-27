@@ -53,8 +53,12 @@ struct IntelligenceItemCard: View {
     }
     
     private func proxyURL(for originalString: String) -> URL? {
-        guard let encoded = originalString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
-        return URL(string: "/api/v1/mobile/image?url=\(encoded)", relativeTo: APIClient.shared.baseURL)
+        var components = URLComponents(
+            url: APIClient.shared.baseURL.appendingPathComponent("api/v1/mobile/image"),
+            resolvingAgainstBaseURL: false
+        )
+        components?.queryItems = [URLQueryItem(name: "url", value: originalString)]
+        return components?.url
     }
 
     // MARK: - Layouts

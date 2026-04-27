@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from sqlmodel import Session, col, select, text
 
 from src.lucidpanda.auth.dependencies import get_current_user
@@ -36,31 +36,50 @@ async def proxy_external_image(url: str = Query(..., description="External image
 
     # 获取系统级的代理配置（在 docker-compose 中配置的 HTTP_PROXY=http://singbox:7890）
     import os
-    proxies = {}
     http_proxy = os.getenv("HTTP_PROXY") or os.getenv("http_proxy")
     https_proxy = os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")
-    if http_proxy:
-        proxies["http://"] = http_proxy
-    if https_proxy:
-        proxies["https://"] = https_proxy
+    proxy_url = https_proxy or http_proxy
 
-    async def image_streamer():
-        # 使用配置了代理的异步客户端
-        async with httpx.AsyncClient(proxies=proxies if proxies else None, verify=False) as client:
-            try:
-                # 使用 stream 模式，不把整张图吃进内存，边下边传给 iOS
-                async with client.stream("GET", url, timeout=10.0) as response:
-                    if response.status_code != 200:
-                        yield b""
-                        return
-                    async for chunk in response.aiter_bytes():
-                        yield chunk
-            except Exception as e:
-                import logging
-                logging.error(f"Image Proxy failed for {url}: {e}")
-                yield b""
+    # httpx 0.27+ 使用 proxy，旧版本使用 proxies；这里做兼容，避免运行时参数不匹配。
+    client_kwargs = {
+        "verify": False,
+        "follow_redirects": True,
+        "timeout": httpx.Timeout(15.0, connect=8.0),
+    }
+    if proxy_url:
+        client_kwargs["proxy"] = proxy_url
 
-    return StreamingResponse(image_streamer(), media_type="image/jpeg")
+    try:
+        try:
+            client = httpx.AsyncClient(**client_kwargs)
+        except TypeError:
+            legacy_kwargs = dict(client_kwargs)
+            legacy_kwargs.pop("proxy", None)
+            proxies = {}
+            if http_proxy:
+                proxies["http://"] = http_proxy
+            if https_proxy:
+                proxies["https://"] = https_proxy
+            if proxies:
+                legacy_kwargs["proxies"] = proxies
+            client = httpx.AsyncClient(**legacy_kwargs)
+
+        async with client:
+            upstream = await client.get(url, headers={"Accept": "image/*,*/*;q=0.8"})
+
+        if upstream.status_code != 200:
+            logger.error(f"Image Proxy upstream non-200: {upstream.status_code} url={url}")
+            return Response(status_code=502)
+
+        content_type = upstream.headers.get("content-type", "image/jpeg")
+        return Response(
+            content=upstream.content,
+            media_type=content_type,
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+    except Exception as e:
+        logger.error(f"Image Proxy failed for {url}: {e}")
+        return Response(status_code=502)
 
 
 @router.get("/intelligence/{item_id}/ai_summary", response_model=dict[str, str])

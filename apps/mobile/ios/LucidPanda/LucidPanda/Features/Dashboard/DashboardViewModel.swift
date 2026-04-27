@@ -160,6 +160,7 @@ class DashboardViewModel {
                     author: dto.author ?? "Unknown",
                     summary: dto.summary,
                     content: "", // V1 列表页不返回正文以节省流量
+                    image_url: dto.image_url,
                     sentiment: dto.sentiment_label,
                     urgencyScore: dto.urgency_score,
                     goldPriceSnapshot: dto.gold_price_snapshot
@@ -202,6 +203,7 @@ struct IntelligenceMobileReadDTO: Codable {
     let timestamp: Date
     let author: String?
     let summary: String
+    let image_url: String?
     let urgency_score: Int
     let sentiment_label: String
     let gold_price_snapshot: Double?
