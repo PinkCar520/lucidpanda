@@ -342,14 +342,18 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
 
     # 5. 未来 48h 宏观事件
     until_dt = now_dt + timedelta(hours=48)
-    upcoming_events_raw = db.exec(
-        select(MacroEvent)
-        .where(col(MacroEvent.release_date) >= now_dt.date())
-        .where(col(MacroEvent.release_date) <= until_dt.date())
-        .where(col(MacroEvent.impact_level).in_(["high", "medium"]))
-        .order_by(col(MacroEvent.release_date).asc(), col(MacroEvent.release_time).asc())
-        .limit(5)
-    ).all()
+    try:
+        upcoming_events_raw = db.exec(
+            select(MacroEvent)
+            .where(col(MacroEvent.release_date) >= now_dt.date())
+            .where(col(MacroEvent.release_date) <= until_dt.date())
+            .where(col(MacroEvent.impact_level).in_(["high", "medium"]))
+            .order_by(col(MacroEvent.release_date).asc(), col(MacroEvent.release_time).asc())
+            .limit(5)
+        ).all()
+    except Exception as e:
+        logger.error(f"Failed to fetch macro events: {e}")
+        upcoming_events_raw = []
 
     upcoming_events = [{
         "id": str(event.id),
