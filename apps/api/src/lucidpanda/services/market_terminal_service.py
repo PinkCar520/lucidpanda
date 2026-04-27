@@ -233,7 +233,7 @@ class MarketTerminalService:
                         "low_24h": None,
                         "open": current,
                         "previous_close": prev_close,
-                        "timestamp": datetime.now(),
+                        "timestamp": format_iso8601(datetime.now()),
                     }
         except Exception as e:
             logger.error(f"Failed to fetch US10Y data fallback: {e}")
