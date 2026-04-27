@@ -165,12 +165,18 @@ async def get_mobile_dashboard_summary(
 async def get_mobile_intelligence(
     category: str | None = Query(None, description="Optional category filter (e.g. macro_gold)"),
     limit: int = Query(20, ge=1, le=100, description="Max number of items to return"),
+    accept_language: str | None = Header(None, alias="Accept-Language"),
     db: Session = Depends(get_session)
 ):
     """
     Trimmed intelligence feed for mobile.
     Only returns essential fields to save bandwidth.
+    Supports multi-language content selection based on user preference.
     """
+    lang = "zh"
+    if accept_language and ("en" in accept_language.lower() or "us" in accept_language.lower()):
+        lang = "en"
+
     statement = (
         select(Intelligence)
         .where(Intelligence.status == "COMPLETED")
@@ -186,12 +192,14 @@ async def get_mobile_intelligence(
     # Transformation logic from rich JSONB to flat mobile string
     mobile_items = []
     for item in results:
-        # Business logic to select the best language for mobile summary
+        # Priority language selection
+        alt_lang = "en" if lang == "zh" else "zh"
+        
         summary_text = "无摘要"
         if isinstance(item.summary, dict):
             summary_text = (
-                item.summary.get("zh")
-                or item.summary.get("en")
+                item.summary.get(lang)
+                or item.summary.get(alt_lang)
                 or next(
                     (
                         v
@@ -210,15 +218,16 @@ async def get_mobile_intelligence(
         sentiment_label = "Neutral"
         if isinstance(item.sentiment, dict):
             sentiment_label = (
-                item.sentiment.get("zh") or item.sentiment.get("en") or "Neutral"
+                item.sentiment.get(lang) or item.sentiment.get(alt_lang) or "Neutral"
             )
         elif isinstance(item.sentiment, str) and item.sentiment.strip():
             sentiment_label = item.sentiment
+            
         content_text = ""
         if isinstance(item.content, dict):
             content_text = (
-                item.content.get("zh")
-                or item.content.get("en")
+                item.content.get(lang)
+                or item.content.get(alt_lang)
                 or next(
                     (
                         v

@@ -29,7 +29,7 @@ struct FundPeekSheet: View {
                     
                     if let stats = valuation.stats, let sparkData = stats.sparklineData {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("funds.peek.trend_7d")
+                            Text(LocalizedStringKey("funds.peek.trend_7d"))
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal)
@@ -43,7 +43,7 @@ struct FundPeekSheet: View {
                     if isLoading {
                         VStack(spacing: 20) {
                             ProgressView()
-                            Text("funds.peek.analyzing_with_ai")
+                            Text(LocalizedStringKey("funds.peek.analyzing_with_ai"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -132,7 +132,7 @@ struct FundPeekSheet: View {
             
             if let confidence = valuation.confidence {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("common.label.confidence")
+                    Text(LocalizedStringKey("common.label.confidence"))
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(.secondary)
                     HStack(spacing: 4) {
@@ -176,7 +176,7 @@ struct FundPeekSheet: View {
     private var aiNarrativeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label("funds.peek.ai_narrative", systemImage: "sparkles")
+                Label(LocalizedStringKey("funds.peek.ai_narrative"), systemImage: "sparkles")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.purple)
                 
@@ -191,7 +191,7 @@ struct FundPeekSheet: View {
                         } else {
                             HStack(spacing: 4) {
                                 Image(systemName: "wand.and.stars")
-                                Text("funds.peek.analyze_button")
+                                Text(LocalizedStringKey("funds.peek.analyze_button"))
                             }
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.white)
@@ -220,7 +220,7 @@ struct FundPeekSheet: View {
                             .foregroundStyle(.primary.opacity(0.8))
                             .lineSpacing(4)
                     } else {
-                        Text("funds.peek.no_ai_analysis")
+                        Text(LocalizedStringKey("funds.peek.no_ai_analysis"))
                             .font(.subheadline)
                             .italic()
                             .foregroundStyle(.secondary)
@@ -233,7 +233,7 @@ struct FundPeekSheet: View {
 
     private func sectorAttributionSection(sectors: [String: SectorStat]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("funds.peek.sector_attribution", systemImage: "chart.bar.xaxis")
+            Label(LocalizedStringKey("funds.peek.sector_attribution"), systemImage: "chart.bar.xaxis")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(.teal)
                 .padding(.horizontal)
@@ -271,7 +271,7 @@ struct FundPeekSheet: View {
 
     private func associatedIntelligenceSection(data: FundAIAnalysisResponse) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label("funds.peek.related_intelligence", systemImage: "link")
+            Label(LocalizedStringKey("funds.peek.related_intelligence"), systemImage: "link")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(.blue)
                 .padding(.horizontal)
@@ -297,7 +297,7 @@ struct FundPeekSheet: View {
     private func marketSnapshotSection(data: FundAIAnalysisResponse) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             if let snapshot = data.marketSnapshot {
-                Label("funds.peek.macro_context", systemImage: "globe.asia.australia.fill")
+                Label(LocalizedStringKey("funds.peek.macro_context"), systemImage: "globe.asia.australia.fill")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
@@ -389,7 +389,7 @@ struct IntelligenceBriefRow: View {
         LiquidGlassCard {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text(item.urgencyScore >= 8 ? "common.urgency.critical" : "common.urgency.important")
+                    Text(LocalizedStringKey(item.urgencyScore >= 8 ? "common.urgency.critical" : "common.urgency.important"))
                         .font(.system(size: 9, weight: .medium))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
