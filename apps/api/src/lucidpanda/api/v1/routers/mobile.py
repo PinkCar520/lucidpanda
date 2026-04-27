@@ -1,6 +1,8 @@
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
@@ -21,6 +23,46 @@ from src.lucidpanda.utils.market_calendar import get_market_status
 router = APIRouter()
 
 
+async def _fetch_image_with_httpx(url: str, proxy_url: str | None):
+    import httpx
+
+    parsed = urlparse(url)
+    referer = f"{parsed.scheme}://{parsed.netloc}/" if parsed.scheme and parsed.netloc else None
+    headers = {
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
+    }
+    if referer:
+        headers["Referer"] = referer
+
+    client_kwargs = {
+        "verify": False,
+        "follow_redirects": True,
+        "timeout": httpx.Timeout(20.0, connect=8.0),
+        "trust_env": False,
+    }
+    if proxy_url:
+        client_kwargs["proxy"] = proxy_url
+
+    try:
+        client = httpx.AsyncClient(**client_kwargs)
+    except TypeError:
+        # Backward-compatible kwargs for older httpx versions.
+        legacy_kwargs = dict(client_kwargs)
+        legacy_kwargs.pop("proxy", None)
+        if proxy_url:
+            legacy_kwargs["proxies"] = {"http://": proxy_url, "https://": proxy_url}
+        client = httpx.AsyncClient(**legacy_kwargs)
+
+    async with client:
+        return await client.get(url, headers=headers)
+
+
 @router.get("/image")
 async def proxy_external_image(url: str = Query(..., description="External image URL to proxy")):
     """
@@ -28,57 +70,52 @@ async def proxy_external_image(url: str = Query(..., description="External image
     解决国内 iOS 客户端无法直接访问境外媒体（Bloomberg/Reuters等）图片的问题。
     利用 API 容器自带的 HTTP_PROXY (singbox) 将图片拉取并流式返回给客户端。
     """
-    import httpx
-    
     # 简单的安全校验，防止 SSRF 或滥用
-    if not url.startswith("http"):
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
         raise HTTPException(status_code=400, detail="Invalid image URL")
 
     # 获取系统级的代理配置（在 docker-compose 中配置的 HTTP_PROXY=http://singbox:7890）
-    import os
     http_proxy = os.getenv("HTTP_PROXY") or os.getenv("http_proxy")
     https_proxy = os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")
     proxy_url = https_proxy or http_proxy
 
-    # httpx 0.27+ 使用 proxy，旧版本使用 proxies；这里做兼容，避免运行时参数不匹配。
-    client_kwargs = {
-        "verify": False,
-        "follow_redirects": True,
-        "timeout": httpx.Timeout(15.0, connect=8.0),
-    }
-    if proxy_url:
-        client_kwargs["proxy"] = proxy_url
-
     try:
-        try:
-            client = httpx.AsyncClient(**client_kwargs)
-        except TypeError:
-            legacy_kwargs = dict(client_kwargs)
-            legacy_kwargs.pop("proxy", None)
-            proxies = {}
-            if http_proxy:
-                proxies["http://"] = http_proxy
-            if https_proxy:
-                proxies["https://"] = https_proxy
-            if proxies:
-                legacy_kwargs["proxies"] = proxies
-            client = httpx.AsyncClient(**legacy_kwargs)
+        attempts: list[tuple[str, str | None]] = []
+        if proxy_url:
+            attempts.append(("proxy", proxy_url))
+        attempts.append(("direct", None))
 
-        async with client:
-            upstream = await client.get(url, headers={"Accept": "image/*,*/*;q=0.8"})
+        last_status_code: int | None = None
 
-        if upstream.status_code != 200:
-            logger.error(f"Image Proxy upstream non-200: {upstream.status_code} url={url}")
-            return Response(status_code=502)
+        for mode, current_proxy in attempts:
+            try:
+                upstream = await _fetch_image_with_httpx(url=url, proxy_url=current_proxy)
+            except Exception as e:
+                logger.warning(
+                    f"Image Proxy {mode} fetch error for {url}: {type(e).__name__} {e!r}"
+                )
+                continue
 
-        content_type = upstream.headers.get("content-type", "image/jpeg")
-        return Response(
-            content=upstream.content,
-            media_type=content_type,
-            headers={"Cache-Control": "public, max-age=300"},
+            last_status_code = upstream.status_code
+            if upstream.status_code == 200 and upstream.content:
+                content_type = upstream.headers.get("content-type", "image/jpeg")
+                return Response(
+                    content=upstream.content,
+                    media_type=content_type,
+                    headers={"Cache-Control": "public, max-age=300"},
+                )
+
+            logger.warning(
+                f"Image Proxy upstream non-200 via {mode}: {upstream.status_code} url={url}"
+            )
+
+        logger.error(
+            f"Image Proxy failed for {url}: all attempts exhausted (last_status={last_status_code})"
         )
+        return Response(status_code=502)
     except Exception as e:
-        logger.error(f"Image Proxy failed for {url}: {e}")
+        logger.exception(f"Image Proxy failed for {url}: {type(e).__name__} {e!r}")
         return Response(status_code=502)
 
 
