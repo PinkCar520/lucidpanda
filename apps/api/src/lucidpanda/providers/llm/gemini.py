@@ -1,7 +1,8 @@
 import json
+import asyncio
 from typing import Any, cast
-
 from google import genai
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from src.lucidpanda.config import settings
 from src.lucidpanda.core.logger import logger
@@ -14,62 +15,110 @@ BATCH_CONTENT_CHARS = 400  # 批量分析每条最多输入字符数
 
 
 class GeminiLLM(BaseLLM):
+    _client_instance: genai.Client | None = None
+
     def _get_client(self) -> genai.Client:
-        """根据配置获取 Gemini 客户端（AI Studio 或 Vertex AI）"""
-        if settings.GEMINI_USE_VERTEXAI:
-            return genai.Client(
-                vertexai=True,
-                project=settings.GOOGLE_CLOUD_PROJECT,
-                location=settings.GOOGLE_CLOUD_LOCATION,
-            )
-        return genai.Client(api_key=settings.GEMINI_API_KEY)
+        """根据配置获取并缓存 Gemini 客户端"""
+        if GeminiLLM._client_instance is None:
+            if settings.GEMINI_USE_VERTEXAI:
+                GeminiLLM._client_instance = genai.Client(
+                    vertexai=True,
+                    project=settings.GOOGLE_CLOUD_PROJECT,
+                    location=settings.GOOGLE_CLOUD_LOCATION,
+                )
+            else:
+                GeminiLLM._client_instance = genai.Client(api_key=settings.GEMINI_API_KEY)
+        return GeminiLLM._client_instance
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((Exception)), # 宽泛捕捉以便处理各种连接错误
+        before_sleep=lambda retry_state: logger.warning(f"Gemini 请求失败，正在进行第 {retry_state.attempt_number} 次重试...")
+    )
+    def _generate_content_sync(self, model: str, contents: str, config: dict):
+        client = self._get_client()
+        return client.models.generate_content(
+            model=model, contents=contents, config=cast(Any, config)
+        )
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((Exception)),
+        before_sleep=lambda retry_state: logger.warning(f"Gemini 异步请求失败，正在进行第 {retry_state.attempt_number} 次重试...")
+    )
+    async def _generate_content_async(self, model: str, contents: str, config: dict):
+        client = self._get_client()
+        return await client.aio.models.generate_content(
+            model=model, contents=contents, config=cast(Any, config)
+        )
 
     async def analyze_async(self, raw_data, taxonomy: dict | None = None):
         """异步版本的分析方法"""
-        import asyncio
-
-        return await asyncio.to_thread(self.analyze, raw_data, taxonomy)
+        prompt = self._get_prompt(raw_data, taxonomy)
+        config = {
+            "temperature": 0.2,
+            "response_mime_type": "application/json",
+        }
+        try:
+            response = await self._generate_content_async(
+                settings.GEMINI_MODEL, prompt, config
+            )
+            clean_text = (response.text or "").replace("```json", "").replace("```", "").strip()
+            res = json.loads(clean_text or "{}")
+            logger.debug(
+                f"🤖 AI Raw Analysis (Single Async): {json.dumps(res, ensure_ascii=False)[:200]}..."
+            )
+            return res
+        except Exception as e:
+            logger.error(f"Gemini 异步分析失败: {e}")
+            raise e
 
     async def generate_json_async(self, prompt: str, temperature: float = 0.2):
-        import asyncio
-
-        return await asyncio.to_thread(self.generate_json, prompt, temperature)
+        config = {
+            "temperature": temperature,
+            "response_mime_type": "application/json",
+        }
+        try:
+            response = await self._generate_content_async(
+                settings.GEMINI_MODEL, prompt, config
+            )
+            clean_text = (response.text or "").replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_text or "{}")
+        except Exception as e:
+            logger.error(f"Gemini JSON 异步生成失败: {e}")
+            raise e
 
     def analyze(self, raw_data, taxonomy: dict | None = None):
         try:
-            client = self._get_client()
-
             config = {
                 "temperature": 0.2,
                 "response_mime_type": "application/json",
             }
-
             prompt = self._get_prompt(raw_data, taxonomy)
-
-            response = client.models.generate_content(
-                model=settings.GEMINI_MODEL, contents=prompt, config=cast(Any, config)
+            response = self._generate_content_sync(
+                settings.GEMINI_MODEL, prompt, config
             )
 
             clean_text = (response.text or "").replace("```json", "").replace("```", "").strip()
             res = json.loads(clean_text or "{}")
             logger.debug(
-                f"🤖 AI Raw Analysis (Single): {json.dumps(res, ensure_ascii=False)[:200]}..."
+                f"🤖 AI Raw Analysis (Single Sync): {json.dumps(res, ensure_ascii=False)[:200]}..."
             )
             return res
-
         except Exception as e:
             logger.error(f"Gemini 分析失败: {e}")
             raise e
 
     def generate_json(self, prompt: str, temperature: float = 0.2):
         try:
-            client = self._get_client()
             config = {
                 "temperature": temperature,
                 "response_mime_type": "application/json",
             }
-            response = client.models.generate_content(
-                model=settings.GEMINI_MODEL, contents=prompt, config=cast(Any, config)
+            response = self._generate_content_sync(
+                settings.GEMINI_MODEL, prompt, config
             )
             clean_text = (response.text or "").replace("```json", "").replace("```", "").strip()
             return json.loads(clean_text or "{}")
@@ -79,17 +128,13 @@ class GeminiLLM(BaseLLM):
 
     def analyze_batch(self, news_items, taxonomy: dict | None = None):
         try:
-            client = self._get_client()
-
             config = {
                 "temperature": 0.2,
                 "response_mime_type": "application/json",
             }
-
             prompt = self._get_batch_prompt(news_items, taxonomy)
-
-            response = client.models.generate_content(
-                model=settings.GEMINI_MODEL, contents=prompt, config=cast(Any, config)
+            response = self._generate_content_sync(
+                settings.GEMINI_MODEL, prompt, config
             )
 
             clean_text = (response.text or "").replace("```json", "").replace("```", "").strip()
@@ -102,7 +147,6 @@ class GeminiLLM(BaseLLM):
 
             logger.debug(f"🤖 AI Raw Analysis (Batch): Got {len(results)} results")
             return results
-
         except Exception as e:
             logger.error(f"Gemini 批量分析失败: {e}")
             raise e
