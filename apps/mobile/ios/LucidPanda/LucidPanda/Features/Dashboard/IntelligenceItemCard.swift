@@ -23,7 +23,7 @@ struct IntelligenceItemCard: View {
     
     private var formattedGoldPrice: String? {
         guard let price = item.goldPriceSnapshot else { return nil }
-        return String(format: "$%.1f", price)
+        return String(format: "$%.2f", price)
     }
 
     var body: some View {
@@ -299,7 +299,7 @@ struct IntelligencePeekSheet: View {
                                         .background(Color.Alpha.separator.opacity(0.8))
                                         .cornerRadius(4)
                                     
-                                    Text("$\(String(format: "%.1f", price))")
+                                    Text("$\(String(format: "%.2f", price))")
                                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                                 }
                                 .foregroundStyle(Color.Alpha.textSecondary)

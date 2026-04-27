@@ -228,7 +228,7 @@ struct MarketPulseSheet: View {
                     }
                 }
 
-                Text(String(format: quote.price > 1000 ? "%.1f" : "%.2f", quote.price))
+                Text(String(format: "%.2f", quote.price))
                     .font(.system(size: 18, weight: .semibold, design: .monospaced))
                     .contentTransition(.numericText())
 
