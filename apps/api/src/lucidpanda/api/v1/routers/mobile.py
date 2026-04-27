@@ -16,6 +16,7 @@ from src.lucidpanda.services.market_terminal_service import market_terminal_serv
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.utils import v1_prepare_json, format_iso8601
 from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
+from src.lucidpanda.utils.market_calendar import get_market_status
 
 router = APIRouter()
 
@@ -271,6 +272,34 @@ async def market_pulse_stream(
 
 async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
     """核心脉搏计算逻辑：聚合快照、情报、情绪及事件"""
+    def normalize_summary_text(summary_val: Any) -> str:
+        if isinstance(summary_val, dict):
+            zh = summary_val.get("zh")
+            en = summary_val.get("en")
+            if isinstance(zh, str) and zh.strip():
+                return zh
+            if isinstance(en, str) and en.strip():
+                return en
+            for value in summary_val.values():
+                if isinstance(value, str) and value.strip():
+                    return value
+            return "无摘要"
+
+        if isinstance(summary_val, str):
+            text_val = summary_val.strip()
+            if text_val.startswith("{"):
+                try:
+                    parsed = json.loads(text_val)
+                    return normalize_summary_text(parsed)
+                except Exception:
+                    return text_val or "无摘要"
+            return text_val or "无摘要"
+
+        if summary_val is None:
+            return "无摘要"
+
+        return str(summary_val)
+
     now_dt = datetime.now(UTC)
     since_24h = now_dt - timedelta(hours=24)
 
@@ -293,18 +322,17 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
     
     top_alerts = []
     for row in top_alerts_raw:
-        summary_val = row["summary"]
-        if isinstance(summary_val, str) and summary_val.startswith("{"):
+        summary_text = normalize_summary_text(row["summary"])
+        row_timestamp = row["timestamp"]
+        if isinstance(row_timestamp, str):
             try:
-                summary_text = json.loads(summary_val).get("zh", "")
-            except:
-                summary_text = summary_val
-        else:
-            summary_text = summary_val
+                row_timestamp = datetime.fromisoformat(row_timestamp.replace("Z", "+00:00"))
+            except ValueError:
+                row_timestamp = None
 
         top_alerts.append({
             "id": row["id"],
-            "timestamp": format_iso8601(row["timestamp"]),
+            "timestamp": format_iso8601(row_timestamp),
             "urgency_score": row["urgency_score"],
             "summary": summary_text,
             "sentiment": "bullish" if row["sentiment_score"] > 0.15 else ("bearish" if row["sentiment_score"] < -0.15 else "neutral")

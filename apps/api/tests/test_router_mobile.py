@@ -89,6 +89,8 @@ def test_get_market_pulse_complex(session: Session):
     assert "sentiment_trend" in data
     assert len(data["sentiment_trend"]) >= 24
     assert data["overall_sentiment"] in ["bullish", "neutral", "bearish"]
+    assert "top_alerts" in data
+    assert all(isinstance(alert["summary"], str) for alert in data["top_alerts"])
 
 def test_get_mobile_intelligence_ai_summary(session: Session):
     item = Intelligence(

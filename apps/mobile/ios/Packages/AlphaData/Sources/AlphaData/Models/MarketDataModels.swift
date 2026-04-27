@@ -261,6 +261,22 @@ public struct MarketPulseAlert: Codable, Identifiable {
         case id, timestamp, summary, sentiment
         case urgencyScore = "urgency_score"
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        timestamp = try container.decode(Date.self, forKey: .timestamp)
+        urgencyScore = try container.decode(Int.self, forKey: .urgencyScore)
+        sentiment = try container.decode(String.self, forKey: .sentiment)
+
+        if let summaryText = try? container.decode(String.self, forKey: .summary) {
+            summary = summaryText
+        } else if let summaryDict = try? container.decode([String: String].self, forKey: .summary) {
+            summary = summaryDict["zh"] ?? summaryDict["en"] ?? summaryDict.values.first ?? ""
+        } else {
+            summary = ""
+        }
+    }
 }
 
 /// 情绪趋势数据点
