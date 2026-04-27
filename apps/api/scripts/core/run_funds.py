@@ -69,6 +69,16 @@ def run_stats_calc():
     except Exception as e:
         logger.error(f"Stats calculation task failed: {e}")
 
+def run_rbsa_update():
+    logger.info("⏰ [SCHEDULE] Triggering RBSA Style Analysis for all funds...")
+    try:
+        engine = FundEngine()
+        codes = engine.db.get_watchlist_all_codes()
+        for code in codes:
+            engine.perform_rbsa_analysis(code)
+    except Exception as e:
+        logger.error(f"RBSA task failed: {e}")
+
 def main():
     logger.info("==========================================")
     logger.info("   AlphaFunds Automation Engine Started")
@@ -77,6 +87,7 @@ def main():
     logger.info("2. 22:30 - Official NAV Reconciliation")
     logger.info("3. 01:00 - Industry & Metadata Sync")
     logger.info("4. 01:30 - Performance Stats & Grading")
+    logger.info("5. 02:30 - RBSA Style Analysis Update")
     logger.info("==========================================")
 
     # Define Schedule
@@ -92,11 +103,14 @@ def main():
     # Stats calculation at 01:30
     schedule.every().day.at("01:30").do(run_stats_calc)
     
-    # Macroeconomic Calendar Sync at 02:00
-    schedule.every().day.at("02:00").do(run_macro_sync)
+    # RBSA Analysis at 02:30
+    schedule.every().day.at("02:30").do(run_rbsa_update)
     
-    # Market Holiday Sync at 02:05
-    schedule.every().day.at("02:05").do(run_holiday_sync)
+    # Macroeconomic Calendar Sync at 03:00
+    schedule.every().day.at("03:00").do(run_macro_sync)
+    
+    # Market Holiday Sync at 03:05
+    schedule.every().day.at("03:05").do(run_holiday_sync)
 
     # Log next runs
     for job in schedule.get_jobs():
