@@ -12,9 +12,8 @@ from src.lucidpanda.infra.database.connection import get_session
 from src.lucidpanda.models.intelligence import Intelligence, IntelligenceMobileRead
 from src.lucidpanda.models.macro_event import MacroEvent
 from src.lucidpanda.services.market_terminal_service import market_terminal_service
-from src.lucidpanda.utils import v1_prepare_json
-from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
-from src.lucidpanda.utils.market_calendar import get_market_status
+from src.lucidpanda.core.logger import logger
+from src.lucidpanda.utils import v1_prepare_json, format_iso8601
 
 router = APIRouter()
 

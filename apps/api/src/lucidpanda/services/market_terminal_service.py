@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 
 import akshare as ak
@@ -9,9 +10,8 @@ from src.lucidpanda.utils import format_iso8601
 
 class MarketTerminalService:
     """
-    市场终端数据服务 - 支持四大品种
-    黄金、美元指数、原油、美债 10 年期
-    使用新浪财经 API（更稳定）
+    市场终端数据服务 - 支持多品种实时报价
+    黄金（伦敦金/上海金）、美元指数、原油、美债 10 年期
     """
 
     def __init__(self):
@@ -39,7 +39,7 @@ class MarketTerminalService:
             us10y_data = self._fetch_us10y()
 
             data = {
-                "gold": gold_data or self._empty_quote("GC=F", "黄金"),
+                "gold": gold_data or self._empty_quote("XAU", "伦敦金"),
                 "gold_cny": gold_cny_data or self._empty_quote("AU9999", "上海金"),
                 "dxy": dxy_data or self._empty_quote("DXY", "美元指数"),
                 "oil": oil_data or self._empty_quote("CL=F", "原油"),
@@ -83,23 +83,32 @@ class MarketTerminalService:
     def _fetch_gold(self):
         """获取黄金数据（伦敦金现货 - 对标国际基准）"""
         try:
-            # 使用 akshare 获取实时伦敦金现货行情 (XAU/USD)
-            df = ak.gold_zh_spot_qhkd()
-            row = df[df["名称"].str.contains("伦敦金|London Gold", case=False, na=False)]
+            # 兼容性修复：尝试多种 AkShare 接口
+            df = None
+            try:
+                df = ak.gold_zh_spot_qhkd()
+            except:
+                try:
+                    df = ak.gold_zh_spot_sina()
+                except:
+                    pass
             
-            if not row.empty:
-                current = float(row.iloc[0]["最新价"])
-                change = float(row.iloc[0]["涨跌额"])
-                change_pct = float(row.iloc[0]["涨跌幅"])
-                
-                return {
-                    "symbol": "XAU",
-                    "name": "伦敦金",
-                    "price": current,
-                    "change": round(change, 2),
-                    "changePercent": round(change_pct, 2),
-                    "timestamp": datetime.now(),
-                }
+            if df is not None and not df.empty:
+                # 在结果中过滤伦敦金
+                row = df[df["名称"].str.contains("伦敦金|London Gold", case=False, na=False)]
+                if not row.empty:
+                    current = float(row.iloc[0]["最新价"])
+                    change = float(row.iloc[0]["涨跌额"])
+                    change_pct = float(row.iloc[0]["涨跌幅"])
+                    
+                    return {
+                        "symbol": "XAU",
+                        "name": "伦敦金",
+                        "price": current,
+                        "change": round(change, 2),
+                        "changePercent": round(change_pct, 2),
+                        "timestamp": datetime.now(),
+                    }
         except Exception as e:
             logger.error(f"Failed to fetch London Gold spot: {e}")
         return None
@@ -207,7 +216,7 @@ class MarketTerminalService:
         try:
             # Fallback to AkShare
             df = ak.bond_zh_us_rate()
-            if not df.empty:
+            if df is not None and not df.empty:
                 rate_col = next((c for c in df.columns if "10" in c), None)
                 if rate_col and len(df) > 1:
                     current = round(float(df.iloc[-1][rate_col]), 3)
