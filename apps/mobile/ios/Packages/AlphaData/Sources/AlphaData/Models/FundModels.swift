@@ -8,18 +8,26 @@ public struct FundComponent: Codable, Identifiable {
     public let weight: Double
     public let changePct: Double
     public let impact: Double
+    public let type: String? // "stock", "bond", "cash"
+    public let isShadow: Bool?
+    public let isRbsa: Bool?
     
-    public init(code: String, name: String, weight: Double, changePct: Double, impact: Double) {
+    public init(code: String, name: String, weight: Double, changePct: Double, impact: Double, type: String? = nil, isShadow: Bool? = nil, isRbsa: Bool? = nil) {
         self.code = code
         self.name = name
         self.weight = weight
         self.changePct = changePct
         self.impact = impact
+        self.type = type
+        self.isShadow = isShadow
+        self.isRbsa = isRbsa
     }
     
     enum CodingKeys: String, CodingKey {
-        case code, name, weight, impact
+        case code, name, weight, impact, type
         case changePct = "change_pct"
+        case isShadow = "is_shadow"
+        case isRbsa = "is_rbsa"
     }
 }
 

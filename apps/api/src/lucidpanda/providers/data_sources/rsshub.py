@@ -41,7 +41,7 @@ MACRO_GOLD_FEEDS = [
         "https://feeds.content.dowjones.io/public/rss/socialeconomyfeed",
         "US/Eastern",
     ),
-    ("CFTC Press Releases", "http://rsshub:1200/cftc/pressreleases", "US/Eastern"),
+    ("CFTC Press Releases", "https://www.cftc.gov/RSS/RSSGP/rssgp.xml", "US/Eastern"),
 ]
 
 # ──────────────────────────────────────────────────────────────────────

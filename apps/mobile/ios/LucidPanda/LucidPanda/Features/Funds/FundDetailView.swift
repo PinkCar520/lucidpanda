@@ -67,6 +67,9 @@ struct FundDetailView: View {
         Group {
             headerSection
             
+            assetAllocationSection
+                .compositingGroup()
+            
             if let stats = viewModel.valuation.stats {
                 actuarialMatrixSection(stats: stats)
                     .compositingGroup()
@@ -146,6 +149,70 @@ struct FundDetailView: View {
             }
         }
         .padding(.vertical, 32)
+    }
+    
+    private var assetAllocationSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            let components = viewModel.valuation.components
+            let stockWeight = components.filter { $0.type == "stock" || ($0.type == nil && $0.isRbsa != true && $0.isShadow != true) }.reduce(0) { $0 + $1.weight }
+            let bondWeight = components.filter { $0.type == "bond" }.reduce(0) { $0 + $1.weight }
+            let cashWeight = components.filter { $0.type == "cash" }.reduce(0) { $0 + $1.weight }
+            let otherWeight = max(0, 100.0 - stockWeight - bondWeight - cashWeight)
+            
+            HStack {
+                Text("funds.detail.allocation.title")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(String(format: "%.1f%% / %.1f%% / %.1f%%", stockWeight, bondWeight, cashWeight))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal)
+            
+            GeometryReader { geo in
+                HStack(spacing: 0) {
+                    if stockWeight > 0 {
+                        Rectangle()
+                            .fill(Color.Alpha.up)
+                            .frame(width: geo.size.width * CGFloat(stockWeight / 100.0))
+                    }
+                    if bondWeight > 0 {
+                        Rectangle()
+                            .fill(Color.teal)
+                            .frame(width: geo.size.width * CGFloat(bondWeight / 100.0))
+                    }
+                    if cashWeight > 0 {
+                        Rectangle()
+                            .fill(Color.secondary.opacity(0.5))
+                            .frame(width: geo.size.width * CGFloat(cashWeight / 100.0))
+                    }
+                    if otherWeight > 0.1 {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: geo.size.width * CGFloat(otherWeight / 100.0))
+                    }
+                }
+                .clipShape(Capsule())
+            }
+            .frame(height: 6)
+            .padding(.horizontal)
+            
+            HStack(spacing: 12) {
+                allocationLegend(label: "funds.detail.allocation.stock", color: Color.Alpha.up)
+                allocationLegend(label: "funds.detail.allocation.bond", color: .teal)
+                allocationLegend(label: "funds.detail.allocation.cash", color: .secondary.opacity(0.5))
+            }
+            .padding(.horizontal)
+        }
+        .padding(.bottom, 8)
+    }
+    
+    private func allocationLegend(label: LocalizedStringKey, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(label).font(.system(size: 9)).foregroundStyle(.secondary)
+        }
     }
     
     private func actuarialMatrixSection(stats: FundStats) -> some View {
@@ -690,8 +757,30 @@ struct HoldingRow: View {
         LiquidGlassCard(backgroundColor: bgColor) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(component.name).font(.system(size: 14, weight: .medium)).foregroundStyle(colorScheme == .dark ? .white : .black)
-                    Text(component.code).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        if component.isShadow == true {
+                            Text("funds.detail.holdings.tag.shadow")
+                                .font(.system(size: 8, weight: .bold))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Color.blue.opacity(0.1))
+                                .foregroundStyle(.blue)
+                                .clipShape(RoundedRectangle(cornerRadius: 2))
+                        } else if component.isRbsa == true {
+                            Text("funds.detail.holdings.tag.rbsa")
+                                .font(.system(size: 8, weight: .bold))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(Color.purple.opacity(0.1))
+                                .foregroundStyle(.purple)
+                                .clipShape(RoundedRectangle(cornerRadius: 2))
+                        }
+                        
+                        Text(component.name)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle((component.isShadow == true || component.isRbsa == true) ? AnyShapeStyle(.secondary) : AnyShapeStyle(colorScheme == .dark ? Color.white : Color.black))
+                    }
+                    Text(component.code).font(.system(size: 10, design: .monospaced)).foregroundStyle(.tertiary)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {

@@ -16,6 +16,57 @@
     "21:00" : {
 
     },
+    "accuracy_high" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High historical accuracy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历史追踪精度极高"
+          }
+        }
+      }
+    },
+    "accuracy_medium" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moderate historical accuracy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历史追踪精度一般"
+          }
+        }
+      }
+    },
+    "accuracy_poor" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Poor historical tracking"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历史追踪精度较低"
+          }
+        }
+      }
+    },
     "alarm.notification.body %@ %@" : {
       "localizations" : {
         "en" : {
@@ -1979,6 +2030,23 @@
         }
       }
     },
+    "coverage_low" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low holdings coverage"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "持仓披露覆盖率较低"
+          }
+        }
+      }
+    },
     "dashboard.action.open_settings" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2951,6 +3019,73 @@
         }
       }
     },
+    "funds.detail.allocation.bond" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bond"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "债券"
+          }
+        }
+      }
+    },
+    "funds.detail.allocation.cash" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cash"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "货币"
+          }
+        }
+      }
+    },
+    "funds.detail.allocation.stock" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stock"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "股票"
+          }
+        }
+      }
+    },
+    "funds.detail.allocation.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asset Allocation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "资产配比 (股/债/币)"
+          }
+        }
+      }
+    },
     "funds.detail.history.empty" : {
       "localizations" : {
         "en" : {
@@ -3160,6 +3295,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "权重"
+          }
+        }
+      }
+    },
+    "funds.detail.holdings.tag.rbsa" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "STYLE"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拟"
+          }
+        }
+      }
+    },
+    "funds.detail.holdings.tag.shadow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SHADOW"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "影"
           }
         }
       }
@@ -5249,6 +5416,57 @@
         }
       }
     },
+    "new_report" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent report disclosure"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最新季报披露"
+          }
+        }
+      }
+    },
+    "outdated_report" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Outdated holdings report"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "持仓报告严重过时"
+          }
+        }
+      }
+    },
+    "possible_rebalance" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Possible portfolio rebalance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "报告期较久，可能已调仓"
+          }
+        }
+      }
+    },
     "reconciliation.chart.mae" : {
 
     },
@@ -6155,6 +6373,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "打开 Web 端"
+          }
+        }
+      }
+    },
+    "significant_drift" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Significant style drift detected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检测到显著风格漂移"
           }
         }
       }
