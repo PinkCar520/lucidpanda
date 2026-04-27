@@ -108,9 +108,10 @@ class MarketTerminalService:
                         "change": round(change, 2),
                         "changePercent": round(change_pct, 2),
                         "timestamp": format_iso8601(datetime.now()),
-                        }
-                        except Exception as e:
-                        logger.error(f"Failed to fetch London Gold spot: {e}")        return None
+                    }
+        except Exception as e:
+            logger.error(f"Failed to fetch London Gold spot: {e}")
+        return None
 
     def _fetch_dxy(self):
         """获取美元指数数据（新浪财经外汇 DINIW）"""
