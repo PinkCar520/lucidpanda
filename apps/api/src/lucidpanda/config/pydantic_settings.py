@@ -32,7 +32,7 @@ class LLMSettings(BaseModel):
 
     # Gemini
     gemini_api_key: str | None = Field(default=None, description="Gemini API Key")
-    gemini_model: str = Field(default="gemini-2.0-flash", description="Gemini 模型")
+    gemini_model: str = Field(default="gemini-2.5-flash", description="Gemini 模型")
     gemini_batch_model: str = Field(default="gemini-2.0-flash-lite")
     gemini_embedding_model: str = Field(default="models/gemini-embedding-001")
     gemini_use_vertexai: bool = Field(default=False, description="是否使用 Vertex AI")
