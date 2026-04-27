@@ -657,9 +657,13 @@ class IntelligenceRepo(DBBase):
             if gvz is None:
                 gvz = self.get_market_snapshot("^GVZ", news_time)
 
-            gold = raw_data.get("gold_price_snapshot") or snaps.get("GC=F")
+            gold = raw_data.get("gold_price_snapshot")
             if gold is None:
-                gold = self.get_market_snapshot("GC=F", news_time)
+                # 统一使用伦敦金现货作为新闻快照
+                from src.lucidpanda.services.market_terminal_service import MarketTerminalService
+                terminal_service = MarketTerminalService()
+                snap = terminal_service._fetch_gold()
+                gold = snap.get("price") if snap else None
 
             oil = raw_data.get("oil_price_snapshot") or snaps.get("CL=F")
             if oil is None:
