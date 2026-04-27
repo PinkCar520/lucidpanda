@@ -15,6 +15,7 @@ from src.lucidpanda.models.macro_event import MacroEvent
 from src.lucidpanda.services.market_terminal_service import market_terminal_service
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.utils import v1_prepare_json, format_iso8601
+from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
 
 router = APIRouter()
 

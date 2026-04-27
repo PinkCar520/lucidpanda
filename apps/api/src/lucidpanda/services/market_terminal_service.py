@@ -107,11 +107,10 @@ class MarketTerminalService:
                         "price": current,
                         "change": round(change, 2),
                         "changePercent": round(change_pct, 2),
-                        "timestamp": datetime.now(),
-                    }
-        except Exception as e:
-            logger.error(f"Failed to fetch London Gold spot: {e}")
-        return None
+                        "timestamp": format_iso8601(datetime.now()),
+                        }
+                        except Exception as e:
+                        logger.error(f"Failed to fetch London Gold spot: {e}")        return None
 
     def _fetch_dxy(self):
         """获取美元指数数据（新浪财经外汇 DINIW）"""
@@ -142,7 +141,7 @@ class MarketTerminalService:
                     "low_24h": float(parts[7]) if float(parts[7]) > 0 else None,
                     "open": float(parts[5]) if float(parts[5]) > 0 else current,
                     "previous_close": prev_close,
-                    "timestamp": datetime.now(),
+                    "timestamp": format_iso8601(datetime.now()),
                 }
         except Exception as e:
             logger.error(f"Failed to fetch DXY data: {e}")
@@ -177,7 +176,7 @@ class MarketTerminalService:
                     "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
                     "open": float(parts[2]) if float(parts[2]) > 0 else current,
                     "previous_close": prev_close,
-                    "timestamp": datetime.now(),
+                    "timestamp": format_iso8601(datetime.now()),
                 }
         except Exception as e:
             logger.error(f"Failed to fetch oil data: {e}")
@@ -208,7 +207,7 @@ class MarketTerminalService:
                     "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
                     "open": prev_close,
                     "previous_close": prev_close,
-                    "timestamp": datetime.now(),
+                    "timestamp": format_iso8601(datetime.now()),
                 }
         except Exception as e:
             logger.error(f"Failed to fetch US10Y data from Sina: {e}")
