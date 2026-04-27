@@ -58,8 +58,12 @@ class RSSCollector:
 
         # 注入市场快照（此时统一拉取一次，避免每条重复查询）
         now = datetime.now(pytz.utc)
+        from src.lucidpanda.services.market_terminal_service import MarketTerminalService
+        terminal_service = MarketTerminalService()
+        gold_snap = terminal_service._fetch_gold()
+        
         snapshot = {
-            "gold_price_snapshot": self.db.get_market_snapshot("GC=F", now),
+            "gold_price_snapshot": gold_snap.get("price") if gold_snap else None,
             "dxy_snapshot": self.db.get_market_snapshot("DX-Y.NYB", now),
             "us10y_snapshot": self.db.get_market_snapshot("^TNX", now),
             "gvz_snapshot": self.db.get_market_snapshot("^GVZ", now),
