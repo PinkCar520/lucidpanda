@@ -10,8 +10,9 @@ class ImageDownloader:
     """新闻图片本地缓存下载器"""
     
     def __init__(self):
-        # 统一使用 apps/api/uploads/news 作为存储目录，与 sse_server.py 挂载点保持一致
-        self.base_upload_dir = Path(settings.BASE_DIR) / "uploads" / "news"
+        # 统一使用根目录下的 uploads/news，确保与 Docker volumes (./uploads:/app/uploads) 匹配
+        # settings.BASE_DIR 是 apps/api，所以 parent.parent 指向项目根目录
+        self.base_upload_dir = Path(settings.BASE_DIR).parent.parent / "uploads" / "news"
         self.base_upload_dir.mkdir(parents=True, exist_ok=True)
         
         self.headers = {

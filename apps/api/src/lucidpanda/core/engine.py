@@ -270,7 +270,8 @@ class AlphaEngine:
         import time
         from pathlib import Path
         
-        upload_dir = Path(settings.BASE_DIR) / "uploads" / "news"
+        # 对应 Docker 挂载点 /app/uploads/news
+        upload_dir = Path(settings.BASE_DIR).parent.parent / "uploads" / "news"
         if not upload_dir.exists():
             return
             

@@ -240,9 +240,10 @@ class DBBase:
             ]:
                 cursor.execute(col_sql)
 
-            # 确保上传目录存在
+            # 确保上传目录存在 (指向 Docker 挂载点 /app/uploads/news)
             import os
-            uploads_dir = os.path.join(settings.BASE_DIR, "src", "lucidpanda", "uploads", "news")
+            from pathlib import Path
+            uploads_dir = Path(settings.BASE_DIR).parent.parent / "uploads" / "news"
             os.makedirs(uploads_dir, exist_ok=True)
             cursor.execute(
                 "UPDATE intelligence SET corroboration_count = 1 WHERE corroboration_count IS NULL;"
