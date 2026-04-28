@@ -289,15 +289,17 @@ public actor APIClient {
     
     private static var userAgentString: String {
         #if canImport(UIKit)
-        let deviceName = UIDevice.current.name
-        let systemVersion = UIDevice.current.systemVersion
-        return "\(deviceName) (iOS \(systemVersion))"
+        return "LucidPanda/1.0 (iOS)"
         #else
         return "LucidPanda/1.0"
         #endif
     }
 
     private static var acceptLanguageString: String {
+        // 优先读取用户在 App 内设置的语言偏好
+        if let savedLanguage = UserDefaults.standard.string(forKey: "appLanguage"), savedLanguage != "system" {
+            return savedLanguage
+        }
         return Bundle.main.preferredLocalizations.first ?? "en"
     }
 }

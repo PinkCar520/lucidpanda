@@ -277,7 +277,6 @@ struct BacktestView: View {
     private var settingsSheet: some View {
         NavigationStack {
             ZStack {
-                Color.Alpha.background.ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 24) {

@@ -54,7 +54,7 @@ public actor SSEResolver {
                     
                     continuation.finish()
                 } catch {
-                    if await self.isCancelledError(error) {
+                    if self.isCancelledError(error) {
                         continuation.finish()
                         await self.stop(streamID: streamID)
                         return

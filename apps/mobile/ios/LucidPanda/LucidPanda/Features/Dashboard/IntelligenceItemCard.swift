@@ -114,15 +114,9 @@ struct IntelligenceItemCard: View {
             
             VStack(alignment: .leading, spacing: 12) {
                 Text(item.summary)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 19, weight: .bold))
                     .foregroundStyle(Color.Alpha.textPrimary)
                     .lineLimit(3)
-                    .multilineTextAlignment(.leading)
-
-                Text(item.content)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.Alpha.textSecondary)
-                    .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 
                 Text("dashboard.action.read_full")
@@ -130,12 +124,13 @@ struct IntelligenceItemCard: View {
                     .textCase(.uppercase)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 12)
                     .background(Color.Alpha.brand)
                     .clipShape(RoundedRectangle(cornerRadius: 4))
                     .shadow(color: Color.Alpha.brand.opacity(0.25), radius: 5, y: 3)
             }
-            .padding(20)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
             .background(Color.Alpha.surface)
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -249,8 +244,6 @@ struct IntelligencePeekSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.Alpha.background.ignoresSafeArea()
-                
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
 
@@ -274,19 +267,14 @@ struct IntelligencePeekSheet: View {
                                 .foregroundStyle(Color.Alpha.taupe)
                         }
 
-                        // Title
+                        // Summary Title
                         Text(item.summary)
                             .font(.title3)
-                            .fontWeight( .medium)
+                            .fontWeight(.bold)
                             .foregroundStyle(Color.Alpha.textPrimary)
+                            .lineSpacing(4)
 
-                        // Full content
-                        Text(item.content)
-                            .font(.body)
-                            .foregroundStyle(Color.Alpha.textSecondary)
-                            .lineSpacing(5)
-
-                        // Source & Asset row — matching card footer
+                        // Source & Asset row
                         HStack {
                             Label(item.author, systemImage: "newspaper.fill")
                                 .font(.system(size: 11, design: .monospaced))
@@ -391,9 +379,13 @@ struct IntelligencePeekSheet: View {
         withAnimation { isAnalyzing = true }
         defer { withAnimation { isAnalyzing = false } }
 
+        let savedLanguage = UserDefaults.standard.string(forKey: "appLanguage") ?? "system"
+        let languageCode = savedLanguage != "system" ? savedLanguage.lowercased() : (Bundle.main.preferredLocalizations.first?.lowercased() ?? "en")
+        let language = languageCode.contains("zh") ? "zh" : "en"
+
         do {
             let response: AISummaryResponse = try await APIClient.shared.fetch(
-                path: "/api/v1/mobile/intelligence/\(item.id)/ai_summary"
+                path: "/api/v1/mobile/intelligence/\(item.id)/ai_summary?lang=\(language)"
             )
             withAnimation(.easeInOut(duration: 0.4)) {
                 aiSummary = response.ai_summary

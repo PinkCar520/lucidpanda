@@ -24,7 +24,6 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UILaunchScreen: {}
-        UIRequiresFullScreen: true
         NSAppTransportSecurity:
           NSExceptionDomains:
             43.139.108.187:

@@ -85,22 +85,31 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
         price12h = try container.decodeIfPresent(Double.self, forKey: .price12h)
         price24h = try container.decodeIfPresent(Double.self, forKey: .price24h)
 
-        // --- 核心修复：动态语言优先级解码 ---
+        // --- 核心修复：精准语言感知解码 ---
         
         let rawContainer = try decoder.container(keyedBy: DynamicCodingKeys.self)
         
-        // 自动判定系统当前首选语言
-        let preferredLang = Bundle.main.preferredLocalizations.first?.lowercased().contains("zh") == true ? "zh" : "en"
-        let fallbackLang = preferredLang == "zh" ? "en" : "zh"
+        // 优先读取用户在 App 内设置的语言偏好，而非仅仅依靠系统 Locale
+        let savedLanguage = UserDefaults.standard.string(forKey: "appLanguage") ?? "system"
+        let languageCode: String
+        if savedLanguage != "system" {
+            languageCode = savedLanguage.lowercased()
+        } else {
+            languageCode = Bundle.main.preferredLocalizations.first?.lowercased() ?? "en"
+        }
+        
+        let isZh = languageCode.contains("zh")
+        let preferredLang = isZh ? "zh" : "en"
+        let fallbackLang = isZh ? "en" : "zh"
 
-        // 1. 解码 Summary (兼容 summary 字典或字符串)
+        // 1. 解码 Summary
         if let summaryDict = try? container.decode([String: String].self, forKey: .summary) {
             summary = summaryDict[preferredLang] ?? summaryDict[fallbackLang] ?? summaryDict.values.first ?? ""
         } else {
             summary = (try? container.decode(String.self, forKey: .summary)) ?? ""
         }
 
-        // 2. 解码 Content (兼容 content 字典或字符串)
+        // 2. 解码 Content
         if let contentDict = try? container.decode([String: String].self, forKey: .content) {
             content = contentDict[preferredLang] ?? contentDict[fallbackLang] ?? contentDict.values.first ?? ""
         } else {

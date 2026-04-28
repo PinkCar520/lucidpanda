@@ -5,9 +5,15 @@ import AlphaCore
 
 struct IntelligenceDetailView: View {
     let item: IntelligenceItem
+    @State private var fullItem: IntelligenceItem?
     @State private var isSummarizing = false
     @State private var summary: String?
+    @State private var isLoadingFullContent = false
     @Environment(\.colorScheme) var colorScheme
+    
+    private var currentItem: IntelligenceItem {
+        fullItem ?? item
+    }
     
     var body: some View {
         ZStack {
@@ -18,26 +24,26 @@ struct IntelligenceDetailView: View {
                     // Header Area
                     VStack(alignment: .leading, spacing: 20) {
                         HStack(spacing: 12) {
-                            Text(verbatim: "\(item.urgencyScore).0")
+                            Text(verbatim: "\(currentItem.urgencyScore).0")
                                 .font(.system(size: 11, weight: .black, design: .monospaced))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(item.urgencyScore >= 8 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
-                                .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.up : Color.Alpha.brand)
+                                .background(currentItem.urgencyScore >= 8 ? Color.Alpha.up.opacity(0.15) : Color.Alpha.brand.opacity(0.15))
+                                .foregroundStyle(currentItem.urgencyScore >= 8 ? Color.Alpha.up : Color.Alpha.brand)
                                 .clipShape(RoundedRectangle(cornerRadius: 2))
                             
-                            Text(item.author)
+                            Text(currentItem.author)
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(Color.Alpha.taupe400)
                             
                             Spacer()
                             
-                            Text(item.timestamp.formatted(date: .numeric, time: .shortened))
+                            Text(currentItem.timestamp.formatted(date: .numeric, time: .shortened))
                                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                                 .foregroundStyle(Color.Alpha.taupe400.opacity(0.6))
                         }
                         
-                        Text(item.summary)
+                        Text(currentItem.summary)
                             .font(.system(size: 24, weight: .bold))
                             .foregroundStyle(Color.Alpha.textPrimary)
                             .lineSpacing(4)
@@ -96,12 +102,22 @@ struct IntelligenceDetailView: View {
 
                     // Article Content
                     VStack(alignment: .leading, spacing: 24) {
-                        Text(item.content)
-                            .font(.system(size: 17, weight: .regular))
-                            .foregroundStyle(Color.Alpha.textPrimary.opacity(0.8))
-                            .lineSpacing(10)
+                        if isLoadingFullContent {
+                            HStack {
+                                Spacer()
+                                ProgressView()
+                                    .padding()
+                                Spacer()
+                            }
+                        } else {
+                            Text(currentItem.content)
+                                .font(.system(size: 17, weight: .regular))
+                                .foregroundStyle(Color.Alpha.textPrimary.opacity(0.8))
+                                .lineSpacing(10)
+                                .textSelection(.enabled)
+                        }
                         
-                        if let price = item.goldPriceSnapshot {
+                        if let price = currentItem.goldPriceSnapshot {
                             HStack {
                                 Text("dashboard.asset.gold")
                                     .font(.system(size: 10, weight: .black))
@@ -130,15 +146,40 @@ struct IntelligenceDetailView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            if item.content.isEmpty {
+                await fetchFullContent()
+            }
+        }
+    }
+    
+    private func fetchFullContent() async {
+        isLoadingFullContent = true
+        do {
+            let full: IntelligenceItem = try await APIClient.shared.fetch(path: "/api/v1/web/intelligence/\(item.id)")
+            await MainActor.run {
+                withAnimation {
+                    self.fullItem = full
+                    self.isLoadingFullContent = false
+                }
+            }
+        } catch {
+            print("Failed to fetch full intelligence content: \(error)")
+            isLoadingFullContent = false
+        }
     }
     
     private func runAISummary() {
         guard !isSummarizing else { return }
         withAnimation { isSummarizing = true }
         
+        let savedLanguage = UserDefaults.standard.string(forKey: "appLanguage") ?? "system"
+        let languageCode = savedLanguage != "system" ? savedLanguage.lowercased() : (Bundle.main.preferredLocalizations.first?.lowercased() ?? "en")
+        let language = languageCode.contains("zh") ? "zh" : "en"
+        
         Task {
             do {
-                let response: AISummaryResponse = try await APIClient.shared.fetch(path: "/api/v1/mobile/intelligence/\(item.id)/ai_summary")
+                let response: AISummaryResponse = try await APIClient.shared.fetch(path: "/api/v1/mobile/intelligence/\(item.id)/ai_summary?lang=\(language)")
                 await MainActor.run {
                     withAnimation {
                         self.summary = response.ai_summary
@@ -155,7 +196,6 @@ struct IntelligenceDetailView: View {
             }
         }
     }
-    
 }
 
 struct DetailBadge: View {
