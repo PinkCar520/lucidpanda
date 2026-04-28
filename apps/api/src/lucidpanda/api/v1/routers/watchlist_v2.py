@@ -13,7 +13,7 @@ from src.lucidpanda.core.fund_engine import FundEngine
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.infra.cache import get_cached, set_cached
 from src.lucidpanda.infra.database.connection import get_session
-from src.lucidpanda.providers.llm.gemini import GeminiLLM
+from src.lucidpanda.providers.llm.deepseek import DeepSeekLLM
 from src.lucidpanda.services.embedding_service import embedding_service
 from src.lucidpanda.services.market_terminal_service import market_terminal_service
 from src.lucidpanda.utils import v1_prepare_json
@@ -1266,7 +1266,7 @@ async def get_fund_ai_narrative(
 ):
     """
     针对单支基金的深度 AI 叙事分析。
-    结合基金持仓板块、近期关联情报，通过 Gemini 生成一份临时的深度洞察。
+    结合基金持仓板块、近期关联情报，通过 DeepSeek 生成一份临时的深度洞察。
     支持国际化：根据 Accept-Language 自动切换 AI 生成语言。
     """
     # 判定语言偏好
@@ -1367,7 +1367,7 @@ Example Return:
 """
 
     try:
-        llm = GeminiLLM()
+        llm = DeepSeekLLM()
         result = await llm.generate_json_async(prompt)
         narrative = result.get("narrative", "AI 分析引擎暂时无法生成叙事。" if lang == "zh" else "AI engine failed to generate narrative.")
         
@@ -1379,6 +1379,6 @@ Example Return:
         set_cached(_cache_key, final_res, ttl=_cache_ttl)
         return final_res
     except Exception as e:
-        logger.error(f"Gemini narrative generation failed for {fund_code}: {e}")
+        logger.error(f"DeepSeek narrative generation failed for {fund_code}: {e}")
         error_msg = "AI 实时分析服务暂时不可用，请稍后再试。" if lang == "zh" else "AI analysis service is temporarily unavailable."
         return {"narrative": error_msg, "error": str(e)}
