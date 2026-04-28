@@ -286,25 +286,31 @@ struct FundPeekSheet: View {
 
     private func associatedIntelligenceSection(data: FundAIAnalysisResponse) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label(LocalizedStringKey("funds.peek.related_intelligence"), systemImage: "link")
+            Label(LocalizedStringKey("funds.peek.related_intelligence"), systemImage: "timeline.selection")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(.blue)
                 .padding(.horizontal)
             
             if data.relatedIntelligence.isEmpty {
-                LiquidGlassCard {
-                    Text("funds.peek.no_related_intelligence_7d")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding()
+                VStack(spacing: 0) {
+                    IntelligenceTimelinePlaceholderRow(
+                        title: "近30天未检索到强关联事件",
+                        subtitle: data.fallbackSource ?? "已扩大窗口检索基金相关行业与市场事件"
+                    )
                 }
                 .padding(.horizontal)
             } else {
-                ForEach(data.relatedIntelligence) { item in
-                    IntelligenceBriefRow(item: item)
-                        .padding(.horizontal)
+                let timelineItems = data.relatedIntelligence.sorted(by: { $0.timestamp < $1.timestamp })
+                VStack(spacing: 0) {
+                    ForEach(Array(timelineItems.enumerated()), id: \.element.id) { index, item in
+                        IntelligenceTimelineRow(
+                            item: item,
+                            isFirst: index == 0,
+                            isLast: index == timelineItems.count - 1
+                        )
+                    }
                 }
+                .padding(.horizontal)
             }
         }
     }
@@ -476,6 +482,108 @@ struct IntelligenceBriefRow: View {
                         .padding(.top, 4)
                 }
             }
+        }
+    }
+}
+
+struct IntelligenceTimelineRow: View {
+    let item: FundRelatedIntelligence
+    let isFirst: Bool
+    let isLast: Bool
+
+    private var sentimentColor: Color {
+        switch item.sentiment {
+        case "bullish": return Color.Alpha.up
+        case "bearish": return Color.Alpha.down
+        default: return .secondary
+        }
+    }
+
+    private var sentimentLabel: String {
+        switch item.sentiment {
+        case "bullish": return "看多"
+        case "bearish": return "看空"
+        default: return "中性"
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.secondary.opacity(isFirst ? 0 : 0.25))
+                    .frame(width: 2, height: 14)
+                Circle()
+                    .fill(sentimentColor)
+                    .frame(width: 12, height: 12)
+                    .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1))
+                Rectangle()
+                    .fill(Color.secondary.opacity(isLast ? 0 : 0.25))
+                    .frame(width: 2, height: 54)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(item.summary)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+
+                if let advice = item.advice, !advice.isEmpty {
+                    Text(advice)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                HStack(spacing: 10) {
+                    Text(item.timestamp.formatted(date: .numeric, time: .shortened))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+
+                    Text(item.urgencyScore >= 8 ? "高优先级" : "一般")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(item.urgencyScore >= 8 ? Color.Alpha.down : .secondary)
+
+                    Text(sentimentLabel)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(sentimentColor)
+                }
+            }
+            .padding(.top, 2)
+            .padding(.bottom, isLast ? 0 : 10)
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+struct IntelligenceTimelinePlaceholderRow: View {
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.25))
+                    .frame(width: 2, height: 14)
+                Circle()
+                    .fill(Color.secondary.opacity(0.5))
+                    .frame(width: 12, height: 12)
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.25))
+                    .frame(width: 2, height: 32)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.top, 2)
+            Spacer(minLength: 0)
         }
     }
 }

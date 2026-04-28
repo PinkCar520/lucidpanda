@@ -4413,6 +4413,7 @@
       }
     },
     "funds.peek.no_related_intelligence_7d" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

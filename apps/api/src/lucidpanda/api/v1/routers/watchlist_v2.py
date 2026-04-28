@@ -918,7 +918,7 @@ async def get_fund_ai_analysis(
 ):
     """
     单支基金 AI 市场分析 — 为 iOS 长按弹窗提供数据。
-    返回：基金基本信息 + 板块归因 + 近7天关联情报 + 整体市场快照
+    返回：基金基本信息 + 板块归因 + 事件驱动关联情报时间线 + 整体市场快照
     缓存：60s 个人 + 基金级 Redis 缓存
     """
     _cache_key = f"api:fund:ai:v2:{current_user.id}:{fund_code}"
@@ -956,8 +956,7 @@ async def get_fund_ai_analysis(
         ["equity_cn", "macro_gold"] if is_a_share else ["equity_us", "macro_gold"]
     )
 
-    # 2. 混合检索关联情报
-    since_7d = datetime.now(UTC) - timedelta(days=7)
+    # 2. 混合检索关联情报（不按时间窗口截断，走事件驱动时间线）
 
     # 2.1 关键词检索
     kw_raw: list[dict[str, Any]] = [
@@ -966,8 +965,7 @@ async def get_fund_ai_analysis(
             text("""
             SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
             FROM intelligence
-            WHERE timestamp > :since
-              AND category = ANY(:cats)
+            WHERE category = ANY(:cats)
               AND (
                 content ILIKE :kw_full OR content ILIKE :kw_core
                 OR summary::text ILIKE :kw_full OR summary::text ILIKE :kw_core
@@ -975,10 +973,9 @@ async def get_fund_ai_analysis(
               )
               AND summary IS NOT NULL
             ORDER BY urgency_score DESC, timestamp DESC
-            LIMIT 5
+            LIMIT 20
         """),
             {
-                "since": since_7d,
                 "cats": preferred_categories,
                 "kw_full": f"%{fund_name}%",
                 "kw_core": f"%{core_name}%",
@@ -1001,14 +998,13 @@ async def get_fund_ai_analysis(
                     text("""
                     SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
                     FROM intelligence
-                    WHERE timestamp > :since
-                      AND category = ANY(:cats)
+                    WHERE category = ANY(:cats)
                       AND embedding_vec IS NOT NULL
                       AND 1 - (embedding_vec <=> CAST(:vec AS vector)) > 0.70
                     ORDER BY (embedding_vec <=> CAST(:vec AS vector)) ASC
-                    LIMIT 5
+                    LIMIT 20
                 """),
-                    {"since": since_7d, "cats": preferred_categories, "vec": vec},
+                    {"cats": preferred_categories, "vec": vec},
                 )
                 .mappings()
                 .all()
@@ -1031,9 +1027,82 @@ async def get_fund_ai_analysis(
         ),
         reverse=True,
     )
-    related_raw: list[dict[str, Any]] = merged_raw[:5]
+    related_raw: list[dict[str, Any]] = merged_raw[:20]
 
-    # --- 2.4 智能降级逻辑 ---
+    # 2.4 A股基金追加“政策/重大突破”事件轨道
+    if is_a_share:
+        try:
+            policy_terms = [
+                "%政策%",
+                "%国务院%",
+                "%国常会%",
+                "%证监会%",
+                "%发改委%",
+                "%财政部%",
+                "%央行%",
+                "%突破%",
+                "%获批%",
+                "%落地%",
+            ]
+            # 使用基金名核心词做行业锚点；若为空则退化为 A 股/行业关键词
+            anchor_kw = f"%{core_name}%" if core_name else "%A股%"
+            policy_raw: list[dict[str, Any]] = [
+                dict(r)
+                for r in db.execute(
+                    text("""
+                    SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
+                    FROM intelligence
+                    WHERE category = ANY(:cats)
+                      AND summary IS NOT NULL
+                      AND (
+                        content ILIKE :anchor OR summary::text ILIKE :anchor OR entities::text ILIKE :anchor
+                        OR content ILIKE '%行业%' OR summary::text ILIKE '%行业%'
+                      )
+                      AND (
+                        content ILIKE :p1 OR content ILIKE :p2 OR content ILIKE :p3 OR content ILIKE :p4 OR content ILIKE :p5
+                        OR content ILIKE :p6 OR content ILIKE :p7 OR content ILIKE :p8 OR content ILIKE :p9 OR content ILIKE :p10
+                        OR summary::text ILIKE :p1 OR summary::text ILIKE :p2 OR summary::text ILIKE :p3 OR summary::text ILIKE :p4 OR summary::text ILIKE :p5
+                        OR summary::text ILIKE :p6 OR summary::text ILIKE :p7 OR summary::text ILIKE :p8 OR summary::text ILIKE :p9 OR summary::text ILIKE :p10
+                      )
+                    ORDER BY timestamp DESC, urgency_score DESC
+                    LIMIT 20
+                """),
+                    {
+                        "cats": preferred_categories,
+                        "anchor": anchor_kw,
+                        "p1": policy_terms[0],
+                        "p2": policy_terms[1],
+                        "p3": policy_terms[2],
+                        "p4": policy_terms[3],
+                        "p5": policy_terms[4],
+                        "p6": policy_terms[5],
+                        "p7": policy_terms[6],
+                        "p8": policy_terms[7],
+                        "p9": policy_terms[8],
+                        "p10": policy_terms[9],
+                    },
+                )
+                .mappings()
+                .all()
+            ]
+
+            for row_map in policy_raw:
+                if row_map["id"] not in seen_ids:
+                    merged_raw.append(row_map)
+                    seen_ids.add(row_map["id"])
+
+            merged_raw.sort(
+                key=lambda x: (
+                    x["urgency_score"],
+                    x["timestamp"] or datetime.min.replace(tzinfo=UTC),
+                ),
+                reverse=True,
+            )
+            related_raw = merged_raw[:30]
+        except Exception as e:
+            logger.warning(f"Policy timeline merge failed for {fund_code}: {e}")
+
+    # --- 2.5 智能降级逻辑 ---
     is_fallback = False
     fallback_source = None
 
@@ -1069,15 +1138,13 @@ async def get_fund_ai_analysis(
                         text("""
                         SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
                         FROM intelligence
-                        WHERE timestamp > :since
-                          AND category = ANY(:cats)
+                        WHERE category = ANY(:cats)
                           AND (content ILIKE :kw OR summary::text ILIKE :kw OR entities::text ILIKE :kw)
                           AND summary IS NOT NULL
                         ORDER BY urgency_score DESC, timestamp DESC
-                        LIMIT 3
+                        LIMIT 10
                     """),
                         {
-                            "since": since_7d,
                             "kw": f"%{fallback_kw}%",
                             "cats": preferred_categories,
                         },
@@ -1098,14 +1165,13 @@ async def get_fund_ai_analysis(
                         text("""
                         SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
                         FROM intelligence
-                        WHERE timestamp > :since
-                          AND category = ANY(:cats)
+                        WHERE category = ANY(:cats)
                           AND (content ILIKE '%A股%' OR content ILIKE '%市场%')
                           AND summary IS NOT NULL
                         ORDER BY urgency_score DESC, timestamp DESC
-                        LIMIT 3
+                        LIMIT 10
                     """),
-                        {"since": since_7d, "cats": preferred_categories},
+                        {"cats": preferred_categories},
                     )
                     .mappings()
                     .all()
