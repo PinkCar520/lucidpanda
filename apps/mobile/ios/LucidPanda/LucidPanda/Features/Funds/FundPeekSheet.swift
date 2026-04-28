@@ -14,6 +14,7 @@ struct FundPeekSheet: View {
     @State private var narrative: String? = nil
     @State private var isLoading: Bool = true
     @State private var isAnalyzing: Bool = false
+    @State private var analyzeError: String? = nil
     
     var body: some View {
         NavigationStack {
@@ -81,6 +82,7 @@ struct FundPeekSheet: View {
             }
             .task {
                 await fetchAnalysis()
+                await runAINarrative()
             }
         }
     }
@@ -187,16 +189,21 @@ struct FundPeekSheet: View {
                         Task { await runAINarrative() }
                     } label: {
                         if isAnalyzing {
-                            ProgressView().scaleEffect(0.8)
+                            HStack(spacing: 6) {
+                                ProgressView().scaleEffect(0.75)
+                                Text(LocalizedStringKey("intelligence.analysis.analyzing"))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.secondary)
+                            }
                         } else {
                             HStack(spacing: 4) {
                                 Image(systemName: "wand.and.stars")
-                                Text(LocalizedStringKey("funds.peek.analyze_button"))
+                                Text(LocalizedStringKey("intelligence.analysis.start"))
                             }
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
                             .background(Color.purple)
                             .clipShape(Capsule())
                         }
@@ -205,6 +212,13 @@ struct FundPeekSheet: View {
                 }
             }
             .padding(.horizontal)
+
+            if let err = analyzeError {
+                Text(err)
+                    .font(.caption)
+                    .foregroundStyle(Color.Alpha.down)
+                    .padding(.horizontal)
+            }
 
             LiquidGlassCard(backgroundColor: Color.purple.opacity(0.05)) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -302,11 +316,25 @@ struct FundPeekSheet: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
-                
-                HStack(spacing: 12) {
-                    marketSmallQuote(snapshot.gold, name: String(localized: "funds.peek.market.gold"))
-                    marketSmallQuote(snapshot.dxy, name: String(localized: "funds.peek.market.usd"))
-                    marketSmallQuote(snapshot.us10y, name: String(localized: "funds.peek.market.us10y"))
+
+                let isAShareFund = !(valuation.isQdii ?? false)
+                VStack(spacing: 12) {
+                    if isAShareFund {
+                        if let shIndex = snapshot.shIndex {
+                            marketQuoteCard(shIndex, name: shIndex.name, unit: "SH")
+                        }
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                            marketQuoteCard(snapshot.goldCny ?? snapshot.gold, name: snapshot.goldCny?.name ?? String(localized: "funds.peek.market.gold"), unit: snapshot.goldCny != nil ? "元/克" : nil)
+                            marketQuoteCard(snapshot.oil, name: snapshot.oil.name)
+                            marketQuoteCard(snapshot.us10y, name: String(localized: "funds.peek.market.us10y"))
+                        }
+                    } else {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                            marketQuoteCard(snapshot.gold, name: String(localized: "funds.peek.market.gold"))
+                            marketQuoteCard(snapshot.dxy, name: String(localized: "funds.peek.market.usd"))
+                            marketQuoteCard(snapshot.us10y, name: String(localized: "funds.peek.market.us10y"))
+                        }
+                    }
                 }
                 .padding(.horizontal)
             }
@@ -327,8 +355,9 @@ struct FundPeekSheet: View {
     }
 
     private func runAINarrative() async {
-        guard !isAnalyzing else { return }
+        guard !isAnalyzing, narrative == nil else { return }
         isAnalyzing = true
+        analyzeError = nil
         do {
             let path = "/api/v1/web/watchlist/\(valuation.fundCode)/ai_narrative"
             let response: FundAINarrativeResponse = try await APIClient.shared.fetch(path: path)
@@ -337,23 +366,45 @@ struct FundPeekSheet: View {
             }
         } catch {
             logger.error("Failed to generate AI narrative for fund \(valuation.fundCode): \(error.localizedDescription, privacy: .public)")
+            analyzeError = String(
+                format: NSLocalizedString("intelligence.summary.error", comment: ""),
+                error.localizedDescription
+            )
         }
         isAnalyzing = false
     }
 
-    private func marketSmallQuote(_ quote: MarketQuote, name: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(name)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.secondary)
-            Text(Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: quote.changePercent)) ?? "\(quote.changePercent.formatted(.number.precision(.fractionLength(2))))%")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                .foregroundStyle(quote.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
+    private func marketQuoteCard(_ quote: MarketQuote, name: String, unit: String? = nil) -> some View {
+        let hasLiveData = quote.timestamp != nil && quote.price != 0
+        return LiquidGlassCard(backgroundColor: Color.primary.opacity(0.03)) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .lastTextBaseline, spacing: 4) {
+                    Text(name)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+
+                    if let unit = unit {
+                        Text(unit)
+                            .font(.system(size: 8))
+                            .foregroundStyle(.secondary.opacity(0.6))
+                    }
+                }
+
+                Text(hasLiveData ? String(format: "%.2f", quote.price) : "--")
+                    .font(.system(size: 18, weight: .semibold, design: .monospaced))
+
+                if hasLiveData {
+                    Text(verbatim: "\(quote.changePercent >= 0 ? "+" : "")\(String(format: "%.2f%%", quote.changePercent))")
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(quote.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
+                } else {
+                    Text("数据暂缺")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(8)
-        .background(Color.primary.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func statusColor(_ status: MarketSessionStatus) -> Color {

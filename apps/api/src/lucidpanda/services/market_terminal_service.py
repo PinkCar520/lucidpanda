@@ -37,6 +37,7 @@ class MarketTerminalService:
             dxy_data = self._fetch_dxy()
             oil_data = self._fetch_oil()
             us10y_data = self._fetch_us10y()
+            sh_index_data = self._fetch_shanghai_index()
 
             data = {
                 "gold": gold_data or self._empty_quote("XAU", "伦敦金"),
@@ -44,6 +45,7 @@ class MarketTerminalService:
                 "dxy": dxy_data or self._empty_quote("DXY", "美元指数"),
                 "oil": oil_data or self._empty_quote("CL=F", "原油"),
                 "us10y": us10y_data or self._empty_quote("US10Y", "美债 10Y"),
+                "sh_index": sh_index_data or self._empty_quote("000001.SH", "上证指数"),
                 "last_updated": format_iso8601(datetime.now()),
             }
 
@@ -246,6 +248,39 @@ class MarketTerminalService:
                     }
         except Exception as e:
             logger.error(f"Failed to fetch US10Y data fallback: {e}")
+        return None
+
+    def _fetch_shanghai_index(self):
+        """获取上证指数实时数据（新浪财经 s_sh000001）"""
+        try:
+            url = "https://hq.sinajs.cn/list=s_sh000001"
+            resp = requests.get(
+                url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"}
+            )
+            raw = resp.text
+            if '="' in raw:
+                payload = raw.split('"')[1]
+                parts = payload.split(",")
+                # 常见格式: 名称, 最新价, 涨跌额, 涨跌幅, 成交量(手), 成交额(元)
+                if len(parts) >= 4:
+                    price = float(parts[1])
+                    change = float(parts[2])
+                    change_pct = float(parts[3])
+                    prev_close = price - change
+                    return {
+                        "symbol": "000001.SH",
+                        "name": "上证指数",
+                        "price": round(price, 2),
+                        "change": round(change, 2),
+                        "changePercent": round(change_pct, 2),
+                        "high_24h": None,
+                        "low_24h": None,
+                        "open": None,
+                        "previous_close": round(prev_close, 2) if prev_close > 0 else None,
+                        "timestamp": format_iso8601(datetime.now()),
+                    }
+        except Exception as e:
+            logger.error(f"Failed to fetch Shanghai index data: {e}")
         return None
 
     def _empty_quote(self, symbol: str, name: str):

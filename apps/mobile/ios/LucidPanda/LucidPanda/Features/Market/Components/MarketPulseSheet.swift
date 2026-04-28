@@ -194,6 +194,11 @@ struct MarketPulseSheet: View {
                 .padding(.horizontal)
             
             VStack(spacing: 12) {
+                // 0. A股核心指数（可用时）
+                if let shIndex = snapshot.shIndex {
+                    marketQuoteItem(shIndex, name: "上证指数", unit: "SH")
+                }
+
                 // 1. 黄金双品种 (国际/国内)
                 HStack(spacing: 12) {
                     marketQuoteItem(snapshot.gold, name: LocalizedStringKey("market.asset.gold"))
