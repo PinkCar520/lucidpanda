@@ -1,0 +1,12 @@
+{
+  "name": "lucid-panda",
+  "version": "1.0.0",
+  "description": "LucidPanda HarmonyOS Version",
+  "dependencies": {
+  },
+  "devDependencies": {
+    "@ohos/hypium": "1.0.18",
+    "@ohos/hvigor": "5.0.0",
+    "@ohos/hvigor-ohos-plugin": "5.0.0"
+  }
+}

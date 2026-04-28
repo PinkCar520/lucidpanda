@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "LucidPanda Entry Module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "Main Ability"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "LucidPanda"
+    }
+  ]
+}
