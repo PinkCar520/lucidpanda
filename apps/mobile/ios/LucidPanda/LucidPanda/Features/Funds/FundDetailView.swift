@@ -417,7 +417,7 @@ struct FundDetailView: View {
                                             .opacity(0.8)
                                         
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text(name)
+                                            Text(LocalizedStringKey(stat.id.map { "sector.name.\($0)" } ?? name))
                                                 .font(.system(size: 13, weight: .medium))
                                             Text(String(format: NSLocalizedString("funds.detail.sector.weight_format", comment: ""), stat.weight))
                                                 .font(.system(size: 9))
@@ -459,7 +459,7 @@ struct FundDetailView: View {
     private func inlineDrillDownList(selected: (name: String, stat: SectorStat)) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(selected.name)
+                Text(LocalizedStringKey(selected.stat.id.map { "sector.name.\($0)" } ?? selected.name))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -478,7 +478,7 @@ struct FundDetailView: View {
                         LiquidGlassCard {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(name)
+                                    Text(subStat.id.map { LocalizedStringKey("sector.name.\($0)") } ?? LocalizedStringKey(name))
                                         .font(.system(size: 13, weight: .medium))
                                     Text(String(format: NSLocalizedString("funds.detail.sector.position_format", comment: ""), subStat.weight))
                                         .font(.system(size: 9))

@@ -118,6 +118,8 @@ struct FundCompactCard: View, Equatable {
         .onLongPressGesture(minimumDuration: 0.4, pressing: { pressing in
             withAnimation { isPressed = pressing }
         }, perform: {
+            let generator = UIImpactFeedbackGenerator(style: .medium)
+            generator.impactOccurred()
             showPeek = true
         })
         .sheet(isPresented: $showPeek) {

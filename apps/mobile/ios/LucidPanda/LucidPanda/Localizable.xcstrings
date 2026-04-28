@@ -4462,6 +4462,23 @@
         }
       }
     },
+    "funds.peek.trend_7d" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7-Day Trend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近 7 日走势"
+          }
+        }
+      }
+    },
     "funds.search.filter.all" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5558,6 +5575,57 @@
     "reconciliation.history.title" : {
 
     },
+    "sector.name.ai" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI / Intelligence"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "人工智能"
+          }
+        }
+      }
+    },
+    "sector.name.communication" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Communication"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通信服务"
+          }
+        }
+      }
+    },
+    "sector.name.consumer_discretionary" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Consumer Discretionary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可选消费"
+          }
+        }
+      }
+    },
     "sector.name.consumer_staples" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5588,6 +5656,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "国防军工"
+          }
+        }
+      }
+    },
+    "sector.name.energy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Energy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "能源"
           }
         }
       }
@@ -5626,6 +5711,57 @@
         }
       }
     },
+    "sector.name.industrials" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Industrials"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工业"
+          }
+        }
+      }
+    },
+    "sector.name.liquor" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Liquor"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "白酒"
+          }
+        }
+      }
+    },
+    "sector.name.materials" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Materials"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "基础材料"
+          }
+        }
+      }
+    },
     "sector.name.new_energy" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5660,6 +5796,40 @@
         }
       }
     },
+    "sector.name.precious_metals" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Precious Metals"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "贵金属"
+          }
+        }
+      }
+    },
+    "sector.name.real_estate" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Real Estate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "房地产"
+          }
+        }
+      }
+    },
     "sector.name.semiconductors" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5690,6 +5860,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "信息技术"
+          }
+        }
+      }
+    },
+    "sector.name.utilities" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Utilities"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "公用事业"
           }
         }
       }

@@ -49,7 +49,7 @@ struct SectorDetailView: View {
                                 LiquidGlassCard {
                                     HStack {
                                         VStack(alignment: .leading, spacing: 4) {
-                                            Text(name)
+                                            Text(subStat.id.map { LocalizedStringKey("sector.name.\($0)") } ?? LocalizedStringKey(name))
                                                 .font(.system(size: 14, weight: .medium))
                                             Text(
                                                 String(
@@ -78,7 +78,7 @@ struct SectorDetailView: View {
                 }
                 .padding()
             }
-            .navigationTitle(sectorName)
+            .navigationTitle(stat.id.map { LocalizedStringKey("sector.name.\($0)") } ?? LocalizedStringKey(sectorName))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
