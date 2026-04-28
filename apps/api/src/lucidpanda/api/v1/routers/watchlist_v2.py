@@ -97,7 +97,7 @@ class SyncRequest(BaseModel):
     last_sync_time: datetime | None = None
 
 
-# ==================== 分组管理 ====================
+# No-op in watchlist_v2.py yet. Modifying fund_engine.py.
 
 
 @router.get("/groups", response_model=dict[str, Any])

@@ -243,9 +243,10 @@ struct FundPeekSheet: View {
                     let sorted = sectors.sorted { $0.value.weight > $1.value.weight }.prefix(3)
                     ForEach(Array(sorted), id: \.key) { name, stat in
                         HStack(spacing: 12) {
-                            Text(name)
+                            Text(LocalizedStringKey(stat.id.map { "sector.name.\($0)" } ?? name))
                                 .font(.system(size: 12, weight: .medium))
                                 .frame(width: 60, alignment: .leading)
+                                .lineLimit(1)
                             
                             GeometryReader { geo in
                                 let width = geo.size.width * CGFloat(min(1.0, stat.weight / 100.0))

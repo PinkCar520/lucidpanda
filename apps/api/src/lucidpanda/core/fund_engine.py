@@ -40,6 +40,26 @@ class FundEngine:
         except Exception:
             return 0.0
 
+    # Standard Sector IDs for Internationalization
+    SECTOR_ID_MAP = {
+        "金融": "finance", "银行": "banking", "券商": "securities", "非银金融": "non_bank_finance",
+        "医药": "healthcare", "医疗": "healthcare", "生物": "healthcare", "医药生物": "healthcare",
+        "科技": "tech", "计算机": "computing", "电子": "electronics", "半导体": "semiconductors",
+        "芯片": "semiconductors", "通信": "communications", "互联网": "internet",
+        "食品": "consumer_staples", "饮料": "consumer_staples", "食品饮料": "consumer_staples", "白酒": "liquor",
+        "消费": "consumer", "基础化工": "chemicals", "机械": "machinery", "电力": "power",
+        "新能源": "new_energy", "光伏": "photovoltaic", "军工": "defense", "国防": "defense",
+        "有色": "metals", "钢铁": "steel", "煤炭": "coal", "建筑": "construction", "房地产": "real_estate",
+        "汽车": "auto", "传媒": "media", "公用事业": "utilities", "社会服务": "services", "其他": "others"
+    }
+
+    def _get_sector_id(self, name: str) -> str:
+        """Map Chinese sector name to standardized ID."""
+        if not name: return "others"
+        for kw, sid in self.SECTOR_ID_MAP.items():
+            if kw in name: return sid
+        return "others"
+
     def _infer_market_region_from_meta(
         self, fund_code: str, meta: dict[str, Any] | None = None, fallback_name: str = ""
     ) -> str:
@@ -970,13 +990,22 @@ class FundEngine:
                 l2 = ind_info.get("l2") or "其他"
 
                 if l1 not in sector_stats:
-                    sector_stats[l1] = {"impact": 0.0, "weight": 0.0, "sub": {}}
+                    sector_stats[l1] = {
+                        "id": self._get_sector_id(l1),
+                        "impact": 0.0,
+                        "weight": 0.0,
+                        "sub": {},
+                    }
 
                 sector_stats[l1]["impact"] += current_impact
                 sector_stats[l1]["weight"] += weight
 
                 if l2 not in sector_stats[l1]["sub"]:
-                    sector_stats[l1]["sub"][l2] = {"impact": 0.0, "weight": 0.0}
+                    sector_stats[l1]["sub"][l2] = {
+                        "id": self._get_sector_id(l2),
+                        "impact": 0.0,
+                        "weight": 0.0,
+                    }
 
                 sector_stats[l1]["sub"][l2]["impact"] += current_impact
                 sector_stats[l1]["sub"][l2]["weight"] += weight
@@ -1715,13 +1744,22 @@ class FundEngine:
                     l2 = ind_info.get("l2") or "其他"
 
                     if l1 not in sector_stats:
-                        sector_stats[l1] = {"impact": 0.0, "weight": 0.0, "sub": {}}
+                        sector_stats[l1] = {
+                            "id": self._get_sector_id(l1),
+                            "impact": 0.0,
+                            "weight": 0.0,
+                            "sub": {},
+                        }
 
                     sector_stats[l1]["impact"] += current_impact
                     sector_stats[l1]["weight"] += weight
 
                     if l2 not in sector_stats[l1]["sub"]:
-                        sector_stats[l1]["sub"][l2] = {"impact": 0.0, "weight": 0.0}
+                        sector_stats[l1]["sub"][l2] = {
+                            "id": self._get_sector_id(l2),
+                            "impact": 0.0,
+                            "weight": 0.0,
+                        }
 
                     sector_stats[l1]["sub"][l2]["impact"] += current_impact
                     sector_stats[l1]["sub"][l2]["weight"] += weight

@@ -90,21 +90,25 @@ public struct FundConfidence: Codable {
 }
 
 public struct SubSectorStat: Codable {
+    public let id: String?
     public let impact: Double
     public let weight: Double
     
-    public init(impact: Double, weight: Double) {
+    public init(id: String? = nil, impact: Double, weight: Double) {
+        self.id = id
         self.impact = impact
         self.weight = weight
     }
 }
 
 public struct SectorStat: Codable {
+    public let id: String?
     public let impact: Double
     public let weight: Double
     public let sub: [String: SubSectorStat]?
     
-    public init(impact: Double, weight: Double, sub: [String: SubSectorStat]?) {
+    public init(id: String? = nil, impact: Double, weight: Double, sub: [String: SubSectorStat]?) {
+        self.id = id
         self.impact = impact
         self.weight = weight
         self.sub = sub

@@ -85,29 +85,33 @@ public struct IntelligenceItem: Codable, Identifiable, Hashable {
         price12h = try container.decodeIfPresent(Double.self, forKey: .price12h)
         price24h = try container.decodeIfPresent(Double.self, forKey: .price24h)
 
-        // --- 核心修复：健壮性解码逻辑 ---
+        // --- 核心修复：动态语言优先级解码 ---
         
         let rawContainer = try decoder.container(keyedBy: DynamicCodingKeys.self)
+        
+        // 自动判定系统当前首选语言
+        let preferredLang = Bundle.main.preferredLocalizations.first?.lowercased().contains("zh") == true ? "zh" : "en"
+        let fallbackLang = preferredLang == "zh" ? "en" : "zh"
 
         // 1. 解码 Summary (兼容 summary 字典或字符串)
         if let summaryDict = try? container.decode([String: String].self, forKey: .summary) {
-            summary = summaryDict["zh"] ?? summaryDict["en"] ?? ""
+            summary = summaryDict[preferredLang] ?? summaryDict[fallbackLang] ?? summaryDict.values.first ?? ""
         } else {
             summary = (try? container.decode(String.self, forKey: .summary)) ?? ""
         }
 
         // 2. 解码 Content (兼容 content 字典或字符串)
         if let contentDict = try? container.decode([String: String].self, forKey: .content) {
-            content = contentDict["zh"] ?? contentDict["en"] ?? ""
+            content = contentDict[preferredLang] ?? contentDict[fallbackLang] ?? contentDict.values.first ?? ""
         } else {
             content = (try? container.decode(String.self, forKey: .content)) ?? ""
         }
 
-        // 3. 解码 Sentiment (尝试 sentiment_label -> sentiment 字典 -> sentiment 字符串)
+        // 3. 解码 Sentiment
         if let label = try? rawContainer.decode(String.self, forKey: DynamicCodingKeys(stringValue: "sentiment_label")!) {
             sentiment = label
         } else if let sentimentDict = try? rawContainer.decode([String: String].self, forKey: DynamicCodingKeys(stringValue: "sentiment")!) {
-            sentiment = sentimentDict["zh"] ?? sentimentDict["en"] ?? "Neutral"
+            sentiment = sentimentDict[preferredLang] ?? sentimentDict[fallbackLang] ?? "Neutral"
         } else {
             sentiment = (try? rawContainer.decode(String.self, forKey: DynamicCodingKeys(stringValue: "sentiment")!)) ?? "Neutral"
         }
