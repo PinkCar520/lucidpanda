@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
 from sqlmodel import Session, col, select, text
 
@@ -17,6 +17,7 @@ from src.lucidpanda.models.macro_event import MacroEvent
 from src.lucidpanda.services.market_terminal_service import market_terminal_service
 from src.lucidpanda.core.logger import logger
 from src.lucidpanda.utils import v1_prepare_json, format_iso8601
+from src.lucidpanda.utils.entity_normalizer import translate_fund_name
 from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
 from src.lucidpanda.utils.market_calendar import get_market_status
 
@@ -121,21 +122,31 @@ async def proxy_external_image(url: str = Query(..., description="External image
 
 @router.get("/intelligence/{item_id}/ai_summary", response_model=dict[str, str])
 async def get_mobile_intelligence_ai_summary(
-    item_id: int, db: Session = Depends(get_session)
+    item_id: int,
+    accept_language: str | None = Header(None, alias="Accept-Language"),
+    db: Session = Depends(get_session),
 ):
     """
     Fetch AI summary/actionable advice for a specific intelligence item.
+    Supports multi-language content based on Accept-Language header.
     """
     statement = select(Intelligence).where(Intelligence.id == item_id)
     result = db.exec(statement).first()
     if not result:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    advice_text = "目前没有针对该情报的深度AI分析策略。"
+    # Determine language preference
+    lang = "zh"
+    if accept_language and ("en" in accept_language.lower() or "us" in accept_language.lower()):
+        lang = "en"
+
+    alt_lang = "en" if lang == "zh" else "zh"
+    advice_text = "目前没有针对该情报的深度AI分析策略。" if lang == "zh" else "No AI analysis available for this item."
+
     if isinstance(result.actionable_advice, dict):
         advice_text = (
-            result.actionable_advice.get("zh")
-            or result.actionable_advice.get("en")
+            result.actionable_advice.get(lang)
+            or result.actionable_advice.get(alt_lang)
             or advice_text
         )
     elif isinstance(result.actionable_advice, str) and result.actionable_advice.strip():
@@ -474,20 +485,33 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
 
 
 @router.get("/discover", response_model=dict[str, Any])
-async def get_mobile_discover(db: Session = Depends(get_session)):
+async def get_mobile_discover(
+    accept_language: str | None = Header(None, alias="Accept-Language"),
+    db: Session = Depends(get_session),
+):
     """
     Discovery feed for mobile.
     Returns trending fund tags and suggested readings.
     """
+    # Determine language preference
+    lang = "zh"
+    if accept_language and ("en" in accept_language.lower() or "us" in accept_language.lower()):
+        lang = "en"
+
     # 1. Trending Tags (Backend-curated or analytics-driven)
     # In a real app, this might come from a 'trending' table or cache.
-    trending_tags = [
+    raw_tags = [
         {"title": "博时黄金", "code": "159937"},
         {"title": "华安黄金", "code": "518880"},
         {"title": "易方达黄金", "code": "161128"},
         {"title": "沪深300", "code": "510300"},
         {"title": "纳指100", "code": "513100"},
     ]
+
+    trending_tags = []
+    for tag in raw_tags:
+        localized_title = translate_fund_name(tag["title"], lang)
+        trending_tags.append({"title": localized_title, "code": tag["code"]})
 
     # 2. Suggested Reading (High-urgency intelligence items)
     statement = (
@@ -502,9 +526,13 @@ async def get_mobile_discover(db: Session = Depends(get_session)):
     suggested_reading = []
     for item in results:
         # Resolve best summary text
-        summary_text = "分析中..."
+        alt_lang = "en" if lang == "zh" else "zh"
+        summary_text = "分析中..." if lang == "zh" else "Analyzing..."
+
         if isinstance(item.summary, dict):
-            summary_text = item.summary.get("zh") or item.summary.get("en") or summary_text
+            summary_text = (
+                item.summary.get(lang) or item.summary.get(alt_lang) or summary_text
+            )
         elif isinstance(item.summary, str):
             summary_text = item.summary
 

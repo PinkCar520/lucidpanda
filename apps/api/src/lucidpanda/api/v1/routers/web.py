@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import redis
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, col, select, text
 
@@ -17,6 +17,7 @@ from src.lucidpanda.core.logger import logger
 from src.lucidpanda.infra.database.connection import get_session
 from src.lucidpanda.models.intelligence import Intelligence
 from src.lucidpanda.utils import v1_prepare_json
+from src.lucidpanda.utils.entity_normalizer import translate_fund_name
 from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
 from src.lucidpanda.utils.fusion import merge_entities
 from src.lucidpanda.utils.graph_reasoning import BEARISH_RELATIONS, BULLISH_RELATIONS
@@ -138,13 +139,22 @@ async def get_web_watchlist(
 
 @router.get("/funds/batch-valuation", response_model=dict[str, Any])
 async def get_web_batch_valuations(
-    codes: str, mode: str = "full", current_user: User = Depends(get_current_user)
+    codes: str,
+    mode: str = "full",
+    accept_language: str | None = Header(None, alias="Accept-Language"),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Batch valuation for Web with full data density.
+    Supports i18n for fund names based on Accept-Language header.
     """
     if not codes:
         return {"data": []}
+
+    # Determine language preference
+    lang = "zh"
+    if accept_language and ("en" in accept_language.lower() or "us" in accept_language.lower()):
+        lang = "en"
 
     code_list = [c.strip() for c in codes.split(",") if c.strip()]
     engine = FundEngine()
@@ -159,6 +169,10 @@ async def get_web_batch_valuations(
         f_code = res.get("fund_code")
         if f_code in stats_map:
             res["stats"] = stats_map[f_code]
+
+        # Localize fund name if necessary
+        if lang == "en" and "fund_name" in res:
+            res["fund_name"] = translate_fund_name(res["fund_name"], lang)
 
     return v1_prepare_json({"data": results})
 
@@ -825,20 +839,59 @@ async def get_web_sources_dashboard(
 
 
 @router.get("/intelligence/{item_id}", response_model=dict[str, Any])
-async def get_web_intelligence_item(item_id: int, db: Session = Depends(get_session)):
-    """Fetch a single intelligence item with full JSONB content for Web."""
+async def get_web_intelligence_item(
+    item_id: int,
+    accept_language: str | None = Header(None, alias="Accept-Language"),
+    db: Session = Depends(get_session),
+):
+    """Fetch a single intelligence item with full JSONB content for Web/Mobile."""
+    # Determine language preference
+    lang = "zh"
+    if accept_language and ("en" in accept_language.lower() or "us" in accept_language.lower()):
+        lang = "en"
+
     statement = select(Intelligence).where(Intelligence.id == item_id)
     result = db.exec(statement).first()
     if not result:
         raise HTTPException(status_code=404, detail="Item not found")
-    return _with_confidence(result)
+
+    payload = _with_confidence(result)
+
+    # If requested English, try to flatten multi-lang fields to the preferred language
+    # this helps mobile peek sheet which might expect a single string or just display what we give
+    if lang == "en":
+        for field in ["summary", "content", "market_implication", "actionable_advice"]:
+            if field in payload and isinstance(payload[field], dict):
+                payload[field] = (
+                    payload[field].get("en")
+                    or payload[field].get("zh")
+                    or next(iter(payload[field].values()), "")
+                )
+
+    return payload
 
 
 @router.get("/funds/search", response_model=dict[str, Any])
-async def search_web_funds(q: str = "", limit: int = 20):
+async def search_web_funds(
+    q: str = "",
+    limit: int = 20,
+    accept_language: str | None = Header(None, alias="Accept-Language"),
+):
     """Search for funds via Web BFF."""
+    # Determine language preference
+    lang = "zh"
+    if accept_language and ("en" in accept_language.lower() or "us" in accept_language.lower()):
+        lang = "en"
+
     engine = FundEngine()
     results = engine.search_funds(q.strip(), limit)
+
+    # Translate fund names if necessary
+    if lang == "en":
+        for res in results:
+            if "fund_name" in res:
+                res["fund_name"] = translate_fund_name(res["fund_name"], lang)
+
     return v1_prepare_json({"results": results, "total": len(results), "query": q})
 
 

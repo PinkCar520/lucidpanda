@@ -17,7 +17,7 @@ from src.lucidpanda.providers.llm.gemini import GeminiLLM
 from src.lucidpanda.services.embedding_service import embedding_service
 from src.lucidpanda.services.market_terminal_service import market_terminal_service
 from src.lucidpanda.utils import v1_prepare_json
-from src.lucidpanda.utils.entity_normalizer import normalize_fund_name
+from src.lucidpanda.utils.entity_normalizer import normalize_fund_name, translate_fund_name
 
 router = APIRouter(prefix="/watchlist", tags=["watchlist-v2"])
 
@@ -396,12 +396,18 @@ async def reorder_watchlist_groups_patch(
 @router.get("", response_model=dict[str, Any])
 async def get_watchlist_v2(
     group_id: str | None = Query(None),
+    accept_language: str | None = Header(None, alias="Accept-Language"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_session),
 ):
     """获取自选列表（支持分组筛选）"""
     try:
         user_id = str(current_user.id)
+        
+        # Determine language preference
+        lang = "zh"
+        if accept_language and ("en" in accept_language.lower() or "us" in accept_language.lower()):
+            lang = "en"
 
         # 获取分组列表
         groups_stmt = text("""
@@ -445,6 +451,10 @@ async def get_watchlist_v2(
         items = []
         for row in items_result:
             item = dict(row)
+            # Localize fund name if necessary
+            if lang == "en" and "fund_name" in item:
+                item["fund_name"] = translate_fund_name(item["fund_name"], lang)
+
             if "created_at" in item and hasattr(item["created_at"], "isoformat"):
                 item["created_at"] = item["created_at"].isoformat()
             if "updated_at" in item and hasattr(item["updated_at"], "isoformat"):

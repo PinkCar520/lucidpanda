@@ -174,6 +174,80 @@ def normalize_fund_name(name: str) -> str:
     return name.strip()
 
 
+# 基金名称翻译映射 (动态组装)
+FUND_NAME_TRANSLATION_MAP = {
+    # 基金公司
+    "博时": "Bosera",
+    "华安": "HuaAn",
+    "易方达": "E Fund",
+    "华夏": "ChinaAMC",
+    "广发": "GF Fund",
+    "富国": "Fullgoal",
+    "南方": "Southern",
+    "嘉实": "Harvest",
+    "招商": "CMS",
+    "工银瑞信": "ICBC",
+    "天弘": "Tianhong",
+    "鹏华": "Penghua",
+    # 核心资产/指数
+    "黄金": "Gold",
+    "标普500": "S&P 500",
+    "纳指100": "Nasdaq 100",
+    "沪深300": "CSI 300",
+    "中证500": "CSI 500",
+    "创业板": "Chinext",
+    "恒生": "Hang Seng",
+    "纳斯达克": "Nasdaq",
+    "半导体": "Semiconductor",
+    "白酒": "Liquor",
+    "医药": "Healthcare",
+    "新能源": "New Energy",
+    "军工": "Military",
+    "银行": "Banking",
+    "券商": "Securities",
+    "芯片": "Chip",
+    "科创板": "STAR Market",
+    # 常用词汇
+    "联接": "Feeder",
+    "混合": "Mixed",
+    "股票": "Equity",
+    "债券": "Bond",
+    "增强": "Enhanced",
+    "指数": "Index",
+    "精选": "Select",
+    "优选": "Optimal",
+    "价值": "Value",
+    "成长": "Growth",
+    "量化": "Quant",
+}
+
+
+def translate_fund_name(name: str, lang: str) -> str:
+    """
+    根据语言环境翻译基金名称。
+    当前仅支持 zh -> en 的部分关键词替换翻译。
+    """
+    if not name or lang != "en":
+        return name
+
+    translated = name
+    # 按长度降序排列 key，确保最长匹配优先 (例如 "沪深300" 优先于 "300")
+    sorted_keys = sorted(FUND_NAME_TRANSLATION_MAP.keys(), key=len, reverse=True)
+
+    for key in sorted_keys:
+        if key in translated:
+            translated = translated.replace(key, FUND_NAME_TRANSLATION_MAP[key] + " ")
+
+    # 清理多余空格
+    translated = re.sub(r"\s+", " ", translated).strip()
+
+    # 如果完全没有变化，或者翻译后全是数字，保留原名
+    if translated == name:
+        return name
+
+    return translated
+
+
 def normalize_entity_type(name: str, llm_type: str) -> str:
     """
     返回实体的规范化类型。
