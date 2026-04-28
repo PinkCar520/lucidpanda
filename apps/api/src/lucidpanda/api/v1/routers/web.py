@@ -179,19 +179,32 @@ async def get_web_batch_valuations(
 
 @router.get("/funds/{code}/valuation", response_model=dict[str, Any])
 async def get_web_fund_valuation(
-    code: str, current_user: User = Depends(get_current_user)
+    code: str,
+    accept_language: str | None = Header(None, alias="Accept-Language"),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Detailed single fund valuation for Web.
     """
+    # Determine language preference
+    lang = "zh"
+    if accept_language and ("en" in accept_language.lower() or "us" in accept_language.lower()):
+        lang = "en"
+
     engine = FundEngine()
     results = engine.calculate_batch_valuation([code])
     if results:
+        res = results[0]
         db_legacy = IntelligenceDB()
         stats_map = db_legacy.get_fund_stats([code])
         if code in stats_map:
-            results[0]["stats"] = stats_map[code]
-        return v1_prepare_json(results[0])
+            res["stats"] = stats_map[code]
+
+        # Localize fund name if necessary
+        if lang == "en" and "fund_name" in res:
+            res["fund_name"] = translate_fund_name(res["fund_name"], lang)
+
+        return v1_prepare_json(res)
     return {"error": "Valuation failed"}
 
 
