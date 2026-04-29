@@ -8,6 +8,7 @@ Goals:
    - Date/Time (formatted as MM-dd HH:mm)
    - Event description
    - Market impact (concise)
+   - Reasoning (causal link or logic explanation, e.g., "Event B is a direct result of Event A")
    - Sentiment (bullish, bearish, or neutral for the core asset mentioned)
 
 Output Format:
@@ -20,6 +21,7 @@ You MUST return a valid JSON object with the following structure:
       "date": "MM-dd HH:mm",
       "event": "string",
       "impact": "string",
+      "reasoning": "string",
       "sentiment": "bullish" | "bearish" | "neutral"
     }
   ]

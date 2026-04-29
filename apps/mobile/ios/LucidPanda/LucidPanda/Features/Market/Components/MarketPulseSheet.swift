@@ -263,7 +263,7 @@ struct MarketPulseSheet: View {
     }
     
     private func topAlertsSection(_ alerts: [MarketPulseAlert]) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             if alerts.isEmpty {
                 Text("market.pulse.no_high_urgency")
                     .font(.subheadline)
@@ -271,30 +271,35 @@ struct MarketPulseSheet: View {
                     .padding(.horizontal)
             } else {
                 ForEach(alerts) { alert in
-                    LiquidGlassCard(backgroundColor: Color.Alpha.up.opacity(0.05)) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                Text("market.pulse.urgency_score \(alert.urgencyScore)")
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.Alpha.up.opacity(0.1))
-                                    .foregroundStyle(Color.Alpha.up)
-                                    .clipShape(Capsule())
-
-                                Spacer()
-
-                                Text(alertDateFormatter.string(from: alert.timestamp))
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Text(alert.summary)
-                                .font(.system(size: 14, weight: .medium))
-                                .lineLimit(3)
-                        }
+                    HStack(spacing: 12) {
+                        Text(verbatim: "\(alert.urgencyScore)")
+                            .font(.system(size: 10, weight: .black, design: .monospaced))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.Alpha.up.opacity(0.15))
+                            .foregroundStyle(Color.Alpha.up)
+                            .clipShape(RoundedRectangle(cornerRadius: 2))
+                        
+                        Text(alert.summary)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color.Alpha.textPrimary)
+                            .lineLimit(1)
+                        
+                        Spacer()
+                        
+                        Text(alertDateFormatter.string(from: alert.timestamp).suffix(5))
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(Color.Alpha.taupe.opacity(0.6))
                     }
-                    .padding(.horizontal)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(Color.Alpha.surface)
+                    .overlay(
+                        Rectangle()
+                            .fill(Color.Alpha.separator.opacity(0.5))
+                            .frame(height: 0.5),
+                        alignment: .bottom
+                    )
                 }
             }
         }
@@ -501,6 +506,24 @@ struct TimechainTimelineRow: View {
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(Color.Alpha.textPrimary)
                     .lineLimit(2)
+
+                if let reasoning = event.reasoning, !reasoning.isEmpty {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "arrow.triangle.merge")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.Alpha.brand)
+                            .padding(.top, 2)
+                        
+                        Text(reasoning)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.Alpha.brand.opacity(0.8))
+                            .lineLimit(3)
+                    }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 8)
+                    .background(Color.Alpha.brand.opacity(0.05))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
 
                 Text(event.impact)
                     .font(.system(size: 13))

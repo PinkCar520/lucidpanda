@@ -309,6 +309,7 @@ public struct TimechainEvent: Codable, Identifiable {
     public let date: String
     public let event: String
     public let impact: String
+    public let reasoning: String? // 因果逻辑说明
     public let sentiment: String // bullish, bearish, neutral
 }
 
