@@ -11,7 +11,9 @@ public class MarketPulseViewModel {
     private let pulseCacheKey = "com.pincar.cache.market_pulse"
     
     public private(set) var pulseData: MarketPulseResponse?
+    public private(set) var timechainData: MarketTimechainResponse?
     public var isLoading = false
+    public var isTimechainLoading = false
     public var lastUpdated: Date?
     
     private let refreshInterval: TimeInterval = 60 // 1 minute refresh
@@ -74,6 +76,26 @@ public class MarketPulseViewModel {
             print("Failed to fetch market pulse: \(error)")
         }
         isLoading = false
+    }
+
+    @MainActor
+    public func fetchTimechain() async {
+        guard !isTimechainLoading else { return }
+        isTimechainLoading = true
+        
+        let savedLanguage = UserDefaults.standard.string(forKey: "appLanguage") ?? "system"
+        let languageCode = savedLanguage != "system" ? savedLanguage.lowercased() : (Bundle.main.preferredLocalizations.first?.lowercased() ?? "en")
+        let language = languageCode.contains("zh") ? "zh" : "en"
+        
+        do {
+            let data: MarketTimechainResponse = try await apiClient.fetch(path: "/api/v1/mobile/market/pulse/timechain?lang=\(language)")
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                self.timechainData = data
+            }
+        } catch {
+            print("Failed to fetch timechain: \(error)")
+        }
+        isTimechainLoading = false
     }
     
     private func startAutoRefresh() {

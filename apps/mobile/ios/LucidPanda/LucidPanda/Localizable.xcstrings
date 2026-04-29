@@ -5236,6 +5236,70 @@
         }
       }
     },
+    "market.pulse.section.timechain.short" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Event Chain"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "事件脉络"
+          }
+        }
+      }
+    },
+    "market.pulse.timechain.loading" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI analyzing market chain..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 正在深度串联事件脉络..."
+          }
+        }
+      }
+    },
+    "market.pulse.timechain.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No significant event chain found."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "近 7 天未发现显著演进脉络。"
+          }
+        }
+      }
+    },
+    "market.pulse.timechain.retry" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry AI Analysis"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试 AI 分析"
+          }
+        }
+      }
+    },
     "market.pulse.section_label" : {
       "extractionState" : "stale",
       "localizations" : {

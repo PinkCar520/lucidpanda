@@ -20,8 +20,78 @@ from src.lucidpanda.utils import v1_prepare_json, format_iso8601
 from src.lucidpanda.utils.entity_normalizer import translate_fund_name
 from src.lucidpanda.utils.confidence import calc_confidence_level, calc_confidence_score
 from src.lucidpanda.utils.market_calendar import get_market_status
+from src.lucidpanda.providers.llm.deepseek import DeepSeekLLM
+from src.lucidpanda.prompts.timechain_v1 import TIMECHAIN_SYSTEM_PROMPT, TIMECHAIN_USER_PROMPT_TEMPLATE
 
 router = APIRouter()
+
+
+@router.get("/market/pulse/timechain", response_model=dict[str, Any])
+async def get_market_pulse_timechain(
+    db: Session = Depends(get_session),
+    lang: str = Query("zh", regex="^(zh|en)$"),
+):
+    """
+    市场脉搏 - 事件脉络分析。
+    聚合过去 7 天高紧急度情报，通过 AI 生成具有因果关系的演进链条。
+    """
+    _CACHE_KEY = f"api:market:pulse:timechain:{lang}"
+    _CACHE_TTL = 3600
+
+    cached = get_cached(_CACHE_KEY)
+    if cached is not None:
+        return cached
+
+    now_dt = datetime.now(UTC)
+    since_7d = now_dt - timedelta(days=7)
+
+    query = text("""
+        SELECT id, timestamp, summary, urgency_score, sentiment_score, author
+        FROM intelligence
+        WHERE timestamp >= :since AND urgency_score >= 7 AND status = 'COMPLETED'
+        ORDER BY timestamp ASC
+    """)
+    rows = db.execute(query, {"since": since_7d}).mappings().all()
+
+    if not rows:
+        return {
+            "theme_title": "市场波动较小" if lang == "zh" else "Low Market Volatility",
+            "ai_summary": "过去 7 天未监测到具有显著宏观影响的高紧急度事件。" if lang == "zh" else "No high-urgency macro events detected in the last 7 days.",
+            "timeline": [],
+            "generated_at": format_iso8601(now_dt)
+        }
+
+    items_context = ""
+    for idx, row in enumerate(rows):
+        summary_val = row["summary"]
+        text_summary = ""
+        if isinstance(summary_val, dict):
+            text_summary = summary_val.get(lang) or summary_val.get("zh") or summary_val.get("en")
+        else:
+            text_summary = str(summary_val)
+        
+        ts_str = row["timestamp"].strftime("%Y-%m-%d %H:%M") if isinstance(row["timestamp"], datetime) else str(row["timestamp"])
+        items_context += f"[{idx+1}] 时间: {ts_str}, 内容: {text_summary}, 紧急度: {row['urgency_score']}\n"
+
+    try:
+        llm = DeepSeekLLM()
+        prompt = TIMECHAIN_USER_PROMPT_TEMPLATE.format(intelligence_items=items_context)
+        full_prompt = f"{TIMECHAIN_SYSTEM_PROMPT}\n\n{prompt}"
+        
+        result = await llm.generate_json_async(full_prompt)
+        
+        result["generated_at"] = format_iso8601(now_dt)
+        set_cached(_CACHE_KEY, result, _CACHE_TTL)
+        return result
+    except Exception as e:
+        logger.error(f"Timechain AI analysis failed: {e}")
+        return {
+            "theme_title": "AI 分析暂时不可用" if lang == "zh" else "AI Analysis Unavailable",
+            "ai_summary": "系统在尝试串联事件脉络时遇到技术问题，请稍后再试。",
+            "timeline": [],
+            "error": str(e),
+            "generated_at": format_iso8601(now_dt)
+        }
 
 
 async def _fetch_image_with_httpx(url: str, proxy_url: str | None):

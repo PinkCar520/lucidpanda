@@ -11,6 +11,7 @@ struct MarketPulseSheet: View {
 
     private enum PulseSection: Int, CaseIterable, Identifiable {
         case alerts
+        case timechain
         case events
 
         var id: Int { rawValue }
@@ -18,6 +19,7 @@ struct MarketPulseSheet: View {
         var title: LocalizedStringKey {
             switch self {
             case .alerts: return LocalizedStringKey("market.pulse.section.alerts.short")
+            case .timechain: return LocalizedStringKey("market.pulse.section.timechain.short")
             case .events: return LocalizedStringKey("market.pulse.section.events.short")
             }
         }
@@ -49,9 +51,16 @@ struct MarketPulseSheet: View {
                         .padding(.horizontal)
                         .padding(.top, 4)
                         .padding(.bottom, 6)
+                        .onChange(of: selectedPulseSection) { _, newValue in
+                            if newValue == .timechain {
+                                Task { await viewModel.fetchTimechain() }
+                            }
+                        }
                         
                         if selectedPulseSection == .alerts {
                             topAlertsSection(data.topAlerts)
+                        } else if selectedPulseSection == .timechain {
+                            timechainSection
                         } else {
                             upcomingEventsSection(data.upcomingEvents)
                         }
@@ -338,6 +347,70 @@ struct MarketPulseSheet: View {
             }
         }
     }
+
+    @ViewBuilder
+    private var timechainSection: some View {
+        if viewModel.isTimechainLoading {
+            VStack(spacing: 12) {
+                ProgressView()
+                Text("market.pulse.timechain.loading")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 40)
+        } else if let data = viewModel.timechainData {
+            VStack(alignment: .leading, spacing: 20) {
+                // 1. Theme Summary
+                LiquidGlassCard(backgroundColor: Color.Alpha.brand.opacity(0.05)) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(Color.Alpha.brand)
+                            Text(data.theme_title)
+                                .font(.headline)
+                                .foregroundStyle(Color.Alpha.textPrimary)
+                        }
+                        
+                        Text(data.ai_summary)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.Alpha.textSecondary)
+                            .lineSpacing(4)
+                    }
+                }
+                .padding(.horizontal)
+                
+                // 2. Timeline
+                if data.timeline.isEmpty {
+                    Text("market.pulse.timechain.empty")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal)
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(Array(data.timeline.enumerated()), id: \.element.id) { index, event in
+                            TimechainTimelineRow(
+                                event: event,
+                                isFirst: index == 0,
+                                isLast: index == data.timeline.count - 1
+                            )
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+            }
+        } else {
+            Button {
+                Task { await viewModel.fetchTimechain() }
+            } label: {
+                Text("market.pulse.timechain.retry")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.Alpha.brand)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 40)
+        }
+    }
     
     
     // --- Helpers ---
@@ -384,5 +457,74 @@ struct MarketPulseSheet: View {
         
         let normalized = (score + 1.0) / 2.0 // 0.0 to 1.0
         return normalized * width - 2 // -2 for half of capsule width
+    }
+}
+
+struct TimechainTimelineRow: View {
+    let event: TimechainEvent
+    let isFirst: Bool
+    let isLast: Bool
+
+    private var sentimentColor: Color {
+        switch event.sentiment {
+        case "bullish": return Color.Alpha.up
+        case "bearish": return Color.Alpha.down
+        default: return .secondary
+        }
+    }
+
+    private var sentimentLabel: String {
+        switch event.sentiment {
+        case "bullish": return "看多"
+        case "bearish": return "看空"
+        default: return "中性"
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.secondary.opacity(isFirst ? 0 : 0.25))
+                    .frame(width: 2, height: 14)
+                Circle()
+                    .fill(sentimentColor)
+                    .frame(width: 10, height: 10)
+                    .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1))
+                Rectangle()
+                    .fill(Color.secondary.opacity(isLast ? 0 : 0.25))
+                    .frame(width: 2, height: 60)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(event.event)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Color.Alpha.textPrimary)
+                    .lineLimit(2)
+
+                Text(event.impact)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.Alpha.textSecondary)
+                    .lineLimit(2)
+
+                HStack(spacing: 10) {
+                    Text(event.date)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Color.Alpha.taupe)
+
+                    Text(sentimentLabel)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(sentimentColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(sentimentColor.opacity(0.1))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.top, 2)
+            .padding(.bottom, isLast ? 0 : 10)
+            
+            Spacer(minLength: 0)
+        }
     }
 }

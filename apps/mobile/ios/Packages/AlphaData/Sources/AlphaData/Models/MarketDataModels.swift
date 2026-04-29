@@ -295,6 +295,23 @@ public struct SentimentTrendPoint: Codable, Identifiable {
     }
 }
 
+// MARK: - Market Timechain (事件脉络)
+
+public struct MarketTimechainResponse: Codable {
+    public let theme_title: String
+    public let ai_summary: String
+    public let timeline: [TimechainEvent]
+    public let generated_at: String?
+}
+
+public struct TimechainEvent: Codable, Identifiable {
+    public var id: String { "\(date)-\(event)" }
+    public let date: String
+    public let event: String
+    public let impact: String
+    public let sentiment: String // bullish, bearish, neutral
+}
+
 // MARK: - Helper Extensions
 
 extension MarketQuote {
