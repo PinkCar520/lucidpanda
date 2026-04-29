@@ -66,7 +66,9 @@ public struct GoldDeepAnalysisSheet: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(pulseData.map { String(format: "%+.2f%%", $0.marketSnapshot.gold.changePercent) } ?? "+1.24%")
+                    let change = pulseData?.marketSnapshot.gold.changePercent ?? 0.0
+                    let formattedChange = Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: change / 100.0)) ?? "\(change.formatted(.number.precision(.fractionLength(2))))%"
+                    Text(formattedChange)
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
                         .foregroundStyle(Color.Alpha.up)
                     

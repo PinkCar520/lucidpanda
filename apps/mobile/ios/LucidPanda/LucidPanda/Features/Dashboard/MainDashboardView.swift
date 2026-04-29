@@ -136,7 +136,8 @@ struct MainDashboardView: View {
                             .foregroundStyle(Color.Alpha.textPrimary)
                             
                             let change = rootViewModel.marketPulseViewModel.pulseData?.marketSnapshot.gold.changePercent ?? 0.00
-                            Text(String(format: "%+.2f%%", change))
+                            let formattedChange = Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: change / 100.0)) ?? "\(change.formatted(.number.precision(.fractionLength(2))))%"
+                            Text(formattedChange)
                                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)

@@ -15,8 +15,7 @@ struct FundCompactCard: View, Equatable {
     }
 
     private var growthText: String {
-        let prefix = valuation.estimatedGrowth >= 0 ? "+" : ""
-        return "\(prefix)\(String(format: "%.2f", valuation.estimatedGrowth))%"
+        Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: valuation.estimatedGrowth / 100.0)) ?? "\(valuation.estimatedGrowth.formatted(.number.precision(.fractionLength(2))))%"
     }
     
     private var growthColor: Color {

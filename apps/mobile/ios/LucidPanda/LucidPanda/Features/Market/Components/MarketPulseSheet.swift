@@ -243,7 +243,8 @@ struct MarketPulseSheet: View {
                     .contentTransition(.numericText())
 
                 HStack(spacing: 4) {
-                    Text(verbatim: "\(quote.changePercent >= 0 ? "+" : "")\(String(format: "%.2f%%", quote.changePercent))")
+                    let formattedChange = Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: quote.changePercent / 100.0)) ?? "\(quote.changePercent.formatted(.number.precision(.fractionLength(2))))%"
+                    Text(verbatim: formattedChange)
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                         .foregroundStyle(quote.changePercent >= 0 ? Color.Alpha.up : Color.Alpha.down)
                 }
