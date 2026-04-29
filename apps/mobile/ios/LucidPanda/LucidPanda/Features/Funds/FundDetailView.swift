@@ -119,8 +119,11 @@ struct FundDetailView: View {
     
     private var headerSection: some View {
         VStack(spacing: 8) {
+            let formattedValue = String(format: "%.2f", viewModel.liveGrowth)
+            let prefix = (viewModel.liveGrowth > 0 || (viewModel.liveGrowth == 0 && !formattedValue.contains("-"))) ? "+" : ""
+            
             HStack(alignment: .firstTextBaseline) {
-                LiquidTicker(value: viewModel.liveGrowth, precision: 2, prefix: viewModel.liveGrowth >= 0 ? "+" : "")
+                LiquidTicker(value: viewModel.liveGrowth, precision: 2, prefix: prefix)
                     .foregroundStyle(viewModel.liveGrowth >= 0 ? Color.Alpha.up : Color.Alpha.down)
 
                 Text(Formatters.signedPercentFormatter(fractionDigits: 0).percentSymbol ?? "%")
@@ -426,7 +429,8 @@ struct FundDetailView: View {
                                         
                                         Spacer()
                                         
-                                        Text(String(format: "%+.2f%%", stat.impact))
+                                        let formattedImpact = Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: stat.impact / 100.0)) ?? "\(stat.impact.formatted(.number.precision(.fractionLength(2))))%"
+                                        Text(formattedImpact)
                                             .font(.system(size: 13, weight: .medium, design: .monospaced))
                                             .foregroundStyle(stat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                                         
@@ -485,7 +489,8 @@ struct FundDetailView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text(String(format: "%+.3f%%", subStat.impact))
+                                let formattedImpact = Formatters.signedPercentFormatter(fractionDigits: 3).string(from: NSNumber(value: subStat.impact / 100.0)) ?? "\(subStat.impact.formatted(.number.precision(.fractionLength(3))))%"
+                                Text(formattedImpact)
                                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                                     .foregroundStyle(subStat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                                 
@@ -788,7 +793,8 @@ struct HoldingRow: View {
                     HStack(spacing: 4) {
                         Text(String(format: NSLocalizedString("funds.detail.holdings.weight_format", comment: ""), String(format: "%.1f", component.weight)))
                         Text("common.symbol.bullet")
-                        Text(String(format: NSLocalizedString("funds.detail.holdings.contribution_format", comment: ""), String(format: "%.3f", component.impact)))
+                        let formattedImpact = Formatters.signedPercentFormatter(fractionDigits: 3).string(from: NSNumber(value: component.impact / 100.0)) ?? "\(component.impact.formatted(.number.precision(.fractionLength(3))))%"
+                        Text(String(format: NSLocalizedString("funds.detail.holdings.contribution_format", comment: ""), formattedImpact))
                     }
                     .font(.system(size: 8))
                     .foregroundStyle(.secondary)

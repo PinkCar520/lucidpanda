@@ -271,7 +271,8 @@ struct FundPeekSheet: View {
                             .frame(height: 4)
                             .frame(maxWidth: .infinity)
                             
-                            Text(String(format: "%+.2f%%", stat.impact))
+                            let formattedImpact = Formatters.signedPercentFormatter(fractionDigits: 2).string(from: NSNumber(value: stat.impact / 100.0)) ?? "\(stat.impact.formatted(.number.precision(.fractionLength(2))))%"
+                            Text(formattedImpact)
                                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                                 .foregroundStyle(stat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                                 .frame(width: 60, alignment: .trailing)

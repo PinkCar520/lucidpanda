@@ -305,8 +305,13 @@ extension MarketQuote {
     
     /// 格式化价格变化
     public var formattedChange: String {
-        let sign = change >= 0 ? "+" : ""
-        return String(format: "%@%.2f (%.2f%%)", sign, change, changePercent)
+        let formattedPrice = String(format: "%.2f", change)
+        let formattedPct = String(format: "%.2f", changePercent)
+        
+        let priceSign = (change > 0 || (change == 0 && !formattedPrice.contains("-"))) ? "+" : ""
+        let pctSign = (changePercent > 0 || (changePercent == 0 && !formattedPct.contains("-"))) ? "+" : ""
+        
+        return String(format: "%@%@ (%@%@%%)", priceSign, formattedPrice, pctSign, formattedPct)
     }
 }
 

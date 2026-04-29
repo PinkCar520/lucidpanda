@@ -27,7 +27,8 @@ struct SectorDetailView: View {
                             Text("funds.sector.metric.contribution")
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
-                            Text(String(format: "%+.3f%%", stat.impact))
+                            let formattedImpact = Formatters.signedPercentFormatter(fractionDigits: 3).string(from: NSNumber(value: stat.impact / 100.0)) ?? "\(stat.impact.formatted(.number.precision(.fractionLength(3))))%"
+                            Text(formattedImpact)
                                 .font(.system(size: 20, weight: .semibold, design: .monospaced))
                                 .foregroundStyle(stat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                         }
@@ -61,7 +62,8 @@ struct SectorDetailView: View {
                                             .foregroundStyle(.secondary)
                                         }
                                         Spacer()
-                                        Text(String(format: "%+.3f%%", subStat.impact))
+                                        let formattedImpact = Formatters.signedPercentFormatter(fractionDigits: 3).string(from: NSNumber(value: subStat.impact / 100.0)) ?? "\(subStat.impact.formatted(.number.precision(.fractionLength(3))))%"
+                                        Text(formattedImpact)
                                             .font(.system(size: 14, weight: .medium, design: .monospaced))
                                             .foregroundStyle(subStat.impact >= 0 ? Color.Alpha.up : Color.Alpha.down)
                                     }
