@@ -952,39 +952,59 @@ async def get_fund_ai_analysis(
 
     # 判定基金所属市场与情报分类偏好
     is_a_share = fund_code.isdigit() and len(fund_code) == 6
-    preferred_categories = (
-        ["equity_cn", "macro_gold"] if is_a_share else ["equity_us", "macro_gold"]
-    )
+    # 智能判定是否与黄金相关，避免非黄金基金拉取到黄金情报
+    gold_keywords = ["黄金", "金", "Gold", "AU", "金主题"]
+    is_gold_related = any(gk in fund_name for gk in gold_keywords) or (core_name and any(gk in core_name for gk in gold_keywords))
+    
+    preferred_categories = ["equity_cn"] if is_a_share else ["equity_us"]
+    if is_gold_related:
+        preferred_categories.append("macro_gold")
+    else:
+        # 如果不是黄金基金，则增加宏观/大宗通用的分类作为备选，但不包含黄金专项
+        preferred_categories.extend(["macro", "commodity"])
 
     # 2. 混合检索关联情报（不按时间窗口截断，走事件驱动时间线）
+    
+    # 提取权重最高的板块作为额外的搜索关键词
+    sector_keywords = []
+    if sector_attribution:
+        # 取权重前三的板块
+        sorted_s = sorted(sector_attribution.items(), key=lambda x: x[1].get("weight", 0), reverse=True)
+        for s_name, s_info in sorted_s[:3]:
+            if s_name != "其他" and len(s_name) >= 2:
+                sector_keywords.append(s_name)
 
-    # 2.1 关键词检索
+    # 2.1 关键词检索 (增强：包含基金名 + 板块名)
+    kw_conditions = ["content ILIKE :kw_full OR content ILIKE :kw_core OR summary::text ILIKE :kw_full OR summary::text ILIKE :kw_core"]
+    kw_params = {
+        "cats": preferred_categories,
+        "kw_full": f"%{fund_name}%",
+        "kw_core": f"%{core_name}%",
+    }
+    
+    for i, sk in enumerate(sector_keywords):
+        key = f"sk_{i}"
+        kw_conditions.append(f"content ILIKE :{key} OR summary::text ILIKE :{key}")
+        kw_params[key] = f"%{sk}%"
+
+    kw_query = f"""
+        SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
+        FROM intelligence
+        WHERE category = ANY(:cats)
+          AND (
+            {" OR ".join(kw_conditions)}
+            OR entities @> CAST(:json_full AS jsonb) OR entities @> CAST(:json_core AS jsonb)
+          )
+          AND summary IS NOT NULL
+        ORDER BY urgency_score DESC, timestamp DESC
+        LIMIT 30
+    """
+    
+    kw_params["json_full"] = json.dumps([{"name": fund_name}])
+    kw_params["json_core"] = json.dumps([{"name": core_name}])
+
     kw_raw: list[dict[str, Any]] = [
-        dict(r)
-        for r in db.execute(
-            text("""
-            SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
-            FROM intelligence
-            WHERE category = ANY(:cats)
-              AND (
-                content ILIKE :kw_full OR content ILIKE :kw_core
-                OR summary::text ILIKE :kw_full OR summary::text ILIKE :kw_core
-                OR entities @> CAST(:json_full AS jsonb) OR entities @> CAST(:json_core AS jsonb)
-              )
-              AND summary IS NOT NULL
-            ORDER BY urgency_score DESC, timestamp DESC
-            LIMIT 20
-        """),
-            {
-                "cats": preferred_categories,
-                "kw_full": f"%{fund_name}%",
-                "kw_core": f"%{core_name}%",
-                "json_full": json.dumps([{"name": fund_name}]),
-                "json_core": json.dumps([{"name": core_name}]),
-            },
-        )
-        .mappings()
-        .all()
+        dict(r) for r in db.execute(text(kw_query), kw_params).mappings().all()
     ]
 
     # 2.2 语义检索
@@ -1299,17 +1319,31 @@ async def get_fund_ai_narrative(
     # 2. 获取近期关联情报摘要
     since_3d = datetime.now(UTC) - timedelta(days=3)
     core_name = normalize_fund_name(fund_name)
+    
+    # 提取顶级板块作为辅助搜索关键词
+    top_sector_names = []
+    if "sector_attribution" in valuation:
+         sorted_s = sorted(valuation["sector_attribution"].items(), key=lambda x: x[1].get("weight", 0), reverse=True)
+         top_sector_names = [s[0] for s in sorted_s if s[0] != "其他"][:2]
+
+    conditions = ["(content ILIKE :kw OR summary::text ILIKE :kw)"]
+    params = {"since": since_3d, "kw": f"%{core_name}%"}
+    for i, sn in enumerate(top_sector_names):
+        key = f"sn_{i}"
+        conditions.append(f"(content ILIKE :{key} OR summary::text ILIKE :{key})")
+        params[key] = f"%{sn}%"
+
     intelligence_rows = db.execute(
-        text("""
+        text(f"""
             SELECT summary, actionable_advice
             FROM intelligence
             WHERE timestamp > :since
-              AND (content ILIKE :kw OR summary::text ILIKE :kw)
+              AND ({" OR ".join(conditions)})
               AND summary IS NOT NULL
             ORDER BY urgency_score DESC
-            LIMIT 3
+            LIMIT 5
         """),
-        {"since": since_3d, "kw": f"%{core_name}%"},
+        params,
     ).mappings().all()
 
     intel_context = ""
@@ -1331,17 +1365,17 @@ Fund Name: {fund_name} ({fund_code})
 Primary Sectors: {', '.join(sectors) if sectors else 'Unknown'}
 
 Recent Market Intelligence:
-{intel_context if intel_context else 'No direct intelligence available. Please analyze based on sector performance.'}
+{intel_context if intel_context else 'No direct news found. Please analyze macro environment impact on the primary sectors above.'}
 
 Requirements:
-1. Professional and concise language, length between 60-100 words.
-2. Clearly state the impact of the current market environment on the fund's sectors (Bullish or Bearish).
-3. Provide a clear short-term outlook.
+1. Professional and concise language, length 60-100 words.
+2. Focus ONLY on the fund's sectors. Do NOT mention unrelated assets like Gold or Commodities unless the fund is a Gold/Commodity fund.
+3. Clearly state the impact of the current macro environment on the fund's sectors.
 4. Return in JSON format with the field "narrative".
 
-Example Return:
+Example:
 {{
-  "narrative": "Gold holdings are under pressure due to Fed's hawkish tone, bearish in short term. While weakening non-farm data provides support, geopolitical risk premiums are receding. Watch for support at 2300 level."
+  "narrative": "Semiconductor holdings are facing pressure due to global tech rotation, but local policy supports domestic substitution. Expect short-term volatility with mid-term recovery potential."
 }}
 """
     else:
@@ -1352,17 +1386,18 @@ Example Return:
 主要持仓板块: {', '.join(sectors) if sectors else '未知'}
 
 近期市场情报:
-{intel_context if intel_context else '暂无直接关联情报，请基于板块表现进行分析。'}
+{intel_context if intel_context else '暂无直接关联情报。请基于上述持仓板块，分析宏观环境对其影响。'}
 
 要求:
 1. 语言专业、简练，字数在 80-120 字之间。
-2. 明确指出当前市场环境对该基金持仓板块的影响（利好或利空）。
-3. 给出明确的短期展望。
-4. 必须以 JSON 格式返回，包含字段 "narrative"。
+2. 严禁提及与该基金板块无关的内容（如：严禁在非黄金基金分析中提及黄金行情）。
+3. 明确指出当前市场环境对该基金持仓板块的影响（利好或利空）。
+4. 给出明确的短期展望。
+5. 必须以 JSON 格式返回，包含字段 "narrative"。
 
 示例返回:
 {{
-  "narrative": "持仓黄金受美联储鹰派言论影响，短期看空。虽然非农数据走弱提供支撑，但地缘政治风险溢价正在回落，建议关注 2300 关口支撑位。"
+  "narrative": "半导体板块受全球科技股轮动影响面临回调压力，但国内替代政策提供长期支撑。短期预计波动加剧，关注核心持仓的业绩兑现情况。"
 }}
 """
 
