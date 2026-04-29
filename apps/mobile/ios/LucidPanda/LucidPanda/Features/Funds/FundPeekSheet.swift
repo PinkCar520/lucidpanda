@@ -187,12 +187,6 @@ struct FundPeekSheet: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.purple)
 
-                if !rootViewModel.isPro {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-
                 Spacer()
 
                 if narrative == nil {
@@ -212,7 +206,7 @@ struct FundPeekSheet: View {
                             }
                         } else {
                             HStack(spacing: 4) {
-                                Image(systemName: rootViewModel.isPro ? "wand.and.stars" : "lock.fill")
+                                Image(systemName: "wand.and.stars")
                                 Text(LocalizedStringKey("intelligence.analysis.start"))
                             }
                             .font(.system(size: 13, weight: .medium))

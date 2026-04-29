@@ -340,11 +340,11 @@ struct BacktestView: View {
                                     .foregroundStyle(Color.Alpha.brand)
 
                                 Picker("backtest.metric.window", selection: $viewModel.selectedWindow) {
-                                    HStack { Text("backtest.window.15m"); if !rootViewModel.isPro { Image(systemName: "lock.fill") } }.tag("15m")
+                                    Text("backtest.window.15m").tag("15m")
                                     Text("backtest.window.1h").tag("1h")
-                                    HStack { Text("backtest.window.4h"); if !rootViewModel.isPro { Image(systemName: "lock.fill") } }.tag("4h")
-                                    HStack { Text("backtest.window.12h"); if !rootViewModel.isPro { Image(systemName: "lock.fill") } }.tag("12h")
-                                    HStack { Text("backtest.window.24h"); if !rootViewModel.isPro { Image(systemName: "lock.fill") } }.tag("24h")
+                                    Text("backtest.window.4h").tag("4h")
+                                    Text("backtest.window.12h").tag("12h")
+                                    Text("backtest.window.24h").tag("24h")
                                 }
                                 .pickerStyle(.segmented)
                                 .font(.system(size: 12, weight: .medium))
@@ -530,11 +530,6 @@ struct BacktestView: View {
             HStack {
                 Text("backtest.section.environment")
                     .font(.system(size: 12, weight: .medium))
-                if !rootViewModel.isPro {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
             }
             .padding(.horizontal)
             
