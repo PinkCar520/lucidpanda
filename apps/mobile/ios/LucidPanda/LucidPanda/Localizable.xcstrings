@@ -1,84 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "subscription.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "LucidPanda Pro" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "LucidPanda Pro" } }
-      }
-    },
-    "subscription.slogan" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unlock Institutional-Grade Alpha" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "解锁机构级 Alpha 洞察" } }
-      }
-    },
-    "subscription.feature.timechain" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Event Timechain Analysis" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "深度事件脉络推演" } }
-      }
-    },
-    "subscription.feature.narrative" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Deep AI Narrative" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "基金穿透式 AI 叙事" } }
-      }
-    },
-    "subscription.feature.backtest" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Advanced Backtest & Macro Regime" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "高级回测与宏观分层" } }
-      }
-    },
-    "subscription.feature.watchlist" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unlimited Watchlist & Groups" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无限自选与多维分组" } }
-      }
-    },
-    "subscription.feature.alarm" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "2σ Smart Volatility Alerts" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "2σ 智能波动率预警" } }
-      }
-    },
-    "subscription.plan.monthly" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Monthly" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按月订阅" } }
-      }
-    },
-    "subscription.plan.yearly" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Yearly" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按年订阅" } }
-      }
-    },
-    "subscription.plan.save" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save 20%" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "立省 20%" } }
-      }
-    },
-    "subscription.action.subscribe" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscribe Now" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "立即升级 Pro" } }
-      }
-    },
-    "subscription.action.restore" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore Purchases" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "恢复购买" } }
-      }
-    },
-    "subscription.error.pro_required" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This feature requires a Pro subscription." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "此功能仅限 Pro 订阅用户使用" } }
-      }
-    },
     "%@.0" : {
 
     },
@@ -5701,6 +5623,9 @@
         }
       }
     },
+    "Privacy Policy" : {
+
+    },
     "reconciliation.chart.mae" : {
 
     },
@@ -6934,6 +6859,224 @@
         }
       }
     },
+    "subscription.action.restore" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Purchases"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复购买"
+          }
+        }
+      }
+    },
+    "subscription.action.subscribe" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscribe Now"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即升级 Pro"
+          }
+        }
+      }
+    },
+    "subscription.error.pro_required" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This feature requires a Pro subscription."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此功能仅限 Pro 订阅用户使用"
+          }
+        }
+      }
+    },
+    "subscription.feature.alarm" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2σ Smart Volatility Alerts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2σ 智能波动率预警"
+          }
+        }
+      }
+    },
+    "subscription.feature.backtest" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced Backtest & Macro Regime"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高级回测与宏观分层"
+          }
+        }
+      }
+    },
+    "subscription.feature.narrative" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deep AI Narrative"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "基金穿透式 AI 叙事"
+          }
+        }
+      }
+    },
+    "subscription.feature.timechain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Event Timechain Analysis"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "深度事件脉络推演"
+          }
+        }
+      }
+    },
+    "subscription.feature.watchlist" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlimited Watchlist & Groups"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无限自选与多维分组"
+          }
+        }
+      }
+    },
+    "subscription.plan.monthly" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按月订阅"
+          }
+        }
+      }
+    },
+    "subscription.plan.save" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save 20%"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立省 20%"
+          }
+        }
+      }
+    },
+    "subscription.plan.yearly" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yearly"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按年订阅"
+          }
+        }
+      }
+    },
+    "subscription.slogan" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock Institutional-Grade Alpha"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解锁机构级 Alpha 洞察"
+          }
+        }
+      }
+    },
+    "subscription.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LucidPanda Pro"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LucidPanda Pro"
+          }
+        }
+      }
+    },
     "sync.error.conflict %@" : {
       "localizations" : {
         "en" : {
@@ -7031,6 +7174,9 @@
           }
         }
       }
+    },
+    "Terms of Service" : {
+
     },
     "数据暂缺" : {
 

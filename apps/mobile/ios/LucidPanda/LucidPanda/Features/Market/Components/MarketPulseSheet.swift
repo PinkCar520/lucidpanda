@@ -44,14 +44,8 @@ struct MarketPulseSheet: View {
                         
                         Picker(LocalizedStringKey("market.pulse.section_label"), selection: $selectedPulseSection) {
                             ForEach(PulseSection.allCases) { section in
-                                HStack {
-                                    Text(section.title)
-                                    if section == .timechain && !rootViewModel.isPro {
-                                        Image(systemName: "lock.fill")
-                                            .font(.system(size: 10))
-                                    }
-                                }
-                                .tag(section)
+                                Text(section.title)
+                                    .tag(section)
                             }
                         }
                         .pickerStyle(.segmented)

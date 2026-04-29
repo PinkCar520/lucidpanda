@@ -14,35 +14,39 @@ struct PaywallView: View {
     }
     
     var body: some View {
-        ZStack {
-            LiquidBackground()
-            
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 32) {
-                    // 1. Hero Section
-                    heroSection
-                    
-                    // 2. Feature Matrix
-                    featureMatrix
-                    
-                    // 3. Pricing Section
-                    pricingSection
-                    
-                    // 4. Action Button
-                    subscribeButton
-                    
-                    // 5. Footer
-                    footerLinks
+        NavigationStack {
+            ZStack {
+                LiquidBackground()
+                
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 32) {
+                        // 1. Hero Section
+                        heroSection
+                        
+                        // 2. Feature Matrix
+                        featureMatrix
+                        
+                        // 3. Pricing Section
+                        pricingSection
+                        
+                        // 4. Action Button
+                        subscribeButton
+                        
+                        // 5. Footer
+                        footerLinks
+                    }
+                    .padding(.vertical, 40)
                 }
-                .padding(.vertical, 40)
             }
-        }
-        .overlay(alignment: .topTrailing) {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(.secondary.opacity(0.5))
-                    .padding()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    }
+                }
             }
         }
     }
