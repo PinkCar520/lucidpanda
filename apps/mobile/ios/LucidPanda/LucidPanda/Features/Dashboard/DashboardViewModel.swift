@@ -150,7 +150,7 @@ class DashboardViewModel {
     private func fetchInitialHistory() async {
         do {
             // 切换至 V1 Mobile BFF 接口：字段更精简，流量更省
-            let response: [IntelligenceMobileReadDTO] = try await APIClient.shared.fetch(path: "/api/v1/mobile/intelligence?limit=50")
+            let response: [IntelligenceMobileReadDTO] = try await APIClient.shared.fetch(path: "/api/v1/mobile/intelligence?limit=100&category=macro_gold")
             
             // 转换为 UI 模型
             let items = response.map { dto in

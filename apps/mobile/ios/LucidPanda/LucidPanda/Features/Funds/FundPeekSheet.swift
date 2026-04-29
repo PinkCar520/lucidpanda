@@ -326,7 +326,12 @@ struct FundPeekSheet: View {
                 let isAShareFund = !(valuation.isQdii ?? false)
                 VStack(spacing: 12) {
                     if isAShareFund {
-                        if let shIndex = snapshot.shIndex {
+                        if let shIndex = snapshot.shIndex, let szIndex = snapshot.szIndex {
+                            HStack(spacing: 12) {
+                                marketQuoteCard(shIndex, name: shIndex.name, unit: "SH")
+                                marketQuoteCard(szIndex, name: szIndex.name, unit: "SZ")
+                            }
+                        } else if let shIndex = snapshot.shIndex {
                             marketQuoteCard(shIndex, name: shIndex.name, unit: "SH")
                         }
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {

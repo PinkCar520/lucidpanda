@@ -11,6 +11,7 @@ public struct MarketSnapshot: Codable {
     public let oil: MarketQuote
     public let us10y: MarketQuote
     public let shIndex: MarketQuote?
+    public let szIndex: MarketQuote?
     public let lastUpdated: Date
     
     enum CodingKeys: String, CodingKey {
@@ -18,6 +19,7 @@ public struct MarketSnapshot: Codable {
         case goldCny = "gold_cny"
         case us10y = "us10y"
         case shIndex = "sh_index"
+        case szIndex = "sz_index"
         case lastUpdated = "last_updated"
     }
 }

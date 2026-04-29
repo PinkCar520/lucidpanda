@@ -195,7 +195,12 @@ struct MarketPulseSheet: View {
             
             VStack(spacing: 12) {
                 // 0. A股核心指数（可用时）
-                if let shIndex = snapshot.shIndex {
+                if let shIndex = snapshot.shIndex, let szIndex = snapshot.szIndex {
+                    HStack(spacing: 12) {
+                        marketQuoteItem(shIndex, name: "上证指数", unit: "SH")
+                        marketQuoteItem(szIndex, name: "深证成指", unit: "SZ")
+                    }
+                } else if let shIndex = snapshot.shIndex {
                     marketQuoteItem(shIndex, name: "上证指数", unit: "SH")
                 }
 
