@@ -44,7 +44,7 @@ class MarketTerminalService:
                 "gold": gold_data or self._empty_quote("XAU", "伦敦金"),
                 "gold_cny": gold_cny_data or self._empty_quote("AU9999", "上海金"),
                 "dxy": dxy_data or self._empty_quote("DXY", "美元指数"),
-                "oil": oil_data or self._empty_quote("CL=F", "原油"),
+                "oil": oil_data or self._empty_quote("CL=F", "WTI原油"),
                 "us10y": us10y_data or self._empty_quote("US10Y", "美债 10Y"),
                 "sh_index": sh_index_data or self._empty_quote("000001.SH", "上证指数"),
                 "sz_index": sz_index_data or self._empty_quote("399001.SZ", "深证成指"),
@@ -182,7 +182,7 @@ class MarketTerminalService:
 
                 return {
                     "symbol": "CL=F",
-                    "name": "原油",
+                    "name": "WTI原油",
                     "price": current,
                     "change": round(change, 3),
                     "changePercent": round(change_pct, 2),
