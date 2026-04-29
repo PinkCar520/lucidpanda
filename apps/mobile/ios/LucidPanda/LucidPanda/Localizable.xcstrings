@@ -5401,9 +5401,6 @@
         }
       }
     },
-    "market.pulse.urgency_score %@" : {
-
-    },
     "market.pulse.urgency_score %lld" : {
       "extractionState" : "stale",
       "localizations" : {
