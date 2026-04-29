@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from pydantic import BaseModel, Field
 from sqlmodel import Session, text
 
-from src.lucidpanda.auth.dependencies import get_current_user
+from src.lucidpanda.auth.dependencies import get_current_user, get_current_pro_user
 from src.lucidpanda.auth.models import User
 from src.lucidpanda.core.fund_engine import FundEngine
 from src.lucidpanda.core.logger import logger
@@ -137,6 +137,21 @@ async def create_watchlist_group(
 ):
     """创建新分组"""
     try:
+        user_id = str(current_user.id)
+        
+        # 非 Pro 用户限制 5 个分组
+        if not current_user.is_pro:
+            count_stmt = text("SELECT COUNT(*) FROM watchlist_groups WHERE user_id = :user_id")
+            current_group_count = db.execute(count_stmt, {"user_id": user_id}).scalar() or 0
+            if current_group_count >= 5:
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "code": "ERR_PRO_REQUIRED",
+                        "message": "普通用户最多支持 5 个分组，请升级 Pro 解锁无限分组。"
+                    }
+                )
+
         insert_stmt = text("""
             INSERT INTO watchlist_groups (id, user_id, name, icon, color, sort_index)
             VALUES (:id, :user_id, :name, :icon, :color, :sort_index)
@@ -482,6 +497,23 @@ async def batch_add_to_watchlist(
     try:
         user_id = str(current_user.id)
         results = []
+
+        # 获取当前自选数量（排除已逻辑删除的）
+        count_stmt = text("""
+            SELECT COUNT(*) FROM fund_watchlist 
+            WHERE user_id = :user_id AND is_deleted = FALSE
+        """)
+        current_count = db.execute(count_stmt, {"user_id": user_id}).scalar() or 0
+
+        # 非 Pro 用户限制 10 支
+        if not current_user.is_pro and current_count >= 10:
+             raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "ERR_PRO_REQUIRED",
+                    "message": "普通用户最多支持添加 10 支自选基金，请升级 Pro 解锁无限自选。"
+                }
+            )
 
         for item in request.items:
             try:
@@ -1281,7 +1313,7 @@ async def get_fund_ai_analysis(
 async def get_fund_ai_narrative(
     fund_code: str,
     accept_language: str | None = Header(None, alias="Accept-Language"),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_pro_user),
     db: Session = Depends(get_session),
 ):
     """

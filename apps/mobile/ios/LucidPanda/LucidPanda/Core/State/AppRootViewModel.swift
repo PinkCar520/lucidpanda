@@ -18,6 +18,8 @@ public struct UserProfileDTO: Codable {
     public let createdAt: Date?
     public let avatarUrl: String?
     public let isTwoFaEnabled: Bool?
+    public let isPro: Bool?
+    public let proExpiresAt: Date?
 
     public enum CodingKeys: String, CodingKey {
         case id, email, username, name, nickname, gender, birthday, location
@@ -26,6 +28,8 @@ public struct UserProfileDTO: Codable {
         case createdAt = "created_at"
         case avatarUrl = "avatar_url"
         case isTwoFaEnabled = "is_two_fa_enabled"
+        case isPro = "is_pro"
+        case proExpiresAt = "pro_expires_at"
     }
 }
 
@@ -43,6 +47,17 @@ public class AppRootViewModel {
     public var currentState: AppState = .loading
     public var userProfile: UserProfileDTO?
     public var marketPulseViewModel = MarketPulseViewModel()
+
+    public var isPro: Bool {
+        guard let profile = userProfile else { return false }
+        if let pro = profile.isPro, pro == true {
+            if let expiry = profile.proExpiresAt {
+                return expiry > Date()
+            }
+            return true
+        }
+        return false
+    }
     
     public init() {
         loadProfileFromCache()

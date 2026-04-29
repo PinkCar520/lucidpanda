@@ -13,6 +13,7 @@ enum GroupManagerMode {
 }
 
 struct FundDashboardView: View {
+    @Environment(AppRootViewModel.self) private var rootViewModel
     @State private var viewModel = FundViewModel()
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.modelContext) private var modelContext
@@ -85,10 +86,17 @@ struct FundDashboardView: View {
             await viewModel.fetchGroups()
         }
         .onAppear {
+            viewModel.isPro = rootViewModel.isPro
             viewModel.startLiveUpdates()
+        }
+        .onChange(of: rootViewModel.isPro) { _, newValue in
+            viewModel.isPro = newValue
         }
         .onDisappear {
             viewModel.stopLiveUpdates()
+        }
+        .sheet(isPresented: $viewModel.showPaywall) {
+            PaywallView()
         }
         .sheet(isPresented: $showCreateGroupOnly) {
             CreateGroupForm { name, icon, color in

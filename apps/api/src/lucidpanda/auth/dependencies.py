@@ -69,3 +69,28 @@ async def get_current_active_user(
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+
+async def get_current_pro_user(
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    from datetime import datetime, UTC
+    if not current_user.is_pro:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ERR_PRO_REQUIRED",
+                "message": "此功能仅限 Pro 订阅用户使用"
+            }
+        )
+    
+    if current_user.pro_expires_at and current_user.pro_expires_at < datetime.now(UTC):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ERR_PRO_EXPIRED",
+                "message": "您的 Pro 订阅已过期"
+            }
+        )
+        
+    return current_user

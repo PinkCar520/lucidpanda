@@ -237,6 +237,9 @@ class DBBase:
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS category TEXT;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS tags JSONB;",
                 "ALTER TABLE intelligence ADD COLUMN IF NOT EXISTS local_image_path TEXT;",
+                # 用户表 Pro 升级
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro BOOLEAN DEFAULT FALSE;",
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_expires_at TIMESTAMPTZ;",
             ]:
                 cursor.execute(col_sql)
 
@@ -331,6 +334,8 @@ class DBBase:
                     nickname VARCHAR(100),
                     avatar_url VARCHAR(255),
                     role VARCHAR(20) DEFAULT 'user',
+                    is_pro BOOLEAN DEFAULT FALSE,
+                    pro_expires_at TIMESTAMPTZ,
                     is_active BOOLEAN DEFAULT TRUE,
                     is_verified BOOLEAN DEFAULT FALSE,
                     language_preference VARCHAR(10) DEFAULT 'en',

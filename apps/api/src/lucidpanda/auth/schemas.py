@@ -42,6 +42,8 @@ class UserOut(UserBase):
     phone_number: str | None = None
     is_phone_verified: bool = False
     is_two_fa_enabled: bool = False
+    is_pro: bool = False
+    pro_expires_at: datetime | None = None
 
 
 class Token(BaseModel):

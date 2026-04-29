@@ -5,6 +5,7 @@ import Charts
 import OSLog
 
 struct BacktestView: View {
+    @Environment(AppRootViewModel.self) private var rootViewModel
     @State private var viewModel = BacktestViewModel()
     @State private var hasInitializedConfig = false
     @State private var selectedEvidence: BacktestStats.BacktestItem?
@@ -12,6 +13,7 @@ struct BacktestView: View {
     @State private var loadingEvidenceDetailId: Int?
     @State private var evidenceDetailError: String?
     @State private var showSettingsPopover = false
+    @State private var showPaywall = false
     @Environment(\.colorScheme) var colorScheme
     private let logger = AppLog.dashboard
 
@@ -88,11 +90,23 @@ struct BacktestView: View {
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
+            }
             .navigationDestination(item: $selectedIntelligence) { item in
                 IntelligenceDetailView(item: item)
             }
             .sheet(isPresented: $showSettingsPopover) {
                 settingsSheet
+            }
+            .onChange(of: viewModel.startDate) { _, newValue in
+                if !rootViewModel.isPro {
+                    let threeMonthsAgo = Calendar.current.date(byAdding: .month, value: -3, to: viewModel.endDate) ?? Date()
+                    if newValue < threeMonthsAgo {
+                        viewModel.startDate = threeMonthsAgo
+                        showPaywall = true
+                    }
+                }
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -326,14 +340,20 @@ struct BacktestView: View {
                                     .foregroundStyle(Color.Alpha.brand)
 
                                 Picker("backtest.metric.window", selection: $viewModel.selectedWindow) {
-                                    Text("backtest.window.15m").tag("15m")
+                                    HStack { Text("backtest.window.15m"); if !rootViewModel.isPro { Image(systemName: "lock.fill") } }.tag("15m")
                                     Text("backtest.window.1h").tag("1h")
-                                    Text("backtest.window.4h").tag("4h")
-                                    Text("backtest.window.12h").tag("12h")
-                                    Text("backtest.window.24h").tag("24h")
+                                    HStack { Text("backtest.window.4h"); if !rootViewModel.isPro { Image(systemName: "lock.fill") } }.tag("4h")
+                                    HStack { Text("backtest.window.12h"); if !rootViewModel.isPro { Image(systemName: "lock.fill") } }.tag("12h")
+                                    HStack { Text("backtest.window.24h"); if !rootViewModel.isPro { Image(systemName: "lock.fill") } }.tag("24h")
                                 }
                                 .pickerStyle(.segmented)
                                 .font(.system(size: 12, weight: .medium))
+                                .onChange(of: viewModel.selectedWindow) { _, newValue in
+                                    if !rootViewModel.isPro && newValue != "1h" {
+                                        viewModel.selectedWindow = "1h"
+                                        showPaywall = true
+                                    }
+                                }
                             }
                         }
 
@@ -507,27 +527,55 @@ struct BacktestView: View {
     
     private func environmentSection(_ stats: BacktestStats) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("backtest.section.environment")
-                .font(.system(size: 12, weight: .medium))
-                .padding(.horizontal)
+            HStack {
+                Text("backtest.section.environment")
+                    .font(.system(size: 12, weight: .medium))
+                if !rootViewModel.isPro {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal)
             
-            VStack(spacing: 12) {
-                // 1. DXY Sensitivity
-                HStack(spacing: 12) {
-                    sensitivityCard(title: "backtest.env.dxy_strong", stats: stats.correlation["DXY_STRONG"])
-                    sensitivityCard(title: "backtest.env.dxy_weak", stats: stats.correlation["DXY_WEAK"])
-                }
+            ZStack {
+                VStack(spacing: 12) {
+                    // 1. DXY Sensitivity
+                    HStack(spacing: 12) {
+                        sensitivityCard(title: "backtest.env.dxy_strong", stats: stats.correlation["DXY_STRONG"])
+                        sensitivityCard(title: "backtest.env.dxy_weak", stats: stats.correlation["DXY_WEAK"])
+                    }
 
-                // 2. Volatility (GVZ)
-                HStack(spacing: 12) {
-                    sensitivityCard(title: "backtest.env.high_vol", stats: stats.volatility?["HIGH_VOL"])
-                    sensitivityCard(title: "backtest.env.low_vol", stats: stats.volatility?["LOW_VOL"])
-                }
+                    // 2. Volatility (GVZ)
+                    HStack(spacing: 12) {
+                        sensitivityCard(title: "backtest.env.high_vol", stats: stats.volatility?["HIGH_VOL"])
+                        sensitivityCard(title: "backtest.env.low_vol", stats: stats.volatility?["LOW_VOL"])
+                    }
 
-                // 3. Positioning (COT)
-                HStack(spacing: 12) {
-                    sensitivityCard(title: "backtest.env.overcrowded_long", stats: stats.positioning?["OVERCROWDED_LONG"])
-                    sensitivityCard(title: "backtest.env.neutral_position", stats: stats.positioning?["NEUTRAL_POSITION"])
+                    // 3. Positioning (COT)
+                    HStack(spacing: 12) {
+                        sensitivityCard(title: "backtest.env.overcrowded_long", stats: stats.positioning?["OVERCROWDED_LONG"])
+                        sensitivityCard(title: "backtest.env.neutral_position", stats: stats.positioning?["NEUTRAL_POSITION"])
+                    }
+                }
+                .blur(radius: rootViewModel.isPro ? 0 : 8)
+                
+                if !rootViewModel.isPro {
+                    Button {
+                        showPaywall = true
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.Alpha.brand)
+                            Text("subscription.action.subscribe")
+                                .font(.system(size: 14, weight: .black))
+                                .foregroundStyle(Color.Alpha.textPrimary)
+                        }
+                        .padding(24)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)

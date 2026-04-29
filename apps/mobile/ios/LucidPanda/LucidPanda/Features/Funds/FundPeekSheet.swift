@@ -6,6 +6,7 @@ import SwiftData
 import OSLog
 
 struct FundPeekSheet: View {
+    @Environment(AppRootViewModel.self) private var rootViewModel
     let valuation: FundValuation
     @Environment(\.dismiss) private var dismiss
     private let logger = AppLog.watchlist
@@ -15,6 +16,7 @@ struct FundPeekSheet: View {
     @State private var isLoading: Bool = true
     @State private var isAnalyzing: Bool = false
     @State private var analyzeError: String? = nil
+    @State private var showPaywall = false
     
     var body: some View {
         NavigationStack {
@@ -71,6 +73,9 @@ struct FundPeekSheet: View {
             }
             .navigationTitle("funds.peek.ai_analysis_title")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: { dismiss() }) {
@@ -181,12 +186,22 @@ struct FundPeekSheet: View {
                 Label(LocalizedStringKey("funds.peek.ai_narrative"), systemImage: "sparkles")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.purple)
-                
+
+                if !rootViewModel.isPro {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+
                 Spacer()
-                
+
                 if narrative == nil {
                     Button {
-                        Task { await runAINarrative() }
+                        if rootViewModel.isPro {
+                            Task { await runAINarrative() }
+                        } else {
+                            showPaywall = true
+                        }
                     } label: {
                         if isAnalyzing {
                             HStack(spacing: 6) {
@@ -197,7 +212,7 @@ struct FundPeekSheet: View {
                             }
                         } else {
                             HStack(spacing: 4) {
-                                Image(systemName: "wand.and.stars")
+                                Image(systemName: rootViewModel.isPro ? "wand.and.stars" : "lock.fill")
                                 Text(LocalizedStringKey("intelligence.analysis.start"))
                             }
                             .font(.system(size: 13, weight: .medium))
@@ -220,31 +235,38 @@ struct FundPeekSheet: View {
                     .padding(.horizontal)
             }
 
-            LiquidGlassCard(backgroundColor: Color.purple.opacity(0.05)) {
-                VStack(alignment: .leading, spacing: 10) {
-                    if let text = narrative {
-                        Text(text)
-                            .font(.subheadline)
-                            .foregroundStyle(.primary.opacity(0.9))
-                            .lineSpacing(4)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    } else if let advice = analysis?.topAdvice {
-                        Text(advice)
-                            .font(.subheadline)
-                            .foregroundStyle(.primary.opacity(0.8))
-                            .lineSpacing(4)
-                    } else {
-                        Text(LocalizedStringKey("funds.peek.no_ai_analysis"))
-                            .font(.subheadline)
-                            .italic()
-                            .foregroundStyle(.secondary)
+            Button {
+                if !rootViewModel.isPro {
+                    showPaywall = true
+                }
+            } label: {
+                LiquidGlassCard(backgroundColor: Color.purple.opacity(0.05)) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if let text = narrative {
+                            Text(text)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary.opacity(0.9))
+                                .lineSpacing(4)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        } else if let advice = analysis?.topAdvice {
+                            Text(advice)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary.opacity(0.8))
+                                .lineSpacing(4)
+                        } else {
+                            Text(LocalizedStringKey(rootViewModel.isPro ? "funds.peek.no_ai_analysis" : "subscription.error.pro_required"))
+                                .font(.subheadline)
+                                .italic()
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
+            .buttonStyle(.plain)
+            .disabled(rootViewModel.isPro)
             .padding(.horizontal)
         }
     }
-
     private func sectorAttributionSection(sectors: [String: SectorStat]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Label(LocalizedStringKey("funds.peek.sector_attribution"), systemImage: "chart.bar.xaxis")

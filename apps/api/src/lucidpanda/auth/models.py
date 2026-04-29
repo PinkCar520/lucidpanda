@@ -41,6 +41,8 @@ class User(Base):
     is_two_fa_enabled = Column(Boolean, default=False)
 
     role = Column(String(20), default="user")
+    is_pro = Column(Boolean, default=False)
+    pro_expires_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     username_updated_at = Column(DateTime(timezone=True), nullable=True)

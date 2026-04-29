@@ -80,6 +80,10 @@ class FundViewModel {
     var pendingMoveFund: FundValuation?
     var showGroupPicker = false
     
+    // 订阅拦截
+    var showPaywall = false
+    var isPro = false
+    
     // 搜索添加
     var showAddFundSheet = false
     
@@ -350,6 +354,12 @@ class FundViewModel {
         // 1. 检查是否已存在
         if watchlist.contains(where: { $0.fundCode == code }) {
             logger.warning("Fund already in watchlist: \(code, privacy: .public)")
+            return
+        }
+        
+        // 1.5 订阅限制检查
+        if !isPro && watchlist.count >= 10 {
+            showPaywall = true
             return
         }
         
@@ -751,6 +761,12 @@ class FundViewModel {
     // MARK: - Create Group
 
     func createGroup(name: String, icon: String, color: String, sortIndex: Int = 0) async {
+        // 0. 订阅限制检查
+        if !isPro && groups.count >= 5 {
+            showPaywall = true
+            return
+        }
+        
         // 1. 生成临时 ID 并提前进行乐观更新 (瞬间在 UI 显示)
         let tempId = "temp_\(UUID().uuidString)"
         let now = Date()

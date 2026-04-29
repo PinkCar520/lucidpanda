@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
 from sqlmodel import Session, col, select, text
 
-from src.lucidpanda.auth.dependencies import get_current_user
+from src.lucidpanda.auth.dependencies import get_current_user, get_current_pro_user
 from src.lucidpanda.auth.models import User
 from src.lucidpanda.infra.cache import get_cached, set_cached
 from src.lucidpanda.infra.database.connection import get_session
@@ -328,6 +328,7 @@ async def get_market_pulse(
 @router.get("/market/pulse/timechain", response_model=dict[str, Any])
 async def get_market_pulse_timechain(
     db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_pro_user),
     lang: str = Query("zh", regex="^(zh|en)$"),
 ):
     """

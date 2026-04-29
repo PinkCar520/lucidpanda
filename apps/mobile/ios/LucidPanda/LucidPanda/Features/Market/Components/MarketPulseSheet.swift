@@ -5,9 +5,11 @@ import AlphaData
 import Charts
 
 struct MarketPulseSheet: View {
+    @Environment(AppRootViewModel.self) private var rootViewModel
     let viewModel: MarketPulseViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPulseSection: PulseSection = .alerts
+    @State private var showPaywall = false
 
     private enum PulseSection: Int, CaseIterable, Identifiable {
         case alerts
@@ -42,7 +44,14 @@ struct MarketPulseSheet: View {
                         
                         Picker(LocalizedStringKey("market.pulse.section_label"), selection: $selectedPulseSection) {
                             ForEach(PulseSection.allCases) { section in
-                                Text(section.title).tag(section)
+                                HStack {
+                                    Text(section.title)
+                                    if section == .timechain && !rootViewModel.isPro {
+                                        Image(systemName: "lock.fill")
+                                            .font(.system(size: 10))
+                                    }
+                                }
+                                .tag(section)
                             }
                         }
                         .pickerStyle(.segmented)
@@ -53,7 +62,12 @@ struct MarketPulseSheet: View {
                         .padding(.bottom, 6)
                         .onChange(of: selectedPulseSection) { _, newValue in
                             if newValue == .timechain {
-                                Task { await viewModel.fetchTimechain() }
+                                if rootViewModel.isPro {
+                                    Task { await viewModel.fetchTimechain() }
+                                } else {
+                                    showPaywall = true
+                                    selectedPulseSection = .alerts
+                                }
                             }
                         }
                         
@@ -73,6 +87,9 @@ struct MarketPulseSheet: View {
             }
             .navigationTitle("market.pulse.title")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showPaywall) {
+                PaywallView()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
