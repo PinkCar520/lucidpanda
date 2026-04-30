@@ -329,7 +329,7 @@ async def get_market_pulse(
 async def get_market_pulse_timechain(
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_pro_user),
-    lang: str = Query("zh", regex="^(zh|en)$"),
+    lang: str = Query("zh", pattern="^(zh|en)$"),
 ):
     """
     市场脉搏 - 事件脉络分析。

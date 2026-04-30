@@ -85,36 +85,16 @@ class FundDetailViewModel {
     private func refreshLinkedIntelligence() async {
         isIntelligenceLoading = true
         
-        // 1. Pre-warm: 使用本地引擎瞬间加载缓存情报 (保证 0 延迟体验)
-        if let context = persistenceContext {
-            let engine = IntelligenceLinkageEngine(modelContext: context)
-            let localItems = engine.fetchLinkedIntelligence(for: valuation)
-            // 转换为临时展示模型
-            self.linkedIntelligence = localItems.map { item in
-                FundRelatedIntelligence(
-                    id: item.id,
-                    timestamp: item.timestamp,
-                    author: item.author,
-                    urgencyScore: item.urgencyScore,
-                    summary: item.summary,
-                    advice: nil,
-                    sentiment: item.sentiment
-                )
-            }
-        }
-        
-        // 2. Fetch: 从 API 获取精准的、包含 AI 解析的行业关联情报
+        // 生产级：直接从 API 获取经过 AI 合成的深度因果情报时间线
         do {
             let path = "/api/v1/web/watchlist/\(valuation.fundCode)/ai_analysis"
             let response: FundAIAnalysisResponse = try await APIClient.shared.fetch(path: path)
             
-            // 3. Update: 用服务端数据替换本地粗略匹配
             withAnimation(.spring()) {
-                // 确保时间倒序排列，符合“时间线”直觉
+                // 确保时间倒序排列
                 self.linkedIntelligence = response.relatedIntelligence.sorted(by: { $0.timestamp > $1.timestamp })
             }
         } catch {
-            // API 失败则保持本地 Pre-warm 数据，不报错
             print("Failed to fetch production intelligence: \(error)")
         }
         
