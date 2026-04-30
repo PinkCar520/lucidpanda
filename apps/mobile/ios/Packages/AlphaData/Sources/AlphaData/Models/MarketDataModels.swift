@@ -237,6 +237,7 @@ public struct MarketPulseResponse: Codable {
     public let overallSentimentZh: String
     public let sentimentScore: Double
     public let sentimentTrend: [SentimentTrendPoint]?
+    public let goldTrend: [GoldTrendPoint]?
     public let alertCount24h: Int
     public let generatedAt: Date
 
@@ -248,8 +249,22 @@ public struct MarketPulseResponse: Codable {
         case overallSentimentZh = "overall_sentiment_zh"
         case sentimentScore = "sentiment_score"
         case sentimentTrend = "sentiment_trend"
+        case goldTrend = "gold_trend"
         case alertCount24h = "alert_count_24h"
         case generatedAt = "generated_at"
+    }
+}
+
+/// 黄金走势数据点（包含 AI 预测）
+public struct GoldTrendPoint: Codable, Identifiable {
+    public var id: Date { timestamp }
+    public let timestamp: Date
+    public let price: Double
+    public let isForecast: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case timestamp, price
+        case isForecast = "is_forecast"
     }
 }
 

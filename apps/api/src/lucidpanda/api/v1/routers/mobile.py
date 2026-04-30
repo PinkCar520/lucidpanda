@@ -419,6 +419,76 @@ async def market_pulse_stream(
 
     return EventSourceResponse(event_generator())
 
+async def _generate_gold_forecast(history: list[dict], alerts: list[dict], snapshot: dict) -> list[dict]:
+    """使用 LLM 生成未来 12 小时的金价预测趋势"""
+    if not history:
+        return []
+
+    # 取最后一点作为基准
+    last_point = history[-1]
+    last_price = last_point["price"]
+    
+    # 解析最后一点的时间
+    try:
+        last_ts = datetime.fromisoformat(last_point["timestamp"].replace("Z", "+00:00"))
+    except Exception:
+        last_ts = datetime.now(UTC)
+    
+    # 提取最近的几个价格点作为趋势参考
+    recent_prices = [p["price"] for p in history[-6:]]
+    trend_desc = "震荡"
+    if len(recent_prices) >= 2:
+        if recent_prices[-1] > recent_prices[0] * 1.001:
+            trend_desc = "上涨"
+        elif recent_prices[-1] < recent_prices[0] * 0.999:
+            trend_desc = "下跌"
+    
+    # 提取核心情报
+    intel_briefs = []
+    for a in alerts[:5]:
+        intel_briefs.append(f"- {a['summary']} (情绪: {a['sentiment']})")
+    
+    intel_context = "\n".join(intel_briefs) if intel_briefs else "无重大情报"
+    
+    prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来 12 小时上海金 (AU9999) 的价格演进趋势。
+    
+    当前基准价: {last_price}
+    近期趋势: {trend_desc} (近6小时价格: {recent_prices})
+    近期核心情报:
+    {intel_context}
+    
+    请输出未来 12 小时的预测价格点。输出格式为 JSON 数组，每个对象包含:
+    - "hour_offset": 1 到 12 的整数
+    - "predicted_price": 预测的价格 (float)
+    
+    要求：
+    1. 预测应体现出对近期情报情绪的反应（如利好情报应带来温和上涨）。
+    2. 波动应符合黄金市场的真实特征，不要出现极端的暴涨暴跌（单小时波动通常在 0.05%-0.3% 之间）。
+    3. 只输出 JSON 数组，不要包含 Markdown 格式或多余文字。
+    """
+    
+    try:
+        llm = DeepSeekLLM()
+        forecast_raw = await llm.generate_json_async(prompt)
+        
+        forecast_points = []
+        if isinstance(forecast_raw, list):
+            for item in forecast_raw:
+                offset = item.get("hour_offset")
+                price = item.get("predicted_price")
+                if offset and price:
+                    target_ts = last_ts + timedelta(hours=int(offset))
+                    forecast_points.append({
+                        "timestamp": format_iso8601(target_ts),
+                        "price": round(float(price), 2),
+                        "is_forecast": True
+                    })
+        return forecast_points
+    except Exception as e:
+        logger.error(f"Gold forecast failed: {e}")
+        return []
+
+
 async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
     """核心脉搏计算逻辑：聚合快照、情报、情绪及事件"""
     def normalize_summary_text(summary_val: Any) -> str:
@@ -517,6 +587,11 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
             "score": trend_map.get(current_h, 0.0)
         })
 
+    # 4.5 黄金价格走势与 AI 预测
+    gold_history = market_terminal_service.get_gold_history_24h()
+    gold_forecast = await _generate_gold_forecast(gold_history, top_alerts, snapshot)
+    gold_trend = gold_history + gold_forecast
+
     # 5. 未来 48h 宏观事件
     until_dt = now_dt + timedelta(hours=48)
     try:
@@ -551,6 +626,7 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
         "overall_sentiment_zh": "看多" if avg_sentiment > 0.15 else ("看空" if avg_sentiment < -0.15 else "中性"),
         "sentiment_score": round(avg_sentiment, 3),
         "sentiment_trend": sentiment_trend,
+        "gold_trend": gold_trend,
         "alert_count_24h": alert_count,
         "generated_at": format_iso8601(datetime.now(UTC))
     }

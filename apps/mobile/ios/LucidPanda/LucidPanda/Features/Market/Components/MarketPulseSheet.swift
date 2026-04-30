@@ -160,8 +160,70 @@ struct MarketPulseSheet: View {
             .frame(height: 20)
             .padding(.horizontal, 40)
             
-            // 4. 情绪走势图 (Sparkline)
-            if let trend = data.sentimentTrend, !trend.isEmpty {
+            // 4. 黄金走势图 (24h + AI 预测)
+            if let trend = data.goldTrend, !trend.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Label("market.pulse.gold_trend_24h_ai", systemImage: "sparkles")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.secondary)
+                        
+                        Spacer()
+                        
+                        HStack(spacing: 12) {
+                            HStack(spacing: 4) {
+                                Circle().fill(Color.Alpha.up).frame(width: 6, height: 6)
+                                Text("market.pulse.trend.actual").font(.system(size: 9)).foregroundStyle(.secondary)
+                            }
+                            HStack(spacing: 4) {
+                                Circle().stroke(Color.Alpha.up, style: StrokeStyle(lineWidth: 1, dash: [2, 2])).frame(width: 6, height: 6)
+                                Text("market.pulse.trend.forecast").font(.system(size: 9)).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    
+                    let prices = trend.map { $0.price }
+                    let minPrice = prices.min() ?? 0
+                    let maxPrice = prices.max() ?? 1000
+                    let priceRange = maxPrice - minPrice
+                    let yMin = minPrice - (priceRange * 0.2)
+                    let yMax = maxPrice + (priceRange * 0.2)
+                    
+                    Chart {
+                        ForEach(trend) { point in
+                            LineMark(
+                                x: .value("chart.label.time", point.timestamp),
+                                y: .value("chart.label.price", point.price)
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(Color.Alpha.up.opacity(point.isForecast ? 0.5 : 1.0))
+                            .lineStyle(StrokeStyle(lineWidth: 2, dash: point.isForecast ? [5, 5] : []))
+                            
+                            if !point.isForecast {
+                                AreaMark(
+                                    x: .value("chart.label.time", point.timestamp),
+                                    y: .value("chart.label.price", point.price)
+                                )
+                                .interpolationMethod(.catmullRom)
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [Color.Alpha.up.opacity(0.1), .clear],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    .chartYScale(domain: yMin...yMax)
+                    .chartXAxis(Visibility.hidden)
+                    .chartYAxis(Visibility.hidden)
+                    .frame(height: 50)
+                }
+                .padding(.horizontal, 30)
+                .padding(.top, 12)
+            } else if let trend = data.sentimentTrend, !trend.isEmpty {
+                // Fallback to sentiment trend if gold trend is unavailable
                 VStack(alignment: .leading, spacing: 8) {
                     Text("market.pulse.24h_trend")
                         .font(.system(size: 10, weight: .medium))

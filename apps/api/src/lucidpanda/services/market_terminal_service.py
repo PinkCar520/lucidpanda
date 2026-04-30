@@ -58,6 +58,39 @@ class MarketTerminalService:
             logger.error(f"Failed to fetch market snapshot: {e}")
             return None
 
+    def get_gold_history_24h(self):
+        """获取上海金 (AU9999) 过去 24 小时的每小时收盘价"""
+        try:
+            # 使用 akshare 获取分钟线数据 (60分钟)
+            # 注意：此接口常用于获取国内期货/现货延时数据
+            df = ak.futures_zh_minute_sina(symbol="AU9999", period="60")
+            if df is not None and not df.empty:
+                # 只取最近 24 个点
+                recent = df.tail(24)
+                trend = []
+                for _, row in recent.iterrows():
+                    ts_val = row["datetime"]
+                    if isinstance(ts_val, str):
+                        # 格式通常为 "2024-05-20 14:00:00"
+                        try:
+                            ts = datetime.strptime(ts_val, "%Y-%m-%d %H:%M:%S")
+                        except ValueError:
+                            ts = datetime.now()
+                    else:
+                        ts = ts_val
+                    
+                    trend.append({
+                        "timestamp": format_iso8601(ts),
+                        "price": round(float(row["close"]), 2),
+                        "is_forecast": False
+                    })
+                return trend
+        except Exception as e:
+            logger.error(f"Failed to fetch gold history 24h: {e}")
+        
+        # 兜底：返回空列表
+        return []
+
     def _fetch_gold_cny(self):
         """获取上海金数据 (AU9999) - 新浪财经"""
         try:
