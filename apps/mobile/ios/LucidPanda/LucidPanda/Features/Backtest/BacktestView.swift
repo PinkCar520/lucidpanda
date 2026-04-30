@@ -28,11 +28,10 @@ struct BacktestView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 32) {
-                        headerSection
-
                         // 1. Configuration Section (Stitch Style)
                         configurationCard()
-
+                            .padding(.top, 20) // 🚀 Added padding to compensate for removed header
+                        
                         // 2. Results Section (Existing Performance Metrics)
                         VStack(spacing: 24) {
                             resultsHeader
@@ -221,9 +220,9 @@ struct BacktestView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(colorScheme == .dark ? Color.Alpha.brand : Color(hex: "#8D7D77"))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .shadow(color: Color.black.opacity(0.15), radius: 10, y: 5)
+                        .background(Color.Alpha.brand) // 🚀 Unified brand color
+                        .clipShape(RoundedRectangle(cornerRadius: 4)) // 🚀 Matched Intelligence card style
+                        .shadow(color: Color.Alpha.brand.opacity(0.25), radius: 10, y: 5)
                 }
                 .padding(.top, 12)
             }

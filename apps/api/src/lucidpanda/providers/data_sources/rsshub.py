@@ -47,7 +47,15 @@ MACRO_GOLD_FEEDS = [
 # ──────────────────────────────────────────────────────────────────────
 # 2. A股政策与快讯 (Category: equity_cn)
 # ──────────────────────────────────────────────────────────────────────
-EQUITY_CN_FEEDS = []
+EQUITY_CN_FEEDS = [
+    ("证监会要闻", "https://rsshub.app/gov/csrc/news", "Asia/Shanghai"),
+    ("上交所公告", "https://rsshub.app/sse/news/main", "Asia/Shanghai"),
+    ("深交所公告", "https://rsshub.app/szse/news/main", "Asia/Shanghai"),
+    ("财联社-电报", "https://rsshub.app/cls/telegraph", "Asia/Shanghai"),
+    ("财联社-深度", "https://rsshub.app/cls/depth", "Asia/Shanghai"),
+    ("华尔街见闻-快讯", "https://rsshub.app/wallstreetcn/news/global", "Asia/Shanghai"),
+    ("中国政府网-国常会", "https://rsshub.app/gov/gov/zhengce/gwmeeting", "Asia/Shanghai"),
+]
 
 # ──────────────────────────────────────────────────────────────────────
 # 3. 美股权益与行业 (Category: equity_us)

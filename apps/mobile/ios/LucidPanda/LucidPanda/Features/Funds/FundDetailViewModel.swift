@@ -16,8 +16,9 @@ class FundDetailViewModel {
     var threshold2Sigma: Double = 1.5 
     private var hasFiredAlarmToday: Bool = false
     
-    // 关联情报列表
-    var linkedIntelligence: [IntelligenceItem] = []
+    // 关联情报列表 (生产级：由 API 驱动，本地引擎为辅)
+    var linkedIntelligence: [FundRelatedIntelligence] = []
+    var isIntelligenceLoading: Bool = false
     
     // 历史对账记录
     var history: [ValuationHistory] = []
@@ -48,7 +49,7 @@ class FundDetailViewModel {
         // 1. 初始化 2σ 阈值与关联情报
         Task {
             await self.calculateDynamicThreshold()
-            self.refreshLinkedIntelligence()
+            await self.refreshLinkedIntelligence()
         }
         
         // 2. 启动实时流
@@ -81,10 +82,43 @@ class FundDetailViewModel {
     }
     
     @MainActor
-    private func refreshLinkedIntelligence() {
-        guard let context = persistenceContext else { return }
-        let engine = IntelligenceLinkageEngine(modelContext: context)
-        self.linkedIntelligence = engine.fetchLinkedIntelligence(for: valuation)
+    private func refreshLinkedIntelligence() async {
+        isIntelligenceLoading = true
+        
+        // 1. Pre-warm: 使用本地引擎瞬间加载缓存情报 (保证 0 延迟体验)
+        if let context = persistenceContext {
+            let engine = IntelligenceLinkageEngine(modelContext: context)
+            let localItems = engine.fetchLinkedIntelligence(for: valuation)
+            // 转换为临时展示模型
+            self.linkedIntelligence = localItems.map { item in
+                FundRelatedIntelligence(
+                    id: item.id,
+                    timestamp: item.timestamp,
+                    author: item.author,
+                    urgencyScore: item.urgencyScore,
+                    summary: item.summary,
+                    advice: nil,
+                    sentiment: item.sentiment
+                )
+            }
+        }
+        
+        // 2. Fetch: 从 API 获取精准的、包含 AI 解析的行业关联情报
+        do {
+            let path = "/api/v1/web/watchlist/\(valuation.fundCode)/ai_analysis"
+            let response: FundAIAnalysisResponse = try await APIClient.shared.fetch(path: path)
+            
+            // 3. Update: 用服务端数据替换本地粗略匹配
+            withAnimation(.spring()) {
+                // 确保时间倒序排列，符合“时间线”直觉
+                self.linkedIntelligence = response.relatedIntelligence.sorted(by: { $0.timestamp > $1.timestamp })
+            }
+        } catch {
+            // API 失败则保持本地 Pre-warm 数据，不报错
+            print("Failed to fetch production intelligence: \(error)")
+        }
+        
+        isIntelligenceLoading = false
     }
     
     private func checkAlarm(growth: Double) {

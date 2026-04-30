@@ -983,7 +983,8 @@ async def get_fund_ai_analysis(
     core_name = normalize_fund_name(fund_name)
 
     # 判定基金所属市场与情报分类偏好
-    is_a_share = fund_code.isdigit() and len(fund_code) == 6
+    # 增强识别：支持 510300 (纯数字) 或 SH510300 / SZ159919 (带前缀)
+    is_a_share = bool(re.match(r"^(?:SH|SZ)?\d{6}$", fund_code, re.IGNORECASE))
     # 智能判定是否与黄金相关，避免非黄金基金拉取到黄金情报
     gold_keywords = ["黄金", "金", "Gold", "AU", "金主题"]
     is_gold_related = any(gk in fund_name for gk in gold_keywords) or (core_name and any(gk in core_name for gk in gold_keywords))

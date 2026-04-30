@@ -360,4 +360,17 @@ extension IntelligenceItem {
             goldPriceSnapshot: model.goldPriceSnapshot
         )
     }
+    
+    init(from related: FundRelatedIntelligence) {
+        self.init(
+            id: related.id,
+            timestamp: related.timestamp,
+            author: related.author ?? "Unknown",
+            summary: related.summary,
+            content: "", // Will be fetched on-demand in detail view
+            sentiment: related.sentiment,
+            urgencyScore: related.urgencyScore,
+            goldPriceSnapshot: nil
+        )
+    }
 }

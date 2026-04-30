@@ -225,6 +225,16 @@ public struct FundRelatedIntelligence: Codable, Identifiable {
     public let advice: String?
     public let sentiment: String
 
+    public init(id: Int, timestamp: Date, author: String?, urgencyScore: Int, summary: String, advice: String?, sentiment: String) {
+        self.id = id
+        self.timestamp = timestamp
+        self.author = author
+        self.urgencyScore = urgencyScore
+        self.summary = summary
+        self.advice = advice
+        self.sentiment = sentiment
+    }
+
     enum CodingKeys: String, CodingKey {
         case id, timestamp, author, summary, advice, sentiment
         case urgencyScore = "urgency_score"

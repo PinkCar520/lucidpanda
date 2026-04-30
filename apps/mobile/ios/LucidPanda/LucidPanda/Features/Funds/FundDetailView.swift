@@ -508,46 +508,41 @@ struct FundDetailView: View {
     }
     
     private var linkedIntelligenceSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Image(systemName: "antenna.radiowaves.left.and.right")
                     .font(.system(size: 12))
                 Text("funds.detail.intelligence.title")
                     .font(.system(size: 14, weight: .medium))
                 Spacer()
+                if viewModel.isIntelligenceLoading {
+                    ProgressView().scaleEffect(0.8)
+                }
             }
             .foregroundStyle(.blue)
             .padding(.horizontal)
             
-            ForEach(viewModel.linkedIntelligence) { item in
-                NavigationLink(destination: IntelligenceDetailView(item: item)) {
-                    LiquidGlassCard {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text(item.urgencyScore >= 8 ? "funds.detail.intelligence.critical" : "funds.detail.intelligence.important")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(item.urgencyScore >= 8 ? .red.opacity(0.1) : .orange.opacity(0.1))
-                                    .foregroundStyle(item.urgencyScore >= 8 ? .red : .orange)
-                                    .clipShape(Capsule())
-
-                                Spacer()
-                                Text("\(item.urgencyScore.formatted()).0")
-                                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                    .foregroundStyle(item.urgencyScore >= 8 ? .red : .orange)
-                            }
-                            
-                            Text(item.summary)
-                                .font(.system(size: 13))
-                                .foregroundStyle(colorScheme == .dark ? .white : .black)
-                                .lineLimit(2)
+            if viewModel.linkedIntelligence.isEmpty && !viewModel.isIntelligenceLoading {
+                IntelligenceTimelinePlaceholderRow(
+                    title: "近 30 天未检索到行业关联事件",
+                    subtitle: "建议关注整体市场宏观动向"
+                )
+                .padding(.horizontal)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(viewModel.linkedIntelligence.enumerated()), id: \.element.id) { index, item in
+                        NavigationLink(destination: IntelligenceDetailView(item: IntelligenceItem(from: item))) {
+                            IntelligenceTimelineRow(
+                                item: item,
+                                isFirst: index == 0,
+                                isLast: index == viewModel.linkedIntelligence.count - 1
+                            )
                         }
+                        .buttonStyle(.plain)
                     }
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
         }
     }
 

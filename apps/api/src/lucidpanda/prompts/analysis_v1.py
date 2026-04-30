@@ -136,7 +136,7 @@ def build_agent_final_prompt(
     alias_hints = "\n".join(f"  - {h}" for h in _ENTITY_HINT_EXAMPLES)
 
     return f"""你是一个华尔街顶级宏观策略分析师。请结合工具结果给出最终分析。
-分析目标：识别该事件对【黄金 (Gold/XAU)】及相关市场的影响。
+分析目标：识别该事件对指定标的及相关市场的影响。
 
 输入信息：
 - 来源: {raw_data.get("source")}
@@ -166,23 +166,23 @@ JSON 结构定义：
         "en": "Concise summary in English within 40 words."
     }},
     "sentiment": {{
-        "zh": "情绪标签（鹰派/鸽派/避险/中性/利好/利空）",
-        "en": "Sentiment Label (Hawkish/Dovish/Risk-off/Neutral/Bullish/Bearish)"
+        "zh": "情绪标签（鹰派/鸽派/避险/中性/利好/利空/重大突破/政策支持）",
+        "en": "Sentiment Label (Hawkish/Dovish/Risk-off/Neutral/Bullish/Bearish/Breakthrough/Policy-Support)"
     }},
     "sentiment_score": -1.0 to 1.0,
     "urgency_score": 1-10,
     "market_implication": {{
-        "zh": "结合当前背景（美元、波动、持仓、宏观）的中文深评，重点放在黄金、美元、美债。",
+        "zh": "结合当前背景（美元、波动、持仓、行业政策、宏观）的中文深评，重点放在受影响的核心资产或行业赛道。",
         "en": "Deep analysis of market impact in English."
     }},
     "actionable_advice": {{
-        "zh": "针对黄金交易员的具体中文操作建议。注意：对反向波动需有风险规避方案。",
-        "en": "Specific actionable advice for Gold traders in English."
+        "zh": "针对该类资产交易员的具体中文操作建议。注意：对反向波动需有风险规避方案。",
+        "en": "Specific actionable advice for traders in English."
     }},
     "entities": [
         {{
             "name": "实体名称（尽量使用标准化别名）",
-            "type": "person/organization/policy/country/commodity/other",
+            "type": "person/organization/policy/country/commodity/stock/index/other",
             "impact": "bullish/bearish/neutral"
         }}
     ],
@@ -199,11 +199,11 @@ JSON 结构定义：
 {taxonomy_info}
 
 relations.relation 合法枚举：
-- 利多黄金：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down
-- 利空黄金：rate_hike, usd_strength, real_yield_up, risk_on, disinflation
+- 正向驱动：raises_tariff, imposes_tariff, sanctions, geopolitical_risk, conflict_escalation, inflation_up, rate_cut_expectation, risk_off, usd_weakness, yield_down, policy_support, tech_breakthrough, earnings_beat
+- 负向压力：rate_hike, usd_strength, real_yield_up, risk_on, disinflation, policy_tightening, earnings_miss, competitive_pressure
 
 强约束：
-1) 若新闻存在明确因果链且涉及黄金驱动因子，必须至少输出 1 条 relations。
+1) 若新闻存在明确因果链，必须至少输出 1 条 relations。
 2) relations 必须始终输出（无法提取时返回 []，不可省略字段）。
 3) entities 中 Person 类型不可遗漏（见铁律第1条）。
 """
