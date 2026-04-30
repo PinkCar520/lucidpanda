@@ -1,4 +1,5 @@
 import re
+import json
 from datetime import datetime
 
 import akshare as ak
@@ -60,18 +61,44 @@ class MarketTerminalService:
 
     def get_gold_history_24h(self):
         """获取上海金 (AU9999) 过去 24 小时的每小时收盘价"""
+        # 优先尝试从 Sina 接口直接获取 (由于 AU9999 是现货，akshare 的期货接口可能不稳)
         try:
-            # 使用 akshare 获取分钟线数据 (60分钟)
-            # 注意：此接口常用于获取国内期货/现货延时数据
+            url = "https://stock.finance.sina.com.cn/futures/api/jsonp.php/var%20_AU9999_60=/GlobalFuturesService.getMinuteLine?symbol=AU9999&type=60"
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200:
+                # 解析 JSONP: var _AU9999_60=(...);
+                content = resp.text
+                if "(" in content and ")" in content:
+                    json_str = content[content.find("(") + 1 : content.rfind(")")]
+                    data = json.loads(json_str)
+                    if isinstance(data, list) and len(data) > 0:
+                        # 数据格式: [{"d":"2024-05-20 14:00:00","o":"550.1","h":"550.5","l":"549.8","c":"550.2","v":"123"}, ...]
+                        recent = data[-24:]
+                        trend = []
+                        for item in recent:
+                            try:
+                                ts = datetime.strptime(item["d"], "%Y-%m-%d %H:%M:%S")
+                            except Exception:
+                                ts = datetime.now()
+                            
+                            trend.append({
+                                "timestamp": format_iso8601(ts),
+                                "price": round(float(item["c"]), 2),
+                                "is_forecast": False
+                            })
+                        return trend
+        except Exception as e:
+            logger.warning(f"Failed to fetch gold history via Sina JSONP: {e}")
+
+        # 备选尝试 akshare
+        try:
             df = ak.futures_zh_minute_sina(symbol="AU9999", period="60")
             if df is not None and not df.empty:
-                # 只取最近 24 个点
                 recent = df.tail(24)
                 trend = []
                 for _, row in recent.iterrows():
                     ts_val = row["datetime"]
                     if isinstance(ts_val, str):
-                        # 格式通常为 "2024-05-20 14:00:00"
                         try:
                             ts = datetime.strptime(ts_val, "%Y-%m-%d %H:%M:%S")
                         except ValueError:
@@ -86,9 +113,8 @@ class MarketTerminalService:
                     })
                 return trend
         except Exception as e:
-            logger.error(f"Failed to fetch gold history 24h: {e}")
+            logger.error(f"Failed to fetch gold history via akshare: {e}")
         
-        # 兜底：返回空列表
         return []
 
     def _fetch_gold_cny(self):
