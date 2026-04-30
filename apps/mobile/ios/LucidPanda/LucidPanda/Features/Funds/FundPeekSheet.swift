@@ -86,6 +86,9 @@ struct FundPeekSheet: View {
                 }
             }
             .task {
+                if rootViewModel.isPro {
+                    isAnalyzing = true
+                }
                 await fetchAnalysis()
                 await runAINarrative()
             }
@@ -242,7 +245,15 @@ struct FundPeekSheet: View {
                                 .foregroundStyle(.primary.opacity(0.9))
                                 .lineSpacing(4)
                                 .transition(.move(edge: .top).combined(with: .opacity))
-                        } else if let advice = analysis?.topAdvice {
+                        } else if isAnalyzing {
+                            HStack(spacing: 8) {
+                                ProgressView().scaleEffect(0.8)
+                                Text(LocalizedStringKey("intelligence.analysis.analyzing"))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        } else if let advice = analysis?.topAdvice, !advice.isEmpty {
                             Text(advice)
                                 .font(.subheadline)
                                 .foregroundStyle(.primary.opacity(0.8))

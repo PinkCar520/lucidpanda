@@ -943,6 +943,40 @@ async def submit_sync_operations(
 # ==================== 基金 AI 分析 ====================
 
 
+def map_category_to_icon(category: str | None) -> str:
+    """将情报分类映射到 SF Symbols 图标名"""
+    if not category:
+        return "newspaper"
+
+    cat = category.lower()
+
+    # 宏观与政策
+    if any(k in cat for k in ["policy", "monetary", "fiscal", "gov"]):
+        return "building.columns"
+    if any(k in cat for k in ["macro", "geopolitics", "inflation", "growth"]):
+        return "globe.asia.australia"
+
+    # 行业与板块
+    if any(k in cat for k in ["tech", "semi", "computing", "internet"]):
+        return "cpu"
+    if any(k in cat for k in ["energy", "power", "newenergy"]):
+        return "bolt.fill"
+    if any(k in cat for k in ["financial", "bank"]):
+        return "landmark"
+    if any(k in cat for k in ["health", "medical"]):
+        return "cross.case.fill"
+    if any(k in cat for k in ["sector", "equity", "stock", "equities"]):
+        return "chart.bar.fill"
+
+    # 大宗商品与资产
+    if "gold" in cat:
+        return "bitcoinsign.circle"
+    if any(k in cat for k in ["commodity", "oil", "metal"]):
+        return "shippingbox.fill"
+
+    return "newspaper"
+
+
 @router.get("/{fund_code}/ai_analysis", response_model=dict[str, Any])
 async def get_fund_ai_analysis(
     fund_code: str,
@@ -1021,8 +1055,8 @@ async def get_fund_ai_analysis(
         kw_conditions.append(f"content ILIKE :{key} OR summary::text ILIKE :{key}")
         kw_params[key] = f"%{sk}%"
 
-    kw_query = f"""
-        SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
+    kw_query = """
+        SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score, category
         FROM intelligence
         WHERE category = ANY(:cats)
           AND (
@@ -1050,7 +1084,7 @@ async def get_fund_ai_analysis(
                 dict(r)
                 for r in db.execute(
                     text("""
-                    SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
+                    SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score, category
                     FROM intelligence
                     WHERE category = ANY(:cats)
                       AND embedding_vec IS NOT NULL
@@ -1104,7 +1138,7 @@ async def get_fund_ai_analysis(
                 dict(r)
                 for r in db.execute(
                     text("""
-                    SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
+                    SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score, category
                     FROM intelligence
                     WHERE category = ANY(:cats)
                       AND summary IS NOT NULL
@@ -1190,7 +1224,7 @@ async def get_fund_ai_analysis(
                     dict(r)
                     for r in db.execute(
                         text("""
-                        SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
+                        SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score, category
                         FROM intelligence
                         WHERE category = ANY(:cats)
                           AND (content ILIKE :kw OR summary::text ILIKE :kw OR entities::text ILIKE :kw)
@@ -1217,7 +1251,7 @@ async def get_fund_ai_analysis(
                     dict(r)
                     for r in db.execute(
                         text("""
-                        SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score
+                        SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score, category
                         FROM intelligence
                         WHERE category = ANY(:cats)
                           AND (content ILIKE '%A股%' OR content ILIKE '%市场%')
@@ -1281,6 +1315,8 @@ async def get_fund_ai_analysis(
                 "summary": summary_text,
                 "advice": advice_text,
                 "sentiment": sentiment_label,
+                "category": row_map.get("category"),
+                "category_icon": map_category_to_icon(row_map.get("category")),
             }
         )
 

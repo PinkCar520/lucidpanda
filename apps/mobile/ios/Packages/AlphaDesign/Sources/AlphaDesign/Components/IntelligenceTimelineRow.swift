@@ -34,16 +34,41 @@ public struct IntelligenceTimelineRow: View {
                 Rectangle()
                     .fill(Color.secondary.opacity(isFirst ? 0 : 0.25))
                     .frame(width: 2, height: 14)
-                Circle()
-                    .fill(sentimentColor)
-                    .frame(width: 12, height: 12)
+                
+                if let icon = item.categoryIcon {
+                    ZStack {
+                        Circle()
+                            .fill(sentimentColor)
+                            .frame(width: 20, height: 20)
+                        Image(systemName: icon)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
                     .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1))
+                } else {
+                    Circle()
+                        .fill(sentimentColor)
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(.white.opacity(0.9), lineWidth: 1))
+                }
+
                 Rectangle()
                     .fill(Color.secondary.opacity(isLast ? 0 : 0.25))
                     .frame(width: 2, height: 54)
             }
 
             VStack(alignment: .leading, spacing: 6) {
+                if let category = item.category {
+                    Text(LocalizedStringKey("intelligence.category.\(category.lowercased())"))
+                        .font(.system(size: 9, weight: .black))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(sentimentColor.opacity(0.1))
+                        .foregroundStyle(sentimentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .padding(.bottom, 2)
+                }
+
                 Text(item.summary)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(Color.Alpha.textPrimary)
