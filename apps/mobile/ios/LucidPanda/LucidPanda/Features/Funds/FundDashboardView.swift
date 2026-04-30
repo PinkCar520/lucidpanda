@@ -377,57 +377,59 @@ struct FilterChip: View {
     let action: () -> Void
     @Environment(\.colorScheme) var colorScheme
 
-    private var foregroundColor: Color {
-        if isSelected {
-            return colorScheme == .dark ? .white : (color ?? Color.Alpha.brand)
-        } else {
+    // 🚀 Optimization: Extremely explicit logic to avoid compiler timeouts
+    private var textColor: Color {
+        if !isSelected {
             return Color.Alpha.textSecondary
         }
+        if colorScheme == .dark {
+            return Color.white
+        }
+        return color ?? Color.Alpha.brand
     }
 
-    private var backgroundColor: Color {
-        if isSelected {
-            if colorScheme == .dark {
-                return Color.Alpha.brand.opacity(0.3)
-            } else {
-                return color?.opacity(0.12) ?? Color.Alpha.brand.opacity(0.12)
-            }
-        } else {
+    private var bgColor: Color {
+        if !isSelected {
             return Color.clear
         }
+        let opacity: Double = 0.12
+        if colorScheme == .dark {
+            return Color.Alpha.brand.opacity(0.3)
+        }
+        if let customColor = color {
+            return customColor.opacity(opacity)
+        }
+        return Color.Alpha.brand.opacity(opacity)
     }
 
     private var strokeColor: Color {
         if isSelected {
-            return (color ?? Color.Alpha.brand).opacity(0.3)
+            let activeColor = color ?? Color.Alpha.brand
+            return activeColor.opacity(0.3)
+        }
+        return Color.Alpha.separator.opacity(0.5)
+    }
+
+    @ViewBuilder
+    private var label: some View {
+        if isLocalizedKey {
+            Text(LocalizedStringKey(title))
         } else {
-            return Color.Alpha.separator.opacity(0.5)
+            Text(title)
         }
     }
 
     var body: some View {
         Button(action: action) {
-            Group {
-                if isLocalizedKey {
-                    Text(LocalizedStringKey(title))
-                } else {
-                    Text(title)
-                }
-            }
-            .font(.system(size: 14, weight: .bold)) // 稍微缩小字号，更显精致
-            .padding(.horizontal, 18)
-            .padding(.vertical, 8)
-            .foregroundStyle(foregroundColor)
-            .background(
-                Capsule()
-                    .fill(backgroundColor)
-            )
-            .overlay(
-                Capsule()
-                    .stroke(strokeColor, lineWidth: 1)
-            )
+            label
+                .font(.system(size: 14, weight: .bold))
+                .padding(.horizontal, 18)
+                .padding(.vertical, 8)
+                .foregroundStyle(textColor)
+                .background(Capsule().fill(bgColor))
+                .overlay(Capsule().stroke(strokeColor, lineWidth: 1))
         }
-        .buttonStyle(.plain) // 🚀 Optimization: Eliminate default gray tap highlight
+        .buttonStyle(.plain)
     }
 }
 

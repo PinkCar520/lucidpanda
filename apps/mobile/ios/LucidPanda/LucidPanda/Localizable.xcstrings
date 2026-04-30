@@ -5623,9 +5623,6 @@
         }
       }
     },
-    "Privacy Policy" : {
-
-    },
     "reconciliation.chart.mae" : {
 
     },
@@ -6865,7 +6862,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Restore Purchases"
+            "value" : "Restore Purchase"
           }
         },
         "zh-Hans" : {
@@ -6887,7 +6884,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "立即升级 Pro"
+            "value" : "立即订阅"
           }
         }
       }
@@ -6926,6 +6923,40 @@
         }
       }
     },
+    "subscription.feature.alerts.sub" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instant push notifications for critical price movements and technical breaks."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关键价格波动和技术突破的即时推送通知。"
+          }
+        }
+      }
+    },
+    "subscription.feature.alerts.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Real-time SZ/WTI Alerts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "深证/原油实时预警"
+          }
+        }
+      }
+    },
     "subscription.feature.backtest" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6943,6 +6974,40 @@
         }
       }
     },
+    "subscription.feature.backtest.sub" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Validate strategies against 20 years of tick-perfect historical market data."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 20 年逐笔级的历史市场数据上验证您的投资策略。"
+          }
+        }
+      }
+    },
+    "subscription.feature.backtest.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Advanced Backtesting Suite"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高级回测套件"
+          }
+        }
+      }
+    },
     "subscription.feature.narrative" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6956,6 +7021,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "基金穿透式 AI 叙事"
+          }
+        }
+      }
+    },
+    "subscription.feature.sentiment.sub" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deep neural networks analyzing global macro indicators to predict causal trends."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "深度神经网络分析全球宏观指标，预测因果趋势。"
+          }
+        }
+      }
+    },
+    "subscription.feature.sentiment.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI-Driven Market Sentiment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 驱动的市场情绪"
           }
         }
       }
@@ -6994,6 +7093,74 @@
         }
       }
     },
+    "subscription.label.premium" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Premium"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尊享版"
+          }
+        }
+      }
+    },
+    "subscription.label.privacy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy Policy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐私政策"
+          }
+        }
+      }
+    },
+    "subscription.label.tos" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terms of Use"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用条款"
+          }
+        }
+      }
+    },
+    "subscription.plan.best_value" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Best Value"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最优惠"
+          }
+        }
+      }
+    },
     "subscription.plan.monthly" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7006,7 +7173,58 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按月订阅"
+            "value" : "月度订阅"
+          }
+        }
+      }
+    },
+    "subscription.plan.monthly.sub" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No commitment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无长期合约"
+          }
+        }
+      }
+    },
+    "subscription.plan.quarterly" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quarterly"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "季度订阅"
+          }
+        }
+      }
+    },
+    "subscription.plan.quarterly.sub" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Billed every 3 months"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每 3 个月计费一次"
           }
         }
       }
@@ -7034,45 +7252,64 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Yearly"
+            "value" : "Annual"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按年订阅"
+            "value" : "年度订阅"
+          }
+        }
+      }
+    },
+    "subscription.plan.yearly.sub" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Billed yearly ($16.66/mo)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按年计费 ($16.66/月)"
           }
         }
       }
     },
     "subscription.slogan" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unlock Institutional-Grade Alpha"
+            "value" : "Elevate your quantitative strategy with institutional-grade data and AI-driven analysis."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "解锁机构级 Alpha 洞察"
+            "value" : "凭借机构级数据和 AI 驱动分析，全面提升您的量化策略。"
           }
         }
       }
     },
     "subscription.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LucidPanda Pro"
+            "value" : "Unlock Pro Insights"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "LucidPanda Pro"
+            "value" : "解锁 Pro 洞察"
           }
         }
       }
@@ -7174,9 +7411,6 @@
           }
         }
       }
-    },
-    "Terms of Service" : {
-
     },
     "数据暂缺" : {
 
