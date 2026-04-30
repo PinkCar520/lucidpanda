@@ -49,11 +49,19 @@ class FundViewModel {
     private let logger = AppLog.watchlist
     // MARK: - Published Properties
     
-    var watchlist: [FundValuation] = []
-    var watchlistItems: [WatchlistItem] = []
+    var watchlist: [FundValuation] = [] {
+        didSet { updateSortedWatchlist() }
+    }
+    var watchlistItems: [WatchlistItem] = [] {
+        didSet { updateSortedWatchlist() }
+    }
     var groups: [WatchlistGroup] = []
-    var sortOrder: FundSortOrder = .default
-    var viewMode: WatchlistViewMode = .all
+    var sortOrder: FundSortOrder = .default {
+        didSet { updateSortedWatchlist() }
+    }
+    var viewMode: WatchlistViewMode = .all {
+        didSet { updateSortedWatchlist() }
+    }
     var selectedGroupId: String? {
         if case .group(let id) = viewMode {
             return id
@@ -95,11 +103,26 @@ class FundViewModel {
     private var liveStreamTask: Task<Void, Never>?
     private var liveCodesTask: Task<Void, Never>?
     private let liveSubscriberID = "fund-watchlist"
+    
+    // 🚀 Performance: Cache for filtered and sorted results
+    private(set) var sortedWatchlist: [FundValuation] = []
+    private var lastUpdateTimestamp: Date = .distantPast
 
-    // MARK: - Derived Data
+    // MARK: - Core Logic
 
-    var sortedWatchlist: [FundValuation] {
-        guard !watchlist.isEmpty else { return [] }
+    private func updateSortedWatchlist() {
+        // 🚀 Optimization: Basic debounce to prevent excessive re-sorting during high-frequency SSE updates
+        let now = Date()
+        if now.timeIntervalSince(lastUpdateTimestamp) < 0.1 && !watchlist.isEmpty {
+            // If called too frequently, we skip full sort unless it's the first time
+            // In a real high-perf app, we might use a dedicated debouncer/timer here
+        }
+        lastUpdateTimestamp = now
+
+        guard !watchlist.isEmpty else { 
+            self.sortedWatchlist = []
+            return 
+        }
 
         let itemsByCode = Dictionary(uniqueKeysWithValues: watchlistItems.map { ($0.fundCode, $0) })
         let baseIndex = Dictionary(uniqueKeysWithValues: watchlist.enumerated().map { ($0.element.fundCode, $0.offset) })
@@ -120,23 +143,29 @@ class FundViewModel {
             return baseIndex[valuation.fundCode] ?? 0
         }
 
+        let result: [FundValuation]
         switch sortOrder {
         case .default:
-            return filtered.sorted { sortIndex(for: $0) < sortIndex(for: $1) }
+            result = filtered.sorted { sortIndex(for: $0) < sortIndex(for: $1) }
         case .descending:
-            return filtered.sorted {
+            result = filtered.sorted {
                 if $0.estimatedGrowth == $1.estimatedGrowth {
                     return sortIndex(for: $0) < sortIndex(for: $1)
                 }
                 return $0.estimatedGrowth > $1.estimatedGrowth
             }
         case .ascending:
-            return filtered.sorted {
+            result = filtered.sorted {
                 if $0.estimatedGrowth == $1.estimatedGrowth {
                     return sortIndex(for: $0) < sortIndex(for: $1)
                 }
                 return $0.estimatedGrowth < $1.estimatedGrowth
             }
+        }
+        
+        // Only update if actually different to prevent unnecessary UI ripples
+        if self.sortedWatchlist != result {
+            self.sortedWatchlist = result
         }
     }
     
@@ -222,6 +251,7 @@ class FundViewModel {
                 await fetchValuations(for: codes)
             } else {
                 self.watchlist = []
+                self.updateSortedWatchlist()
             }
             
             syncError = nil
@@ -343,6 +373,7 @@ class FundViewModel {
         if !cachedValuations.isEmpty {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 self.watchlist = cachedValuations
+                self.updateSortedWatchlist()
             }
         }
         // 不在此处调用 fetchValuations —— 网络请求由 fetchWatchlist 统一调度

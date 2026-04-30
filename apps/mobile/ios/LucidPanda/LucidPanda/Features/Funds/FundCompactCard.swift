@@ -92,6 +92,7 @@ struct FundCompactCard: View, Equatable {
                     if let sparkData = stats.sparklineData {
                         FundSparkline(data: sparkData, isPositive: (stats.return1m ?? 0) >= 0)
                             .frame(width: 60, height: 20)
+                            .drawingGroup() // 🚀 Optimization: Hardware accelerated rendering for vector graphics
                             .opacity(0.8)
                     }
                 } else {
@@ -112,6 +113,7 @@ struct FundCompactCard: View, Equatable {
                 .stroke(Color.Alpha.separator, lineWidth: 1)
         )
         .shadow(color: colorScheme == .light ? Color.black.opacity(0.02) : Color.clear, radius: 2, y: 1)
+        .compositingGroup() // 🚀 Optimization: Flatten view hierarchy into a single layer for smoother scrolling
         .scaleEffect(isPressed ? 0.98 : 1.0)
         .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isPressed)
         .onLongPressGesture(minimumDuration: 0.4, pressing: { pressing in

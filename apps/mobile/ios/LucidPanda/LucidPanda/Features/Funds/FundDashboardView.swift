@@ -184,6 +184,8 @@ struct FundDashboardView: View {
                                 FundCompactCard(
                                     valuation: valuation
                                 )
+                                .equatable() // 🚀 Optimization: Skip redraws if data hasn't changed (Must be called before .id()/.padding())
+                                .id(valuation.fundCode) // 🚀 Optimization: Stable identity for ForEach
                                 .padding(.horizontal, 16)
                             }
                             .buttonStyle(.plain)
@@ -375,6 +377,34 @@ struct FilterChip: View {
     let action: () -> Void
     @Environment(\.colorScheme) var colorScheme
 
+    private var foregroundColor: Color {
+        if isSelected {
+            return colorScheme == .dark ? .white : (color ?? Color.Alpha.brand)
+        } else {
+            return Color.Alpha.textSecondary
+        }
+    }
+
+    private var backgroundColor: Color {
+        if isSelected {
+            if colorScheme == .dark {
+                return Color.Alpha.brand.opacity(0.3)
+            } else {
+                return color?.opacity(0.12) ?? Color.Alpha.brand.opacity(0.12)
+            }
+        } else {
+            return Color.clear
+        }
+    }
+
+    private var strokeColor: Color {
+        if isSelected {
+            return (color ?? Color.Alpha.brand).opacity(0.3)
+        } else {
+            return Color.Alpha.separator.opacity(0.5)
+        }
+    }
+
     var body: some View {
         Button(action: action) {
             Group {
@@ -384,21 +414,20 @@ struct FilterChip: View {
                     Text(title)
                 }
             }
-            .font(.system(size: 15, weight: .bold))
-            .padding(.horizontal, 22)
-            .padding(.vertical, 10)
-            .foregroundStyle(isSelected ? (colorScheme == .dark ? .white : (color ?? Color.Alpha.brand)) : Color.Alpha.textSecondary)
+            .font(.system(size: 14, weight: .bold)) // 稍微缩小字号，更显精致
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
+            .foregroundStyle(foregroundColor)
             .background(
                 Capsule()
-                    .fill(isSelected 
-                          ? (colorScheme == .dark ? Color.Alpha.brand.opacity(0.3) : (color?.opacity(0.08) ?? Color.Alpha.brand.opacity(0.08))) 
-                          : (colorScheme == .dark ? Color.Alpha.surface : Color.Alpha.surfaceContainerLow))
+                    .fill(backgroundColor)
             )
             .overlay(
                 Capsule()
-                    .stroke((color ?? Color.Alpha.brand).opacity(isSelected ? 0.2 : 0), lineWidth: 1)
+                    .stroke(strokeColor, lineWidth: 1)
             )
         }
+        .buttonStyle(.plain) // 🚀 Optimization: Eliminate default gray tap highlight
     }
 }
 
