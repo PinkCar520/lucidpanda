@@ -25,18 +25,22 @@ public class MarketPulseViewModel {
     }
     
     private func loadPulseFromCache() {
-        if let data = UserDefaults.standard.data(forKey: pulseCacheKey),
-           let cached = try? JSONDecoder().decode(MarketPulseResponse.self, from: data) {
-            self.pulseData = cached
+        if let data = UserDefaults.standard.data(forKey: pulseCacheKey) {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            if let cached = try? decoder.decode(MarketPulseResponse.self, from: data) {
+                self.pulseData = cached
+            }
         }
     }
-    
+
     private func savePulseToCache(_ pulse: MarketPulseResponse) {
-        if let data = try? JSONEncoder().encode(pulse) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        if let data = try? encoder.encode(pulse) {
             UserDefaults.standard.set(data, forKey: pulseCacheKey)
         }
-    }
-    
+    }    
     @MainActor
     public func start() async {
         guard !isLoading else { return }

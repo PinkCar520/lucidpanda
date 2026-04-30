@@ -54,10 +54,13 @@ public actor MarketPulseSSECenter {
                     
                     logger.debug("📡 Market SSE Stream Connected")
                     
+                    let decoder = JSONDecoder()
+                    decoder.dateDecodingStrategy = .iso8601
+                    
                     for try await payload in stream {
                         if Task.isCancelled { break }
                         if let data = payload.data(using: .utf8),
-                           let pulse = try? JSONDecoder().decode(MarketPulseResponse.self, from: data) {
+                           let pulse = try? decoder.decode(MarketPulseResponse.self, from: data) {
                             broadcast(pulse)
                         }
                     }
