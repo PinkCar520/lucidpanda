@@ -4511,54 +4511,6 @@
         }
       }
     },
-    "market.pulse.gold_trend_24h_ai" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gold Price Trend (24h + AI Forecast)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上海金走势 (24h + AI 预测)"
-          }
-        }
-      }
-    },
-    "market.pulse.trend.actual" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Actual"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "实际走势"
-          }
-        }
-      }
-    },
-    "market.pulse.trend.forecast" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI Forecast"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AI 预测"
-          }
-        }
-      }
-    },
     "funds.search.filter.all" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5505,6 +5457,23 @@
         }
       }
     },
+    "market.pulse.gold_trend_24h_ai" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gold Price Trend (24h + AI Forecast)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上海金走势 (24h + AI 预测)"
+          }
+        }
+      }
+    },
     "market.pulse.no_high_urgency" : {
       "localizations" : {
         "en" : {
@@ -5703,10 +5672,36 @@
       }
     },
     "market.pulse.trend.actual" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actual"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实际走势"
+          }
+        }
+      }
     },
     "market.pulse.trend.forecast" : {
-
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Forecast"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 预测"
+          }
+        }
+      }
     },
     "market.pulse.updated_format %@" : {
       "localizations" : {

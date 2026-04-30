@@ -1055,7 +1055,7 @@ async def get_fund_ai_analysis(
         kw_conditions.append(f"content ILIKE :{key} OR summary::text ILIKE :{key}")
         kw_params[key] = f"%{sk}%"
 
-    kw_query = """
+    kw_query = f"""
         SELECT id, timestamp, author, urgency_score, summary, actionable_advice, sentiment_score, category
         FROM intelligence
         WHERE category = ANY(:cats)
