@@ -919,6 +919,40 @@
         }
       }
     },
+    "backtest.metric.final_balance" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Final Balance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟终值"
+          }
+        }
+      }
+    },
+    "backtest.metric.final_balance_desc" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulated P/L"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟盈亏结果"
+          }
+        }
+      }
+    },
     "backtest.metric.rar" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5623,6 +5657,9 @@
         }
       }
     },
+    "PRO" : {
+
+    },
     "reconciliation.chart.mae" : {
 
     },
@@ -6588,6 +6625,23 @@
         }
       }
     },
+    "settings.section.subscription" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subscription"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "订阅服务"
+          }
+        }
+      }
+    },
     "settings.security.verify_and_enable" : {
       "localizations" : {
         "en" : {
@@ -6700,6 +6754,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "撤销"
+          }
+        }
+      }
+    },
+    "settings.subscription.status.pro" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pro Member"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尊享版会员"
+          }
+        }
+      }
+    },
+    "settings.subscription.upgrade" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upgrade to Pro"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "升级至尊享版"
           }
         }
       }

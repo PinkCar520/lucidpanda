@@ -64,7 +64,16 @@ class BacktestViewModel {
             defer { isLoading = false }
             
             do {
-                let path = "/api/v1/web/stats?window=\(selectedWindow)&min_score=\(minScore)&sentiment=\(sentiment)"
+                let isoFormatter = ISO8601DateFormatter()
+                let startStr = isoFormatter.string(from: startDate)
+                let endStr = isoFormatter.string(from: endDate)
+                
+                var path = "/api/v1/web/stats?window=\(selectedWindow)&min_score=\(minScore)&sentiment=\(sentiment)"
+                path += "&strategy_type=\(strategyType.rawValue)"
+                path += "&start_date=\(startStr.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+                path += "&end_date=\(endStr.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+                path += "&initial_capital=\(initialCapital)"
+                
                 let response: BacktestStats = try await APIClient.shared.fetch(path: path)
                 try Task.checkCancellation()
                 withAnimation {

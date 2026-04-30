@@ -37,13 +37,22 @@ struct BacktestView: View {
                         VStack(spacing: 24) {
                             resultsHeader
 
-                            if let stats = viewModel.stats {
-                                resultsContent(stats)
-                            } else if viewModel.isLoading {
-                                ProgressView().tint(Color.Alpha.brand).padding(.top, 40)
-                            } else {
-                                emptyStateView
+                            ZStack {
+                                if let stats = viewModel.stats {
+                                    resultsContent(stats)
+                                        .blur(radius: viewModel.isLoading ? 3 : 0)
+                                        .opacity(viewModel.isLoading ? 0.6 : 1.0)
+                                } else if viewModel.isLoading {
+                                    ProgressView().tint(Color.Alpha.brand).padding(.top, 40)
+                                } else {
+                                    emptyStateView
+                                }
+                                
+                                if viewModel.isLoading && viewModel.stats != nil {
+                                    ProgressView().tint(Color.Alpha.brand)
+                                }
                             }
+                            .animation(.easeInOut(duration: 0.2), value: viewModel.isLoading)
                         }
 
                         if let errorMessage = viewModel.errorMessage {
@@ -410,10 +419,21 @@ struct BacktestView: View {
     }
     
     private func statsGrid(_ stats: BacktestStats) -> some View {
-        HStack(spacing: 12) {
-            statItem(title: "backtest.metric.sample_size", value: "\(stats.count)", sub: "common.label.n")
-            statItem(title: "backtest.metric.risk_adjusted_win_rate", value: String(format: "%.1f%%", stats.adjWinRate ?? stats.winRate), sub: "backtest.metric.rar", color: .blue)
-            statItem(title: "backtest.metric.average_return", value: String(format: "%.2f%%", abs(stats.avgDrop)), sub: "common.label.return", color: .red)
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                statItem(title: "backtest.metric.sample_size", value: "\(stats.count)", sub: "common.label.n")
+                statItem(title: "backtest.metric.risk_adjusted_win_rate", value: String(format: "%.1f%%", stats.adjWinRate ?? stats.winRate), sub: "backtest.metric.rar", color: .blue)
+                statItem(title: "backtest.metric.average_return", value: String(format: "%.2f%%", abs(stats.avgDrop)), sub: "common.label.return", color: .red)
+            }
+            
+            if let balance = stats.finalBalance {
+                statItem(
+                    title: "backtest.metric.final_balance",
+                    value: "$\(Int(balance).formatted())",
+                    sub: "backtest.metric.final_balance_desc",
+                    color: balance >= viewModel.initialCapital ? Color.Alpha.up : Color.Alpha.down
+                )
+            }
         }
         .padding(.horizontal)
     }

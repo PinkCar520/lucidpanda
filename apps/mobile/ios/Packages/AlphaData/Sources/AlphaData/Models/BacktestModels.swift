@@ -6,6 +6,7 @@ public struct BacktestStats: Codable {
     public let winRate: Double
     public let adjWinRate: Double?
     public let avgDrop: Double
+    public let finalBalance: Double?
     public let hygiene: HygieneStats
     public let correlation: [String: SessionWinRate]
     public let positioning: [String: SessionWinRate]?
@@ -14,11 +15,12 @@ public struct BacktestStats: Codable {
     public let sessionStats: [SessionPerformance]
     public let items: [BacktestItem]?
     
-    public init(count: Int, winRate: Double, adjWinRate: Double? = nil, avgDrop: Double, hygiene: HygieneStats, correlation: [String: SessionWinRate], positioning: [String: SessionWinRate]? = nil, volatility: [String: SessionWinRate]? = nil, distribution: [DistributionBin]? = nil, sessionStats: [SessionPerformance], items: [BacktestItem]? = nil) {
+    public init(count: Int, winRate: Double, adjWinRate: Double? = nil, avgDrop: Double, finalBalance: Double? = nil, hygiene: HygieneStats, correlation: [String: SessionWinRate], positioning: [String: SessionWinRate]? = nil, volatility: [String: SessionWinRate]? = nil, distribution: [DistributionBin]? = nil, sessionStats: [SessionPerformance], items: [BacktestItem]? = nil) {
         self.count = count
         self.winRate = winRate
         self.adjWinRate = adjWinRate
         self.avgDrop = avgDrop
+        self.finalBalance = finalBalance
         self.hygiene = hygiene
         self.correlation = correlation
         self.positioning = positioning

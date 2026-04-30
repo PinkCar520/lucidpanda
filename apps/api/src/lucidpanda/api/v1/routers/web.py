@@ -966,11 +966,16 @@ async def get_web_backtest_stats(
     window: str = "1h",
     min_score: int = 8,
     sentiment: str = "bearish",
+    strategy_type: str = "mean-reversion",
+    start_date: str | None = None,
+    end_date: str | None = None,
+    initial_capital: float = 10000.0,
     db: Session = Depends(get_session),
 ):
     """
     V1 Full Production Port of server-side backtesting logic.
     Restores all analytical modules for the professional reporting dashboard.
+    Now supports custom date ranges and simulation parameters.
     """
     try:
         # Determine columns based on window
@@ -993,6 +998,13 @@ async def get_web_backtest_stats(
 
         cluster_window = "30 minutes"
 
+        # Prepare Date Filter
+        date_filter = ""
+        if start_date:
+            date_filter += " AND timestamp >= :start_date"
+        if end_date:
+            date_filter += " AND timestamp <= :end_date"
+
         # Prepare Common SQL Fragments
         base_cte = f"""
         WITH filtered_intelligence AS (
@@ -1002,6 +1014,7 @@ async def get_web_backtest_stats(
               AND (sentiment::text ~* :keywords)
               AND gold_price_snapshot IS NOT NULL 
               AND {outcome_col} IS NOT NULL
+              {date_filter}
         ),
         deduplicated_events AS (
             SELECT *, 
@@ -1101,7 +1114,12 @@ async def get_web_backtest_stats(
         """
 
         # Execute all queries
-        params = {"keywords": keywords, "min_score": min_score}
+        params = {
+            "keywords": keywords, 
+            "min_score": min_score,
+            "start_date": start_date,
+            "end_date": end_date
+        }
 
         res_global = db.execute(text(query_global), params).mappings().first()
         if not res_global or res_global["count"] == 0:
@@ -1160,12 +1178,18 @@ async def get_web_backtest_stats(
             for row in res_vol
         }
 
+        # Calculate simulation result
+        avg_change = res_global["avg_change_pct"] or 0.0
+        total_relative_return = (avg_change / 100.0) * res_global["count"]
+        final_balance = initial_capital * (1.0 + total_relative_return)
+
         return v1_prepare_json(
             {
                 "count": res_global["count"],
                 "winRate": (res_global["wins"] / res_global["count"]) * 100,
                 "adjWinRate": res_global["adj_win_rate"] or 0,
                 "avgDrop": -(res_global["avg_change_pct"] or 0),
+                "finalBalance": final_balance,
                 "hygiene": {
                     "avgClustering": res_global["avg_clustering"] or 0,
                     "avgExhaustion": res_global["avg_exhaustion"] or 0,

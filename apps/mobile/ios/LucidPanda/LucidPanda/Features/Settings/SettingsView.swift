@@ -45,6 +45,7 @@ struct SettingsView: View {
                     VStack(spacing: 28) {
                         profileHeader
                         profileEditCard
+                        subscriptionCard // 🚀 New: Subscription Entry
                         accountSettingsCard
                         notificationsCard
                         securityCard
@@ -79,6 +80,14 @@ struct SettingsView: View {
             // Pre-warm the profile when opening settings
             await rootViewModel.fetchUserProfile()
         }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .paywall:
+                PaywallView()
+            default:
+                EmptyView()
+            }
+        }
         .alert(String(localized: "settings.web.alert.title"), isPresented: $showWebPrompt) {
             Button("common.close", role: .cancel) {}
         } message: {
@@ -87,6 +96,57 @@ struct SettingsView: View {
     }
 
     // MARK: - Sections
+
+    private var subscriptionCard: some View {
+        VStack(spacing: 0) {
+            sectionHeader(title: "settings.section.subscription")
+            premiumCard {
+                Button {
+                    activeSheet = .paywall
+                } label: {
+                    HStack(spacing: 16) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(rootViewModel.isPro ? Color.Alpha.brand.opacity(0.1) : Color.Alpha.brand.opacity(0.1))
+                                .frame(width: 32, height: 32)
+                            Image(systemName: rootViewModel.isPro ? "seal.fill" : "sparkles")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.Alpha.brand)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(LocalizedStringKey("settings.section.subscription"))
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(Color.Alpha.textPrimary)
+                            
+                            Text(LocalizedStringKey(rootViewModel.isPro ? "settings.subscription.status.pro" : "settings.subscription.upgrade"))
+                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                                .foregroundStyle(rootViewModel.isPro ? Color.Alpha.brand : Color.Alpha.taupe)
+                        }
+
+                        Spacer()
+
+                        if rootViewModel.isPro {
+                            Text("PRO")
+                                .font(.system(size: 10, weight: .black))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.Alpha.brand)
+                                .foregroundStyle(.white)
+                                .clipShape(Capsule())
+                        }
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.Alpha.taupe)
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 16)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
 
     // MARK: - Premium Card Container
     private func premiumCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -1246,6 +1306,7 @@ private enum ActiveSheet: Int, Identifiable {
     case password
     case twoFactor
     case sessions
+    case paywall // 🚀 New
 
     var id: Int { rawValue }
 }
