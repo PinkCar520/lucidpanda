@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse
 from sqlmodel import Session, col, select, text
+from starlette.concurrency import run_in_threadpool
 
 from src.lucidpanda.auth.dependencies import get_current_user, get_current_pro_user
 from src.lucidpanda.auth.models import User
@@ -198,7 +199,7 @@ async def get_mobile_market_snapshot():
     Fetch real-time market snapshot for iOS terminal.
     Includes: Gold, DXY, Crude Oil, US10Y Treasury.
     """
-    snapshot = market_terminal_service.get_market_snapshot()
+    snapshot = await run_in_threadpool(market_terminal_service.get_market_snapshot)
     if not snapshot:
         raise HTTPException(
             status_code=503, detail="Market data temporarily unavailable"
@@ -426,8 +427,8 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
     now_dt = datetime.now(UTC)
     since_24h = now_dt - timedelta(hours=24)
 
-    # 1. 市场快照
-    snapshot = market_terminal_service.get_market_snapshot()
+    # 2. 注入市场概况
+    snapshot = await run_in_threadpool(market_terminal_service.get_market_snapshot)
 
     # 2. 近24h高紧急度情报 (urgency_score >= 7)
     top_alerts_raw = (
@@ -492,7 +493,7 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
         })
 
     # 4.5 黄金价格走势与 AI 预测
-    gold_history = market_terminal_service.get_gold_history_24h()
+    gold_history = await run_in_threadpool(market_terminal_service.get_gold_history_24h)
     gold_forecast = await _generate_gold_forecast(gold_history, top_alerts, snapshot)
     gold_trend = gold_history + gold_forecast
 

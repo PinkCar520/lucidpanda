@@ -321,10 +321,6 @@ services:
       - HOST=0.0.0.0
       - PORT=8001
       - REDIS_URL=redis://redis:6379/0
-      # 代理访问境外数据（如需）及在国内跳过国内域名
-      - HTTP_PROXY=http://singbox:7890
-      - HTTPS_PROXY=http://singbox:7890
-      - NO_PROXY=localhost,127.0.0.1,.cn,.com.cn,gtimg.cn,.aliyuncs.com,db,redis,rsshub,api,web,sina.com,eastmoney.com,deepseek.com,hf-mirror.com
     restart: unless-stopped
     deploy:
       resources:
@@ -341,11 +337,11 @@ services:
         max-size: "100m"
         max-file: "3"
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8001/health" ]
+      test: [ "CMD-SHELL", "curl -f http://127.0.0.1:8001/health --noproxy '*' || exit 1" ]
       interval: 30s
-      timeout: 10s
+      timeout: 20s
       retries: 3
-      start_period: 10s
+      start_period: 30s
 
   # 3. Frontend (Next.js)
   web:

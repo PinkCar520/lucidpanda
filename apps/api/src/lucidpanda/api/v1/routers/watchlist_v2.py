@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from pydantic import BaseModel, Field
 from sqlmodel import Session, text
+from starlette.concurrency import run_in_threadpool
 
 from src.lucidpanda.auth.dependencies import get_current_user, get_current_pro_user
 from src.lucidpanda.auth.models import User
@@ -1327,7 +1328,7 @@ async def get_fund_ai_analysis(
                 top_advice = item["advice"]
                 break
 
-    snapshot = market_terminal_service.get_market_snapshot()
+    snapshot = await run_in_threadpool(market_terminal_service.get_market_snapshot)
 
     result = v1_prepare_json(
         {

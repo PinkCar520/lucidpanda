@@ -191,7 +191,7 @@ app.include_router(watchlist_v2.router, prefix="/api/v2")
 
 
 @app.get("/api/funds/{code}/valuation")
-async def get_fund_valuation(code: str):
+def get_fund_valuation(code: str):
     """Get real-time estimated valuation for a fund."""
     from src.lucidpanda.core.fund_engine import FundEngine
     
@@ -231,7 +231,7 @@ async def refresh_fund_holdings(code: str):
     return {"status": "ok", "holdings_count": len(holdings)}
 
 @app.get("/api/funds/batch-valuation")
-async def get_batch_valuations(codes: str, mode: str = "full"):
+def get_batch_valuations(codes: str, mode: str = "full"):
     """
     Get real-time valuations for multiple funds.
     codes: Comma-separated list of fund codes.
@@ -352,7 +352,7 @@ async def get_fund_monitor_stats(current_user: User = Depends(get_current_user))
     return stats
 
 @app.get("/api/watchlist")
-async def get_watchlist(current_user: User = Depends(get_current_user)):
+def get_watchlist(current_user: User = Depends(get_current_user)):
     from src.lucidpanda.core.database import IntelligenceDB
     db = IntelligenceDB()
     rows = db.get_watchlist(str(current_user.id))
@@ -1241,8 +1241,8 @@ async def get_intelligence_history(limit: int = 50, since_id: int = None):
         print(f"[API] Intelligence history error: {e}")
         return {"error": str(e)}, 500
 
-@app.get("/api/market")
-async def get_market_data(symbol: str = "GC=F", range: str = "1d", interval: str = "5m"):
+@app.get("/api/market/charts")
+def get_market_data(symbol: str = "GC=F", range: str = "1d", interval: str = "5m"):
     """Fetch market data for charts."""
     import akshare as ak
     import pandas as pd
@@ -1280,7 +1280,7 @@ async def get_market_data(symbol: str = "GC=F", range: str = "1d", interval: str
         return {"error": str(e)}, 500
 
 @app.get("/api/intelligence/{item_id}")
-async def get_intelligence_item(item_id: int):
+def get_intelligence_item(item_id: int):
     """Fetch a single intelligence item by ID."""
     try:
         conn = psycopg.connect(row_factory=__import__('psycopg.rows', fromlist=['dict_row']).dict_row, 
@@ -1304,7 +1304,7 @@ async def get_intelligence_item(item_id: int):
         return {"error": str(e)}, 500
 
 @app.get("/health")
-async def health_check():
+def health_check():
     return {"status": "ok", "service": "LucidPanda SSE (Broadcast Mode)"}
 
 if __name__ == "__main__":
