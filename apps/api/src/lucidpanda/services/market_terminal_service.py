@@ -60,41 +60,28 @@ class MarketTerminalService:
             return None
 
     def get_gold_history_24h(self):
-        """获取上海金 (AU9999) 过去 24 小时的每小时收盘价"""
-        # 优先尝试从 Sina 接口直接获取 (由于 AU9999 是现货，akshare 的期货接口可能不稳)
+        """
+        获取金价走势。
+        策略：由于上海金 (AU9999) 现货历史接口极其不稳定，
+        采用国内最活跃的黄金期货 (SHFE au0) 作为走势形状（Shape），
+        并根据 AU9999 实时报价进行价格锚定，确保 24h 曲线连续且准确。
+        """
         try:
-            url = "https://stock.finance.sina.com.cn/futures/api/jsonp.php/var%20_AU9999_60=/GlobalFuturesService.getMinuteLine?symbol=AU9999&type=60"
-            resp = requests.get(url, timeout=5)
-            if resp.status_code == 200:
-                # 解析 JSONP: var _AU9999_60=(...);
-                content = resp.text
-                if "(" in content and ")" in content:
-                    json_str = content[content.find("(") + 1 : content.rfind(")")]
-                    data = json.loads(json_str)
-                    if isinstance(data, list) and len(data) > 0:
-                        # 数据格式: [{"d":"2024-05-20 14:00:00","o":"550.1","h":"550.5","l":"549.8","c":"550.2","v":"123"}, ...]
-                        recent = data[-24:]
-                        trend = []
-                        for item in recent:
-                            try:
-                                ts = datetime.strptime(item["d"], "%Y-%m-%d %H:%M:%S")
-                            except Exception:
-                                ts = datetime.now()
-                            
-                            trend.append({
-                                "timestamp": format_iso8601(ts),
-                                "price": round(float(item["c"]), 2),
-                                "is_forecast": False
-                            })
-                        return trend
-        except Exception as e:
-            logger.warning(f"Failed to fetch gold history via Sina JSONP: {e}")
-
-        # 备选尝试 akshare
-        try:
-            df = ak.futures_zh_minute_sina(symbol="AU9999", period="60")
+            # 1. 获取 au0 60分钟线 (形状源) - 经本地验证极度稳定
+            df = ak.futures_zh_minute_sina(symbol="au0", period="60")
             if df is not None and not df.empty:
                 recent = df.tail(24)
+                
+                # 2. 获取 AU9999 实时报价 (锚定源)
+                current_spot = self._fetch_gold_cny()
+                current_spot_price = current_spot.get("price", 0) if current_spot else 0
+                
+                # 计算偏移量：让期货曲线的最后一个点对齐现货价格
+                price_offset = 0.0
+                if current_spot_price > 0:
+                    last_futures_price = float(recent.iloc[-1]["close"])
+                    price_offset = current_spot_price - last_futures_price
+                
                 trend = []
                 for _, row in recent.iterrows():
                     ts_val = row["datetime"]
@@ -108,12 +95,42 @@ class MarketTerminalService:
                     
                     trend.append({
                         "timestamp": format_iso8601(ts),
-                        "price": round(float(row["close"]), 2),
+                        "price": round(float(row["close"]) + price_offset, 2),
+                        "is_forecast": False
+                    })
+                
+                if trend:
+                    return trend
+        except Exception as e:
+            logger.warning(f"Failed to build gold trend via au0: {e}")
+
+        # 3. 兜底策略：使用 yfinance (国际金走势) - 经本地验证稳定
+        try:
+            import yfinance as yf
+            gold = yf.Ticker("GC=F")
+            df = gold.history(period="5d", interval="1h")
+            if df is not None and not df.empty:
+                recent = df.tail(24)
+                current_spot = self._fetch_gold_cny()
+                current_price = current_spot.get("price", 0) if current_spot else 0
+                
+                # 动态计算汇率/单位换算系数 (oz -> g)
+                scale_factor = 0.128 
+                if current_price > 0:
+                    last_intl = float(recent.iloc[-1]["Close"])
+                    if last_intl > 0:
+                        scale_factor = current_price / last_intl
+                
+                trend = []
+                for ts, row in recent.iterrows():
+                    trend.append({
+                        "timestamp": format_iso8601(ts),
+                        "price": round(float(row["Close"]) * scale_factor, 2),
                         "is_forecast": False
                     })
                 return trend
         except Exception as e:
-            logger.error(f"Failed to fetch gold history via akshare: {e}")
+            logger.error(f"Failed to fetch gold history via yfinance fallback: {e}")
         
         return []
 
