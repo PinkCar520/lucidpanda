@@ -169,8 +169,23 @@ class MarketTerminalService:
             # 在国内休市或数据异常时，这是最可靠的实时源
             try:
                 import yfinance as yf
+                import time
+                import random
+                
+                # 如果之前有过 Rate Limit 报错，这里加一个随机微小延迟避开并发冲突
+                time.sleep(random.uniform(0.1, 0.5))
+                
                 gold = yf.Ticker("GC=F")
-                df = gold.history(period="3d", interval="1h")
+                # 再次尝试，增加重试逻辑
+                df = None
+                for attempt in range(2):
+                    try:
+                        df = gold.history(period="3d", interval="1h", timeout=10)
+                        if df is not None and not df.empty:
+                            break
+                    except Exception:
+                        if attempt == 0: time.sleep(1)
+                
                 if df is not None and not df.empty:
                     recent = df.tail(24)
                     current_spot = self._fetch_gold_cny()

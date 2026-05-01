@@ -547,7 +547,7 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
 
 @router.get("/gold/prediction", response_model=dict[str, Any])
 async def get_gold_prediction(
-    granularity: str = Query("1h", regex="^(1h|4h|1d)$"),
+    granularity: str = Query("1h", pattern="^(1h|4h|1d)$"),
     limit: int = 20,
     db: Session = Depends(get_session),
 ):
