@@ -100,28 +100,33 @@ public struct GoldDeepAnalysisSheet: View {
     // MARK: - Components
 
     private var topControlBar: some View {
-        VStack(spacing: 12) {
-            HStack {
-                HStack(spacing: 8) {
+        HStack(alignment: .bottom) {
+            // Left Side: Live Price Data (Vertical Stack)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
                     Circle()
                         .fill(Color.Alpha.brand)
-                        .frame(width: 7, height: 7)
+                        .frame(width: 6, height: 6)
                         .opacity(isTickerAnimating ? 1 : 0.4)
-                        .scaleEffect(isTickerAnimating ? 1.0 : 0.7)
+                        .scaleEffect(isTickerAnimating ? 1.1 : 0.8)
                         .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: isTickerAnimating)
-                        .onAppear { isTickerAnimating = true }
                     
                     Text(viewModel.currentPriceText)
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 20, weight: .bold, design: .monospaced))
                         .foregroundStyle(Color.Alpha.textPrimary)
-                    
-                    Text(viewModel.priceChangeText)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(viewModel.isPriceUp ? Color.Alpha.up : Color.Alpha.down)
                 }
                 
-                Spacer()
-                
+                Text(viewModel.priceChangeText)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(viewModel.isPriceUp ? Color.Alpha.up : Color.Alpha.down)
+                    .padding(.leading, 12) // Align with price text start (Circle 6 + spacing 6)
+            }
+            .onAppear { isTickerAnimating = true }
+            
+            Spacer()
+            
+            // Right Side: Action Stack
+            VStack(alignment: .trailing, spacing: 8) {
                 Button {
                     Task { await viewModel.fetchPrediction(forceRefresh: true) }
                 } label: {
@@ -131,8 +136,8 @@ public struct GoldDeepAnalysisSheet: View {
                     }
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.Alpha.brand)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
                     .background(Color.Alpha.brand.opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
@@ -150,6 +155,7 @@ public struct GoldDeepAnalysisSheet: View {
                 }
             }
         }
+        .padding(.bottom, 4)
     }
     
     private var legendView: some View {
