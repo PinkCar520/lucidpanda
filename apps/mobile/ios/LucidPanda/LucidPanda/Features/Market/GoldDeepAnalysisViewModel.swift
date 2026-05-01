@@ -16,6 +16,7 @@ public class GoldDeepAnalysisViewModel {
     
     // Bottom Metrics
     public var hitRate: Double = 0
+    public var directionAccuracy: Double = 0
     public var currentDeviation: Double = 0
     public var targetPrice: Double = 0
     public var predictedAtText: String = "—"
@@ -27,21 +28,32 @@ public class GoldDeepAnalysisViewModel {
     
     public init() {}
     
-    public func fetchPrediction() async {
+    public func fetchInitialData() async {
+        // Run them in parallel but they are independent
+        async let marketTask = fetchMarketData()
+        async let predictionTask = fetchPrediction(forceRefresh: false)
+        _ = await (marketTask, predictionTask)
+    }
+    
+    public func fetchMarketData() async {
+        do {
+            let snapshot: MarketSnapshot = try await apiClient.fetch(path: "/api/v1/mobile/market/snapshot")
+            self.marketSnapshot = snapshot
+            updateHeader(with: snapshot)
+        } catch {
+            print("Failed to fetch gold market snapshot: \(error)")
+        }
+    }
+    
+    public func fetchPrediction(forceRefresh: Bool = false) async {
         isLoading = true
         do {
-            async let predictionTask: GoldPredictionResponse = apiClient.fetch(path: "/api/v1/mobile/gold/prediction?granularity=\(selectedGranularity)")
-            async let snapshotTask: MarketSnapshot = apiClient.fetch(path: "/api/v1/mobile/market/snapshot")
-            
-            let (prediction, snapshot) = try await (predictionTask, snapshotTask)
-            
+            let path = "/api/v1/mobile/gold/prediction?granularity=\(selectedGranularity)\(forceRefresh ? "&force_refresh=true" : "")"
+            let prediction: GoldPredictionResponse = try await apiClient.fetch(path: path)
             self.predictionData = prediction
-            self.marketSnapshot = snapshot
-            
-            updateHeader(with: snapshot)
             calculateMetrics(from: prediction)
         } catch {
-            print("Failed to fetch gold prediction or snapshot: \(error)")
+            print("Failed to fetch gold prediction (force=\(forceRefresh)): \(error)")
         }
         isLoading = false
     }
@@ -78,8 +90,6 @@ public class GoldDeepAnalysisViewModel {
         var inRangeCount = 0
         
         for actual in actualAfterIssued {
-            // Find corresponding prediction range
-            // (Simple nearest neighbor or interpolation, here we just find exact match for demo)
             if let upper = prediction.upper.first(where: { abs($0.timestamp.timeIntervalSince(actual.timestamp)) < 1800 }),
                let lower = prediction.lower.first(where: { abs($0.timestamp.timeIntervalSince(actual.timestamp)) < 1800 }) {
                 if actual.price >= lower.price && actual.price <= upper.price {
@@ -89,18 +99,43 @@ public class GoldDeepAnalysisViewModel {
         }
         
         if !actualAfterIssued.isEmpty {
-            self.hitRate = Double(inRangeCount) / Double(actualAfterIssued.isEmpty ? 1 : actualAfterIssued.count) * 100.0
+            self.hitRate = Double(inRangeCount) / Double(actualAfterIssued.count) * 100.0
         } else {
             self.hitRate = 100.0 // Default for new predictions
         }
+
+        // 3. Direction Accuracy (Up/Down correctly predicted)
+        if let pivotPoint = history.last(where: { $0.timestamp <= prediction.issuedAt }) {
+            let actualAfter = history.filter { $0.timestamp > prediction.issuedAt }
+            var correctDirectionCount = 0
+            
+            for actual in actualAfter {
+                if let mid = prediction.mid.first(where: { abs($0.timestamp.timeIntervalSince(actual.timestamp)) < 1800 }) {
+                    let actualChange = actual.price - pivotPoint.price
+                    let predictedChange = mid.price - pivotPoint.price
+                    
+                    if (actualChange > 0 && predictedChange > 0) ||
+                       (actualChange < 0 && predictedChange < 0) ||
+                       (abs(actualChange) < 0.01 && abs(predictedChange) < 0.01) {
+                        correctDirectionCount += 1
+                    }
+                }
+            }
+            
+            if !actualAfter.isEmpty {
+                self.directionAccuracy = Double(correctDirectionCount) / Double(actualAfter.count) * 100.0
+            } else {
+                self.directionAccuracy = 100.0
+            }
+        }
         
-        // 3. Current Deviation
+        // 4. Current Deviation
         if let lastActual = history.last,
            let lastMid = prediction.mid.first(where: { abs($0.timestamp.timeIntervalSince(lastActual.timestamp)) < 1800 }) {
             self.currentDeviation = lastActual.price - lastMid.price
         }
         
-        // 4. Target Price
+        // 5. Target Price
         self.targetPrice = prediction.mid.last?.price ?? 0
     }
 }

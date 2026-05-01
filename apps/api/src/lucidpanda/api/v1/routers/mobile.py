@@ -561,6 +561,7 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
 @router.get("/gold/prediction", response_model=dict[str, Any])
 async def get_gold_prediction(
     granularity: str = Query("1h", pattern="^(1h|4h|1d)$"),
+    force_refresh: bool = Query(False, description="Bypass cache and force AI re-evaluation"),
     limit: int = 20,
     db: Session = Depends(get_session),
 ):
@@ -597,10 +598,11 @@ async def get_gold_prediction(
     # 3. Generate AI Mid Forecast with Caching
     # VERSION v2: Invalidate old cache without 'generatedAt' or 'prediction' nesting
     CACHE_KEY = f"mobile:gold_forecast:intl:v2:{granularity}"
-    cached_data = get_cached(CACHE_KEY)
     
-    if cached_data and "generatedAt" in cached_data:
-        return v1_prepare_json(cached_data)
+    if not force_refresh:
+        cached_data = get_cached(CACHE_KEY)
+        if cached_data and "generatedAt" in cached_data:
+            return v1_prepare_json(cached_data)
 
     # Fetch snapshot and top alerts for AI context
     snapshot = await run_in_threadpool(market_terminal_service.get_market_snapshot)

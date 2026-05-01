@@ -65,7 +65,7 @@ public struct GoldDeepAnalysisSheet: View {
                 }
             }
             .task {
-                await viewModel.fetchPrediction()
+                await viewModel.fetchInitialData()
             }
         }
     }
@@ -95,6 +95,22 @@ public struct GoldDeepAnalysisSheet: View {
                 
                 Spacer()
                 
+                Button {
+                    Task { await viewModel.fetchPrediction(forceRefresh: true) }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "sparkles")
+                        Text("AI 预测")
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.Alpha.brand)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.Alpha.brand.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .disabled(viewModel.isLoading)
+                
                 Picker("", selection: $viewModel.selectedGranularity) {
                     Text("1H").tag("1h")
                     Text("4H").tag("4h")
@@ -103,7 +119,7 @@ public struct GoldDeepAnalysisSheet: View {
                 .pickerStyle(.segmented)
                 .frame(width: 140)
                 .onChange(of: viewModel.selectedGranularity) {
-                    Task { await viewModel.fetchPrediction() }
+                    Task { await viewModel.fetchPrediction(forceRefresh: false) }
                 }
             }
         }
@@ -442,6 +458,7 @@ public struct GoldDeepAnalysisSheet: View {
     private var metricCardsGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             metricCard(label: "market.prediction.metric.issued_at", value: viewModel.predictedAtText, color: Color.Alpha.textPrimary)
+            metricCard(label: "market.prediction.metric.direction_accuracy", value: String(format: "%.0f%%", viewModel.directionAccuracy), color: Color.Alpha.brand)
             metricCard(label: "market.prediction.metric.hit_rate", value: String(format: "%.0f%%", viewModel.hitRate), color: Color.Alpha.down)
             metricCard(label: "market.prediction.metric.deviation", value: String(format: "%@$%.1f", viewModel.currentDeviation >= 0 ? "+" : "-", abs(viewModel.currentDeviation)), color: viewModel.currentDeviation >= 0 ? Color.Alpha.down : Color.Alpha.up)
             metricCard(label: "market.prediction.metric.target", value: String(format: "$%.1f", viewModel.targetPrice), color: predictionLineColor)
