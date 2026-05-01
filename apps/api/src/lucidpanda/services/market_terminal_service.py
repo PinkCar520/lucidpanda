@@ -115,8 +115,8 @@ class MarketTerminalService:
                 
                 if raw_trend:
                     last_ts_utc = ts_local.astimezone(ZoneInfo("UTC"))
-                    # 动态阈值：开市要求 1.5h 内，休市要求 16h 内（覆盖夜盘到次日开盘）
-                    threshold = 5400 if cn_status != "CLOSED" else 57600
+                    # 动态阈值：开市要求 1.5h 内，休市要求 7天 内（覆盖周末和长假）
+                    threshold = 5400 if cn_status != "CLOSED" else 7 * 86400
                     if (now_utc - last_ts_utc).total_seconds() < threshold:
                         logger.info(f"✅ Gold history fetched via EastMoney (Market: {cn_status})")
                         trend = raw_trend[-24:]
@@ -155,7 +155,7 @@ class MarketTerminalService:
                     
                     if raw_trend:
                         last_ts_utc = ts_local.astimezone(ZoneInfo("UTC"))
-                        threshold = 5400 if cn_status != "CLOSED" else 57600
+                        threshold = 5400 if cn_status != "CLOSED" else 7 * 86400
                         if (now_utc - last_ts_utc).total_seconds() < threshold:
                             logger.info(f"✅ Gold history fetched via Sina Futures (Market: {cn_status})")
                             trend = raw_trend

@@ -389,6 +389,23 @@ class FundEngine:
                     (core_name, f"%{core_name}%"),
                 )
                 row = cursor.fetchone()
+
+                # 3. Fallback: Split company prefix and theme keywords (Handle '华夏有色金属' -> '华夏中证细分有色金属产业主题ETF')
+                if not row and len(core_name) >= 4 and "ETF" in core_name:
+                    company = core_name[:2]
+                    theme = core_name[2:].replace("ETF", "").strip()
+                    if theme:
+                        cursor.execute(
+                            """
+                            SELECT fund_code FROM fund_metadata 
+                            WHERE fund_name LIKE %s AND fund_name LIKE %s AND fund_name LIKE '%%ETF%%'
+                            AND (fund_code LIKE '51%%' OR fund_code LIKE '15%%' OR fund_code LIKE '56%%' OR fund_code LIKE '58%%')
+                            LIMIT 1
+                            """,
+                            (f"%{company}%", f"%{theme}%"),
+                        )
+                        row = cursor.fetchone()
+
                 if row:
                     parent_code = row[0]
                     logger.info(
