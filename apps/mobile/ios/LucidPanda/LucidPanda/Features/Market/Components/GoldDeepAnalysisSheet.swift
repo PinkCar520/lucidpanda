@@ -10,12 +10,12 @@ public struct GoldDeepAnalysisSheet: View {
     @State private var isTickerAnimating = false
     @State private var selectedDate: Date?
     
-    // Design Tokens from PRD
-    private let actualLineColor = Color(hex: "#D85A30")
-    private let predictionLineColor = Color(hex: "#378ADD")
-    private let breakoutFillColor = Color(hex: "#E24B4A").opacity(0.13)
-    private let confidenceFillColor = Color(hex: "#378ADD").opacity(0.09)
-    private let pivotLineColor = Color(hex: "#888780").opacity(0.45)
+    // 🎨 回归 App 语义化主题色
+    private let actualLineColor = Color.Alpha.textPrimary
+    private let predictionLineColor = Color.Alpha.brand
+    private let breakoutFillColor = Color.Alpha.up.opacity(0.12)
+    private let confidenceFillColor = Color.Alpha.brand.opacity(0.08)
+    private let pivotLineColor = Color.Alpha.taupe.opacity(0.4)
 
     public init() {}
 
@@ -25,7 +25,7 @@ public struct GoldDeepAnalysisSheet: View {
                 Color.Alpha.background.ignoresSafeArea()
                 
                 if viewModel.isLoading && viewModel.predictionData == nil {
-                    ProgressView().tint(actualLineColor)
+                    ProgressView().tint(Color.Alpha.brand)
                 } else {
                     ScrollView {
                         VStack(spacing: 24) {
@@ -77,7 +77,7 @@ public struct GoldDeepAnalysisSheet: View {
             HStack {
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(actualLineColor)
+                        .fill(Color.Alpha.brand)
                         .frame(width: 7, height: 7)
                         .opacity(isTickerAnimating ? 1 : 0.4)
                         .scaleEffect(isTickerAnimating ? 1.0 : 0.7)
@@ -93,10 +93,6 @@ public struct GoldDeepAnalysisSheet: View {
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(Color.Alpha.textPrimary)
                     }
-                    
-                    Text("+12 (+0.37%)") // Mock delta for now as requested by PRD
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color(hex: "#3B6D11"))
                 }
                 
                 Spacer()
@@ -122,17 +118,17 @@ public struct GoldDeepAnalysisSheet: View {
             
             HStack(spacing: 4) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(predictionLineColor.opacity(0.15))
+                    .fill(Color.Alpha.brand.opacity(0.15))
                     .frame(width: 20, height: 8)
-                    .overlay(RoundedRectangle(cornerRadius: 2).stroke(predictionLineColor.opacity(0.35), lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.Alpha.brand.opacity(0.35), lineWidth: 0.5))
                 Text("置信区间").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
             
             HStack(spacing: 4) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color(hex: "#E24B4A").opacity(0.13))
+                    .fill(Color.Alpha.up.opacity(0.13))
                     .frame(width: 20, height: 8)
-                    .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color(hex: "#E24B4A").opacity(0.3), lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.Alpha.up.opacity(0.3), lineWidth: 0.5))
                 Text("突破区间").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
         }
@@ -274,7 +270,7 @@ public struct GoldDeepAnalysisSheet: View {
                         tooltipView(for: date, in: data)
                     }
                 }
-                .chartYScale(domain: data.history.map { $0.price }.min()!...data.history.map { $0.price }.max()!)
+                .chartYScale(domain: (data.history.map { $0.price } + data.prediction.mid.map { $0.price }).min()!...(data.history.map { $0.price } + data.prediction.mid.map { $0.price }).max()!)
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 6)) { value in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
@@ -328,8 +324,8 @@ public struct GoldDeepAnalysisSheet: View {
         .padding(8)
         .background(Color.Alpha.surface.opacity(0.95))
         .clipShape(RoundedRectangle(cornerRadius: 4))
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.Alpha.separator, lineWidth: 0.5))
-        .shadow(radius: 4)
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.Alpha.separator, lineWidth: 1))
+        .shadow(color: .black.opacity(0.15), radius: 4)
         .padding(10)
     }
     
@@ -346,8 +342,8 @@ public struct GoldDeepAnalysisSheet: View {
     private var metricCardsGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             metricCard(label: "market.prediction.metric.issued_at", value: viewModel.predictedAtText, color: Color.Alpha.textPrimary)
-            metricCard(label: "market.prediction.metric.hit_rate", value: String(format: "%.0f%%", viewModel.hitRate), color: Color(hex: "#3B6D11"))
-            metricCard(label: "market.prediction.metric.deviation", value: String(format: "%@$%.1f", viewModel.currentDeviation >= 0 ? "+" : "-", abs(viewModel.currentDeviation)), color: viewModel.currentDeviation >= 0 ? Color(hex: "#3B6D11") : Color(hex: "#A32D2D"))
+            metricCard(label: "market.prediction.metric.hit_rate", value: String(format: "%.0f%%", viewModel.hitRate), color: Color.Alpha.down)
+            metricCard(label: "market.prediction.metric.deviation", value: String(format: "%@$%.1f", viewModel.currentDeviation >= 0 ? "+" : "-", abs(viewModel.currentDeviation)), color: viewModel.currentDeviation >= 0 ? Color.Alpha.down : Color.Alpha.up)
             metricCard(label: "market.prediction.metric.target", value: String(format: "$%.1f", viewModel.targetPrice), color: predictionLineColor)
         }
     }

@@ -63,19 +63,31 @@ class MarketTerminalService:
         """
         获取金价走势（24h 小时线）。
         采用三重保障方案：东方财富原生现货 -> 国内期货锚定 -> 国际金汇率换算。
-        增加缓存机制防止频繁请求触发的风控。
+        利用 MarketCalendar 智能判断数据时效性。
         """
-        now = datetime.now()
+        from src.lucidpanda.utils.market_calendar import get_market_status
+        from zoneinfo import ZoneInfo
+        
+        now_utc = datetime.now().astimezone(ZoneInfo("UTC"))
         cache_key = "gold_history_24h"
         
         # 1. 检查有效缓存 (10分钟)
         if cache_key in self._cache:
             cache_entry = self._cache[cache_key]
-            if (now - cache_entry["timestamp"]).total_seconds() < 600:
+            if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 600:
                 return cache_entry["data"]
 
+        # 获取当前各市场状态
+        cn_status = get_market_status("CN")
+        gold_status = get_market_status("GOLD")
+        
+        # 定义时区
+        tz_sh = ZoneInfo("Asia/Shanghai")
+        
         trend = []
+        
         # --- 第一重：东方财富 (原生上海金现货) ---
+        # 仅在 A 股/上海金交易时段或刚收盘时作为首选
         try:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -92,22 +104,24 @@ class MarketTerminalService:
                     parts = item.split(",")
                     if len(parts) >= 6:
                         try:
-                            ts = datetime.strptime(parts[0], "%Y-%m-%d %H:%M")
+                            # 东方财富返回的是北京时间
+                            ts_local = datetime.strptime(parts[0], "%Y-%m-%d %H:%M").replace(tzinfo=tz_sh)
                             raw_trend.append({
-                                "timestamp": format_iso8601(ts),
+                                "timestamp": format_iso8601(ts_local),
                                 "price": round(float(parts[2]), 2),
                                 "is_forecast": False
                             })
                         except Exception: continue
                 
                 if raw_trend:
-                    # 检查最后一点是否太陈旧（超过4小时），如果是，可能是休市或数据延迟，继续尝试下一重
-                    last_ts = datetime.fromisoformat(raw_trend[-1]["timestamp"].replace("Z", "+00:00")).replace(tzinfo=None)
-                    if (datetime.utcnow() - last_ts).total_seconds() < 14400:
-                        logger.info("✅ Gold history fetched via EastMoney")
+                    last_ts_utc = ts_local.astimezone(ZoneInfo("UTC"))
+                    # 动态阈值：开市要求 1.5h 内，休市要求 16h 内（覆盖夜盘到次日开盘）
+                    threshold = 5400 if cn_status != "CLOSED" else 57600
+                    if (now_utc - last_ts_utc).total_seconds() < threshold:
+                        logger.info(f"✅ Gold history fetched via EastMoney (Market: {cn_status})")
                         trend = raw_trend[-24:]
                     else:
-                        logger.warning("⚠️ EastMoney gold history is too old, falling back...")
+                        logger.warning(f"⚠️ EastMoney data too old: {last_ts_utc.isoformat()}, fallback...")
         except Exception as e:
             logger.warning(f"⚠️ EastMoney gold history failed: {e}")
 
@@ -129,30 +143,34 @@ class MarketTerminalService:
                     for _, row in recent.iterrows():
                         try:
                             ts_val = row["datetime"]
-                            ts = datetime.strptime(ts_val, "%Y-%m-%d %H:%M:%S") if isinstance(ts_val, str) else ts_val
+                            # 新浪期货分钟线通常也是北京时间
+                            ts_obj = datetime.strptime(ts_val, "%Y-%m-%d %H:%M:%S") if isinstance(ts_val, str) else ts_val
+                            ts_local = ts_obj.replace(tzinfo=tz_sh)
                             raw_trend.append({
-                                "timestamp": format_iso8601(ts),
+                                "timestamp": format_iso8601(ts_local),
                                 "price": round(float(row["close"]) + price_offset, 2),
                                 "is_forecast": False
                             })
                         except Exception: continue
                     
                     if raw_trend:
-                        last_ts = ts.replace(tzinfo=None)
-                        if (datetime.utcnow() - last_ts).total_seconds() < 14400:
-                            logger.info("✅ Gold history fetched via Sina Futures (Anchored)")
+                        last_ts_utc = ts_local.astimezone(ZoneInfo("UTC"))
+                        threshold = 5400 if cn_status != "CLOSED" else 57600
+                        if (now_utc - last_ts_utc).total_seconds() < threshold:
+                            logger.info(f"✅ Gold history fetched via Sina Futures (Market: {cn_status})")
                             trend = raw_trend
                         else:
-                            logger.warning("⚠️ Sina Futures gold history is too old, falling back...")
+                            logger.warning(f"⚠️ Sina Futures data too old: {last_ts_utc.isoformat()}, fallback...")
             except Exception as e:
                 logger.warning(f"⚠️ Sina Futures gold history failed: {e}")
 
         if not trend:
             # --- 第三重：yfinance (国际金走势) ---
+            # 在国内休市或数据异常时，这是最可靠的实时源
             try:
                 import yfinance as yf
                 gold = yf.Ticker("GC=F")
-                df = gold.history(period="3d", interval="1h") # 缩短 period 提高成功率
+                df = gold.history(period="3d", interval="1h")
                 if df is not None and not df.empty:
                     recent = df.tail(24)
                     current_spot = self._fetch_gold_cny()
@@ -166,23 +184,30 @@ class MarketTerminalService:
                     
                     raw_trend = []
                     for ts, row in recent.iterrows():
+                        # yfinance 的 index 通常带时区 (UTC)
+                        ts_utc = ts.astimezone(ZoneInfo("UTC"))
                         raw_trend.append({
-                            "timestamp": format_iso8601(ts),
+                            "timestamp": format_iso8601(ts_utc),
                             "price": round(float(row["Close"]) * scale_factor, 2),
                             "is_forecast": False
                         })
                     if raw_trend:
-                        logger.info("✅ Gold history fetched via yfinance fallback")
-                        trend = raw_trend
+                        last_ts_utc = ts_utc
+                        threshold = 7200 if gold_status != "CLOSED" else 86400
+                        if (now_utc - last_ts_utc).total_seconds() < threshold:
+                            logger.info(f"✅ Gold history fetched via yfinance (Market: {gold_status})")
+                            trend = raw_trend
+                        else:
+                            logger.warning(f"⚠️ yfinance data too old: {last_ts_utc.isoformat()}")
             except Exception as e:
                 logger.error(f"❌ All gold history sources failed: {e}")
         
-        # 3. 最终处理：如果有新数据，存入缓存；如果全失败，尝试使用过期缓存
+        # 3. 最终处理：保存有效数据到缓存，或降级使用陈旧缓存
         if trend:
-            self._cache[cache_key] = {"data": trend, "timestamp": now}
+            self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
             return trend
         elif cache_key in self._cache:
-            logger.warning("⚠️ Using STALE cache for gold history due to all source failures")
+            logger.warning("⚠️ Using STALE cache as a last resort")
             return self._cache[cache_key]["data"]
             
         return []
