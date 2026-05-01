@@ -493,17 +493,9 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
             "score": trend_map.get(current_h, 0.0)
         })
 
-    # 4.5 黄金价格走势与 AI 预测
+    # 4.5 黄金价格走势 (仅返回真实历史数据，不再在 SSE 流中执行 AI 预测)
     history_full = await run_in_threadpool(market_terminal_service.get_gold_history_24h)
-    
-    # 抽取前 12 小时作为 AI 的“训练背景”，让它预测接下来的 24 小时（包含最近 12 小时的回测和未来 12 小时的展望）
-    if len(history_full) >= 12:
-        training_cutoff = len(history_full) // 2
-        training_history = history_full[:training_cutoff]
-        gold_forecast = await _generate_gold_forecast(training_history, top_alerts, snapshot)
-        gold_trend = history_full + gold_forecast
-    else:
-        gold_trend = history_full
+    gold_trend = history_full
 
     # 5. 未来 48h 宏观事件
     until_dt = now_dt + timedelta(hours=48)
@@ -578,55 +570,65 @@ async def get_gold_prediction(
     # For prototype, we use mid-point as issuedAt to show validation area
     issued_index = max(0, len(history_full) - 10)
     history_training = history_full[:issued_index]
-    history_validation = history_full[issued_index:]
     issued_at = history_full[issued_index]["timestamp"]
 
-    # 3. Generate AI Mid Forecast
-    # We use LLM to predict from issuedAt onwards
-    llm = DeepSeekLLM()
-    # Simplified prompt for mid price
-    last_price = history_training[-1]["price"]
+    # 3. Generate AI Mid Forecast with Caching
+    CACHE_KEY = "mobile:gold_forecast:v2"
+    cached_prediction = get_cached(CACHE_KEY)
     
-    # Generate mock forecast if LLM fails or for speed
-    forecast_mid = []
-    current_price = last_price
-    now_dt = datetime.fromisoformat(issued_at.replace("Z", "+00:00"))
-    
-    for i in range(1, 25): # 24 points
-        # Add some drift and noise
-        change = (random.random() - 0.45) * 5.0 # Slight upward bias
-        current_price += change
-        target_ts = now_dt + timedelta(hours=i)
-        forecast_mid.append({
-            "timestamp": format_iso8601(target_ts),
-            "price": round(current_price, 2)
+    if cached_prediction:
+        return v1_prepare_json({
+            "history": history_full,
+            "prediction": cached_prediction
         })
 
-    # 4. Calculate Confidence Intervals (Horn-shaped)
-    # "初始 ±20px 价格单位，每个数据点递增约 7 个价格单位"
-    # Mapping px to price units: roughly 1.0 USD for gold is visible
+    # Fetch snapshot and top alerts for AI context
+    snapshot = await run_in_threadpool(market_terminal_service.get_market_snapshot)
+    since_24h = datetime.now(UTC) - timedelta(hours=24)
+    top_alerts_raw = db.execute(
+        text("SELECT summary, sentiment_score FROM intelligence WHERE timestamp >= :since AND urgency_score >= 7 AND status = 'COMPLETED' LIMIT 5"),
+        {"since": since_24h},
+    ).mappings().all()
+    
+    top_alerts = [{"summary": r["summary"], "sentiment": "bullish" if r["sentiment_score"] > 0.15 else "bearish"} for r in top_alerts_raw]
+
+    # Call AI Forecast
+    forecast_points = await _generate_gold_forecast(history_training, top_alerts, snapshot)
+    
+    if not forecast_points:
+        # Fallback to mock if AI fails
+        last_price = history_training[-1]["price"]
+        current_price = last_price
+        now_dt = datetime.fromisoformat(issued_at.replace("Z", "+00:00"))
+        for i in range(1, 13):
+            current_price += (random.random() - 0.45) * 2.0
+            forecast_points.append({
+                "timestamp": format_iso8601(now_dt + timedelta(hours=i)),
+                "price": round(current_price, 2),
+                "is_forecast": True
+            })
+
+    # 4. Calculate Confidence Intervals
     forecast_upper = []
     forecast_lower = []
+    for i, item in enumerate(forecast_points):
+        spread = 3.0 + (i * 1.0)
+        forecast_upper.append({"timestamp": item["timestamp"], "price": round(item["price"] + spread, 2)})
+        forecast_lower.append({"timestamp": item["timestamp"], "price": round(item["price"] - spread, 2)})
+
+    prediction_result = {
+        "issuedAt": issued_at,
+        "mid": forecast_points,
+        "upper": forecast_upper,
+        "lower": forecast_lower
+    }
     
-    for i, item in enumerate(forecast_mid):
-        spread = 5.0 + (i * 1.5) # Dynamic widening
-        forecast_upper.append({
-            "timestamp": item["timestamp"],
-            "price": round(item["price"] + spread, 2)
-        })
-        forecast_lower.append({
-            "timestamp": item["timestamp"],
-            "price": round(item["price"] - spread, 2)
-        })
+    # Cache for 1 hour
+    set_cached(CACHE_KEY, prediction_result, 3600)
 
     return v1_prepare_json({
         "history": history_full,
-        "prediction": {
-            "issuedAt": issued_at,
-            "mid": forecast_mid,
-            "upper": forecast_upper,
-            "lower": forecast_lower
-        }
+        "prediction": prediction_result
     })
 
 
