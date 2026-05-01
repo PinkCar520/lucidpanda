@@ -325,22 +325,19 @@ async def market_pulse_stream(
 
     return EventSourceResponse(event_generator())
 
-async def _generate_gold_forecast(history: list[dict], alerts: list[dict], snapshot: dict) -> list[dict]:
-    """使用 LLM 生成未来 12 小时的金价预测趋势"""
+async def _generate_gold_forecast(history: list[dict], alerts: list[dict], snapshot: dict, overall_sentiment: dict) -> list[dict]:
+    """使用 LLM 综合宏观指标、情报及情绪生成金价预测"""
     if not history:
         return []
 
-    # 取最后一点作为基准
+    # 1. 基础数据准备
     last_point = history[-1]
     last_price = last_point["price"]
-    
-    # 解析最后一点的时间
     try:
         last_ts = datetime.fromisoformat(last_point["timestamp"].replace("Z", "+00:00"))
     except Exception:
         last_ts = datetime.now(UTC)
     
-    # 提取最近的几个价格点作为趋势参考
     recent_prices = [p["price"] for p in history[-6:]]
     trend_desc = "震荡"
     if len(recent_prices) >= 2:
@@ -349,18 +346,41 @@ async def _generate_gold_forecast(history: list[dict], alerts: list[dict], snaps
         elif recent_prices[-1] < recent_prices[0] * 0.999:
             trend_desc = "下跌"
     
-    # 提取核心情报
+    # 2. 格式化宏观快照 (DXY, Oil, Bonds)
+    macro_context = ""
+    if snapshot:
+        dxy = snapshot.get("dxy", {})
+        oil = snapshot.get("oil", {})
+        us10y = snapshot.get("us10y", {})
+        macro_context = f"""
+        - 美元指数 (DXY): {dxy.get('price')} ({dxy.get('changePercent')}%)
+        - WTI原油: {oil.get('price')} ({oil.get('changePercent')}%)
+        - 美债 10Y 收益率: {us10y.get('price')}% ({us10y.get('changePercent')}%)
+        """
+
+    # 3. 格式化整体情绪
+    sentiment_desc = f"{overall_sentiment.get('score', 0)} ({overall_sentiment.get('label', '中性')})"
+
+    # 4. 格式化核心情报 (前10条)
     intel_briefs = []
-    for a in alerts[:5]:
+    for a in alerts[:10]:
         intel_briefs.append(f"- {a['summary']} (情绪: {a['sentiment']})")
-    
     intel_context = "\n".join(intel_briefs) if intel_briefs else "无重大情报"
     
+    # 5. 构建深度分析提示词
     prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来 12 小时上海金 (AU9999) 的价格演进趋势。
     
-    当前基准价: {last_price}
+    【当前基准】
+    价格: {last_price}
     近期趋势: {trend_desc} (近6小时价格: {recent_prices})
-    近期核心情报:
+    
+    【宏观相关性背景】
+    {macro_context}
+    
+    【市场整体情绪】
+    24h 综合情绪分: {sentiment_desc}
+    
+    【近期核心情报脉络】
     {intel_context}
     
     请输出未来 12 小时的预测价格点。输出格式为 JSON 数组，每个对象包含:
@@ -368,9 +388,10 @@ async def _generate_gold_forecast(history: list[dict], alerts: list[dict], snaps
     - "predicted_price": 预测的价格 (float)
     
     要求：
-    1. 预测应体现出对近期情报情绪的反应（如利好情报应带来温和上涨）。
-    2. 波动应符合黄金市场的真实特征，不要出现极端的暴涨暴跌（单小时波动通常在 0.05%-0.3% 之间）。
-    3. 只输出 JSON 数组，不要包含 Markdown 格式或多余文字。
+    1. 必须综合考虑宏观背景（如美元走强通常压制金价）和核心情报的逻辑演进。
+    2. 预测应体现出对近期情报情绪的反应，特别是多个情报指向同一逻辑时（如联储连续释放鹰派信号）。
+    3. 波动应符合黄金市场的真实特征，单小时波动通常在 0.05%-0.3% 之间。
+    4. 只输出 JSON 数组，不要包含多余文字。
     """
     
     try:
@@ -439,7 +460,7 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
             FROM intelligence
             WHERE timestamp >= :since AND urgency_score >= 7 AND status = 'COMPLETED'
             ORDER BY timestamp DESC
-            LIMIT 5
+            LIMIT 10
             """),
             {"since": since_24h},
         ).mappings().all()
@@ -585,15 +606,25 @@ async def get_gold_prediction(
     # Fetch snapshot and top alerts for AI context
     snapshot = await run_in_threadpool(market_terminal_service.get_market_snapshot)
     since_24h = datetime.now(UTC) - timedelta(hours=24)
+    
+    # Calculate Overall Sentiment
+    sentiment_stats = db.execute(
+        text("SELECT AVG(sentiment_score) as avg_score FROM intelligence WHERE timestamp >= :since AND status = 'COMPLETED'"),
+        {"since": since_24h}
+    ).mappings().first()
+    avg_score = round(sentiment_stats["avg_score"] or 0.0, 3)
+    sentiment_label = "看多" if avg_score > 0.15 else ("看空" if avg_score < -0.15 else "中性")
+    overall_sentiment = {"score": avg_score, "label": sentiment_label}
+
     top_alerts_raw = db.execute(
-        text("SELECT summary, sentiment_score FROM intelligence WHERE timestamp >= :since AND urgency_score >= 7 AND status = 'COMPLETED' LIMIT 5"),
+        text("SELECT summary, sentiment_score FROM intelligence WHERE timestamp >= :since AND urgency_score >= 7 AND status = 'COMPLETED' LIMIT 10"),
         {"since": since_24h},
     ).mappings().all()
     
     top_alerts = [{"summary": r["summary"], "sentiment": "bullish" if r["sentiment_score"] > 0.15 else "bearish"} for r in top_alerts_raw]
 
     # Call AI Forecast
-    forecast_points = await _generate_gold_forecast(history_training, top_alerts, snapshot)
+    forecast_points = await _generate_gold_forecast(history_training, top_alerts, snapshot, overall_sentiment)
     
     if not forecast_points:
         # Fallback to mock if AI fails
