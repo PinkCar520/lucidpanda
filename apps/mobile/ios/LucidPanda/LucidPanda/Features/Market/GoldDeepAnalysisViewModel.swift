@@ -17,6 +17,7 @@ public class GoldDeepAnalysisViewModel {
     // Bottom Metrics
     public var hitRate: Double = 0
     public var directionAccuracy: Double = 0
+    public var historicalAccuracy: Double = 0
     public var currentDeviation: Double = 0
     public var targetPrice: Double = 0
     public var predictedAtText: String = "—"
@@ -104,28 +105,39 @@ public class GoldDeepAnalysisViewModel {
             self.hitRate = 100.0 // Default for new predictions
         }
 
-        // 3. Direction Accuracy (Up/Down correctly predicted)
+        // 3. Direction Accuracy & Historical Accuracy (Correct direction & Precise hit)
         if let pivotPoint = history.last(where: { $0.timestamp <= prediction.issuedAt }) {
             let actualAfter = history.filter { $0.timestamp > prediction.issuedAt }
             var correctDirectionCount = 0
+            var perfectHitCount = 0
             
             for actual in actualAfter {
                 if let mid = prediction.mid.first(where: { abs($0.timestamp.timeIntervalSince(actual.timestamp)) < 1800 }) {
                     let actualChange = actual.price - pivotPoint.price
                     let predictedChange = mid.price - pivotPoint.price
                     
-                    if (actualChange > 0 && predictedChange > 0) ||
-                       (actualChange < 0 && predictedChange < 0) ||
-                       (abs(actualChange) < 0.01 && abs(predictedChange) < 0.01) {
+                    // 方向判定：涨跌方向一致
+                    let isDirectionMatch = (actualChange > 0 && predictedChange > 0) ||
+                                           (actualChange < 0 && predictedChange < 0) ||
+                                           (abs(actualChange) < 0.01 && abs(predictedChange) < 0.01)
+                    
+                    if isDirectionMatch {
                         correctDirectionCount += 1
+                        
+                        // 历史准确率：方向正确且点位偏差 <= $3.0 (高标准)
+                        if abs(actual.price - mid.price) <= 3.0 {
+                            perfectHitCount += 1
+                        }
                     }
                 }
             }
             
             if !actualAfter.isEmpty {
                 self.directionAccuracy = Double(correctDirectionCount) / Double(actualAfter.count) * 100.0
+                self.historicalAccuracy = Double(perfectHitCount) / Double(actualAfter.count) * 100.0
             } else {
                 self.directionAccuracy = 100.0
+                self.historicalAccuracy = 100.0
             }
         }
         

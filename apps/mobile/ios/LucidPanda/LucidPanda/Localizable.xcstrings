@@ -5516,6 +5516,23 @@
         }
       }
     },
+    "market.prediction.metric.historical_accuracy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historical Accuracy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历史准确率"
+          }
+        }
+      }
+    },
     "market.prediction.metric.hit_rate" : {
       "extractionState" : "stale",
       "localizations" : {
