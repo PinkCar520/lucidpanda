@@ -216,20 +216,52 @@ class MarketTerminalService:
     def get_gold_history_intl_24h(self):
         """
         获取国际金价走势（24h 伦敦金现货）。
-        使用 yfinance 直接获取 XAU/USD (GC=F) 原始走势。
+        优先使用新浪财经 K 线接口 (稳定且与快照同步)，yfinance 作为最终备选。
         """
-        import yfinance as yf
+        import requests
         from zoneinfo import ZoneInfo
-
+        
         cache_key = "gold_history_intl_24h"
         if cache_key in self._cache:
             cache_entry = self._cache[cache_key]
             if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 600:
                 return cache_entry["data"]
 
+        # --- 第一重：新浪财经国际金 1小时 K 线 ---
         try:
+            # type=60 代表 60分钟线
+            url = "https://gu.sina.cn/ft/api/hf/kline/get?symbol=hf_XAU&type=60"
+            resp = requests.get(url, timeout=10)
+            data = resp.json()
+            
+            if data and isinstance(data, list) and len(data) > 0:
+                # 新浪返回格式: [{"d":"2024-05-01 10:00:00","o":"2300.1","h":"2305.2","l":"2299.8","c":"2302.5","v":"100"}, ...]
+                raw_trend = []
+                # 取最近 24 个点
+                for item in data[-24:]:
+                    ts_str = item.get("d")
+                    price = item.get("c") # 收盘价
+                    if ts_str and price:
+                        # 新浪国际金时间通常是北京时间
+                        ts_local = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                        raw_trend.append({
+                            "timestamp": format_iso8601(ts_local),
+                            "price": round(float(price), 2),
+                            "is_forecast": False
+                        })
+                
+                if raw_trend:
+                    self._cache[cache_key] = {"data": raw_trend, "timestamp": datetime.now()}
+                    logger.info("✅ London Gold history fetched via Sina K-line")
+                    return raw_trend
+        except Exception as e:
+            logger.warning(f"⚠️ Sina London Gold history failed: {e}")
+
+        # --- 第二重：yfinance 备选 ---
+        try:
+            import yfinance as yf
             gold = yf.Ticker("GC=F")
-            df = gold.history(period="3d", interval="1h", timeout=10)
+            df = gold.history(period="2d", interval="1h", timeout=10)
             if df is not None and not df.empty:
                 recent = df.tail(24)
                 trend = []
@@ -240,20 +272,11 @@ class MarketTerminalService:
                         "is_forecast": False
                     })
                 self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
+                logger.info("✅ London Gold history fetched via yfinance fallback")
                 return trend
         except Exception as e:
-            logger.error(f"Failed to fetch London Gold history: {e}")
+            logger.error(f"❌ London Gold history fallback failed: {e}")
 
-        return []
-        
-        # 3. 最终处理：保存有效数据到缓存，或降级使用陈旧缓存
-        if trend:
-            self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
-            return trend
-        elif cache_key in self._cache:
-            logger.warning("⚠️ Using STALE cache as a last resort")
-            return self._cache[cache_key]["data"]
-            
         return []
 
     def _fetch_gold_cny(self):
