@@ -57,14 +57,22 @@ public class GoldDeepAnalysisViewModel {
         let prediction = data.prediction
         let history = data.history
         
-        // 1. Predicted At
+        // 1. Predicted At (Now using generatedAt, the real execution time)
         let now = Date()
-        let diff = now.timeIntervalSince(prediction.issuedAt)
-        let hours = Int(diff / 3600)
-        self.predictedAtText = "\(hours) 小时前"
+        let diff = now.timeIntervalSince(data.generatedAt)
+        let minutes = Int(diff / 60)
+        
+        if minutes < 1 {
+            self.predictedAtText = "刚刚"
+        } else if minutes < 60 {
+            self.predictedAtText = "\(minutes) 分钟前"
+        } else {
+            let hours = Int(minutes / 60)
+            self.predictedAtText = "\(hours) 小时前"
+        }
         
         // 2. Hit Rate (Points within range)
-        // Find historical points after issuedAt
+        // Find historical points after issuedAt (The chart pivot)
         let actualAfterIssued = history.filter { $0.timestamp > prediction.issuedAt }
         var inRangeCount = 0
         

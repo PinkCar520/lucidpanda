@@ -245,25 +245,6 @@ class MarketTerminalService:
             logger.error(f"Failed to fetch London Gold history: {e}")
 
         return []
-
-                    for ts, row in recent.iterrows():
-                        # yfinance 的 index 通常带时区 (UTC)
-                        ts_utc = ts.astimezone(ZoneInfo("UTC"))
-                        raw_trend.append({
-                            "timestamp": format_iso8601(ts_utc),
-                            "price": round(float(row["Close"]) * scale_factor, 2),
-                            "is_forecast": False
-                        })
-                    if raw_trend:
-                        last_ts_utc = ts_utc
-                        threshold = 7200 if gold_status != "CLOSED" else 86400
-                        if (now_utc - last_ts_utc).total_seconds() < threshold:
-                            logger.info(f"✅ Gold history fetched via yfinance (Market: {gold_status})")
-                            trend = raw_trend
-                        else:
-                            logger.warning(f"⚠️ yfinance data too old: {last_ts_utc.isoformat()}")
-            except Exception as e:
-                logger.error(f"❌ All gold history sources failed: {e}")
         
         # 3. 最终处理：保存有效数据到缓存，或降级使用陈旧缓存
         if trend:

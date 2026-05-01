@@ -659,7 +659,8 @@ async def get_gold_prediction(
 
     return v1_prepare_json({
         "history": history_full,
-        "prediction": prediction_result
+        "prediction": prediction_result,
+        "generatedAt": format_iso8601(datetime.now(UTC))
     })
 
 async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], snapshot: dict, overall_sentiment: dict) -> list[dict]:

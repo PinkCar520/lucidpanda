@@ -350,6 +350,7 @@ public struct GoldPricePoint: Codable, Identifiable, Hashable {
 public struct GoldPredictionResponse: Codable {
     public let history: [GoldTrendPoint]
     public let prediction: GoldPredictionDetail
+    public let generatedAt: Date
 }
 
 public struct GoldPredictionDetail: Codable {
