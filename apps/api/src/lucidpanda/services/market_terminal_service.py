@@ -216,7 +216,7 @@ class MarketTerminalService:
     def get_gold_history_intl_24h(self):
         """
         获取国际金价走势（24h 伦敦金现货）。
-        优先使用新浪财经 K 线接口 (稳定且与快照同步)，yfinance 作为最终备选。
+        使用新浪财经最稳定的 GlobalFuturesService 接口，通过对分时数据采样还原 24 小时走势。
         """
         import requests
         from zoneinfo import ZoneInfo
@@ -227,37 +227,42 @@ class MarketTerminalService:
             if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 600:
                 return cache_entry["data"]
 
-        # --- 第一重：新浪财经国际金 1小时 K 线 ---
         try:
-            # type=60 代表 60分钟线
-            url = "https://gu.sina.cn/ft/api/hf/kline/get?symbol=hf_XAU&type=60"
+            url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
             resp = requests.get(url, timeout=10)
             data = resp.json()
             
-            if data and isinstance(data, list) and len(data) > 0:
-                # 新浪返回格式: [{"d":"2024-05-01 10:00:00","o":"2300.1","h":"2305.2","l":"2299.8","c":"2302.5","v":"100"}, ...]
-                raw_trend = []
-                # 取最近 24 个点
-                for item in data[-24:]:
-                    ts_str = item.get("d")
-                    price = item.get("c") # 收盘价
-                    if ts_str and price:
-                        # 新浪国际金时间通常是北京时间
-                        ts_local = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-                        raw_trend.append({
-                            "timestamp": format_iso8601(ts_local),
-                            "price": round(float(price), 2),
-                            "is_forecast": False
-                        })
-                
-                if raw_trend:
-                    self._cache[cache_key] = {"data": raw_trend, "timestamp": datetime.now()}
-                    logger.info("✅ London Gold history fetched via Sina K-line")
-                    return raw_trend
+            if data and isinstance(data, dict):
+                key = list(data.keys())[0]
+                all_points = data[key]
+                if all_points:
+                    sampled_trend = []
+                    # 采样逻辑：分时数据点非常密集（1分钟1个）。
+                    # 为了获得 24 小时小时线，我们从最新的点开始，倒序每 60 个点采样一次，取 24 个点。
+                    # step = 60 代表取点步长为 1 小时。
+                    total_count = len(all_points)
+                    for i in range(total_count - 1, max(-1, total_count - 1 - (24 * 60)), -60):
+                        p = all_points[i]
+                        ts_str = p[-1]
+                        price = p[1]
+                        if ts_str and price:
+                            try:
+                                ts_obj = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                                sampled_trend.insert(0, { # 正序插入
+                                    "timestamp": format_iso8601(ts_obj),
+                                    "price": round(float(price), 2),
+                                    "is_forecast": False
+                                })
+                            except Exception: continue
+                    
+                    if sampled_trend:
+                        self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
+                        logger.info(f"✅ London Gold 24h history sampled via Sina MinLine (Points: {len(sampled_trend)})")
+                        return sampled_trend
         except Exception as e:
-            logger.warning(f"⚠️ Sina London Gold history failed: {e}")
+            logger.warning(f"⚠️ Sina GlobalFuturesService failed: {e}")
 
-        # --- 第二重：yfinance 备选 ---
+        # yfinance 备选（带 24 小时采样）
         try:
             import yfinance as yf
             gold = yf.Ticker("GC=F")
@@ -271,11 +276,8 @@ class MarketTerminalService:
                         "price": round(float(row["Close"]), 2),
                         "is_forecast": False
                     })
-                self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
-                logger.info("✅ London Gold history fetched via yfinance fallback")
                 return trend
-        except Exception as e:
-            logger.error(f"❌ London Gold history fallback failed: {e}")
+        except Exception: pass
 
         return []
 
