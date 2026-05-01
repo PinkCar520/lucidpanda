@@ -63,10 +63,20 @@ class MarketTerminalService:
         """
         获取金价走势（24h 小时线）。
         采用三重保障方案：东方财富原生现货 -> 国内期货锚定 -> 国际金汇率换算。
+        增加缓存机制防止频繁请求触发的风控。
         """
+        now = datetime.now()
+        cache_key = "gold_history_24h"
+        
+        # 1. 检查有效缓存 (10分钟)
+        if cache_key in self._cache:
+            cache_entry = self._cache[cache_key]
+            if (now - cache_entry["timestamp"]).total_seconds() < 600:
+                return cache_entry["data"]
+
+        trend = []
         # --- 第一重：东方财富 (原生上海金现货) ---
         try:
-            # 增加 User-Agent 模拟浏览器，防止被直接断开连接
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
                 "Referer": "https://quote.eastmoney.com/center/gridlist.html"
@@ -77,94 +87,104 @@ class MarketTerminalService:
             
             if data and data.get("data") and "klines" in data["data"]:
                 klines = data["data"]["klines"]
-                trend = []
+                raw_trend = []
                 for item in klines:
                     parts = item.split(",")
                     if len(parts) >= 6:
                         try:
                             ts = datetime.strptime(parts[0], "%Y-%m-%d %H:%M")
-                            trend.append({
+                            raw_trend.append({
                                 "timestamp": format_iso8601(ts),
                                 "price": round(float(parts[2]), 2),
                                 "is_forecast": False
                             })
                         except Exception: continue
                 
-                if trend:
+                if raw_trend:
                     # 检查最后一点是否太陈旧（超过4小时），如果是，可能是休市或数据延迟，继续尝试下一重
-                    last_ts = datetime.fromisoformat(trend[-1]["timestamp"].replace("Z", "+00:00")).replace(tzinfo=None)
+                    last_ts = datetime.fromisoformat(raw_trend[-1]["timestamp"].replace("Z", "+00:00")).replace(tzinfo=None)
                     if (datetime.utcnow() - last_ts).total_seconds() < 14400:
                         logger.info("✅ Gold history fetched via EastMoney")
-                        return trend[-24:]
+                        trend = raw_trend[-24:]
                     else:
                         logger.warning("⚠️ EastMoney gold history is too old, falling back...")
         except Exception as e:
             logger.warning(f"⚠️ EastMoney gold history failed: {e}")
 
-        # --- 第二重：国内黄金期货 (au0) 形状锚定 ---
-        try:
-            df = ak.futures_zh_minute_sina(symbol="au0", period="60")
-            if df is not None and not df.empty:
-                recent = df.tail(24)
-                current_spot = self._fetch_gold_cny()
-                current_spot_price = current_spot.get("price", 0) if current_spot else 0
-                
-                price_offset = 0.0
-                if current_spot_price > 0:
-                    last_futures_price = float(recent.iloc[-1]["close"])
-                    price_offset = current_spot_price - last_futures_price
-                
-                trend = []
-                for _, row in recent.iterrows():
-                    try:
-                        ts_val = row["datetime"]
-                        ts = datetime.strptime(ts_val, "%Y-%m-%d %H:%M:%S") if isinstance(ts_val, str) else ts_val
-                        trend.append({
+        if not trend:
+            # --- 第二重：国内黄金期货 (au0) 形状锚定 ---
+            try:
+                df = ak.futures_zh_minute_sina(symbol="au0", period="60")
+                if df is not None and not df.empty:
+                    recent = df.tail(24)
+                    current_spot = self._fetch_gold_cny()
+                    current_spot_price = current_spot.get("price", 0) if current_spot else 0
+                    
+                    price_offset = 0.0
+                    if current_spot_price > 0:
+                        last_futures_price = float(recent.iloc[-1]["close"])
+                        price_offset = current_spot_price - last_futures_price
+                    
+                    raw_trend = []
+                    for _, row in recent.iterrows():
+                        try:
+                            ts_val = row["datetime"]
+                            ts = datetime.strptime(ts_val, "%Y-%m-%d %H:%M:%S") if isinstance(ts_val, str) else ts_val
+                            raw_trend.append({
+                                "timestamp": format_iso8601(ts),
+                                "price": round(float(row["close"]) + price_offset, 2),
+                                "is_forecast": False
+                            })
+                        except Exception: continue
+                    
+                    if raw_trend:
+                        last_ts = ts.replace(tzinfo=None)
+                        if (datetime.utcnow() - last_ts).total_seconds() < 14400:
+                            logger.info("✅ Gold history fetched via Sina Futures (Anchored)")
+                            trend = raw_trend
+                        else:
+                            logger.warning("⚠️ Sina Futures gold history is too old, falling back...")
+            except Exception as e:
+                logger.warning(f"⚠️ Sina Futures gold history failed: {e}")
+
+        if not trend:
+            # --- 第三重：yfinance (国际金走势) ---
+            try:
+                import yfinance as yf
+                gold = yf.Ticker("GC=F")
+                df = gold.history(period="3d", interval="1h") # 缩短 period 提高成功率
+                if df is not None and not df.empty:
+                    recent = df.tail(24)
+                    current_spot = self._fetch_gold_cny()
+                    current_price = current_spot.get("price", 0) if current_spot else 0
+                    
+                    scale_factor = 0.128 
+                    if current_price > 0:
+                        last_intl = float(recent.iloc[-1]["Close"])
+                        if last_intl > 0:
+                            scale_factor = current_price / last_intl
+                    
+                    raw_trend = []
+                    for ts, row in recent.iterrows():
+                        raw_trend.append({
                             "timestamp": format_iso8601(ts),
-                            "price": round(float(row["close"]) + price_offset, 2),
+                            "price": round(float(row["Close"]) * scale_factor, 2),
                             "is_forecast": False
                         })
-                    except Exception: continue
-                
-                if trend:
-                    last_ts = ts.replace(tzinfo=None)
-                    if (datetime.utcnow() - last_ts).total_seconds() < 14400:
-                        logger.info("✅ Gold history fetched via Sina Futures (Anchored)")
-                        return trend
-                    else:
-                        logger.warning("⚠️ Sina Futures gold history is too old, falling back...")
-        except Exception as e:
-            logger.warning(f"⚠️ Sina Futures gold history failed: {e}")
-
-        # --- 第三重：yfinance (国际金走势) ---
-        try:
-            import yfinance as yf
-            gold = yf.Ticker("GC=F")
-            df = gold.history(period="5d", interval="1h")
-            if df is not None and not df.empty:
-                recent = df.tail(24)
-                current_spot = self._fetch_gold_cny()
-                current_price = current_spot.get("price", 0) if current_spot else 0
-                
-                scale_factor = 0.128 
-                if current_price > 0:
-                    last_intl = float(recent.iloc[-1]["Close"])
-                    if last_intl > 0:
-                        scale_factor = current_price / last_intl
-                
-                trend = []
-                for ts, row in recent.iterrows():
-                    trend.append({
-                        "timestamp": format_iso8601(ts),
-                        "price": round(float(row["Close"]) * scale_factor, 2),
-                        "is_forecast": False
-                    })
-                if trend:
-                    logger.info("✅ Gold history fetched via yfinance fallback")
-                    return trend
-        except Exception as e:
-            logger.error(f"❌ All gold history sources failed: {e}")
+                    if raw_trend:
+                        logger.info("✅ Gold history fetched via yfinance fallback")
+                        trend = raw_trend
+            except Exception as e:
+                logger.error(f"❌ All gold history sources failed: {e}")
         
+        # 3. 最终处理：如果有新数据，存入缓存；如果全失败，尝试使用过期缓存
+        if trend:
+            self._cache[cache_key] = {"data": trend, "timestamp": now}
+            return trend
+        elif cache_key in self._cache:
+            logger.warning("⚠️ Using STALE cache for gold history due to all source failures")
+            return self._cache[cache_key]["data"]
+            
         return []
 
     def _fetch_gold_cny(self):

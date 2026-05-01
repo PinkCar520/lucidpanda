@@ -556,9 +556,23 @@ async def get_gold_prediction(
     Aligns with PRD requirements in docs/llll.
     """
     # 1. Fetch History
-    history_full = await run_in_threadpool(market_terminal_service.get_gold_history_24h)
+    try:
+        history_full = await run_in_threadpool(market_terminal_service.get_gold_history_24h)
+    except Exception as e:
+        logger.error(f"Error fetching gold history: {e}")
+        history_full = []
+
     if not history_full:
-        raise HTTPException(status_code=503, detail="Gold history unavailable")
+        # Return a shell response instead of 503 to prevent App crash/error loops
+        return v1_prepare_json({
+            "history": [],
+            "prediction": {
+                "issuedAt": format_iso8601(datetime.now(UTC)),
+                "mid": [],
+                "upper": [],
+                "lower": []
+            }
+        })
 
     # 2. Determine Pivot (IssuedAt)
     # For prototype, we use mid-point as issuedAt to show validation area
