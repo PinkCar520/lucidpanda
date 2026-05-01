@@ -200,7 +200,13 @@ public struct GoldDeepAnalysisSheet: View {
                         tooltipView(for: date, in: data)
                     }
                 }
-                .chartYScale(domain: (data.history.map { $0.price } + data.prediction.mid.map { $0.price }).min()!...(data.history.map { $0.price } + data.prediction.mid.map { $0.price }).max()!)
+                .chartYScale(domain: {
+                    let allPrices = data.history.map { $0.price } + data.prediction.mid.map { $0.price }
+                    if let min = allPrices.min(), let max = allPrices.max(), min < max {
+                        return min...max
+                    }
+                    return 2000...2600 // 兜底黄金价格区间
+                }())
                 .chartXAxis {
                     // 1. 核心分界点：预测发布 (0)
                     AxisMarks(values: [data.prediction.issuedAt]) { _ in
@@ -457,12 +463,17 @@ public struct GoldDeepAnalysisSheet: View {
     
     private var metricCardsGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            // Row 1
             metricCard(label: "market.prediction.metric.issued_at", value: viewModel.predictedAtText, color: Color.Alpha.textPrimary)
+            metricCard(label: "market.prediction.metric.target", value: String(format: "$%.1f", viewModel.targetPrice), color: predictionLineColor)
+            
+            // Row 2
             metricCard(label: "market.prediction.metric.direction_accuracy", value: String(format: "%.0f%%", viewModel.directionAccuracy), color: Color.Alpha.brand)
             metricCard(label: "market.prediction.metric.historical_accuracy", value: String(format: "%.0f%%", viewModel.historicalAccuracy), color: Color.Alpha.up)
+            
+            // Row 3
             metricCard(label: "market.prediction.metric.hit_rate", value: String(format: "%.0f%%", viewModel.hitRate), color: Color.Alpha.down)
             metricCard(label: "market.prediction.metric.deviation", value: String(format: "%@$%.1f", viewModel.currentDeviation >= 0 ? "+" : "-", abs(viewModel.currentDeviation)), color: viewModel.currentDeviation >= 0 ? Color.Alpha.down : Color.Alpha.up)
-            metricCard(label: "market.prediction.metric.target", value: String(format: "$%.1f", viewModel.targetPrice), color: predictionLineColor)
         }
     }
     
