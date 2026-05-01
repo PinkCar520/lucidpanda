@@ -53,7 +53,7 @@ public struct GoldDeepAnalysisSheet: View {
                     }
                 }
             }
-            .navigationTitle("market.pulse.title")
+            .navigationTitle("gold.prediction.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -83,10 +83,6 @@ public struct GoldDeepAnalysisSheet: View {
                         .scaleEffect(isTickerAnimating ? 1.0 : 0.7)
                         .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: isTickerAnimating)
                         .onAppear { isTickerAnimating = true }
-                    
-                    Text(verbatim: "伦敦金 (XAU/USD)")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.Alpha.textSecondary)
                     
                     Text(viewModel.currentPriceText)
                         .font(.system(size: 16, weight: .bold))
@@ -164,6 +160,7 @@ public struct GoldDeepAnalysisSheet: View {
                     actualLine(data)
                     predictionLine(data)
                     pivotMarkers(data)
+                    crosshairMarkers(data)
                 }
                 .chartXSelection(value: $selectedDate)
                 .chartOverlay { proxy in
@@ -189,36 +186,39 @@ public struct GoldDeepAnalysisSheet: View {
                 }
                 .chartYScale(domain: (data.history.map { $0.price } + data.prediction.mid.map { $0.price }).min()!...(data.history.map { $0.price } + data.prediction.mid.map { $0.price }).max()!)
                 .chartXAxis {
-                    // Pivot Label and Grid
+                    // 1. 核心分界点：预测发布 (0)
                     AxisMarks(values: [data.prediction.issuedAt]) { _ in
-                        AxisValueLabel {
-                            Text("预测发布")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(Color.Alpha.textSecondary)
-                                .offset(y: 4)
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                            .foregroundStyle(pivotLineColor)
+                        AxisValueLabel(anchor: .top) {
+                            Text("0")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
                         }
                     }
                     
-                    // Relative hour labels
-                    AxisMarks(values: .stride(by: .hour, count: 2)) { value in
+                    // 2. 显式相对刻度：-12, -10, -8, -6, -4, -2, +2, +4, +6, +8
+                    let relativeOffsets = [-12, -10, -8, -6, -4, -2, 2, 4, 6, 8]
+                    let markDates = relativeOffsets.map { data.prediction.issuedAt.addingTimeInterval(Double($0 * 3600)) }
+                    
+                    AxisMarks(values: markDates) { value in
                         if let date = value.as(Date.self) {
                             let diff = date.timeIntervalSince(data.prediction.issuedAt)
                             let hours = Int(round(diff / 3600))
                             
-                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                                .foregroundStyle(Color.gray.opacity(0.1))
                             
-                            if abs(diff) > 3600 {
-                                AxisValueLabel {
-                                    Text("\(hours > 0 ? "+" : "")\(hours)")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.secondary)
-                                }
+                            AxisValueLabel {
+                                Text("\(hours > 0 ? "+" : "")\(hours)")
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
                 }
                 .chartYAxis {
-                    AxisMarks { value in
+                    AxisMarks(position: .leading) { value in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
                         AxisValueLabel {
                             if let price = value.as(Double.self) {
@@ -357,24 +357,65 @@ public struct GoldDeepAnalysisSheet: View {
         }
     }
 
+    @ChartContentBuilder
+    private func crosshairMarkers(_ data: GoldPredictionResponse) -> some ChartContent {
+        if let selectedDate {
+            // 1. 统一类型后寻找磁吸点
+            let historyPoints = data.history.map { GoldPricePoint(timestamp: $0.timestamp, price: $0.price) }
+            let allPoints = historyPoints + data.prediction.mid
+            
+            if let closest = allPoints.min(by: { abs($0.timestamp.timeIntervalSince(selectedDate)) < abs($1.timestamp.timeIntervalSince(selectedDate)) }) {
+                // 垂直引导虚线
+                RuleMark(x: .value("Selected Time", closest.timestamp))
+                    .foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                
+                // 水平引导虚线
+                RuleMark(y: .value("Selected Price", closest.price))
+                    .foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                
+                // 交汇处的亮点
+                PointMark(x: .value("Time", closest.timestamp), y: .value("Price", closest.price))
+                    .foregroundStyle(closest.timestamp <= data.prediction.issuedAt ? actualLineColor : predictionLineColor)
+                    .symbolSize(60)
+            }
+        }
+    }
+
     private func tooltipView(for date: Date, in data: GoldPredictionResponse) -> some View {
+        // 核心修正：找到物理上最接近的真实数据点
+        let historyPoints = data.history.map { GoldPricePoint(timestamp: $0.timestamp, price: $0.price) }
+        let allPoints = historyPoints + data.prediction.mid
+        let closest = allPoints.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) })
+        
         let actual = data.history.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) })
         let mid = data.prediction.mid.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) })
         
+        // 使用吸附后的点的时间，确保用户看到的时间和价格是完全匹配的
+        let snapDate = closest?.timestamp ?? date
+        let diff = snapDate.timeIntervalSince(data.prediction.issuedAt)
+        let hours = Int(round(diff / 3600))
+        let relativeLabel = hours == 0 ? "发布时刻" : "\(hours > 0 ? "+" : "")\(hours)h"
+        
         return VStack(alignment: .leading, spacing: 4) {
-            Text(date, format: .dateTime.hour().minute())
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(.secondary)
+            HStack {
+                Text(snapDate, format: .dateTime.hour().minute())
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                Text("(\(relativeLabel))")
+                    .font(.system(size: 10))
+            }
+            .foregroundStyle(.secondary)
             
-            if let a = actual, abs(a.timestamp.timeIntervalSince(date)) < 3600 {
+            if let a = actual, abs(a.timestamp.timeIntervalSince(date)) < 7200 {
                 Text("实际: $\(a.price.formatted())")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(actualLineColor)
             }
             
-            if let m = mid, abs(m.timestamp.timeIntervalSince(date)) < 3600 {
+            if let m = mid, abs(m.timestamp.timeIntervalSince(date)) < 7200 {
                 Text("预测: $\(m.price.formatted())")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(predictionLineColor)
             }
         }
