@@ -61,50 +61,49 @@ class MarketTerminalService:
 
     def get_gold_history_24h(self):
         """
-        获取上海金 (AU9999) 过去 24 小时的整点历史走势。
-        优先采用东方财富 (EastMoney) 生产级现货接口，该接口极其稳定且数据原生。
+        获取金价走势（24h 小时线）。
+        采用三重保障方案：东方财富原生现货 -> 国内期货锚定 -> 国际金汇率换算。
         """
+        # --- 第一重：东方财富 (原生上海金现货) ---
         try:
-            # klt=60 代表 60 分钟线, lmt=48 确保覆盖 24 交易小时 + 冗余
+            # 增加 User-Agent 模拟浏览器，防止被直接断开连接
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Referer": "https://quote.eastmoney.com/center/gridlist.html"
+            }
             url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=118.AU9999&ut=fa5fd1943c7b386f172d6893dbf24410&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56&klt=60&fqt=1&end=20500101&lmt=48"
-            resp = requests.get(url, timeout=5)
+            resp = requests.get(url, headers=headers, timeout=5)
             data = resp.json()
             
-            if data and "data" in data and data["data"] and "klines" in data["data"]:
+            if data and data.get("data") and "klines" in data["data"]:
                 klines = data["data"]["klines"]
                 trend = []
-                # fields2 定义: f51:时间, f52:开盘, f53:收盘, f54:最高, f55:最低, f56:成交量
                 for item in klines:
                     parts = item.split(",")
                     if len(parts) >= 6:
-                        time_str = parts[0]
-                        price = float(parts[2]) # 收盘价
-                        
                         try:
-                            # 格式: "2024-05-20 14:30"
-                            ts = datetime.strptime(time_str, "%Y-%m-%d %H:%M")
-                        except Exception:
-                            ts = datetime.now()
-                            
-                        trend.append({
-                            "timestamp": format_iso8601(ts),
-                            "price": round(price, 2),
-                            "is_forecast": False
-                        })
+                            ts = datetime.strptime(parts[0], "%Y-%m-%d %H:%M")
+                            trend.append({
+                                "timestamp": format_iso8601(ts),
+                                "price": round(float(parts[2]), 2),
+                                "is_forecast": False
+                            })
+                        except Exception: continue
                 
                 if trend:
-                    # 只取最后 24 个点
+                    logger.info("✅ Gold history fetched via EastMoney")
                     return trend[-24:]
         except Exception as e:
-            logger.warning(f"Failed to fetch gold history via EastMoney: {e}")
+            logger.warning(f"⚠️ EastMoney gold history failed: {e}")
 
-        # 兜底：采用国内黄金期货 (au0) 形状锚定
+        # --- 第二重：国内黄金期货 (au0) 形状锚定 ---
         try:
             df = ak.futures_zh_minute_sina(symbol="au0", period="60")
             if df is not None and not df.empty:
                 recent = df.tail(24)
                 current_spot = self._fetch_gold_cny()
                 current_spot_price = current_spot.get("price", 0) if current_spot else 0
+                
                 price_offset = 0.0
                 if current_spot_price > 0:
                     last_futures_price = float(recent.iloc[-1]["close"])
@@ -112,19 +111,50 @@ class MarketTerminalService:
                 
                 trend = []
                 for _, row in recent.iterrows():
-                    ts_val = row["datetime"]
                     try:
+                        ts_val = row["datetime"]
                         ts = datetime.strptime(ts_val, "%Y-%m-%d %H:%M:%S") if isinstance(ts_val, str) else ts_val
-                    except Exception:
-                        ts = datetime.now()
+                        trend.append({
+                            "timestamp": format_iso8601(ts),
+                            "price": round(float(row["close"]) + price_offset, 2),
+                            "is_forecast": False
+                        })
+                    except Exception: continue
+                
+                if trend:
+                    logger.info("✅ Gold history fetched via Sina Futures (Anchored)")
+                    return trend
+        except Exception as e:
+            logger.warning(f"⚠️ Sina Futures gold history failed: {e}")
+
+        # --- 第三重：yfinance (国际金走势) ---
+        try:
+            import yfinance as yf
+            gold = yf.Ticker("GC=F")
+            df = gold.history(period="5d", interval="1h")
+            if df is not None and not df.empty:
+                recent = df.tail(24)
+                current_spot = self._fetch_gold_cny()
+                current_price = current_spot.get("price", 0) if current_spot else 0
+                
+                scale_factor = 0.128 
+                if current_price > 0:
+                    last_intl = float(recent.iloc[-1]["Close"])
+                    if last_intl > 0:
+                        scale_factor = current_price / last_intl
+                
+                trend = []
+                for ts, row in recent.iterrows():
                     trend.append({
                         "timestamp": format_iso8601(ts),
-                        "price": round(float(row["close"]) + price_offset, 2),
+                        "price": round(float(row["Close"]) * scale_factor, 2),
                         "is_forecast": False
                     })
-                return trend
+                if trend:
+                    logger.info("✅ Gold history fetched via yfinance fallback")
+                    return trend
         except Exception as e:
-            logger.warning(f"Fallback au0 trend failed: {e}")
+            logger.error(f"❌ All gold history sources failed: {e}")
         
         return []
 
