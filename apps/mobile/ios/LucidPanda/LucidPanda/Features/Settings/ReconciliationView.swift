@@ -43,6 +43,7 @@ struct ReconciliationView: View {
                                         .foregroundStyle(.blue.opacity(0.1))
                                     }
                                     .frame(height: 200)
+                                    .clipped()
                                 }
                             }
                             .padding(.horizontal)

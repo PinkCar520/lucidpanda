@@ -328,6 +328,26 @@ public struct TimechainEvent: Codable, Identifiable {
     public let sentiment: String // bullish, bearish, neutral
 }
 
+// MARK: - Gold Prediction (PRD v1.0)
+
+public struct GoldPricePoint: Codable, Identifiable, Hashable {
+    public var id: Date { timestamp }
+    public let timestamp: Date
+    public let price: Double
+}
+
+public struct GoldPredictionResponse: Codable {
+    public let history: [GoldTrendPoint]
+    public let prediction: GoldPredictionDetail
+}
+
+public struct GoldPredictionDetail: Codable {
+    public let issuedAt: Date
+    public let mid: [GoldPricePoint]
+    public let upper: [GoldPricePoint]
+    public let lower: [GoldPricePoint]
+}
+
 // MARK: - Helper Extensions
 
 extension MarketQuote {

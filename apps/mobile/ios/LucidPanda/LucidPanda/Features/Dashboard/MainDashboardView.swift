@@ -198,7 +198,7 @@ struct MainDashboardView: View {
                 .presentationDragIndicator(Visibility.visible)
         }
         .sheet(isPresented: $isDeepAnalysisPresented) {
-            GoldDeepAnalysisSheet(pulseData: rootViewModel.marketPulseViewModel.pulseData)
+            GoldDeepAnalysisSheet()
                 .presentationDetents([PresentationDetent.large])
                 .presentationDragIndicator(Visibility.visible)
         }

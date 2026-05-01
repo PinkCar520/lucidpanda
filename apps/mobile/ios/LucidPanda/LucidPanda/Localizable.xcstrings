@@ -4,16 +4,19 @@
     "%@%%" : {
 
     },
+    "+12 (+0.37%)" : {
+
+    },
     "$%@" : {
 
     },
-    "09:00" : {
+    "1D" : {
 
     },
-    "15:00" : {
+    "1H" : {
 
     },
-    "21:00" : {
+    "4H" : {
 
     },
     "accuracy_high" : {
@@ -1967,6 +1970,7 @@
       }
     },
     "common.status.live" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5137,6 +5141,7 @@
 
     },
     "market.action.invest_now" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5153,6 +5158,7 @@
       }
     },
     "market.action.reports" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5220,6 +5226,7 @@
       }
     },
     "market.asset.gold_spot" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5384,6 +5391,125 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "管理总规模"
+          }
+        }
+      }
+    },
+    "market.prediction.label.history" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "← History (Verified)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "← 历史（预测已可验证）"
+          }
+        }
+      }
+    },
+    "market.prediction.label.pivot" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prediction Issued"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预测发布时间"
+          }
+        }
+      }
+    },
+    "market.prediction.label.tracking" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live Tracking →"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实时追踪中 →"
+          }
+        }
+      }
+    },
+    "market.prediction.metric.deviation" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current Deviation"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前偏差"
+          }
+        }
+      }
+    },
+    "market.prediction.metric.hit_rate" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hit Rate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "区间内时长"
+          }
+        }
+      }
+    },
+    "market.prediction.metric.issued_at" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Issued At"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预测发布于"
+          }
+        }
+      }
+    },
+    "market.prediction.metric.target" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Target Price"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "预测目标价"
           }
         }
       }
@@ -5808,6 +5934,7 @@
       }
     },
     "market.section.quant_performance" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5824,6 +5951,7 @@
       }
     },
     "market.section.valuation_summary" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7784,7 +7912,19 @@
         }
       }
     },
+    "实际: $%@" : {
+
+    },
     "数据暂缺" : {
+
+    },
+    "突破区间" : {
+
+    },
+    "置信区间" : {
+
+    },
+    "预测: $%@" : {
 
     }
   },

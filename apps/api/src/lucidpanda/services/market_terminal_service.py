@@ -91,8 +91,13 @@ class MarketTerminalService:
                         except Exception: continue
                 
                 if trend:
-                    logger.info("✅ Gold history fetched via EastMoney")
-                    return trend[-24:]
+                    # 检查最后一点是否太陈旧（超过4小时），如果是，可能是休市或数据延迟，继续尝试下一重
+                    last_ts = datetime.fromisoformat(trend[-1]["timestamp"].replace("Z", "+00:00")).replace(tzinfo=None)
+                    if (datetime.utcnow() - last_ts).total_seconds() < 14400:
+                        logger.info("✅ Gold history fetched via EastMoney")
+                        return trend[-24:]
+                    else:
+                        logger.warning("⚠️ EastMoney gold history is too old, falling back...")
         except Exception as e:
             logger.warning(f"⚠️ EastMoney gold history failed: {e}")
 
@@ -122,8 +127,12 @@ class MarketTerminalService:
                     except Exception: continue
                 
                 if trend:
-                    logger.info("✅ Gold history fetched via Sina Futures (Anchored)")
-                    return trend
+                    last_ts = ts.replace(tzinfo=None)
+                    if (datetime.utcnow() - last_ts).total_seconds() < 14400:
+                        logger.info("✅ Gold history fetched via Sina Futures (Anchored)")
+                        return trend
+                    else:
+                        logger.warning("⚠️ Sina Futures gold history is too old, falling back...")
         except Exception as e:
             logger.warning(f"⚠️ Sina Futures gold history failed: {e}")
 

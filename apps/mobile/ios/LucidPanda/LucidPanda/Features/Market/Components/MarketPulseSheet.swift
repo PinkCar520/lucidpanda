@@ -4,6 +4,13 @@ import AlphaDesign
 import AlphaData
 import Charts
 
+struct NormalizedGoldPoint: Identifiable {
+    let id: Date
+    let price: Double
+    let x: Double
+    let isForecast: Bool
+}
+
 struct MarketPulseSheet: View {
     @Environment(AppRootViewModel.self) private var rootViewModel
     let viewModel: MarketPulseViewModel
@@ -189,36 +196,93 @@ struct MarketPulseSheet: View {
                     let yMin = minPrice - (priceRange * 0.2)
                     let yMax = maxPrice + (priceRange * 0.2)
                     
+                    let actualData = trend.filter { !$0.isForecast }
+                    let forecastData = trend.filter { $0.isForecast }
+                    
+                    // 设计逻辑升级：
+                    // 1. 枢轴点 (Pivot)：AI 开始预测的时间点（即训练数据的终点）。
+                    // 2. 50% 刻度：始终对齐到 Pivot。
+                    // 3. 左侧 (0-50%)：展示 Pivot 之前的历史（纯实线）。
+                    // 4. 右侧 (50-100%)：展示 Pivot 之后的走势（实线+虚线重叠，用于验证 AI）。
+                    
+                    let pivotPoint = forecastData.first ?? trend.last
+                    let pivotTime = pivotPoint?.timestamp ?? Date()
+                    
+                    // X 轴范围：Pivot 往前 12h，往后 12h
+                    let startTime = pivotTime.addingTimeInterval(-12 * 3600)
+                    let endTime = pivotTime.addingTimeInterval(12 * 3600)
+                    
+                    let normalizedTrend: [NormalizedGoldPoint] = trend.compactMap { p in
+                        let x: Double
+                        if p.timestamp <= pivotTime {
+                            let duration = pivotTime.timeIntervalSince(startTime)
+                            guard duration > 0 else { return nil }
+                            x = 0.5 * (p.timestamp.timeIntervalSince(startTime) / duration)
+                        } else {
+                            let duration = endTime.timeIntervalSince(pivotTime)
+                            guard duration > 0 else { return nil }
+                            x = 0.5 + 0.5 * (p.timestamp.timeIntervalSince(pivotTime) / duration)
+                        }
+                        // 过滤掉超出 0.0-1.0 范围的点，保证布局纯净
+                        guard x >= 0 && x <= 1.0 else { return nil }
+                        return NormalizedGoldPoint(id: p.timestamp, price: p.price, x: x, isForecast: p.isForecast)
+                    }
+                    
+                    let normalizedActual = normalizedTrend.filter { !$0.isForecast }
+                    let normalizedForecast = normalizedTrend.filter { $0.isForecast }
+                    
                     Chart {
-                        ForEach(trend) { point in
+                        // 1. 底层：AI 预测参考线 (影子线，品牌色虚线，从 50% 开始)
+                        ForEach(normalizedForecast) { point in
                             LineMark(
-                                x: .value("chart.label.time", point.timestamp),
-                                y: .value("chart.label.price", point.price)
+                                x: .value("chart.label.time", point.x),
+                                y: .value("chart.label.price", point.price),
+                                series: .value("Type", "Forecast")
                             )
                             .interpolationMethod(.catmullRom)
-                            .foregroundStyle(Color.Alpha.up.opacity(point.isForecast ? 0.5 : 1.0))
-                            .lineStyle(StrokeStyle(lineWidth: 2, dash: point.isForecast ? [5, 5] : []))
+                            .foregroundStyle(Color.Alpha.brand.opacity(0.45))
+                            .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
                             
-                            if !point.isForecast {
-                                AreaMark(
-                                    x: .value("chart.label.time", point.timestamp),
-                                    y: .value("chart.label.price", point.price)
+                            PointMark(
+                                x: .value("chart.label.time", point.x),
+                                y: .value("chart.label.price", point.price)
+                            )
+                            .symbolSize(8)
+                            .foregroundStyle(Color.Alpha.brand.opacity(0.6))
+                        }
+                        
+                        // 2. 顶层：实际价格走势 (加粗实线，贯穿全图/或到当前)
+                        ForEach(normalizedActual) { point in
+                            LineMark(
+                                x: .value("chart.label.time", point.x),
+                                y: .value("chart.label.price", point.price),
+                                series: .value("Type", "Actual")
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(Color.Alpha.up)
+                            .lineStyle(StrokeStyle(lineWidth: 2.2))
+                            
+                            AreaMark(
+                                x: .value("chart.label.time", point.x),
+                                y: .value("chart.label.price", point.price),
+                                series: .value("Type", "Actual")
+                            )
+                            .interpolationMethod(.catmullRom)
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.Alpha.up.opacity(0.12), .clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
                                 )
-                                .interpolationMethod(.catmullRom)
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [Color.Alpha.up.opacity(0.1), .clear],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-                            }
+                            )
                         }
                     }
+                    .chartXScale(domain: 0.0...1.0)
                     .chartYScale(domain: yMin...yMax)
                     .chartXAxis(Visibility.hidden)
                     .chartYAxis(Visibility.hidden)
                     .frame(height: 50)
+                    .clipped()
                 }
                 .padding(.horizontal, 30)
                 .padding(.top, 12)
@@ -262,6 +326,7 @@ struct MarketPulseSheet: View {
                     .chartXAxis(Visibility.hidden)
                     .chartYAxis(Visibility.hidden)
                     .frame(height: 40)
+                    .clipped()
                 }
                 .padding(.horizontal, 30)
                 .padding(.top, 8)
