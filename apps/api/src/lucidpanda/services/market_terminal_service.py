@@ -213,101 +213,110 @@ class MarketTerminalService:
             self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
         return trend
 
-    def get_gold_history_intl_24h(self):
+    def get_gold_history_intl_custom(self, granularity: str = "1h"):
         """
-        获取国际金价走势（24h 伦敦金现货）。
-        使用新浪财经最稳定的 GlobalFuturesService 接口，通过对分时数据采样还原 24 小时走势。
+        获取国际金价走势，支持不同粒度的深度定制。
+        1h: 最近 24 小时 (新浪采样)
+        4h: 最近 4-5 天 (yfinance)
+        1d: 最近一周 (yfinance)
         """
         import requests
         from zoneinfo import ZoneInfo
         
-        cache_key = "gold_history_intl_24h"
+        cache_key = f"gold_history_intl_{granularity}"
         if cache_key in self._cache:
             cache_entry = self._cache[cache_key]
             if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 600:
                 return cache_entry["data"]
 
-        try:
-            url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
-            resp = requests.get(url, timeout=10)
-            data = resp.json()
-            
-            if data and isinstance(data, dict):
-                key = list(data.keys())[0]
-                all_points_raw = data[key]
-                if all_points_raw:
-                    # 1. 解析并去重
-                    point_map = {} # timestamp -> price
-                    for p in all_points_raw:
-                        ts_str = p[-1]
-                        price = p[1]
-                        if ts_str and price:
-                            try:
-                                # 新浪国际期货时间是北京时间
-                                ts_obj = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-                                # 如果有重复时间戳，以最新的点为准
-                                point_map[ts_obj] = round(float(price), 2)
-                            except Exception: continue
-                    
-                    # 2. 严格排序
-                    sorted_times = sorted(point_map.keys())
-                    
-                    # 3. 采样 (最近 24 小时，每小时一个点)
-                    sampled_trend = []
-                    if sorted_times:
-                        # 从最新的点开始倒推
-                        last_time = sorted_times[-1]
-                        for i in range(24):
-                            target_time = last_time - timedelta(hours=i)
-                            # 寻找最接近 target_time 的点 (简单寻找 30 分钟偏差内的点)
-                            best_match = None
-                            min_diff = 3600
-                            for t in reversed(sorted_times):
-                                diff = abs((t - target_time).total_seconds())
-                                if diff < min_diff:
-                                    min_diff = diff
-                                    best_match = t
-                                if diff > 7200: # 优化：差距太大就不用继续搜了
-                                    break
-                            
-                            if best_match:
-                                sampled_trend.insert(0, {
-                                    "timestamp": format_iso8601(best_match),
-                                    "price": point_map[best_match],
-                                    "is_forecast": False
-                                })
-                    
-                    if sampled_trend:
-                        # 再次去重 (防止采样取到同一个点)
-                        final_trend = []
-                        seen_ts = set()
-                        for p in sampled_trend:
-                            if p["timestamp"] not in seen_ts:
-                                final_trend.append(p)
-                                seen_ts.add(p["timestamp"])
+        if granularity == "1h":
+            # --- 1H 逻辑：新浪分时采样 (24 小时) ---
+            try:
+                url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
+                resp = requests.get(url, timeout=10)
+                data = resp.json()
+                if data and isinstance(data, dict):
+                    key = list(data.keys())[0]
+                    all_points_raw = data[key]
+                    if all_points_raw:
+                        point_map = {}
+                        for p in all_points_raw:
+                            ts_str = p[-1]
+                            price = p[1]
+                            if ts_str and price:
+                                try:
+                                    ts_obj = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                                    point_map[ts_obj] = round(float(price), 2)
+                                except Exception: continue
                         
-                        self._cache[cache_key] = {"data": final_trend, "timestamp": datetime.now()}
-                        logger.info(f"✅ London Gold 24h history sampled & sorted via Sina (Points: {len(final_trend)})")
-                        return final_trend
-        except Exception as e:
-            logger.warning(f"⚠️ Sina GlobalFuturesService failed: {e}")
+                        sorted_times = sorted(point_map.keys())
+                        sampled_trend = []
+                        if sorted_times:
+                            last_time = sorted_times[-1]
+                            for i in range(24):
+                                target_time = last_time - timedelta(hours=i)
+                                # 寻找最近点
+                                best_match = None
+                                min_diff = 3600
+                                for t in reversed(sorted_times):
+                                    diff = abs((t - target_time).total_seconds())
+                                    if diff < min_diff:
+                                        min_diff = diff
+                                        best_match = t
+                                    if diff > 7200: break
+                                
+                                if best_match:
+                                    sampled_trend.insert(0, {
+                                        "timestamp": format_iso8601(best_match),
+                                        "price": point_map[best_match],
+                                        "is_forecast": False
+                                    })
+                        
+                        if sampled_trend:
+                            self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
+                            return sampled_trend
+            except Exception as e:
+                logger.warning(f"⚠️ Sina MinLine failed for 1h: {e}")
 
-        # yfinance 备选（带 24 小时采样）
+        # --- 4H / 1D 逻辑：yfinance 高效覆盖长跨度 ---
         try:
             import yfinance as yf
             gold = yf.Ticker("GC=F")
-            df = gold.history(period="2d", interval="1h", timeout=10)
+            
+            period = "1mo"
+            interval = "1h" if granularity == "4h" else "1d"
+            
+            df = gold.history(period=period, interval=interval, timeout=10)
             if df is not None and not df.empty:
-                recent = df.tail(24)
+                # 4h 粒度：我们需要 4 小时一个点，展示过去 4 天 (约 24 个点)
+                # 1d 粒度：我们需要 1 天一个点，展示过去一周 (约 7-10 个点)
+                raw_data = df.tail(100) # 取足够的数据
                 trend = []
-                for ts, row in recent.iterrows():
-                    trend.append({
-                        "timestamp": format_iso8601(ts),
-                        "price": round(float(row["Close"]), 2),
-                        "is_forecast": False
-                    })
-                return trend
-        except Exception: pass
+                
+                if granularity == "4h":
+                    # 采样：从最后一行开始，每 4 小时取一个点，共取 24 个
+                    for i in range(len(raw_data) - 1, max(-1, len(raw_data) - 1 - (24 * 4)), -4):
+                        row = raw_data.iloc[i]
+                        trend.insert(0, {
+                            "timestamp": format_iso8601(raw_data.index[i]),
+                            "price": round(float(row["Close"]), 2),
+                            "is_forecast": False
+                        })
+                else: # 1d
+                    # 直接取最后 10 个点 (约 1.5 周)
+                    recent_week = raw_data.tail(10)
+                    for ts, row in recent_week.iterrows():
+                        trend.append({
+                            "timestamp": format_iso8601(ts),
+                            "price": round(float(row["Close"]), 2),
+                            "is_forecast": False
+                        })
+                
+                if trend:
+                    self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
+                    return trend
+        except Exception as e:
+            logger.error(f"❌ Custom gold history failed for {granularity}: {e}")
 
         return []
 

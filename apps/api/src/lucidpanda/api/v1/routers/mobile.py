@@ -569,9 +569,9 @@ async def get_gold_prediction(
     Structured gold prediction data for high-fidelity chart.
     Aligns with PRD requirements in docs/llll.
     """
-    # 1. Fetch History (International Gold / London Gold)
+    # 1. Fetch History (International Gold / London Gold) with custom depth
     try:
-        history_full = await run_in_threadpool(market_terminal_service.get_gold_history_intl_24h)
+        history_full = await run_in_threadpool(market_terminal_service.get_gold_history_intl_custom, granularity)
     except Exception as e:
         logger.error(f"Error fetching gold history: {e}")
         history_full = []
@@ -649,25 +649,36 @@ async def get_gold_prediction(
                     "is_forecast": True
                 })
 
-    # 4. Calculate Confidence Intervals
-    forecast_upper = []
-    forecast_lower = []
-    for i, item in enumerate(forecast_points):
-        spread = 3.0 + (i * 1.0)
-        forecast_upper.append({"timestamp": item["timestamp"], "price": round(item["price"] + spread, 2)})
-        forecast_lower.append({"timestamp": item["timestamp"], "price": round(item["price"] - spread, 2)})
+    # Construct complete prediction object with upper/lower bands
+    # For now, use a simple fixed volatility band
+    mid_points = []
+    upper_points = []
+    lower_points = []
+    
+    for i, p in enumerate(forecast_points):
+        ts = p["timestamp"]
+        price = p["price"]
+        mid_points.append({"timestamp": ts, "price": price})
+        
+        # Volatility grows with time. For 1D, we use larger spread.
+        vol_base = 0.015 if granularity == "1d" else 0.005
+        vol_step = 0.005 if granularity == "1d" else 0.002
+        vol = vol_base + (vol_step * i) 
+        upper_points.append({"timestamp": ts, "price": round(price * (1 + vol), 2)})
+        lower_points.append({"timestamp": ts, "price": round(price * (1 - vol), 2)})
 
     prediction_result = {
         "issuedAt": issued_at,
-        "mid": forecast_points,
-        "upper": forecast_upper,
-        "lower": forecast_lower
+        "mid": mid_points,
+        "upper": upper_points,
+        "lower": lower_points
     }
     
     final_response = {
         "history": history_full,
         "prediction": prediction_result,
-        "generatedAt": format_iso8601(datetime.now(UTC))
+        "generatedAt": format_iso8601(datetime.now(UTC)),
+        "granularity": granularity # Include granularity for frontend logic
     }
     
     # Cache the FULL response object, not just prediction_result
@@ -676,12 +687,12 @@ async def get_gold_prediction(
     return v1_prepare_json(final_response)
 
 
-async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], snapshot: dict, overall_sentiment: dict) -> list[dict]:
+async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], snapshot: dict, overall_sentiment: dict, granularity: str = "1h") -> list[dict]:
     """使用 LLM 综合宏观指标、情报及情绪生成伦敦金 (XAU/USD) 价格预测"""
     if not history:
         return []
 
-    # 1. 基础数据准备
+    # ... (基础数据准备) ...
     last_point = history[-1]
     last_price = last_point["price"]
     try:
@@ -697,7 +708,7 @@ async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], 
         elif recent_prices[-1] < recent_prices[0] * 0.999:
             trend_desc = "下跌"
     
-    # 2. 格式化宏观快照 (DXY, Oil, Bonds)
+    # ... (宏观快照格式化) ...
     macro_context = ""
     if snapshot:
         dxy = snapshot.get("dxy", {})
@@ -709,23 +720,25 @@ async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], 
         - 美债 10Y 收益率: {us10y.get('price')}% ({us10y.get('changePercent')}%)
         """
 
-    # 3. 格式化整体情绪
     sentiment_desc = f"{overall_sentiment.get('score', 0)} ({overall_sentiment.get('label', '中性')})"
 
-    # 4. 格式化核心情报 (前10条)
     intel_briefs = []
     for a in alerts[:10]:
         summary_val = a['summary']
         text_summary = summary_val.get("zh") if isinstance(summary_val, dict) else str(summary_val)
         intel_briefs.append(f"- {text_summary} (情绪: {a['sentiment']})")
     intel_context = "\n".join(intel_briefs) if intel_briefs else "无重大情报"
-    
+
     # 5. 构建深度分析提示词
-    prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来 12 小时伦敦金 (XAU/USD) 的价格演进趋势。
+    unit = "天" if granularity == "1d" else "小时"
+    count = 5 if granularity == "1d" else 12
+    
+    prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来 {count} {unit}伦敦金 (XAU/USD) 的价格演进趋势。
     
     【当前基准】
     价格: {last_price} USD/oz
-    近期趋势: {trend_desc} (近6小时价格: {recent_prices})
+    近期趋势: {trend_desc} (近6个采样点价格: {recent_prices})
+    当前分析粒度: {granularity}
     
     【宏观相关性背景】
     {macro_context}
@@ -736,15 +749,14 @@ async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], 
     【近期核心情报脉络】
     {intel_context}
     
-    请输出未来 12 小时的预测价格点。输出格式为 JSON 数组，每个对象包含:
-    - "hour_offset": 1 到 12 的整数
+    请输出未来 {count} 个点（每点间隔 1{unit}）的预测价格。输出格式为 JSON 数组，每个对象包含:
+    - "offset": 1 到 {count} 的整数
     - "predicted_price": 预测的价格 (float)
     
     要求：
-    1. 必须综合考虑宏观背景（如美元走强通常压制金价）和核心情报的逻辑演进。
-    2. 预测应体现出对近期情报情绪的反应，特别是多个情报指向同一逻辑时（如联储连续释放鹰派信号）。
-    3. 波动应符合伦敦金市场的真实特征，单小时波动通常在 0.1%-0.5% 之间。
-    4. 只输出 JSON 数组，不要包含多余文字。
+    1. 必须综合考虑宏观背景和核心情报。
+    2. 波动应符合伦敦金市场的真实特征（小时线波动 0.1%-0.5%，日线波动 0.5%-2%）。
+    3. 只输出 JSON 数组，不要包含多余文字。
     """
     
     try:
@@ -754,10 +766,14 @@ async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], 
         forecast_points = []
         if isinstance(forecast_raw, list):
             for item in forecast_raw:
-                offset = item.get("hour_offset")
+                offset = item.get("offset")
                 price = item.get("predicted_price")
                 if offset and price:
-                    target_ts = last_ts + timedelta(hours=int(offset))
+                    if granularity == "1d":
+                        target_ts = last_ts + timedelta(days=int(offset))
+                    else:
+                        target_ts = last_ts + timedelta(hours=int(offset))
+                        
                     forecast_points.append({
                         "timestamp": format_iso8601(target_ts),
                         "price": round(float(price), 2),

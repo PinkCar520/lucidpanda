@@ -219,22 +219,41 @@ public struct GoldDeepAnalysisSheet: View {
                         }
                     }
                     
-                    // 2. 显式相对刻度：-12, -10, -8, -6, -4, -2, +2, +4, +6, +8
-                    let relativeOffsets = [-12, -10, -8, -6, -4, -2, 2, 4, 6, 8]
-                    let markDates = relativeOffsets.map { data.prediction.issuedAt.addingTimeInterval(Double($0 * 3600)) }
+                    // 2. 动态相对刻度
+                    let granularity = data.granularity ?? "1h"
+                    let relativeOffsets: [Int] = {
+                        switch granularity {
+                        case "1h": return [-12, -10, -8, -6, -4, -2, 2, 4, 6, 8]
+                        case "4h": return [-72, -48, -24, 24, 48, 72]
+                        case "1d": return [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]
+                        default: return [-12, -8, -4, 4, 8, 12]
+                        }
+                    }()
+                    
+                    let markDates = relativeOffsets.map { offset -> Date in
+                        let seconds = granularity == "1d" ? Double(offset * 24 * 3600) : Double(offset * 3600)
+                        return data.prediction.issuedAt.addingTimeInterval(seconds)
+                    }
                     
                     AxisMarks(values: markDates) { value in
                         if let date = value.as(Date.self) {
                             let diff = date.timeIntervalSince(data.prediction.issuedAt)
-                            let hours = Int(round(diff / 3600))
                             
                             AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                                 .foregroundStyle(Color.gray.opacity(0.1))
                             
                             AxisValueLabel {
-                                Text("\(hours > 0 ? "+" : "")\(hours)")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
+                                if granularity == "1d" {
+                                    let days = Int(round(diff / (24 * 3600)))
+                                    Text("\(days > 0 ? "+" : "")\(days)d")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    let hours = Int(round(diff / 3600))
+                                    Text("\(hours > 0 ? "+" : "")\(hours)")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }

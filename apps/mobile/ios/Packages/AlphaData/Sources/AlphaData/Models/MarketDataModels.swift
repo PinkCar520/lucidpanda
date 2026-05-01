@@ -351,6 +351,7 @@ public struct GoldPredictionResponse: Codable {
     public let history: [GoldTrendPoint]
     public let prediction: GoldPredictionDetail
     public let generatedAt: Date?
+    public let granularity: String?
 }
 
 public struct GoldPredictionDetail: Codable {
