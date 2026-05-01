@@ -234,31 +234,61 @@ class MarketTerminalService:
             
             if data and isinstance(data, dict):
                 key = list(data.keys())[0]
-                all_points = data[key]
-                if all_points:
-                    sampled_trend = []
-                    # 采样逻辑：分时数据点非常密集（1分钟1个）。
-                    # 为了获得 24 小时小时线，我们从最新的点开始，倒序每 60 个点采样一次，取 24 个点。
-                    # step = 60 代表取点步长为 1 小时。
-                    total_count = len(all_points)
-                    for i in range(total_count - 1, max(-1, total_count - 1 - (24 * 60)), -60):
-                        p = all_points[i]
+                all_points_raw = data[key]
+                if all_points_raw:
+                    # 1. 解析并去重
+                    point_map = {} # timestamp -> price
+                    for p in all_points_raw:
                         ts_str = p[-1]
                         price = p[1]
                         if ts_str and price:
                             try:
+                                # 新浪国际期货时间是北京时间
                                 ts_obj = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-                                sampled_trend.insert(0, { # 正序插入
-                                    "timestamp": format_iso8601(ts_obj),
-                                    "price": round(float(price), 2),
-                                    "is_forecast": False
-                                })
+                                # 如果有重复时间戳，以最新的点为准
+                                point_map[ts_obj] = round(float(price), 2)
                             except Exception: continue
                     
+                    # 2. 严格排序
+                    sorted_times = sorted(point_map.keys())
+                    
+                    # 3. 采样 (最近 24 小时，每小时一个点)
+                    sampled_trend = []
+                    if sorted_times:
+                        # 从最新的点开始倒推
+                        last_time = sorted_times[-1]
+                        for i in range(24):
+                            target_time = last_time - timedelta(hours=i)
+                            # 寻找最接近 target_time 的点 (简单寻找 30 分钟偏差内的点)
+                            best_match = None
+                            min_diff = 3600
+                            for t in reversed(sorted_times):
+                                diff = abs((t - target_time).total_seconds())
+                                if diff < min_diff:
+                                    min_diff = diff
+                                    best_match = t
+                                if diff > 7200: # 优化：差距太大就不用继续搜了
+                                    break
+                            
+                            if best_match:
+                                sampled_trend.insert(0, {
+                                    "timestamp": format_iso8601(best_match),
+                                    "price": point_map[best_match],
+                                    "is_forecast": False
+                                })
+                    
                     if sampled_trend:
-                        self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
-                        logger.info(f"✅ London Gold 24h history sampled via Sina MinLine (Points: {len(sampled_trend)})")
-                        return sampled_trend
+                        # 再次去重 (防止采样取到同一个点)
+                        final_trend = []
+                        seen_ts = set()
+                        for p in sampled_trend:
+                            if p["timestamp"] not in seen_ts:
+                                final_trend.append(p)
+                                seen_ts.add(p["timestamp"])
+                        
+                        self._cache[cache_key] = {"data": final_trend, "timestamp": datetime.now()}
+                        logger.info(f"✅ London Gold 24h history sampled & sorted via Sina (Points: {len(final_trend)})")
+                        return final_trend
         except Exception as e:
             logger.warning(f"⚠️ Sina GlobalFuturesService failed: {e}")
 

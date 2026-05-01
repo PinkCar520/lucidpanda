@@ -284,12 +284,14 @@ public struct GoldDeepAnalysisSheet: View {
 
     @ChartContentBuilder
     private func actualLine(_ data: GoldPredictionResponse) -> some ChartContent {
-        ForEach(data.history) { p in
+        let sortedHistory = data.history.sorted { $0.timestamp < $1.timestamp }
+        ForEach(sortedHistory) { p in
             LineMark(
                 x: .value("Time", p.timestamp),
-                y: .value("Price", p.price)
+                y: .value("Price", p.price),
+                series: .value("Series", "Actual")
             )
-            .interpolationMethod(.catmullRom)
+            .interpolationMethod(.monotone)
             .foregroundStyle(actualLineColor)
             .lineStyle(StrokeStyle(lineWidth: 2.5))
         }
@@ -297,15 +299,21 @@ public struct GoldDeepAnalysisSheet: View {
 
     @ChartContentBuilder
     private func predictionLine(_ data: GoldPredictionResponse) -> some ChartContent {
-        let futureMid = data.prediction.mid.filter { $0.timestamp >= data.prediction.issuedAt }
-        let connectingPoint = data.history.last(where: { $0.timestamp <= data.prediction.issuedAt })
+        let futureMid = data.prediction.mid
+            .filter { $0.timestamp >= data.prediction.issuedAt }
+            .sorted { $0.timestamp < $1.timestamp }
+            
+        let connectingPoint = data.history
+            .filter { $0.timestamp <= data.prediction.issuedAt }
+            .max(by: { $0.timestamp < $1.timestamp })
         
         if let startPoint = connectingPoint {
             LineMark(
                 x: .value("Time", startPoint.timestamp),
-                y: .value("Price", startPoint.price)
+                y: .value("Price", startPoint.price),
+                series: .value("Series", "Prediction")
             )
-            .interpolationMethod(.catmullRom)
+            .interpolationMethod(.monotone)
             .foregroundStyle(predictionLineColor)
             .lineStyle(StrokeStyle(lineWidth: 2, dash: [6, 4]))
         }
@@ -313,9 +321,10 @@ public struct GoldDeepAnalysisSheet: View {
         ForEach(futureMid) { p in
             LineMark(
                 x: .value("Time", p.timestamp),
-                y: .value("Price", p.price)
+                y: .value("Price", p.price),
+                series: .value("Series", "Prediction")
             )
-            .interpolationMethod(.catmullRom)
+            .interpolationMethod(.monotone)
             .foregroundStyle(predictionLineColor)
             .lineStyle(StrokeStyle(lineWidth: 2, dash: [6, 4]))
         }
