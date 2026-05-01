@@ -631,20 +631,54 @@ async def get_gold_prediction(
     
     top_alerts = [{"summary": r["summary"], "sentiment": "bullish" if r["sentiment_score"] > 0.15 else "bearish"} for r in top_alerts_raw]
 
+    # --- 增强：获取未来 24h 宏观事件 ---
+    now_dt = datetime.now(UTC)
+    tomorrow_dt = now_dt + timedelta(hours=24)
+    macro_events_raw = db.execute(
+        text("""
+            SELECT title, country, release_time, forecast_value, impact_level 
+            FROM macro_event 
+            WHERE release_date >= :today AND release_date <= :tomorrow 
+            AND impact_level IN ('high', 'medium') 
+            ORDER BY release_date ASC, release_time ASC
+        """),
+        {"today": now_dt.date(), "tomorrow": tomorrow_dt.date()},
+    ).mappings().all()
+    
+    macro_events_text = "\n".join([
+        f"- {e['release_time']} {e['country']} {e['title']} (预期: {e['forecast_value'] or 'N/A'}, 影响: {e['impact_level']})"
+        for e in macro_events_raw
+    ]) or "未来24小时无重大预定事件"
+
+    # --- 增强：获取 AI 事件脉络 (Timechain) ---
+    timechain_data = get_cached("api:market:pulse:timechain:zh")
+    timechain_context = {
+        "theme": timechain_data.get("theme_title") if timechain_data else "多因素驱动黄金震荡",
+        "summary": timechain_data.get("ai_summary") if timechain_data else "核心逻辑围绕美元走势与地缘政治溢价。"
+    }
+
     # Call AI Forecast
-    forecast_points = await _generate_gold_forecast_intl(history_training, top_alerts, snapshot, overall_sentiment)
+    forecast_points = await _generate_gold_forecast_intl(
+        history_training, 
+        top_alerts, 
+        snapshot, 
+        overall_sentiment,
+        granularity=granularity,
+        macro_events_text=macro_events_text,
+        timechain_context=timechain_context
+    )
     
     if not forecast_points:
         # 如果 AI 失败，且我们需要兜底逻辑
         # 只有当历史点位足够时才生成模拟走势，否则保持为空
         if len(history_full) >= 2:
             current_price = base_price
-            now_dt = datetime.fromisoformat(issued_at.replace("Z", "+00:00"))
+            now_dt_issued = datetime.fromisoformat(issued_at.replace("Z", "+00:00"))
             for i in range(1, 13):
                 # 基于真实基准价进行极其微小的随机扰动，而不是凭空捏造价格
                 current_price += (random.random() - 0.45) * 0.5 
                 forecast_points.append({
-                    "timestamp": format_iso8601(now_dt + timedelta(hours=i)),
+                    "timestamp": format_iso8601(now_dt_issued + timedelta(hours=i)),
                     "price": round(current_price, 2),
                     "is_forecast": True
                 })
@@ -687,7 +721,15 @@ async def get_gold_prediction(
     return v1_prepare_json(final_response)
 
 
-async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], snapshot: dict, overall_sentiment: dict, granularity: str = "1h") -> list[dict]:
+async def _generate_gold_forecast_intl(
+    history: list[dict], 
+    alerts: list[dict], 
+    snapshot: dict, 
+    overall_sentiment: dict, 
+    granularity: str = "1h",
+    macro_events_text: str = "",
+    timechain_context: dict = None
+) -> list[dict]:
     """使用 LLM 综合宏观指标、情报及情绪生成伦敦金 (XAU/USD) 价格预测"""
     if not history:
         return []
@@ -733,6 +775,9 @@ async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], 
     unit = "天" if granularity == "1d" else "小时"
     count = 5 if granularity == "1d" else 12
     
+    timechain_theme = timechain_context.get("theme") if timechain_context else "当前市场主线"
+    timechain_summary = timechain_context.get("summary") if timechain_context else "暂无深度总结"
+
     prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来 {count} {unit}伦敦金 (XAU/USD) 的价格演进趋势。
     
     【当前基准】
@@ -746,7 +791,14 @@ async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], 
     【市场整体情绪】
     24h 综合情绪分: {sentiment_desc}
     
-    【近期核心情报脉络】
+    【市场深度脉络 (Timechain)】
+    主线主题: {timechain_theme}
+    核心演进逻辑: {timechain_summary}
+    
+    【未来 24h 重大预定事件】
+    {macro_events_text}
+    
+    【近期核心情报详情】
     {intel_context}
     
     请输出未来 {count} 个点（每点间隔 1{unit}）的预测价格。输出格式为 JSON 数组，每个对象包含:
@@ -754,9 +806,11 @@ async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], 
     - "predicted_price": 预测的价格 (float)
     
     要求：
-    1. 必须综合考虑宏观背景和核心情报。
-    2. 波动应符合伦敦金市场的真实特征（小时线波动 0.1%-0.5%，日线波动 0.5%-2%）。
-    3. 只输出 JSON 数组，不要包含多余文字。
+    1. 必须综合考虑宏观背景（如美元走强压制金价）和核心情报的“逻辑演进”。
+    2. 预测曲线必须体现对“预定事件”时刻的波动预期。
+    3. 预测应体现出对近期情报情绪的反应，特别是多个情报指向同一逻辑时。
+    4. 波动应符合伦敦金市场的真实特征（小时线波动 0.1%-0.5%，日线波动 0.5%-2%）。
+    5. 只输出 JSON 数组，不要包含多余文字。
     """
     
     try:
