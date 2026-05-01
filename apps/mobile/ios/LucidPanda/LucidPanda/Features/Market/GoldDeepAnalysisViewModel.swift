@@ -59,7 +59,8 @@ public class GoldDeepAnalysisViewModel {
         
         // 1. Predicted At (Now using generatedAt, the real execution time)
         let now = Date()
-        let diff = now.timeIntervalSince(data.generatedAt)
+        let refDate = data.generatedAt ?? prediction.issuedAt
+        let diff = now.timeIntervalSince(refDate)
         let minutes = Int(diff / 60)
         
         if minutes < 1 {

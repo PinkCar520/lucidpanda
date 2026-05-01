@@ -584,7 +584,8 @@ async def get_gold_prediction(
                 "mid": [],
                 "upper": [],
                 "lower": []
-            }
+            },
+            "generatedAt": format_iso8601(datetime.now(UTC))
         })
 
     # 2. Determine Pivot (IssuedAt)
@@ -594,14 +595,12 @@ async def get_gold_prediction(
     issued_at = history_full[issued_index]["timestamp"]
 
     # 3. Generate AI Mid Forecast with Caching
-    CACHE_KEY = f"mobile:gold_forecast:intl:v1:{granularity}"
-    cached_prediction = get_cached(CACHE_KEY)
+    # VERSION v2: Invalidate old cache without 'generatedAt' or 'prediction' nesting
+    CACHE_KEY = f"mobile:gold_forecast:intl:v2:{granularity}"
+    cached_data = get_cached(CACHE_KEY)
     
-    if cached_prediction:
-        return v1_prepare_json({
-            "history": history_full,
-            "prediction": cached_prediction
-        })
+    if cached_data and "generatedAt" in cached_data:
+        return v1_prepare_json(cached_data)
 
     # Fetch snapshot and top alerts for AI context
     snapshot = await run_in_threadpool(market_terminal_service.get_market_snapshot)
@@ -654,14 +653,17 @@ async def get_gold_prediction(
         "lower": forecast_lower
     }
     
-    # Cache for 1 hour
-    set_cached(CACHE_KEY, prediction_result, 3600)
-
-    return v1_prepare_json({
+    final_response = {
         "history": history_full,
         "prediction": prediction_result,
         "generatedAt": format_iso8601(datetime.now(UTC))
-    })
+    }
+    
+    # Cache the FULL response object, not just prediction_result
+    set_cached(CACHE_KEY, final_response, 3600)
+
+    return v1_prepare_json(final_response)
+
 
 async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], snapshot: dict, overall_sentiment: dict) -> list[dict]:
     """使用 LLM 综合宏观指标、情报及情绪生成伦敦金 (XAU/USD) 价格预测"""
