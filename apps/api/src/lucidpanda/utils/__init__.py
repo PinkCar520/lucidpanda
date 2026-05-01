@@ -1,14 +1,21 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy.engine.row import RowMapping
 
 
 def format_iso8601(dt: datetime) -> str | None:
-    """Standardize date string for iOS/Web compatibility."""
+    """Standardize date string for iOS/Web compatibility.
+    Always converts to UTC before adding 'Z' suffix if dt is timezone-aware.
+    """
     if not dt:
         return None
-    # Ensure it's UTC-ish and formatted as YYYY-MM-DDTHH:mm:ss.sssZ
+    
+    # Convert to UTC if it has timezone info
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc)
+        
+    # Ensure it's formatted as YYYY-MM-DDTHH:mm:ss.sssZ
     return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:23] + "Z"
 
 

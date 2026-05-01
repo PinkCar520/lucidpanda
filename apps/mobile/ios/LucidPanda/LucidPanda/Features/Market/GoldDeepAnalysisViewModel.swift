@@ -26,13 +26,16 @@ public class GoldDeepAnalysisViewModel {
     public var currentPriceText: String = "—"
     public var priceChangeText: String = ""
     public var isPriceUp: Bool = true
+
+    // Task Management
+    private var predictionFetchTask: Task<Void, Never>?
     
     public init() {}
     
     public func fetchInitialData() async {
         // Run them in parallel but they are independent
-        async let marketTask = fetchMarketData()
-        async let predictionTask = fetchPrediction(forceRefresh: false)
+        async let marketTask: Void = fetchMarketData()
+        async let predictionTask: Void = fetchPrediction(forceRefresh: false)
         _ = await (marketTask, predictionTask)
     }
     
@@ -42,21 +45,75 @@ public class GoldDeepAnalysisViewModel {
             self.marketSnapshot = snapshot
             updateHeader(with: snapshot)
         } catch {
+            if isCancelledError(error) { return }
             print("Failed to fetch gold market snapshot: \(error)")
         }
     }
     
     public func fetchPrediction(forceRefresh: Bool = false) async {
-        isLoading = true
-        do {
-            let path = "/api/v1/mobile/gold/prediction?granularity=\(selectedGranularity)\(forceRefresh ? "&force_refresh=true" : "")"
-            let prediction: GoldPredictionResponse = try await apiClient.fetch(path: path)
-            self.predictionData = prediction
-            calculateMetrics(from: prediction)
-        } catch {
-            print("Failed to fetch gold prediction (force=\(forceRefresh)): \(error)")
+        predictionFetchTask?.cancel()
+        
+        predictionFetchTask = Task {
+            isLoading = true
+            defer { isLoading = false }
+            
+            do {
+                // 1. Fetch internal prediction
+                let path = "/api/v1/mobile/gold/prediction?granularity=\(selectedGranularity)\(forceRefresh ? "&force_refresh=true" : "")"
+                var prediction: GoldPredictionResponse = try await apiClient.fetch(path: path)
+                
+                // 2. Fetch external high-fidelity history from Sina (if granularity is 1h/1m style)
+                if selectedGranularity == "1h" {
+                    let sinaHistory = await fetchSinaHistory()
+                    if !sinaHistory.isEmpty {
+                        // Use Sina's points as the authoritative history
+                        // But keep prediction issuedAt and future points
+                        prediction = GoldPredictionResponse(
+                            history: sinaHistory,
+                            prediction: prediction.prediction,
+                            generatedAt: prediction.generatedAt,
+                            granularity: prediction.granularity
+                        )
+                    }
+                }
+                
+                if !Task.isCancelled {
+                    self.predictionData = prediction
+                    calculateMetrics(from: prediction)
+                }
+            } catch {
+                if isCancelledError(error) {
+                    // Silent on cancellation: User pulled to refresh or closed the sheet
+                } else {
+                    print("Failed to fetch gold prediction (force=\(forceRefresh)): \(error)")
+                }
+            }
         }
-        isLoading = false
+        
+        await predictionFetchTask?.value
+    }
+
+    /// 从新浪财经拉取高精度分时历史数据
+    public func fetchSinaHistory() async -> [GoldTrendPoint] {
+        let urlString = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
+        guard let url = URL(string: urlString) else { return [] }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let response = try JSONDecoder().decode(SinaGoldMinLineResponse.self, from: data)
+            return response.toTrendPoints()
+        } catch {
+            print("❌ Failed to fetch Sina history: \(error)")
+            return []
+        }
+    }
+
+    private func isCancelledError(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == -999 { return true }
+        if nsError.domain == NSURLErrorDomain && nsError.code == URLError.cancelled.rawValue { return true }
+        return false
     }
     
     private func updateHeader(with snapshot: MarketSnapshot) {

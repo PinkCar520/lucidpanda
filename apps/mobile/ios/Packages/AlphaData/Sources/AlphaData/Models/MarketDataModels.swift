@@ -361,6 +361,46 @@ public struct GoldPredictionDetail: Codable {
     public let lower: [GoldPricePoint]
 }
 
+// MARK: - Sina Finance External Data (Minute Line)
+
+/// 新浪财经伦敦金分时线原始响应
+public struct SinaGoldMinLineResponse: Codable {
+    public let minLine1d: [[String]]
+
+    enum CodingKeys: String, CodingKey {
+        case minLine1d = "minLine_1d"
+    }
+    
+    /// 将新浪非对称数组转换为标准的 GoldTrendPoint
+    public func toTrendPoints() -> [GoldTrendPoint] {
+        var points: [GoldTrendPoint] = []
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai") // 新浪数据通常为北京时间
+
+        for (index, rawArray) in minLine1d.enumerated() {
+            // 第一个元素有 10 个字段，后续有 6 个字段
+            // 最后一个字段都是完整的时间戳 "yyyy-MM-dd HH:mm:ss"
+            guard let lastString = rawArray.last,
+                  let date = formatter.date(from: lastString) else {
+                continue
+            }
+            
+            // 价格字段：第一个元素在 index 5，后续在 index 1
+            // ⚠️ 核心修正：新浪 XAU 原始数据是标准金价的 2 倍 (双倍合约价格)，此处需归一化
+            let priceIndex = (index == 0) ? 5 : 1
+            guard rawArray.count > priceIndex,
+                  let rawPrice = Double(rawArray[priceIndex]) else {
+                continue
+            }
+            
+            let normalizedPrice = rawPrice / 2.0
+            points.append(GoldTrendPoint(timestamp: date, price: normalizedPrice, isForecast: false))
+        }
+        return points
+    }
+}
+
 // MARK: - Helper Extensions
 
 extension MarketQuote {

@@ -17,6 +17,33 @@ public struct GoldDeepAnalysisSheet: View {
     private let confidenceFillColor = Color(hex: "#007AFF").opacity(0.08)
     private let pivotLineColor = Color.Alpha.taupe.opacity(0.4)
 
+    private var beijingCalendar: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Asia/Shanghai")!
+        return cal
+    }
+
+    private static let beijingTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
+
+    private static let beijingDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
+        formatter.dateFormat = "MM-dd"
+        return formatter
+    }()
+
+    private func formatBeijingTime(_ date: Date, useDay: Bool = false) -> String {
+        if useDay {
+            return Self.beijingDayFormatter.string(from: date)
+        }
+        return Self.beijingTimeFormatter.string(from: date)
+    }
+
     public init() {}
 
     public var body: some View {
@@ -49,7 +76,7 @@ public struct GoldDeepAnalysisSheet: View {
                         .padding()
                     }
                     .refreshable {
-                        await viewModel.fetchPrediction()
+                        await viewModel.fetchPrediction(forceRefresh: true)
                     }
                 }
             }
@@ -127,7 +154,7 @@ public struct GoldDeepAnalysisSheet: View {
     
     private var legendView: some View {
         HStack(spacing: 12) {
-            legendItem(name: "实际行情 (实时)", color: actualLineColor, isDashed: false)
+            legendItem(name: "实际行情 (北京时间)", color: actualLineColor, isDashed: false)
             legendItem(name: "AI 预测中枢", color: predictionLineColor, isDashed: true)
             
             HStack(spacing: 4) {
@@ -178,6 +205,7 @@ public struct GoldDeepAnalysisSheet: View {
                     pivotMarkers(data)
                     crosshairMarkers(data)
                 }
+                .environment(\.calendar, beijingCalendar)
                 .chartXSelection(value: $selectedDate)
                 .chartOverlay { proxy in
                     GeometryReader { geometry in
@@ -200,63 +228,42 @@ public struct GoldDeepAnalysisSheet: View {
                         tooltipView(for: date, in: data)
                     }
                 }
+                .chartXScale(domain: {
+                    let granularity = data.granularity ?? "1h"
+                    if granularity == "1h" {
+                        let calendar = beijingCalendar
+                        // 计算当前预测点所属的交易日起点 (06:00)
+                        let issuedAt = data.prediction.issuedAt
+                        var start = calendar.date(bySettingHour: 6, minute: 0, second: 0, of: issuedAt) ?? issuedAt
+                        
+                        // 核心修正：如果发布时间在 06:00 之前（如 05:00 收盘时），且我们处于“当前”或“未来”观察视角，
+                        // 我们不应该强行跳回昨天的 06:00，否则图表会显示在最右侧并被切断。
+                        // 我们让 start 保持在今天的 06:00，minDate 会自动包含 05:00 的起点，使预测从左侧开始。
+                        if start > issuedAt && calendar.date(byAdding: .hour, value: -2, to: start)! > issuedAt {
+                            start = calendar.date(byAdding: .day, value: -1, to: start)!
+                        }
+                        
+                        // 交易日终点 (次日 05:00)
+                        let end = calendar.date(byAdding: .hour, value: 23, to: start)!
+                        
+                        let allDates = data.history.map { $0.timestamp } + data.prediction.mid.map { $0.timestamp }
+                        let minDate = allDates.min() ?? start
+                        let maxDate = allDates.max() ?? end
+                        
+                        // 允许 Domain 略微超出 end 以显示完整的预测尾部，但保持 end 作为主要参考
+                        return min(start, minDate)...max(end, maxDate)
+                    }
+                    return (data.history.first?.timestamp ?? .distantPast)...(data.prediction.mid.last?.timestamp ?? .distantFuture)
+                }())
                 .chartYScale(domain: {
                     let allPrices = data.history.map { $0.price } + data.prediction.mid.map { $0.price }
                     if let min = allPrices.min(), let max = allPrices.max(), min < max {
                         return min...max
                     }
-                    return 2000...2600 // 兜底黄金价格区间
+                    return 2000...2600
                 }())
                 .chartXAxis {
-                    // 1. 核心分界点：预测发布 (0)
-                    AxisMarks(values: [data.prediction.issuedAt]) { _ in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                            .foregroundStyle(pivotLineColor)
-                        AxisValueLabel(anchor: .top) {
-                            Text("0")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    // 2. 动态相对刻度
-                    let granularity = data.granularity ?? "1h"
-                    let relativeOffsets: [Int] = {
-                        switch granularity {
-                        case "1h": return [-12, -10, -8, -6, -4, -2, 2, 4, 6, 8]
-                        case "4h": return [-72, -48, -24, 24, 48, 72]
-                        case "1d": return [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]
-                        default: return [-12, -8, -4, 4, 8, 12]
-                        }
-                    }()
-                    
-                    let markDates = relativeOffsets.map { offset -> Date in
-                        let seconds = granularity == "1d" ? Double(offset * 24 * 3600) : Double(offset * 3600)
-                        return data.prediction.issuedAt.addingTimeInterval(seconds)
-                    }
-                    
-                    AxisMarks(values: markDates) { value in
-                        if let date = value.as(Date.self) {
-                            let diff = date.timeIntervalSince(data.prediction.issuedAt)
-                            
-                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                                .foregroundStyle(Color.gray.opacity(0.1))
-                            
-                            AxisValueLabel {
-                                if granularity == "1d" {
-                                    let days = Int(round(diff / (24 * 3600)))
-                                    Text("\(days > 0 ? "+" : "")\(days)d")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.secondary)
-                                } else {
-                                    let hours = Int(round(diff / 3600))
-                                    Text("\(hours > 0 ? "+" : "")\(hours)")
-                                        .font(.system(size: 10))
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
+                    xAxisContent(data)
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
@@ -271,6 +278,84 @@ public struct GoldDeepAnalysisSheet: View {
                     }
                 }
                 .frame(height: 300)
+            }
+        }
+    }
+
+    @AxisContentBuilder
+    private func xAxisContent(_ data: GoldPredictionResponse) -> some AxisContent {
+        let granularity = data.granularity ?? "1h"
+        
+        switch granularity {
+        case "1h":
+            let calendar = beijingCalendar
+            let issuedAt = data.prediction.issuedAt
+            
+            // 核心逻辑同步：确定当前展示周期的起点
+            let startNode: Date = {
+                let base = calendar.date(bySettingHour: 6, minute: 0, second: 0, of: issuedAt)!
+                if base > issuedAt && calendar.date(byAdding: .hour, value: -2, to: base)! > issuedAt {
+                    return calendar.date(byAdding: .day, value: -1, to: base)!
+                }
+                return base
+            }()
+            
+            let midNode = calendar.date(bySettingHour: 17, minute: 30, second: 0, of: startNode)!
+            let endNode = calendar.date(byAdding: .hour, value: 23, to: startNode)!
+            
+            // 1. 核心分界点：预测发布
+            AxisMarks(values: [issuedAt]) { _ in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .foregroundStyle(pivotLineColor)
+                AxisValueLabel(anchor: .top) {
+                    Text(formatBeijingTime(issuedAt))
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(predictionLineColor)
+                }
+            }
+            
+            // 2. 固定交易节点：06:00, 17:30, 05:00
+            AxisMarks(values: [startNode, midNode, endNode]) { value in
+                if let date = value.as(Date.self) {
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
+                        .foregroundStyle(Color.gray.opacity(0.15))
+                    
+                    // 修复：使用 anchor 确保 05:00 贴在右侧，06:00 贴在左侧
+                    let labelAnchor: UnitPoint = (date == endNode) ? .topTrailing : (date == startNode ? .topLeading : .top)
+                    
+                    AxisValueLabel(anchor: labelAnchor) {
+                        Text(formatBeijingTime(date))
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            
+        case "1d":
+            // --- 1D 逻辑 ---
+            AxisMarks(values: .stride(by: .day, count: 1, calendar: beijingCalendar)) { value in
+                if let date = value.as(Date.self) {
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Color.gray.opacity(0.1))
+                    AxisValueLabel {
+                        Text(formatBeijingTime(date, useDay: true))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            
+        default:
+            // 默认逻辑
+            AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
+                AxisValueLabel {
+                    if let date = value.as(Date.self) {
+                        Text(formatBeijingTime(date))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
     }
@@ -401,22 +486,16 @@ public struct GoldDeepAnalysisSheet: View {
     @ChartContentBuilder
     private func crosshairMarkers(_ data: GoldPredictionResponse) -> some ChartContent {
         if let selectedDate {
-            // 1. 统一类型后寻找磁吸点
             let historyPoints = data.history.map { GoldPricePoint(timestamp: $0.timestamp, price: $0.price) }
             let allPoints = historyPoints + data.prediction.mid
             
             if let closest = allPoints.min(by: { abs($0.timestamp.timeIntervalSince(selectedDate)) < abs($1.timestamp.timeIntervalSince(selectedDate)) }) {
-                // 垂直引导虚线
                 RuleMark(x: .value("Selected Time", closest.timestamp))
                     .foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                
-                // 水平引导虚线
                 RuleMark(y: .value("Selected Price", closest.price))
                     .foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
                     .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                
-                // 交汇处的亮点
                 PointMark(x: .value("Time", closest.timestamp), y: .value("Price", closest.price))
                     .foregroundStyle(closest.timestamp <= data.prediction.issuedAt ? actualLineColor : predictionLineColor)
                     .symbolSize(60)
@@ -425,7 +504,6 @@ public struct GoldDeepAnalysisSheet: View {
     }
 
     private func tooltipView(for date: Date, in data: GoldPredictionResponse) -> some View {
-        // 核心修正：找到物理上最接近的真实数据点
         let historyPoints = data.history.map { GoldPricePoint(timestamp: $0.timestamp, price: $0.price) }
         let allPoints = historyPoints + data.prediction.mid
         let closest = allPoints.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) })
@@ -433,7 +511,6 @@ public struct GoldDeepAnalysisSheet: View {
         let actual = data.history.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) })
         let mid = data.prediction.mid.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) })
         
-        // 使用吸附后的点的时间，确保用户看到的时间和价格是完全匹配的
         let snapDate = closest?.timestamp ?? date
         let diff = snapDate.timeIntervalSince(data.prediction.issuedAt)
         let hours = Int(round(diff / 3600))
@@ -441,7 +518,7 @@ public struct GoldDeepAnalysisSheet: View {
         
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(snapDate, format: .dateTime.hour().minute())
+                Text(formatBeijingTime(snapDate))
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                 Text("(\(relativeLabel))")
                     .font(.system(size: 10))
@@ -472,7 +549,7 @@ public struct GoldDeepAnalysisSheet: View {
         HStack {
             Text(LocalizedStringKey("market.prediction.label.history"))
             Spacer()
-            Text("← 预测发布时间点")
+            Text(LocalizedStringKey("market.prediction.label.pivot"))
             Spacer()
             Text(LocalizedStringKey("market.prediction.label.tracking"))
         }
@@ -482,15 +559,10 @@ public struct GoldDeepAnalysisSheet: View {
     
     private var metricCardsGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-            // Row 1
             metricCard(label: "market.prediction.metric.issued_at", value: viewModel.predictedAtText, color: Color.Alpha.textPrimary)
             metricCard(label: "market.prediction.metric.target", value: String(format: "$%.1f", viewModel.targetPrice), color: predictionLineColor)
-            
-            // Row 2
             metricCard(label: "market.prediction.metric.direction_accuracy", value: String(format: "%.0f%%", viewModel.directionAccuracy), color: Color.Alpha.brand)
             metricCard(label: "market.prediction.metric.historical_accuracy", value: String(format: "%.0f%%", viewModel.historicalAccuracy), color: Color.Alpha.up)
-            
-            // Row 3
             metricCard(label: "market.prediction.metric.hit_rate", value: String(format: "%.0f%%", viewModel.hitRate), color: Color.Alpha.down)
             metricCard(label: "market.prediction.metric.deviation", value: String(format: "%@$%.1f", viewModel.currentDeviation >= 0 ? "+" : "-", abs(viewModel.currentDeviation)), color: viewModel.currentDeviation >= 0 ? Color.Alpha.down : Color.Alpha.up)
         }
