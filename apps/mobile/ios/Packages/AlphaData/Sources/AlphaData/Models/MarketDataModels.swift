@@ -352,6 +352,13 @@ public struct GoldPredictionResponse: Codable {
     public let prediction: GoldPredictionDetail
     public let generatedAt: Date?
     public let granularity: String?
+    
+    public init(history: [GoldTrendPoint], prediction: GoldPredictionDetail, generatedAt: Date?, granularity: String?) {
+        self.history = history
+        self.prediction = prediction
+        self.generatedAt = generatedAt
+        self.granularity = granularity
+    }
 }
 
 public struct GoldPredictionDetail: Codable {
@@ -359,6 +366,13 @@ public struct GoldPredictionDetail: Codable {
     public let mid: [GoldPricePoint]
     public let upper: [GoldPricePoint]
     public let lower: [GoldPricePoint]
+    
+    public init(issuedAt: Date, mid: [GoldPricePoint], upper: [GoldPricePoint], lower: [GoldPricePoint]) {
+        self.issuedAt = issuedAt
+        self.mid = mid
+        self.upper = upper
+        self.lower = lower
+    }
 }
 
 // MARK: - Sina Finance External Data (Minute Line)
@@ -394,7 +408,7 @@ public struct SinaGoldMinLineResponse: Codable {
                 continue
             }
             
-            let normalizedPrice = rawPrice / 2.0
+            let normalizedPrice = rawPrice
             points.append(GoldTrendPoint(timestamp: date, price: normalizedPrice, isForecast: false))
         }
         return points
