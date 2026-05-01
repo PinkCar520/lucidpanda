@@ -568,9 +568,9 @@ async def get_gold_prediction(
     Structured gold prediction data for high-fidelity chart.
     Aligns with PRD requirements in docs/llll.
     """
-    # 1. Fetch History
+    # 1. Fetch History (International Gold / London Gold)
     try:
-        history_full = await run_in_threadpool(market_terminal_service.get_gold_history_24h)
+        history_full = await run_in_threadpool(market_terminal_service.get_gold_history_intl_24h)
     except Exception as e:
         logger.error(f"Error fetching gold history: {e}")
         history_full = []
@@ -594,7 +594,7 @@ async def get_gold_prediction(
     issued_at = history_full[issued_index]["timestamp"]
 
     # 3. Generate AI Mid Forecast with Caching
-    CACHE_KEY = "mobile:gold_forecast:v2"
+    CACHE_KEY = f"mobile:gold_forecast:intl:v1:{granularity}"
     cached_prediction = get_cached(CACHE_KEY)
     
     if cached_prediction:
@@ -624,7 +624,7 @@ async def get_gold_prediction(
     top_alerts = [{"summary": r["summary"], "sentiment": "bullish" if r["sentiment_score"] > 0.15 else "bearish"} for r in top_alerts_raw]
 
     # Call AI Forecast
-    forecast_points = await _generate_gold_forecast(history_training, top_alerts, snapshot, overall_sentiment)
+    forecast_points = await _generate_gold_forecast_intl(history_training, top_alerts, snapshot, overall_sentiment)
     
     if not forecast_points:
         # Fallback to mock if AI fails
@@ -661,6 +661,99 @@ async def get_gold_prediction(
         "history": history_full,
         "prediction": prediction_result
     })
+
+async def _generate_gold_forecast_intl(history: list[dict], alerts: list[dict], snapshot: dict, overall_sentiment: dict) -> list[dict]:
+    """使用 LLM 综合宏观指标、情报及情绪生成伦敦金 (XAU/USD) 价格预测"""
+    if not history:
+        return []
+
+    # 1. 基础数据准备
+    last_point = history[-1]
+    last_price = last_point["price"]
+    try:
+        last_ts = datetime.fromisoformat(last_point["timestamp"].replace("Z", "+00:00"))
+    except Exception:
+        last_ts = datetime.now(UTC)
+    
+    recent_prices = [p["price"] for p in history[-6:]]
+    trend_desc = "震荡"
+    if len(recent_prices) >= 2:
+        if recent_prices[-1] > recent_prices[0] * 1.001:
+            trend_desc = "上涨"
+        elif recent_prices[-1] < recent_prices[0] * 0.999:
+            trend_desc = "下跌"
+    
+    # 2. 格式化宏观快照 (DXY, Oil, Bonds)
+    macro_context = ""
+    if snapshot:
+        dxy = snapshot.get("dxy", {})
+        oil = snapshot.get("oil", {})
+        us10y = snapshot.get("us10y", {})
+        macro_context = f"""
+        - 美元指数 (DXY): {dxy.get('price')} ({dxy.get('changePercent')}%)
+        - WTI原油: {oil.get('price')} ({oil.get('changePercent')}%)
+        - 美债 10Y 收益率: {us10y.get('price')}% ({us10y.get('changePercent')}%)
+        """
+
+    # 3. 格式化整体情绪
+    sentiment_desc = f"{overall_sentiment.get('score', 0)} ({overall_sentiment.get('label', '中性')})"
+
+    # 4. 格式化核心情报 (前10条)
+    intel_briefs = []
+    for a in alerts[:10]:
+        summary_val = a['summary']
+        text_summary = summary_val.get("zh") if isinstance(summary_val, dict) else str(summary_val)
+        intel_briefs.append(f"- {text_summary} (情绪: {a['sentiment']})")
+    intel_context = "\n".join(intel_briefs) if intel_briefs else "无重大情报"
+    
+    # 5. 构建深度分析提示词
+    prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来 12 小时伦敦金 (XAU/USD) 的价格演进趋势。
+    
+    【当前基准】
+    价格: {last_price} USD/oz
+    近期趋势: {trend_desc} (近6小时价格: {recent_prices})
+    
+    【宏观相关性背景】
+    {macro_context}
+    
+    【市场整体情绪】
+    24h 综合情绪分: {sentiment_desc}
+    
+    【近期核心情报脉络】
+    {intel_context}
+    
+    请输出未来 12 小时的预测价格点。输出格式为 JSON 数组，每个对象包含:
+    - "hour_offset": 1 到 12 的整数
+    - "predicted_price": 预测的价格 (float)
+    
+    要求：
+    1. 必须综合考虑宏观背景（如美元走强通常压制金价）和核心情报的逻辑演进。
+    2. 预测应体现出对近期情报情绪的反应，特别是多个情报指向同一逻辑时（如联储连续释放鹰派信号）。
+    3. 波动应符合伦敦金市场的真实特征，单小时波动通常在 0.1%-0.5% 之间。
+    4. 只输出 JSON 数组，不要包含多余文字。
+    """
+    
+    try:
+        llm = DeepSeekLLM()
+        forecast_raw = await llm.generate_json_async(prompt)
+        
+        forecast_points = []
+        if isinstance(forecast_raw, list):
+            for item in forecast_raw:
+                offset = item.get("hour_offset")
+                price = item.get("predicted_price")
+                if offset and price:
+                    target_ts = last_ts + timedelta(hours=int(offset))
+                    forecast_points.append({
+                        "timestamp": format_iso8601(target_ts),
+                        "price": round(float(price), 2),
+                        "is_forecast": True
+                    })
+        return forecast_points
+    except Exception as e:
+        logger.error(f"Gold forecast failed: {e}")
+        return []
+
 
 
 @router.get("/discover", response_model=dict[str, Any])

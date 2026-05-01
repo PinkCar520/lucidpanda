@@ -1,7 +1,20 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@%2$@"
+          }
+        }
+      }
+    },
     "%@%%" : {
+
+    },
+    "← 预测发布时间点" : {
 
     },
     "$%@" : {
@@ -4743,6 +4756,23 @@
         }
       }
     },
+    "gold.prediction.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gold Market AI Prediction"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "黄金行情 AI 预测"
+          }
+        }
+      }
+    },
     "intelligence.analysis.analyzing" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7922,6 +7952,9 @@
 
     },
     "预测: $%@" : {
+
+    },
+    "预测发布" : {
 
     }
   },

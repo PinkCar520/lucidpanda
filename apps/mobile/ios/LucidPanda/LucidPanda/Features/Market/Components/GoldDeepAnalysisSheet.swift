@@ -11,10 +11,10 @@ public struct GoldDeepAnalysisSheet: View {
     @State private var selectedDate: Date?
     
     // 🎨 回归 App 语义化主题色
-    private let actualLineColor = Color.Alpha.textPrimary
-    private let predictionLineColor = Color.Alpha.brand
+    private let actualLineColor = Color.Alpha.up
+    private let predictionLineColor = Color(hex: "#007AFF")
     private let breakoutFillColor = Color.Alpha.up.opacity(0.12)
-    private let confidenceFillColor = Color.Alpha.brand.opacity(0.08)
+    private let confidenceFillColor = Color(hex: "#007AFF").opacity(0.08)
     private let pivotLineColor = Color.Alpha.taupe.opacity(0.4)
 
     public init() {}
@@ -84,15 +84,17 @@ public struct GoldDeepAnalysisSheet: View {
                         .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: isTickerAnimating)
                         .onAppear { isTickerAnimating = true }
                     
-                    Text(verbatim: "XAU/USD 实时")
+                    Text(verbatim: "伦敦金 (XAU/USD)")
                         .font(.system(size: 13))
                         .foregroundStyle(Color.Alpha.textSecondary)
                     
-                    if let lastActual = viewModel.predictionData?.history.last {
-                        Text("$\(lastActual.price.formatted())")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(Color.Alpha.textPrimary)
-                    }
+                    Text(viewModel.currentPriceText)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(Color.Alpha.textPrimary)
+                    
+                    Text(viewModel.priceChangeText)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(viewModel.isPriceUp ? Color.Alpha.up : Color.Alpha.down)
                 }
                 
                 Spacer()
@@ -112,22 +114,22 @@ public struct GoldDeepAnalysisSheet: View {
     }
     
     private var legendView: some View {
-        HStack(spacing: 16) {
-            legendItem(name: "实际行情（实时）", color: actualLineColor, isDashed: false)
+        HStack(spacing: 12) {
+            legendItem(name: "实际行情 (实时)", color: actualLineColor, isDashed: false)
             legendItem(name: "AI 预测中枢", color: predictionLineColor, isDashed: true)
             
             HStack(spacing: 4) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.Alpha.brand.opacity(0.15))
-                    .frame(width: 20, height: 8)
-                    .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.Alpha.brand.opacity(0.35), lineWidth: 0.5))
+                    .fill(predictionLineColor.opacity(0.12))
+                    .frame(width: 16, height: 8)
+                    .overlay(RoundedRectangle(cornerRadius: 2).stroke(predictionLineColor.opacity(0.3), lineWidth: 0.5))
                 Text("置信区间").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
             
             HStack(spacing: 4) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.Alpha.up.opacity(0.13))
-                    .frame(width: 20, height: 8)
+                    .fill(Color.Alpha.up.opacity(0.12))
+                    .frame(width: 16, height: 8)
                     .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.Alpha.up.opacity(0.3), lineWidth: 0.5))
                 Text("突破区间").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
@@ -136,18 +138,18 @@ public struct GoldDeepAnalysisSheet: View {
     }
     
     private func legendItem(name: String, color: Color, isDashed: Bool) -> some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             if isDashed {
                 Path { path in
                     path.move(to: CGPoint(x: 0, y: 4))
-                    path.addLine(to: CGPoint(x: 22, y: 4))
+                    path.addLine(to: CGPoint(x: 18, y: 4))
                 }
                 .stroke(color, style: StrokeStyle(lineWidth: 2, dash: [4, 2]))
-                .frame(width: 22, height: 8)
+                .frame(width: 18, height: 8)
             } else {
                 Rectangle()
                     .fill(color)
-                    .frame(width: 22, height: 2.5)
+                    .frame(width: 18, height: 2.5)
             }
             Text(name).font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
         }
@@ -157,96 +159,11 @@ public struct GoldDeepAnalysisSheet: View {
         Group {
             if let data = viewModel.predictionData {
                 Chart {
-                    // 1. Confidence Area
-                    let mid = data.prediction.mid
-                    let upper = data.prediction.upper
-                    let lower = data.prediction.lower
-                    
-                    ForEach(mid.indices, id: \.self) { i in
-                        AreaMark(
-                            x: .value("Time", mid[i].timestamp),
-                            yStart: .value("Lower", lower[i].price),
-                            yEnd: .value("Upper", upper[i].price)
-                        )
-                        .foregroundStyle(confidenceFillColor)
-                    }
-                    
-                    // 2. Breakout Area
-                    let predictionStart = data.prediction.issuedAt
-                    let historyAfter = data.history.filter { $0.timestamp >= predictionStart }
-                    
-                    ForEach(historyAfter) { p in
-                        if let i = mid.firstIndex(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 1800 }) {
-                            let upVal = upper[i].price
-                            let loVal = lower[i].price
-                            
-                            if p.price > upVal {
-                                AreaMark(
-                                    x: .value("Time", p.timestamp),
-                                    yStart: .value("Base", upVal),
-                                    yEnd: .value("Value", p.price)
-                                )
-                                .foregroundStyle(breakoutFillColor)
-                            } else if p.price < loVal {
-                                AreaMark(
-                                    x: .value("Time", p.timestamp),
-                                    yStart: .value("Base", loVal),
-                                    yEnd: .value("Value", p.price)
-                                )
-                                .foregroundStyle(breakoutFillColor)
-                            }
-                        }
-                    }
-                    
-                    // 3. AI Prediction Mid
-                    ForEach(mid) { p in
-                        LineMark(
-                            x: .value("Time", p.timestamp),
-                            y: .value("Price", p.price)
-                        )
-                        .interpolationMethod(.catmullRom)
-                        .foregroundStyle(predictionLineColor)
-                        .lineStyle(StrokeStyle(lineWidth: 1.8, dash: [6, 4]))
-                    }
-                    
-                    if let first = mid.first {
-                        PointMark(
-                            x: .value("Time", first.timestamp),
-                            y: .value("Price", first.price)
-                        )
-                        .symbolSize(40)
-                        .foregroundStyle(predictionLineColor)
-                    }
-                    
-                    // 4. Actual Price Line
-                    ForEach(data.history) { p in
-                        LineMark(
-                            x: .value("Time", p.timestamp),
-                            y: .value("Price", p.price)
-                        )
-                        .interpolationMethod(.catmullRom)
-                        .foregroundStyle(actualLineColor)
-                        .lineStyle(StrokeStyle(lineWidth: 2.5))
-                    }
-                    
-                    // 5. Pivot Line
-                    RuleMark(x: .value("Pivot", data.prediction.issuedAt))
-                        .foregroundStyle(pivotLineColor)
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .annotation(position: .top, alignment: .center) {
-                            Text(LocalizedStringKey("market.prediction.label.pivot"))
-                                .font(.system(size: 11))
-                                .foregroundStyle(pivotLineColor.opacity(1.5))
-                        }
-                    
-                    // 6. Prediction Area Background
-                    if let lastTime = mid.last?.timestamp {
-                        RectangleMark(
-                            xStart: .value("Start", data.prediction.issuedAt),
-                            xEnd: .value("End", lastTime)
-                        )
-                        .foregroundStyle(Color(hex: "#888780").opacity(0.06))
-                    }
+                    confidenceArea(data)
+                    breakoutArea(data)
+                    actualLine(data)
+                    predictionLine(data)
+                    pivotMarkers(data)
                 }
                 .chartXSelection(value: $selectedDate)
                 .chartOverlay { proxy in
@@ -272,13 +189,30 @@ public struct GoldDeepAnalysisSheet: View {
                 }
                 .chartYScale(domain: (data.history.map { $0.price } + data.prediction.mid.map { $0.price }).min()!...(data.history.map { $0.price } + data.prediction.mid.map { $0.price }).max()!)
                 .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 6)) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
+                    // Pivot Label and Grid
+                    AxisMarks(values: [data.prediction.issuedAt]) { _ in
                         AxisValueLabel {
-                            if let date = value.as(Date.self) {
-                                Text(date, format: .dateTime.hour().minute())
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
+                            Text("预测发布")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(Color.Alpha.textSecondary)
+                                .offset(y: 4)
+                        }
+                    }
+                    
+                    // Relative hour labels
+                    AxisMarks(values: .stride(by: .hour, count: 2)) { value in
+                        if let date = value.as(Date.self) {
+                            let diff = date.timeIntervalSince(data.prediction.issuedAt)
+                            let hours = Int(round(diff / 3600))
+                            
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
+                            
+                            if abs(diff) > 3600 {
+                                AxisValueLabel {
+                                    Text("\(hours > 0 ? "+" : "")\(hours)")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
@@ -297,6 +231,120 @@ public struct GoldDeepAnalysisSheet: View {
                 }
                 .frame(height: 300)
             }
+        }
+    }
+
+    @ChartContentBuilder
+    private func confidenceArea(_ data: GoldPredictionResponse) -> some ChartContent {
+        let mid = data.prediction.mid
+        let upper = data.prediction.upper
+        let lower = data.prediction.lower
+        
+        ForEach(mid.indices, id: \.self) { i in
+            AreaMark(
+                x: .value("Time", mid[i].timestamp),
+                yStart: .value("Lower", lower[i].price),
+                yEnd: .value("Upper", upper[i].price)
+            )
+            .foregroundStyle(confidenceFillColor)
+        }
+    }
+
+    @ChartContentBuilder
+    private func breakoutArea(_ data: GoldPredictionResponse) -> some ChartContent {
+        let mid = data.prediction.mid
+        let upper = data.prediction.upper
+        let lower = data.prediction.lower
+        let predictionStart = data.prediction.issuedAt
+        let historyAfter = data.history.filter { $0.timestamp >= predictionStart }
+        
+        ForEach(historyAfter) { p in
+            if let i = mid.firstIndex(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 1800 }) {
+                let upVal = upper[i].price
+                let loVal = lower[i].price
+                
+                if p.price > upVal {
+                    AreaMark(
+                        x: .value("Time", p.timestamp),
+                        yStart: .value("Base", upVal),
+                        yEnd: .value("Value", p.price)
+                    )
+                    .foregroundStyle(breakoutFillColor)
+                } else if p.price < loVal {
+                    AreaMark(
+                        x: .value("Time", p.timestamp),
+                        yStart: .value("Base", loVal),
+                        yEnd: .value("Value", p.price)
+                    )
+                    .foregroundStyle(breakoutFillColor)
+                }
+            }
+        }
+    }
+
+    @ChartContentBuilder
+    private func actualLine(_ data: GoldPredictionResponse) -> some ChartContent {
+        ForEach(data.history) { p in
+            LineMark(
+                x: .value("Time", p.timestamp),
+                y: .value("Price", p.price)
+            )
+            .interpolationMethod(.catmullRom)
+            .foregroundStyle(actualLineColor)
+            .lineStyle(StrokeStyle(lineWidth: 2.5))
+        }
+    }
+
+    @ChartContentBuilder
+    private func predictionLine(_ data: GoldPredictionResponse) -> some ChartContent {
+        let futureMid = data.prediction.mid.filter { $0.timestamp >= data.prediction.issuedAt }
+        let connectingPoint = data.history.last(where: { $0.timestamp <= data.prediction.issuedAt })
+        
+        if let startPoint = connectingPoint {
+            LineMark(
+                x: .value("Time", startPoint.timestamp),
+                y: .value("Price", startPoint.price)
+            )
+            .interpolationMethod(.catmullRom)
+            .foregroundStyle(predictionLineColor)
+            .lineStyle(StrokeStyle(lineWidth: 2, dash: [6, 4]))
+        }
+        
+        ForEach(futureMid) { p in
+            LineMark(
+                x: .value("Time", p.timestamp),
+                y: .value("Price", p.price)
+            )
+            .interpolationMethod(.catmullRom)
+            .foregroundStyle(predictionLineColor)
+            .lineStyle(StrokeStyle(lineWidth: 2, dash: [6, 4]))
+        }
+    }
+
+    @ChartContentBuilder
+    private func pivotMarkers(_ data: GoldPredictionResponse) -> some ChartContent {
+        let futureMid = data.prediction.mid.filter { $0.timestamp >= data.prediction.issuedAt }
+        let connectingPoint = data.history.last(where: { $0.timestamp <= data.prediction.issuedAt })
+        
+        if let pivotPoint = futureMid.first ?? connectingPoint.map({ GoldPricePoint(timestamp: $0.timestamp, price: $0.price) }) {
+            PointMark(
+                x: .value("Time", pivotPoint.timestamp),
+                y: .value("Price", pivotPoint.price)
+            )
+            .symbolSize(80)
+            .foregroundStyle(predictionLineColor)
+        }
+        
+        RuleMark(x: .value("Pivot", data.prediction.issuedAt))
+            .foregroundStyle(pivotLineColor)
+            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+        
+        if let lastTime = data.prediction.mid.last?.timestamp {
+            RectangleMark(
+                xStart: .value("Start", data.prediction.issuedAt),
+                xEnd: .value("End", lastTime)
+            )
+            .foregroundStyle(Color(hex: "#888780").opacity(0.06))
         }
     }
 
@@ -332,6 +380,8 @@ public struct GoldDeepAnalysisSheet: View {
     private var timelineLabels: some View {
         HStack {
             Text(LocalizedStringKey("market.prediction.label.history"))
+            Spacer()
+            Text("← 预测发布时间点")
             Spacer()
             Text(LocalizedStringKey("market.prediction.label.tracking"))
         }

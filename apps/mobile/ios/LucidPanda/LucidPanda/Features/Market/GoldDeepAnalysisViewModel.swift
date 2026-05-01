@@ -10,6 +10,7 @@ public class GoldDeepAnalysisViewModel {
     private let apiClient = APIClient.shared
     
     public var predictionData: GoldPredictionResponse?
+    public var marketSnapshot: MarketSnapshot?
     public var isLoading = false
     public var selectedGranularity: String = "1h"
     
@@ -19,19 +20,37 @@ public class GoldDeepAnalysisViewModel {
     public var targetPrice: Double = 0
     public var predictedAtText: String = "—"
     
+    // Header Info
+    public var currentPriceText: String = "—"
+    public var priceChangeText: String = ""
+    public var isPriceUp: Bool = true
+    
     public init() {}
     
     public func fetchPrediction() async {
         isLoading = true
         do {
-            let path = "/api/v1/mobile/gold/prediction?granularity=\(selectedGranularity)"
-            let response: GoldPredictionResponse = try await apiClient.fetch(path: path)
-            self.predictionData = response
-            calculateMetrics(from: response)
+            async let predictionTask: GoldPredictionResponse = apiClient.fetch(path: "/api/v1/mobile/gold/prediction?granularity=\(selectedGranularity)")
+            async let snapshotTask: MarketSnapshot = apiClient.fetch(path: "/api/v1/mobile/market/snapshot")
+            
+            let (prediction, snapshot) = try await (predictionTask, snapshotTask)
+            
+            self.predictionData = prediction
+            self.marketSnapshot = snapshot
+            
+            updateHeader(with: snapshot)
+            calculateMetrics(from: prediction)
         } catch {
-            print("Failed to fetch gold prediction: \(error)")
+            print("Failed to fetch gold prediction or snapshot: \(error)")
         }
         isLoading = false
+    }
+    
+    private func updateHeader(with snapshot: MarketSnapshot) {
+        let gold = snapshot.gold
+        self.currentPriceText = "$\(gold.price.formatted())"
+        self.priceChangeText = gold.formattedChange
+        self.isPriceUp = gold.change >= 0
     }
     
     private func calculateMetrics(from data: GoldPredictionResponse) {

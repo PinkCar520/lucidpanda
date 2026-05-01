@@ -262,6 +262,12 @@ public struct GoldTrendPoint: Codable, Identifiable {
     public let price: Double
     public let isForecast: Bool
 
+    public init(timestamp: Date, price: Double, isForecast: Bool) {
+        self.timestamp = timestamp
+        self.price = price
+        self.isForecast = isForecast
+    }
+
     enum CodingKeys: String, CodingKey {
         case timestamp, price
         case isForecast = "is_forecast"
@@ -334,6 +340,11 @@ public struct GoldPricePoint: Codable, Identifiable, Hashable {
     public var id: Date { timestamp }
     public let timestamp: Date
     public let price: Double
+    
+    public init(timestamp: Date, price: Double) {
+        self.timestamp = timestamp
+        self.price = price
+    }
 }
 
 public struct GoldPredictionResponse: Codable {

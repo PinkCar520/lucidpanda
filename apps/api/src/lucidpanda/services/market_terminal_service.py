@@ -67,10 +67,10 @@ class MarketTerminalService:
         """
         from src.lucidpanda.utils.market_calendar import get_market_status
         from zoneinfo import ZoneInfo
-        
+
         now_utc = datetime.now().astimezone(ZoneInfo("UTC"))
         cache_key = "gold_history_24h"
-        
+
         # 1. 检查有效缓存 (10分钟)
         if cache_key in self._cache:
             cache_entry = self._cache[cache_key]
@@ -80,12 +80,12 @@ class MarketTerminalService:
         # 获取当前各市场状态
         cn_status = get_market_status("CN")
         gold_status = get_market_status("GOLD")
-        
+
         # 定义时区
         tz_sh = ZoneInfo("Asia/Shanghai")
-        
+
         trend = []
-        
+
         # --- 第一重：东方财富 (原生上海金现货) ---
         # 仅在 A 股/上海金交易时段或刚收盘时作为首选
         try:
@@ -96,7 +96,7 @@ class MarketTerminalService:
             url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=118.AU9999&ut=fa5fd1943c7b386f172d6893dbf24410&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56&klt=60&fqt=1&end=20500101&lmt=48"
             resp = requests.get(url, headers=headers, timeout=5)
             data = resp.json()
-            
+
             if data and data.get("data") and "klines" in data["data"]:
                 klines = data["data"]["klines"]
                 raw_trend = []
@@ -112,7 +112,7 @@ class MarketTerminalService:
                                 "is_forecast": False
                             })
                         except Exception: continue
-                
+
                 if raw_trend:
                     last_ts_utc = ts_local.astimezone(ZoneInfo("UTC"))
                     # 动态阈值：开市要求 1.5h 内，休市要求 7天 内（覆盖周末和长假）
@@ -133,12 +133,12 @@ class MarketTerminalService:
                     recent = df.tail(24)
                     current_spot = self._fetch_gold_cny()
                     current_spot_price = current_spot.get("price", 0) if current_spot else 0
-                    
+
                     price_offset = 0.0
                     if current_spot_price > 0:
                         last_futures_price = float(recent.iloc[-1]["close"])
                         price_offset = current_spot_price - last_futures_price
-                    
+
                     raw_trend = []
                     for _, row in recent.iterrows():
                         try:
@@ -152,7 +152,7 @@ class MarketTerminalService:
                                 "is_forecast": False
                             })
                         except Exception: continue
-                    
+
                     if raw_trend:
                         last_ts_utc = ts_local.astimezone(ZoneInfo("UTC"))
                         threshold = 5400 if cn_status != "CLOSED" else 7 * 86400
@@ -171,10 +171,10 @@ class MarketTerminalService:
                 import yfinance as yf
                 import time
                 import random
-                
+
                 # 如果之前有过 Rate Limit 报错，这里加一个随机微小延迟避开并发冲突
                 time.sleep(random.uniform(0.1, 0.5))
-                
+
                 gold = yf.Ticker("GC=F")
                 # 再次尝试，增加重试逻辑
                 df = None
@@ -185,19 +185,67 @@ class MarketTerminalService:
                             break
                     except Exception:
                         if attempt == 0: time.sleep(1)
-                
+
                 if df is not None and not df.empty:
                     recent = df.tail(24)
                     current_spot = self._fetch_gold_cny()
                     current_price = current_spot.get("price", 0) if current_spot else 0
-                    
+
                     scale_factor = 0.128 
                     if current_price > 0:
                         last_intl = float(recent.iloc[-1]["Close"])
                         if last_intl > 0:
                             scale_factor = current_price / last_intl
-                    
+
                     raw_trend = []
+                    for ts, row in recent.iterrows():
+                        raw_trend.append({
+                            "timestamp": format_iso8601(ts),
+                            "price": round(float(row["Close"]) * scale_factor, 2),
+                            "is_forecast": False
+                        })
+                    trend = raw_trend
+
+            except Exception as e:
+                logger.error(f"❌ Ultimate gold history fallback failed: {e}")
+
+        if trend:
+            self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
+        return trend
+
+    def get_gold_history_intl_24h(self):
+        """
+        获取国际金价走势（24h 伦敦金现货）。
+        使用 yfinance 直接获取 XAU/USD (GC=F) 原始走势。
+        """
+        import yfinance as yf
+        from zoneinfo import ZoneInfo
+
+        cache_key = "gold_history_intl_24h"
+        if cache_key in self._cache:
+            cache_entry = self._cache[cache_key]
+            if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 600:
+                return cache_entry["data"]
+
+        try:
+            gold = yf.Ticker("GC=F")
+            df = gold.history(period="3d", interval="1h", timeout=10)
+            if df is not None and not df.empty:
+                recent = df.tail(24)
+                trend = []
+                for ts, row in recent.iterrows():
+                    trend.append({
+                        "timestamp": format_iso8601(ts),
+                        "price": round(float(row["Close"]), 2),
+                        "is_forecast": False
+                    })
+                self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
+                return trend
+        except Exception as e:
+            logger.error(f"Failed to fetch London Gold history: {e}")
+
+        return []
+
                     for ts, row in recent.iterrows():
                         # yfinance 的 index 通常带时区 (UTC)
                         ts_utc = ts.astimezone(ZoneInfo("UTC"))
