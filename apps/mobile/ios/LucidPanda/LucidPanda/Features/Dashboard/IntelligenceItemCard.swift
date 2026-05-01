@@ -52,13 +52,15 @@ struct IntelligenceItemCard: View {
         }
     }
     
-    private func proxyURL(for originalString: String) -> URL? {
-        var components = URLComponents(
-            url: APIClient.shared.baseURL.appendingPathComponent("api/v1/mobile/image"),
-            resolvingAgainstBaseURL: false
-        )
-        components?.queryItems = [URLQueryItem(name: "url", value: originalString)]
-        return components?.url
+    private func resolvedImageURL() -> URL? {
+        if let localPath = item.local_image_path {
+            // Priority: Local cached image served via /static/
+            return APIClient.shared.baseURL.appendingPathComponent("static").appendingPathComponent(localPath)
+        } else if let originalUrlString = item.imageUrl {
+            // Fallback: Original URL (no proxy)
+            return URL(string: originalUrlString)
+        }
+        return nil
     }
 
     // MARK: - Layouts
@@ -67,7 +69,7 @@ struct IntelligenceItemCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Image with real project assets or remote URL
             ZStack(alignment: .bottomLeading) {
-                if let urlString = item.imageUrl, let url = proxyURL(for: urlString) {
+                if let url = resolvedImageURL() {
                     AsyncImage(url: url) { image in
                         image
                             .resizable()
@@ -189,7 +191,7 @@ struct IntelligenceItemCard: View {
             Spacer()
             
             // Thumbnail with real image support
-            if let urlString = item.imageUrl, let url = proxyURL(for: urlString) {
+            if let url = resolvedImageURL() {
                 AsyncImage(url: url) { image in
                     image
                         .resizable()

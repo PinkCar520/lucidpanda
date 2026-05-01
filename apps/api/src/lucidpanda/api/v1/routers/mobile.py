@@ -593,15 +593,16 @@ async def get_mobile_discover(
         if item.category == "macro_gold":
             category_key = "funds.discover.category.economy"
 
-        # Mock image URLs based on ID or category
-        image_url = f"https://picsum.photos/seed/{item.id}/400/400"
+        # Priority to real image, then mock
+        image_url = item.image_url or f"https://picsum.photos/seed/{item.id}/400/400"
 
         suggested_reading.append({
             "id": item.id,
             "category_key": category_key,
             "title": summary_text,
             "timestamp": item.timestamp.isoformat(),
-            "imageUrl": image_url
+            "imageUrl": image_url,
+            "local_image_path": item.local_image_path
         })
 
     return v1_prepare_json({

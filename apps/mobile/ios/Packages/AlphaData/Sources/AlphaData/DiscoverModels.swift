@@ -22,6 +22,7 @@ public struct SuggestedReadingDTO: Codable, Identifiable {
     public let title: String
     public let timestamp: Date
     public let imageUrl: String
+    public let local_image_path: String?
     
     enum CodingKeys: String, CodingKey {
         case id
@@ -29,5 +30,6 @@ public struct SuggestedReadingDTO: Codable, Identifiable {
         case title
         case timestamp
         case imageUrl
+        case local_image_path
     }
 }

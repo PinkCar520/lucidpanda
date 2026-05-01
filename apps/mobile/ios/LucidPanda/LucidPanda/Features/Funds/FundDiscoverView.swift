@@ -109,7 +109,8 @@ struct FundDiscoverView: View {
                                                         category: LocalizedStringKey(item.categoryKey),
                                                         title: item.title,
                                                         time: item.timestamp.formatted(date: .omitted, time: .shortened),
-                                                        imageUrl: item.imageUrl
+                                                        imageUrl: item.imageUrl,
+                                                        localPath: item.local_image_path
                                                     )
                                                     
                                                     if loadingReadingId == item.id {
@@ -238,12 +239,16 @@ struct FundDiscoverView: View {
         }.buttonStyle(.plain)
     }
 
-    private func readingItem(category: LocalizedStringKey, title: String, time: String, imageUrl: String) -> some View {
+    private func readingItem(category: LocalizedStringKey, title: String, time: String, imageUrl: String, localPath: String?) -> some View {
         HStack(spacing: 16) {
-            let encodedUrl = imageUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-            let proxyUrl = URL(string: "/api/v1/mobile/image?url=\(encodedUrl)", relativeTo: APIClient.shared.baseURL)
+            let url: URL? = {
+                if let localPath = localPath {
+                    return APIClient.shared.baseURL.appendingPathComponent("static").appendingPathComponent(localPath)
+                }
+                return URL(string: imageUrl)
+            }()
             
-            AsyncImage(url: proxyUrl) { image in
+            AsyncImage(url: url) { image in
                 image.resizable()
                     .aspectRatio(contentMode: .fill)
             } placeholder: {
