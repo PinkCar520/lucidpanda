@@ -95,17 +95,33 @@ struct MainDashboardView: View {
                         generator.impactOccurred()
                         isPulseSheetPresented = true
                     } label: {
+                        let sentimentColor: Color = {
+                            guard let pulse = rootViewModel.marketPulseViewModel.pulseData else { return Color.Alpha.brand }
+                            switch pulse.overallSentiment {
+                            case "bullish": return Color.Alpha.up
+                            case "bearish": return Color.Alpha.down
+                            default: return Color.Alpha.brand
+                            }
+                        }()
+                        
                         HStack(spacing: 8) {
                             Circle()
-                                .fill(statusColor)
+                                .fill(sentimentColor)
                                 .frame(width: 8, height: 8)
                                 .opacity(isTickerAnimating ? 1 : 0.3)
                                 .scaleEffect(isTickerAnimating ? 1.2 : 0.8)
                                 .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isTickerAnimating)
                             
-                            Text(LocalizedStringKey("dashboard.asset.gold.live_label"))
-                                .font(.system(size: 11, weight: .black))
-                                .foregroundStyle(Color.Alpha.brand)
+                            let sentimentText: String = {
+                                if let pulse = rootViewModel.marketPulseViewModel.pulseData {
+                                    return "\(pulse.overallSentimentZh) \(String(format: "%.2f", pulse.sentimentScore))"
+                                }
+                                return String(localized: "dashboard.asset.gold.live_label")
+                            }()
+                            
+                            Text(sentimentText)
+                                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(sentimentColor)
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -189,6 +205,7 @@ struct MainDashboardView: View {
         }
         .sheet(isPresented: $isSettingsPresented) {
             SettingsView(showCloseButton: true)
+                .environment(rootViewModel) // 🚀 关键修复：显式注入环境对象防止 Sheet 内崩溃
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }

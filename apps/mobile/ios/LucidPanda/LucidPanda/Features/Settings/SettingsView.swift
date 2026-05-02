@@ -43,14 +43,14 @@ struct SettingsView: View {
                     .ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 28) {
-                        profileHeader
-                        profileEditCard
-                        subscriptionCard // 🚀 New: Subscription Entry
-                        accountSettingsCard
-                        notificationsCard
-                        securityCard
+                        profileHeader()
+                        profileEditCard()
+                        subscriptionCard() // 🚀 New: Subscription Entry
+                        accountSettingsCard()
+                        notificationsCard()
+                        securityCard()
 
-                        logoutCard
+                        logoutCard()
                     }
                     .padding(.top, 8)
                     .padding(.bottom, 32)
@@ -97,7 +97,8 @@ struct SettingsView: View {
 
     // MARK: - Sections
 
-    private var subscriptionCard: some View {
+    @ViewBuilder
+    private func subscriptionCard() -> some View {
         VStack(spacing: 0) {
             sectionHeader(title: "settings.section.subscription")
             premiumCard {
@@ -175,7 +176,8 @@ struct SettingsView: View {
 
     // MARK: - Sections
 
-    private var profileHeader: some View {
+    @ViewBuilder
+    private func profileHeader() -> some View {
         VStack(spacing: 16) {
             let displayEmail = rootViewModel.userProfile?.email ?? "root@lucidpanda.com"
             let initial = String(displayEmail.prefix(1)).uppercased()
@@ -262,11 +264,12 @@ struct SettingsView: View {
         .padding(.top, 16)
     }
 
-    private var accountSettingsCard: some View {
+    @ViewBuilder
+    private func accountSettingsCard() -> some View {
         VStack(spacing: 0) {
             sectionHeader(title: "settings.title")
             premiumCard {
-                NavigationLink(destination: accountSettingsSubView) {
+                NavigationLink(destination: accountSettingsSubView()) {
                     HStack(spacing: 16) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -295,11 +298,12 @@ struct SettingsView: View {
         }
     }
 
-    private var profileEditCard: some View {
+    @ViewBuilder
+    private func profileEditCard() -> some View {
         VStack(spacing: 0) {
             sectionHeader(title: "settings.section.basic_info")
             premiumCard {
-                NavigationLink(destination: profileEditSheet) {
+                NavigationLink(destination: profileEditSheet()) {
                     HStack(spacing: 16) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -350,7 +354,8 @@ struct SettingsView: View {
     @State private var profileSaveSuccess: Bool = false
     @State private var profileSaveError: String? = nil
 
-    private var accountSettingsSubView: some View {
+    @ViewBuilder
+    private func accountSettingsSubView() -> some View {
         ZStack {
             Color.Alpha.background.ignoresSafeArea()
             ScrollView {
@@ -359,12 +364,12 @@ struct SettingsView: View {
                         sectionHeader(title: "settings.section.account_actions")
                         premiumCard {
                             VStack(spacing: 0) {
-                                NavigationLink(destination: passwordSheet) {
+                                NavigationLink(destination: passwordSheet()) {
                                     settingsNavigationRow(icon: "lock.shield.fill", titleKey: "settings.action.change_password", color: .blue, showDivider: true)
                                 }
                                 .buttonStyle(.plain)
                                 
-                                NavigationLink(destination: twoFactorSheet) {
+                                NavigationLink(destination: twoFactorSheet()) {
                                     settingsNavigationRow(icon: "key.viewfinder", titleKey: "settings.action.two_factor", color: .orange, showDivider: false)
                                 }
                                 .buttonStyle(.plain)
@@ -375,7 +380,7 @@ struct SettingsView: View {
                     VStack(spacing: 0) {
                         sectionHeader(title: "settings.section.sessions")
                         premiumCard {
-                            NavigationLink(destination: sessionsSheet) {
+                            NavigationLink(destination: sessionsSheet()) {
                                 HStack(spacing: 16) {
                                     ZStack {
                                         RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -448,7 +453,8 @@ struct SettingsView: View {
         }
     }
 
-    private var notificationsCard: some View {
+    @ViewBuilder
+    private func notificationsCard() -> some View {
         VStack(spacing: 0) {
             sectionHeader(title: "settings.section.notifications")
             premiumCard {
@@ -459,7 +465,8 @@ struct SettingsView: View {
         }
     }
 
-    private var securityCard: some View {
+    @ViewBuilder
+    private func securityCard() -> some View {
         VStack(spacing: 0) {
             sectionHeader(title: "settings.section.security")
             premiumCard {
@@ -472,7 +479,8 @@ struct SettingsView: View {
 
 
 
-    private var logoutCard: some View {
+    @ViewBuilder
+    private func logoutCard() -> some View {
         Button(action: { Task { await logoutCurrentSession() } }) {
             Text("settings.action.logout")
                 .font(.system(size: 15, weight: .bold))
@@ -614,7 +622,8 @@ struct SettingsView: View {
         }
     }
 
-    private var profileEditSheet: some View {
+    @ViewBuilder
+    private func profileEditSheet() -> some View {
         ZStack {
             Color.Alpha.background.ignoresSafeArea()
             ScrollView {
@@ -832,7 +841,8 @@ struct SettingsView: View {
         }
     }
 
-    private var passwordSheet: some View {
+    @ViewBuilder
+    private func passwordSheet() -> some View {
         ZStack {
             Color.Alpha.background
                 .ignoresSafeArea()
@@ -952,7 +962,8 @@ struct SettingsView: View {
     @State private var twoFAErrorMessage: String? = nil
     @State private var is2FAVerifying: Bool = false
 
-    private var twoFactorSheet: some View {
+    @ViewBuilder
+    private func twoFactorSheet() -> some View {
         ZStack {
             Color.Alpha.background.ignoresSafeArea()
             ScrollView {
@@ -1002,11 +1013,12 @@ struct SettingsView: View {
             }
         }
         .sheet(isPresented: $showing2FASetupModal) {
-            twoFactorSetupModal
+            twoFactorSetupModal()
         }
     }
     
-    private var twoFactorSetupModal: some View {
+    @ViewBuilder
+    private func twoFactorSetupModal() -> some View {
         NavigationStack {
             ZStack {
                 Color.Alpha.background.ignoresSafeArea()
@@ -1164,7 +1176,8 @@ struct SettingsView: View {
         }
     }
 
-    private var sessionsSheet: some View {
+    @ViewBuilder
+    private func sessionsSheet() -> some View {
         ZStack {
             Color.Alpha.background.ignoresSafeArea()
             ScrollView {
@@ -1186,7 +1199,7 @@ struct SettingsView: View {
                         }
 
                         premiumCard {
-                            sessionListContent
+                            sessionListContent()
                                 .padding(16)
                         }
                     }
@@ -1229,7 +1242,7 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private var sessionListContent: some View {
+    private func sessionListContent() -> some View {
         if isSessionsLoading {
             HStack(spacing: 12) {
                 ProgressView().scaleEffect(0.8)

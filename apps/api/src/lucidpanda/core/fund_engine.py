@@ -407,7 +407,7 @@ class FundEngine:
                         row = cursor.fetchone()
 
                 if row:
-                    parent_code = row[0]
+                    parent_code = row["fund_code"]
                     logger.info(
                         f"🎯 Shadow Found: '{fund_name}' -> Parent ETF: {parent_code}"
                     )
