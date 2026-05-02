@@ -333,15 +333,20 @@ public struct GoldDeepAnalysisSheet: View {
             }
             
         case "1d":
-            // --- 1D 逻辑 ---
-            AxisMarks(values: .stride(by: .day, count: 1, calendar: beijingCalendar)) { value in
-                if let date = value.as(Date.self) {
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                        .foregroundStyle(Color.gray.opacity(0.1))
-                    AxisValueLabel {
-                        Text(formatBeijingTime(date, useDay: true))
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+            // --- 1D 逻辑：仅显示首尾两个日期 ---
+            let allDates = data.history.map { $0.timestamp } + data.prediction.mid.map { $0.timestamp }
+            if let start = allDates.min(), let end = allDates.max() {
+                AxisMarks(values: [start, end]) { value in
+                    if let date = value.as(Date.self) {
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                            .foregroundStyle(Color.gray.opacity(0.1))
+                        
+                        let anchor: UnitPoint = (date == start) ? .topLeading : .topTrailing
+                        AxisValueLabel(anchor: anchor) {
+                            Text(formatBeijingTime(date, useDay: true))
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
