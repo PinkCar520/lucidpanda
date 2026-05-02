@@ -110,20 +110,10 @@ public class GoldDeepAnalysisViewModel {
         let prediction = data.prediction
         let history = data.history
         
-        // 1. Predicted At (Now using generatedAt, the real execution time)
-        let now = Date()
-        let refDate = data.generatedAt ?? prediction.issuedAt
-        let diff = now.timeIntervalSince(refDate)
-        let minutes = Int(diff / 60)
-        
-        if minutes < 1 {
-            self.predictedAtText = "刚刚"
-        } else if minutes < 60 {
-            self.predictedAtText = "\(minutes) 分钟前"
-        } else {
-            let hours = Int(minutes / 60)
-            self.predictedAtText = "\(hours) 小时前"
-        }
+        // 1. Predicted At (Now using RelativeDateTimeFormatter for localization)
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        self.predictedAtText = formatter.localizedString(for: data.generatedAt ?? prediction.issuedAt, relativeTo: Date())
         
         // 2. Hit Rate (Points within range)
         // Find historical points after issuedAt (The chart pivot)
@@ -142,7 +132,7 @@ public class GoldDeepAnalysisViewModel {
         if !actualAfterIssued.isEmpty {
             self.hitRate = Double(inRangeCount) / Double(actualAfterIssued.count) * 100.0
         } else {
-            self.hitRate = 100.0 // Default for new predictions
+            self.hitRate = 0 // Default to 0 instead of 100 if no verified history exists
         }
 
         // 3. Direction Accuracy & Historical Accuracy (Correct direction & Precise hit)
@@ -176,15 +166,20 @@ public class GoldDeepAnalysisViewModel {
                 self.directionAccuracy = Double(correctDirectionCount) / Double(actualAfter.count) * 100.0
                 self.historicalAccuracy = Double(perfectHitCount) / Double(actualAfter.count) * 100.0
             } else {
-                self.directionAccuracy = 100.0
-                self.historicalAccuracy = 100.0
+                self.directionAccuracy = 0
+                self.historicalAccuracy = 0
             }
+        } else {
+            self.directionAccuracy = 0
+            self.historicalAccuracy = 0
         }
         
         // 4. Current Deviation
         if let lastActual = history.last,
            let lastMid = prediction.mid.first(where: { abs($0.timestamp.timeIntervalSince(lastActual.timestamp)) < 1800 }) {
             self.currentDeviation = lastActual.price - lastMid.price
+        } else {
+            self.currentDeviation = 0
         }
         
         // 5. Target Price

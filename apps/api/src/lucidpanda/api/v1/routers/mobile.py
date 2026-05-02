@@ -479,7 +479,7 @@ async def get_gold_prediction(
     """
     # 1. Fetch History (International Gold / London Gold) with custom depth
     try:
-        history_full = await run_in_threadpool(market_terminal_service.get_gold_history_intl_custom, granularity)
+        history_full = await run_in_threadpool(market_terminal_service.get_gold_history_intl_custom, granularity, force_refresh)
     except Exception as e:
         logger.error(f"Error fetching gold history: {e}")
         history_full = []

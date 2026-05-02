@@ -71,7 +71,7 @@ class MarketTerminalService:
             logger.error(f"Failed to fetch market snapshot: {e}")
             return None
 
-    def get_gold_history_24h(self):
+    def get_gold_history_24h(self, force_refresh: bool = False):
         """
         获取金价走势（24h 小时线）。
         统一以国际伦敦金 (XAU) 为基准，确保与顶部报价一致。
@@ -79,32 +79,28 @@ class MarketTerminalService:
         cache_key = "gold_history_24h"
 
         # 1. 检查有效缓存 (30秒 - 紧跟实时报价)
-        if cache_key in self._cache:
+        if not force_refresh and cache_key in self._cache:
             cache_entry = self._cache[cache_key]
             if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 30:
                 return cache_entry["data"]
 
         # 统一使用 get_gold_history_intl_custom("1h") 的结果
-        # 这保证了：顶部数字(hf_XAU) == 走势图末端(Sina XAU) == 2倍国际金价
-        trend = self.get_gold_history_intl_custom("1h")
+        trend = self.get_gold_history_intl_custom("1h", force_refresh=force_refresh)
 
         if trend:
             self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
         return trend
 
-    def get_gold_history_intl_custom(self, granularity: str = "1h"):
+    def get_gold_history_intl_custom(self, granularity: str = "1h", force_refresh: bool = False):
         """
         获取国际金价走势，支持不同粒度的深度定制。
-        1h: 最近 24 小时 (Sina MinLine)
-        4h: 最近 4-5 天 (Sina 5MLine)
-        1d: 最近几周 (Sina DailyKLine)
         """
         import requests
         from zoneinfo import ZoneInfo
         from datetime import datetime, timedelta
         
         cache_key = f"gold_history_intl_{granularity}"
-        if cache_key in self._cache:
+        if not force_refresh and cache_key in self._cache:
             cache_entry = self._cache[cache_key]
             if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 900:
                 return cache_entry["data"]

@@ -34,7 +34,7 @@ public struct GoldDeepAnalysisSheet: View {
     private static let beijingDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
-        formatter.dateFormat = "MM-dd"
+        formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
 
@@ -521,12 +521,16 @@ public struct GoldDeepAnalysisSheet: View {
         
         let snapDate = closest?.timestamp ?? date
         let diff = snapDate.timeIntervalSince(data.prediction.issuedAt)
-        let hours = Int(round(diff / 3600))
-        let relativeLabel = hours == 0 ? String(localized: "market.prediction.label.pivot") : "\(hours > 0 ? "+" : "")\(hours)h"
+        let granularity = data.granularity ?? "1h"
+        
+        let timeUnit: Double = granularity == "1d" ? 86400 : 3600
+        let offsets = Int(round(diff / timeUnit))
+        let unitLabel = granularity == "1d" ? "d" : "h"
+        let relativeLabel = offsets == 0 ? String(localized: "market.prediction.label.pivot") : "\(offsets > 0 ? "+" : "")\(offsets)\(unitLabel)"
         
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(formatBeijingTime(snapDate))
+                Text(formatBeijingTime(snapDate, useDay: granularity == "1d"))
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                 Text("(\(relativeLabel))")
                     .font(.system(size: 10))
