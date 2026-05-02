@@ -52,7 +52,8 @@ public class GoldDeepAnalysisViewModel {
                             history: sinaHistory,
                             prediction: prediction.prediction,
                             generatedAt: prediction.generatedAt,
-                            granularity: prediction.granularity
+                            granularity: prediction.granularity,
+                            marketStatus: prediction.marketStatus
                         )
                     }
                 }

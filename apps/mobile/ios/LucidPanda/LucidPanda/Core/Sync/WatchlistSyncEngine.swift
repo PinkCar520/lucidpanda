@@ -177,7 +177,7 @@ class WatchlistSyncEngine: ObservableObject {
             guard let self else { return }
             
             do {
-                let baseURL = await APIClient.shared.baseURL
+                let baseURL = APIClient.shared.baseURL
                 let streamURL = baseURL.appendingPathComponent("api/v2/watchlist/stream")
                 let token = AuthTokenStore.accessToken()
                 let stream = await SSEResolver.shared.subscribe(url: streamURL, token: token)

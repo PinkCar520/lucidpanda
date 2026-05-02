@@ -68,16 +68,16 @@ public struct GoldDeepAnalysisSheet: View {
                             
                             // 5. Metric Cards
                             metricCardsGrid
-                            }
-                            .padding(.horizontal)
-                            .padding(.top)
-                            }
-                            .refreshable {
-                            await viewModel.fetchPrediction(forceRefresh: true)
-                            }
-                            }
-                            }
-            .navigationTitle("gold.prediction.title")
+                        }
+                        .padding(.horizontal)
+                        .padding(.top)
+                    }
+                    .refreshable {
+                        await viewModel.fetchPrediction(forceRefresh: true)
+                    }
+                }
+            }
+            .navigationTitle(String(localized: "gold.prediction.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -113,13 +113,13 @@ public struct GoldDeepAnalysisSheet: View {
                     
                     Text(gold != nil ? "$\(String(format: "%.2f", gold!.price))" : "—")
                         .font(.system(size: 20, weight: .bold, design: .monospaced))
-                        .foregroundStyle(isMarketClosed ? Color.Alpha.textSecondary : Color.Alpha.textPrimary)
+                        .foregroundStyle(Color.Alpha.textPrimary)
                         .contentTransition(.numericText())
                 }
                 
                 Text(isMarketClosed ? String(localized: "market.status.closed_label") : (gold?.formattedChange ?? ""))
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(isMarketClosed ? Color.Alpha.neutral : ((gold?.change ?? 0) >= 0 ? Color.Alpha.up : Color.Alpha.down))
+                    .foregroundStyle((gold?.change ?? 0) >= 0 ? Color.Alpha.up : Color.Alpha.down)
                     .padding(.leading, 12) // Align with price text start (Circle 6 + spacing 6)
             }
             .onAppear { isTickerAnimating = true }
@@ -145,15 +145,15 @@ public struct GoldDeepAnalysisSheet: View {
     
     private var legendView: some View {
         HStack(spacing: 12) {
-            legendItem(name: "实际行情 (北京时间)", color: actualLineColor, isDashed: false)
-            legendItem(name: "AI 预测中枢", color: predictionLineColor, isDashed: true)
+            legendItem(name: String(localized: "actual_market_beijing_time"), color: actualLineColor, isDashed: false)
+            legendItem(name: String(localized: "ai_prediction_mid"), color: predictionLineColor, isDashed: true)
             
             HStack(spacing: 4) {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(predictionLineColor.opacity(0.12))
                     .frame(width: 16, height: 8)
                     .overlay(RoundedRectangle(cornerRadius: 2).stroke(predictionLineColor.opacity(0.3), lineWidth: 0.5))
-                Text("置信区间").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
+                Text(String(localized: "confidence_interval")).font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
             
             HStack(spacing: 4) {
@@ -161,7 +161,7 @@ public struct GoldDeepAnalysisSheet: View {
                     .fill(Color.Alpha.up.opacity(0.12))
                     .frame(width: 16, height: 8)
                     .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.Alpha.up.opacity(0.3), lineWidth: 0.5))
-                Text("突破区间").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
+                Text(String(localized: "breakout_interval")).font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,7 +192,7 @@ public struct GoldDeepAnalysisSheet: View {
                     if data.marketStatus == "CLOSED" {
                         HStack(spacing: 6) {
                             Image(systemName: "moon.stars.fill")
-                            Text("market.prediction.mode.opening_anticipation")
+                            Text(String(localized: "market.prediction.mode.opening_anticipation"))
                         }
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(predictionLineColor)
@@ -211,79 +211,74 @@ public struct GoldDeepAnalysisSheet: View {
                         pivotMarkers(data)
                         crosshairMarkers(data)
                     }
-                .environment(\.calendar, beijingCalendar)
-                .chartXSelection(value: $selectedDate)
-                .chartOverlay { proxy in
-                    GeometryReader { geometry in
-                        Rectangle().fill(.clear).contentShape(Rectangle())
-                            .gesture(
-                                DragGesture()
-                                    .onChanged { value in
-                                        if let date: Date = proxy.value(atX: value.location.x) {
-                                            selectedDate = date
+                    .environment(\.calendar, beijingCalendar)
+                    .chartXSelection(value: $selectedDate)
+                    .chartOverlay { proxy in
+                        GeometryReader { geometry in
+                            Rectangle().fill(.clear).contentShape(Rectangle())
+                                .gesture(
+                                    DragGesture()
+                                        .onChanged { value in
+                                            if let date: Date = proxy.value(atX: value.location.x) {
+                                                selectedDate = date
+                                            }
                                         }
-                                    }
-                                    .onEnded { _ in
-                                        selectedDate = nil
-                                    }
-                            )
-                    }
-                }
-                .overlay(alignment: Alignment.topLeading) {
-                    if let date = selectedDate, let data = viewModel.predictionData {
-                        tooltipView(for: date, in: data)
-                    }
-                }
-                .chartXScale(domain: {
-                    let granularity = data.granularity ?? "1h"
-                    if granularity == "1h" {
-                        let calendar = beijingCalendar
-                        // 计算当前预测点所属的交易日起点 (06:00)
-                        let issuedAt = data.prediction.issuedAt
-                        var start = calendar.date(bySettingHour: 6, minute: 0, second: 0, of: issuedAt) ?? issuedAt
-                        
-                        // 核心修正：如果发布时间在 06:00 之前（如 05:00 收盘时），且我们处于“当前”或“未来”观察视角，
-                        // 我们不应该强行跳回昨天的 06:00，否则图表会显示在最右侧并被切断。
-                        // 我们让 start 保持在今天的 06:00，minDate 会自动包含 05:00 的起点，使预测从左侧开始。
-                        if start > issuedAt && calendar.date(byAdding: .hour, value: -2, to: start)! > issuedAt {
-                            start = calendar.date(byAdding: .day, value: -1, to: start)!
+                                        .onEnded { _ in
+                                            selectedDate = nil
+                                        }
+                                )
                         }
-                        
-                        // 交易日终点 (次日 05:00)
-                        let end = calendar.date(byAdding: .hour, value: 23, to: start)!
-                        
-                        let historyDates = data.history.map { $0.timestamp }
-                        let minDate = historyDates.min() ?? start
-                        
-                        // 锁定 Domain：从开始节点到 23 小时后的结束节点，确保图表比例一致且不溢出
-                        return min(start, minDate)...end
                     }
-                    return (data.history.first?.timestamp ?? .distantPast)...(data.prediction.mid.last?.timestamp ?? .distantFuture)
-                }())
-                .chartYScale(domain: {
-                    let allPrices = data.history.map { $0.price } + data.prediction.mid.map { $0.price }
-                    if let min = allPrices.min(), let max = allPrices.max(), min < max {
-                        return min...max
+                    .overlay(alignment: Alignment.topLeading) {
+                        if let date = selectedDate, let data = viewModel.predictionData {
+                            tooltipView(for: date, in: data)
+                        }
                     }
-                    return 2000...2600
-                }())
-                .chartXAxis {
-                    xAxisContent(data)
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading) { value in
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
-                        AxisValueLabel {
-                            if let price = value.as(Double.self) {
-                                Text("$\(Int(price))")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
+                    .chartXScale(domain: {
+                        let granularity = data.granularity ?? "1h"
+                        if granularity == "1h" {
+                            let calendar = beijingCalendar
+                            // 计算当前预测点所属的交易日起点 (06:00)
+                            let issuedAt = data.prediction.issuedAt
+                            var start = calendar.date(bySettingHour: 6, minute: 0, second: 0, of: issuedAt) ?? issuedAt
+                            
+                            if start > issuedAt && calendar.date(byAdding: .hour, value: -2, to: start)! > issuedAt {
+                                start = calendar.date(byAdding: .day, value: -1, to: start)!
+                            }
+                            
+                            let end = calendar.date(byAdding: .hour, value: 23, to: start)!
+                            let historyDates = data.history.map { $0.timestamp }
+                            let minDate = historyDates.min() ?? start
+                            
+                            return min(start, minDate)...end
+                        }
+                        return (data.history.first?.timestamp ?? .distantPast)...(data.prediction.mid.last?.timestamp ?? .distantFuture)
+                    }())
+                    .chartYScale(domain: {
+                        let allPrices = data.history.map { $0.price } + data.prediction.mid.map { $0.price }
+                        if let min = allPrices.min(), let max = allPrices.max(), min < max {
+                            return min...max
+                        }
+                        return 2000...2600
+                    }())
+                    .chartXAxis {
+                        xAxisContent(data)
+                    }
+                    .chartYAxis {
+                        AxisMarks(position: .leading) { value in
+                            AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
+                            AxisValueLabel {
+                                if let price = value.as(Double.self) {
+                                    Text("$\(Int(price))")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
+                    .frame(height: 300)
+                    .clipped()
                 }
-                .frame(height: 300)
-                .clipped()
             }
         }
     }
@@ -321,7 +316,6 @@ public struct GoldDeepAnalysisSheet: View {
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2]))
                         .foregroundStyle(Color.gray.opacity(0.15))
                     
-                    // 修复：使用 anchor 确保 05:00 贴在右侧，06:00 贴在左侧
                     let labelAnchor: UnitPoint = (date == endNode) ? .topTrailing : (date == startNode ? .topLeading : .top)
                     
                     AxisValueLabel(anchor: labelAnchor) {
@@ -334,15 +328,15 @@ public struct GoldDeepAnalysisSheet: View {
             
         case "1d":
             // --- 1D 逻辑：仅显示首尾两个日期 ---
-            let allDates = data.history.map { $0.timestamp } + data.prediction.mid.map { $0.timestamp }
-            if let start = allDates.min(), let end = allDates.max() {
-                AxisMarks(values: [start, end]) { value in
+            let allDates = (data.history.map { $0.timestamp } + data.prediction.mid.map { $0.timestamp }).sorted()
+            if let start = allDates.first, let end = allDates.last {
+                AxisMarks(position: .bottom, values: [start, end]) { value in
                     if let date = value.as(Date.self) {
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                             .foregroundStyle(Color.gray.opacity(0.1))
                         
-                        let anchor: UnitPoint = (date == start) ? .topLeading : .topTrailing
-                        AxisValueLabel(anchor: anchor) {
+                        let isStart = abs(date.timeIntervalSince(start)) < 60
+                        AxisValueLabel(anchor: isStart ? .topLeading : .topTrailing) {
                             Text(formatBeijingTime(date, useDay: true))
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(.secondary)
@@ -417,7 +411,6 @@ public struct GoldDeepAnalysisSheet: View {
     @ChartContentBuilder
     private func actualLine(_ data: GoldPredictionResponse) -> some ChartContent {
         let sortedHistory = data.history.sorted { $0.timestamp < $1.timestamp }
-        let isMarketClosed = data.marketStatus == "CLOSED"
         
         ForEach(sortedHistory) { p in
             LineMark(
@@ -426,8 +419,8 @@ public struct GoldDeepAnalysisSheet: View {
                 series: .value("Series", "Actual")
             )
             .interpolationMethod(.monotone)
-            .foregroundStyle(isMarketClosed ? actualLineColor.opacity(0.4) : actualLineColor)
-            .lineStyle(StrokeStyle(lineWidth: isMarketClosed ? 1.5 : 2.5))
+            .foregroundStyle(actualLineColor)
+            .lineStyle(StrokeStyle(lineWidth: 2.5))
         }
     }
 
@@ -522,7 +515,7 @@ public struct GoldDeepAnalysisSheet: View {
         let snapDate = closest?.timestamp ?? date
         let diff = snapDate.timeIntervalSince(data.prediction.issuedAt)
         let hours = Int(round(diff / 3600))
-        let relativeLabel = hours == 0 ? "发布时刻" : "\(hours > 0 ? "+" : "")\(hours)h"
+        let relativeLabel = hours == 0 ? String(localized: "market.prediction.label.pivot") : "\(hours > 0 ? "+" : "")\(hours)h"
         
         return VStack(alignment: .leading, spacing: 4) {
             HStack {
@@ -534,13 +527,13 @@ public struct GoldDeepAnalysisSheet: View {
             .foregroundStyle(.secondary)
             
             if let a = actual, abs(a.timestamp.timeIntervalSince(date)) < 7200 {
-                Text("实际: $\(a.price.formatted())")
+                Text("\(String(localized: "market.prediction.label.history")): $\(a.price.formatted())")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(actualLineColor)
             }
             
             if let m = mid, abs(m.timestamp.timeIntervalSince(date)) < 7200 {
-                Text("预测: $\(m.price.formatted())")
+                Text("\(String(localized: "market.prediction.label.tracking")): $\(m.price.formatted())")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(predictionLineColor)
             }

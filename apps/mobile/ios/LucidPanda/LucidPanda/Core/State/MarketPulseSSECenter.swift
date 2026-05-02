@@ -46,7 +46,7 @@ public actor MarketPulseSSECenter {
         streamTask = Task {
             while !Task.isCancelled {
                 do {
-                    let baseURL = await APIClient.shared.baseURL
+                    let baseURL = APIClient.shared.baseURL
                     let url = baseURL.appendingPathComponent("api/v1/mobile/market/pulse/stream")
                     let token = await MainActor.run { AuthTokenStore.accessToken() }
                     
