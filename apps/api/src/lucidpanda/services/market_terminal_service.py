@@ -83,10 +83,10 @@ class MarketTerminalService:
         now_utc = datetime.now().astimezone(ZoneInfo("UTC"))
         cache_key = "gold_history_24h"
 
-        # 1. 检查有效缓存 (10分钟)
+        # 1. 检查有效缓存 (30秒 - 确保与快照同步)
         if cache_key in self._cache:
             cache_entry = self._cache[cache_key]
-            if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 600:
+            if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 30:
                 return cache_entry["data"]
 
         # 获取当前各市场状态
@@ -360,25 +360,24 @@ class MarketTerminalService:
             return None
 
     def _fetch_gold(self):
-        """获取黄金数据（伦敦金现货 XAU/USD - 新浪计算现货）"""
+        """获取黄金数据（统一使用伦敦金期货 XAU 接口 - 2倍报价对齐）"""
         try:
-            # fx_sxauusd 是新浪外汇接口提供的伦敦金现货
-            url = "https://hq.sinajs.cn/list=fx_sxauusd"
+            # 弃用不稳定的 fx_sxauusd，统一改用与走势图相同的 XAU 期货接口
+            url = "https://hq.sinajs.cn/list=hf_XAU"
             resp = requests.get(
                 url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"}
             )
             raw = resp.text
             if '="' in raw:
-                match = re.search(r'hq_str_fx_sxauusd="([^"]+)"', raw)
+                # 格式: var hq_str_hf_XAU="price,?,buy,sell,high,low,time,prev_close,open,?,?...";
+                match = re.search(r'hq_str_hf_XAU="([^"]+)"', raw)
                 if match:
                     parts = match.group(1).split(",")
-                    # 格式: time, price, ?, ?, ?, low, high, ?, prev_close, name, change, change_pct, ...
-                    current = float(parts[1])
-                    prev_close = float(parts[8])
+                    current = float(parts[0])
+                    prev_close = float(parts[7])
                     
-                    # 使用接口返回的涨跌幅，更准确
-                    change = float(parts[10])
-                    change_pct = float(parts[11])
+                    change = current - prev_close
+                    change_pct = (change / prev_close) * 100 if prev_close > 0 else 0.0
 
                     return {
                         "symbol": "XAU/USD",
@@ -386,14 +385,14 @@ class MarketTerminalService:
                         "price": round(current, 2),
                         "change": round(change, 2),
                         "changePercent": round(change_pct, 2),
-                        "high_24h": float(parts[6]) if float(parts[6]) > 0 else None,
+                        "high_24h": float(parts[4]) if float(parts[4]) > 0 else None,
                         "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
-                        "open": prev_close + change, # 近似
+                        "open": float(parts[8]) if float(parts[8]) > 0 else (prev_close + change),
                         "previous_close": prev_close,
                         "timestamp": format_iso8601(datetime.now()),
                     }
         except Exception as e:
-            logger.error(f"Failed to fetch London Gold spot (XAU/USD): {e}")
+            logger.error(f"Failed to fetch unified London Gold (XAU): {e}")
         return None
 
     def _fetch_dxy(self):
