@@ -217,18 +217,18 @@ class MarketTerminalService:
                 resp = requests.get(url, timeout=10)
                 data = resp.json() # 格式: [ {"date":"YYYY-MM-DD", "close":"..."}, ... ]
                 if data and isinstance(data, list):
-                    # 取最后 30 天
-                    recent = data[-30:]
+                    # 过滤逻辑：仅保留最近 30 个自然日的数据
+                    limit_dt = datetime.now() - timedelta(days=30)
                     trend = []
-                    for item in recent:
+                    for item in data:
                         try:
-                            # 日线通常只有日期，设为 00:00:00
                             ts_obj = datetime.strptime(item["date"], "%Y-%m-%d").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-                            trend.append({
-                                "timestamp": format_iso8601(ts_obj),
-                                "price": round(float(item["close"]), 2),
-                                "is_forecast": False
-                            })
+                            if ts_obj >= limit_dt.replace(tzinfo=ZoneInfo("Asia/Shanghai")):
+                                trend.append({
+                                    "timestamp": format_iso8601(ts_obj),
+                                    "price": round(float(item["close"]), 2),
+                                    "is_forecast": False
+                                })
                         except Exception: continue
                     
                     if trend:

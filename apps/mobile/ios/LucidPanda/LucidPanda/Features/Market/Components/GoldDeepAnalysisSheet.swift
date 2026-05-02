@@ -567,10 +567,32 @@ public struct GoldDeepAnalysisSheet: View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
             metricCard(label: "market.prediction.metric.issued_at", value: viewModel.predictedAtText, color: Color.Alpha.textPrimary)
             metricCard(label: "market.prediction.metric.target", value: String(format: "$%.1f", viewModel.targetPrice), color: predictionLineColor)
-            metricCard(label: "market.prediction.metric.direction_accuracy", value: String(format: "%.0f%%", viewModel.directionAccuracy), color: Color.Alpha.brand)
-            metricCard(label: "market.prediction.metric.historical_accuracy", value: String(format: "%.0f%%", viewModel.historicalAccuracy), color: Color.Alpha.up)
-            metricCard(label: "market.prediction.metric.hit_rate", value: String(format: "%.0f%%", viewModel.hitRate), color: Color.Alpha.down)
-            metricCard(label: "market.prediction.metric.deviation", value: String(format: "%@$%.1f", viewModel.currentDeviation >= 0 ? "+" : "-", abs(viewModel.currentDeviation)), color: viewModel.currentDeviation >= 0 ? Color.Alpha.down : Color.Alpha.up)
+            
+            metricCard(label: "market.prediction.metric.direction_accuracy", 
+                       value: viewModel.directionAccuracy.map { String(format: "%.0f%%", $0) } ?? "--", 
+                       color: Color.Alpha.brand)
+            
+            metricCard(label: "market.prediction.metric.historical_accuracy", 
+                       value: viewModel.historicalAccuracy.map { String(format: "%.0f%%", $0) } ?? "--", 
+                       color: Color.Alpha.up)
+            
+            metricCard(label: "market.prediction.metric.hit_rate", 
+                       value: viewModel.hitRate.map { String(format: "%.0f%%", $0) } ?? "--", 
+                       color: Color.Alpha.down)
+            
+            let devValue: String = {
+                if let dev = viewModel.currentDeviation {
+                    return String(format: "%@$%.1f", dev >= 0 ? "+" : "-", abs(dev))
+                }
+                return "--"
+            }()
+            let devColor: Color = {
+                if let dev = viewModel.currentDeviation {
+                    return dev >= 0 ? Color.Alpha.down : Color.Alpha.up
+                }
+                return Color.Alpha.textSecondary
+            }()
+            metricCard(label: "market.prediction.metric.deviation", value: devValue, color: devColor)
         }
     }
     

@@ -14,10 +14,10 @@ public class GoldDeepAnalysisViewModel {
     public var selectedGranularity: String = "1h"
     
     // Bottom Metrics
-    public var hitRate: Double = 0
-    public var directionAccuracy: Double = 0
-    public var historicalAccuracy: Double = 0
-    public var currentDeviation: Double = 0
+    public var hitRate: Double?
+    public var directionAccuracy: Double?
+    public var historicalAccuracy: Double?
+    public var currentDeviation: Double?
     public var targetPrice: Double = 0
     public var predictedAtText: String = "—"
     
@@ -132,7 +132,7 @@ public class GoldDeepAnalysisViewModel {
         if !actualAfterIssued.isEmpty {
             self.hitRate = Double(inRangeCount) / Double(actualAfterIssued.count) * 100.0
         } else {
-            self.hitRate = 0 // Default to 0 instead of 100 if no verified history exists
+            self.hitRate = nil
         }
 
         // 3. Direction Accuracy & Historical Accuracy (Correct direction & Precise hit)
@@ -166,12 +166,12 @@ public class GoldDeepAnalysisViewModel {
                 self.directionAccuracy = Double(correctDirectionCount) / Double(actualAfter.count) * 100.0
                 self.historicalAccuracy = Double(perfectHitCount) / Double(actualAfter.count) * 100.0
             } else {
-                self.directionAccuracy = 0
-                self.historicalAccuracy = 0
+                self.directionAccuracy = nil
+                self.historicalAccuracy = nil
             }
         } else {
-            self.directionAccuracy = 0
-            self.historicalAccuracy = 0
+            self.directionAccuracy = nil
+            self.historicalAccuracy = nil
         }
         
         // 4. Current Deviation
@@ -179,7 +179,7 @@ public class GoldDeepAnalysisViewModel {
            let lastMid = prediction.mid.first(where: { abs($0.timestamp.timeIntervalSince(lastActual.timestamp)) < 1800 }) {
             self.currentDeviation = lastActual.price - lastMid.price
         } else {
-            self.currentDeviation = 0
+            self.currentDeviation = nil
         }
         
         // 5. Target Price
