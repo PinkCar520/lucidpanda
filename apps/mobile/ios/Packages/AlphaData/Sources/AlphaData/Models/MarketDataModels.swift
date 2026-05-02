@@ -352,12 +352,20 @@ public struct GoldPredictionResponse: Codable {
     public let prediction: GoldPredictionDetail
     public let generatedAt: Date?
     public let granularity: String?
+    public let marketStatus: String?
     
-    public init(history: [GoldTrendPoint], prediction: GoldPredictionDetail, generatedAt: Date?, granularity: String?) {
+    public init(history: [GoldTrendPoint], prediction: GoldPredictionDetail, generatedAt: Date?, granularity: String?, marketStatus: String?) {
         self.history = history
         self.prediction = prediction
         self.generatedAt = generatedAt
         self.granularity = granularity
+        self.marketStatus = marketStatus
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case history, prediction, granularity
+        case generatedAt = "generated_at"
+        case marketStatus = "market_status"
     }
 }
 

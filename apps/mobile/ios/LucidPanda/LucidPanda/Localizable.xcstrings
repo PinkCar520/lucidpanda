@@ -70,9 +70,6 @@
         }
       }
     },
-    "AI 预测" : {
-
-    },
     "alarm.notification.body %@ %@" : {
       "localizations" : {
         "en" : {

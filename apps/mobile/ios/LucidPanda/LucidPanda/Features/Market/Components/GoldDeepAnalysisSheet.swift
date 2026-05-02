@@ -66,18 +66,17 @@ public struct GoldDeepAnalysisSheet: View {
                             // 3. Main Chart
                             mainChartSection
                             
-                            // 4. Metric Cards
+                            // 5. Metric Cards
                             metricCardsGrid
-                            
-                            Spacer(minLength: 40)
-                        }
-                        .padding()
-                    }
-                    .refreshable {
-                        await viewModel.fetchPrediction(forceRefresh: true)
-                    }
-                }
-            }
+                            }
+                            .padding(.horizontal)
+                            .padding(.top)
+                            }
+                            .refreshable {
+                            await viewModel.fetchPrediction(forceRefresh: true)
+                            }
+                            }
+                            }
             .navigationTitle("gold.prediction.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -101,24 +100,26 @@ public struct GoldDeepAnalysisSheet: View {
         HStack(alignment: .bottom) {
             // Left Side: Live Price Data (Vertical Stack)
             let gold = rootViewModel.marketPulseViewModel.pulseData?.marketSnapshot.gold
+            let isMarketClosed = viewModel.predictionData?.marketStatus == "CLOSED"
+            
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(Color.Alpha.brand)
+                        .fill(isMarketClosed ? Color.Alpha.neutral : Color.Alpha.brand)
                         .frame(width: 6, height: 6)
-                        .opacity(isTickerAnimating ? 1 : 0.4)
-                        .scaleEffect(isTickerAnimating ? 1.1 : 0.8)
-                        .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: isTickerAnimating)
+                        .opacity(isMarketClosed ? 0.6 : (isTickerAnimating ? 1 : 0.4))
+                        .scaleEffect(isMarketClosed ? 1.0 : (isTickerAnimating ? 1.1 : 0.8))
+                        .animation(isMarketClosed ? .default : .easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: isTickerAnimating)
                     
                     Text(gold != nil ? "$\(String(format: "%.2f", gold!.price))" : "—")
                         .font(.system(size: 20, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.Alpha.textPrimary)
+                        .foregroundStyle(isMarketClosed ? Color.Alpha.textSecondary : Color.Alpha.textPrimary)
                         .contentTransition(.numericText())
                 }
                 
-                Text(gold?.formattedChange ?? "")
+                Text(isMarketClosed ? String(localized: "market.status.closed_label") : (gold?.formattedChange ?? ""))
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle((gold?.change ?? 0) >= 0 ? Color.Alpha.up : Color.Alpha.down)
+                    .foregroundStyle(isMarketClosed ? Color.Alpha.neutral : ((gold?.change ?? 0) >= 0 ? Color.Alpha.up : Color.Alpha.down))
                     .padding(.leading, 12) // Align with price text start (Circle 6 + spacing 6)
             }
             .onAppear { isTickerAnimating = true }
@@ -127,22 +128,6 @@ public struct GoldDeepAnalysisSheet: View {
             
             // Right Side: Action Stack
             VStack(alignment: .trailing, spacing: 8) {
-                Button {
-                    Task { await viewModel.fetchPrediction(forceRefresh: true) }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                        Text("AI 预测")
-                    }
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.Alpha.brand)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.Alpha.brand.opacity(0.1))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                }
-                .disabled(viewModel.isLoading)
-                
                 Picker("", selection: $viewModel.selectedGranularity) {
                     Text("1H").tag("1h")
                     Text("4H").tag("4h")
@@ -203,14 +188,29 @@ public struct GoldDeepAnalysisSheet: View {
     private var mainChartSection: some View {
         Group {
             if let data = viewModel.predictionData {
-                Chart {
-                    confidenceArea(data)
-                    breakoutArea(data)
-                    actualLine(data)
-                    predictionLine(data)
-                    pivotMarkers(data)
-                    crosshairMarkers(data)
-                }
+                VStack(spacing: 12) {
+                    if data.marketStatus == "CLOSED" {
+                        HStack(spacing: 6) {
+                            Image(systemName: "moon.stars.fill")
+                            Text("market.prediction.mode.opening_anticipation")
+                        }
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(predictionLineColor)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 12)
+                        .background(predictionLineColor.opacity(0.1))
+                        .clipShape(Capsule())
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                    
+                    Chart {
+                        confidenceArea(data)
+                        breakoutArea(data)
+                        actualLine(data)
+                        predictionLine(data)
+                        pivotMarkers(data)
+                        crosshairMarkers(data)
+                    }
                 .environment(\.calendar, beijingCalendar)
                 .chartXSelection(value: $selectedDate)
                 .chartOverlay { proxy in
@@ -313,11 +313,6 @@ public struct GoldDeepAnalysisSheet: View {
             AxisMarks(values: [issuedAt]) { _ in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 1, dash: [4, 4]))
                     .foregroundStyle(pivotLineColor)
-                AxisValueLabel(anchor: .top) {
-                    Text(formatBeijingTime(issuedAt))
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(predictionLineColor)
-                }
             }
             
             // 2. 固定交易节点：06:00, 17:30, 05:00
@@ -417,6 +412,8 @@ public struct GoldDeepAnalysisSheet: View {
     @ChartContentBuilder
     private func actualLine(_ data: GoldPredictionResponse) -> some ChartContent {
         let sortedHistory = data.history.sorted { $0.timestamp < $1.timestamp }
+        let isMarketClosed = data.marketStatus == "CLOSED"
+        
         ForEach(sortedHistory) { p in
             LineMark(
                 x: .value("Time", p.timestamp),
@@ -424,8 +421,8 @@ public struct GoldDeepAnalysisSheet: View {
                 series: .value("Series", "Actual")
             )
             .interpolationMethod(.monotone)
-            .foregroundStyle(actualLineColor)
-            .lineStyle(StrokeStyle(lineWidth: 2.5))
+            .foregroundStyle(isMarketClosed ? actualLineColor.opacity(0.4) : actualLineColor)
+            .lineStyle(StrokeStyle(lineWidth: isMarketClosed ? 1.5 : 2.5))
         }
     }
 

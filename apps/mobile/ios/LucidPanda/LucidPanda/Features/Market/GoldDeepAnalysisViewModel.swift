@@ -58,7 +58,16 @@ public class GoldDeepAnalysisViewModel {
                 }
                 
                 if !Task.isCancelled {
+                    let isInitialLoad = self.predictionData == nil
                     self.predictionData = prediction
+                    
+                    // 休市感知：如果是初次加载且检测到休市，自动切换到 1D 视图
+                    if isInitialLoad && prediction.marketStatus == "CLOSED" {
+                        self.selectedGranularity = "1d"
+                        // 重新发起一次 1D 的非强制刷新请求
+                        Task { await self.fetchPrediction(forceRefresh: false) }
+                    }
+                    
                     calculateMetrics(from: prediction)
                 }
             } catch {

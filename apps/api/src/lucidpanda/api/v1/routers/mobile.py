@@ -598,6 +598,9 @@ async def get_gold_prediction(
             "generatedAt": format_iso8601(datetime.now(UTC))
         })
 
+    from src.lucidpanda.utils.market_calendar import get_market_status
+    market_status = get_market_status("GOLD")
+
     issued_index = len(history_full) - 1
     history_training = history_full
     issued_at = history_full[issued_index]["timestamp"]
@@ -608,6 +611,7 @@ async def get_gold_prediction(
     if not force_refresh:
         cached_data = get_cached(CACHE_KEY)
         if cached_data and "generatedAt" in cached_data:
+            cached_data["market_status"] = market_status
             return v1_prepare_json(cached_data)
 
     # Fetch snapshot and top alerts for AI context
@@ -664,7 +668,8 @@ async def get_gold_prediction(
         overall_sentiment,
         granularity=granularity,
         macro_events_text=macro_events_text,
-        timechain_context=timechain_context
+        timechain_context=timechain_context,
+        market_status=market_status
     )
     
     if not forecast_points:
@@ -711,7 +716,8 @@ async def get_gold_prediction(
         "history": history_full,
         "prediction": prediction_result,
         "generatedAt": format_iso8601(datetime.now(UTC)),
-        "granularity": granularity # Include granularity for frontend logic
+        "granularity": granularity, # Include granularity for frontend logic
+        "market_status": market_status
     }
     
     # Cache the FULL response object, not just prediction_result
@@ -721,15 +727,15 @@ async def get_gold_prediction(
 
 
 async def _generate_gold_forecast_intl(
-    history: list[dict], 
-    alerts: list[dict], 
-    snapshot: dict, 
-    overall_sentiment: dict, 
+    history: list[dict],
+    alerts: list[dict],
+    snapshot: dict,
+    overall_sentiment: dict,
     granularity: str = "1h",
     macro_events_text: str = "",
-    timechain_context: dict = None
-) -> list[dict]:
-    """使用 LLM 综合宏观指标、情报及情绪生成伦敦金 (XAU/USD) 价格预测"""
+    timechain_context: dict = None,
+    market_status: str = "OPEN"
+) -> list[dict]:    """使用 LLM 综合宏观指标、情报及情绪生成伦敦金 (XAU/USD) 价格预测"""
     if not history:
         return []
 
@@ -777,7 +783,15 @@ async def _generate_gold_forecast_intl(
     timechain_theme = timechain_context.get("theme") if timechain_context else "当前市场主线"
     timechain_summary = timechain_context.get("summary") if timechain_context else "暂无深度总结"
 
+    status_note = ""
+    if market_status == "CLOSED":
+        status_note = "【特别注意：当前市场已休市】请重点分析周末/休市期间发生的突发情报，预测其对下一次恢复交易时可能产生的跳空(Gap)或趋势反转影响。"
+    else:
+        status_note = "【当前市场交易中】请根据实时动态预测后续走势。"
+
     prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来 {count} {unit}伦敦金 (XAU/USD) 的价格演进趋势。
+    
+    {status_note}
     
     【当前基准】
     价格: {last_price} USD/oz
