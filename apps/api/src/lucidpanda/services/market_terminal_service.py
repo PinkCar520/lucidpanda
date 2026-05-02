@@ -384,6 +384,15 @@ class MarketTerminalService:
 
     def _fetch_us10y(self):
         """获取美债 10 年期收益率数据（使用 Sina globalbd_us10yt 或 AkShare）"""
+        import math
+        
+        def safe_float(val, default=0.0):
+            try:
+                f = float(val)
+                return f if math.isfinite(f) else default
+            except (ValueError, TypeError):
+                return default
+
         # 1. 尝试新浪 globalbd_us10yt (美国10年期国债收益率 - 高可靠源)
         try:
             url = "https://hq.sinajs.cn/list=globalbd_us10yt"
@@ -392,21 +401,23 @@ class MarketTerminalService:
             )
             raw = resp.text
             if '="' in raw:
-                # 格式: 名称, 最新价, 卖出价, 买入价, 最高, 最低, 涨跌额, 涨跌幅, ..., 日期, 时间, ...
                 content = raw.split('"')[1]
                 parts = content.split(",")
                 if len(parts) >= 14:
-                    current = float(parts[1])
-                    prev_close = float(parts[2])  # 这里的第二项通常是基准价/昨收
+                    current = safe_float(parts[1])
+                    prev_close = safe_float(parts[2])
                     
+                    change = current - prev_close
+                    change_pct = ((current - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
+
                     return {
                         "symbol": "US10Y",
                         "name": "美债 10Y",
                         "price": round(current, 3),
-                        "change": round(current - prev_close, 3),
-                        "changePercent": round(((current - prev_close) / prev_close * 100) if prev_close > 0 else 0.0, 2),
-                        "high_24h": float(parts[4]) if float(parts[4]) > 0 else None,
-                        "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
+                        "change": round(change, 3),
+                        "changePercent": round(change_pct, 2),
+                        "high_24h": safe_float(parts[4]) if safe_float(parts[4]) > 0 else None,
+                        "low_24h": safe_float(parts[5]) if safe_float(parts[5]) > 0 else None,
                         "open": prev_close,
                         "previous_close": prev_close,
                         "timestamp": format_iso8601(datetime.now()),
@@ -418,30 +429,29 @@ class MarketTerminalService:
         try:
             df = ak.bond_zh_us_rate()
             if df is not None and not df.empty:
-                # 核心修复：精准匹配“美国”和“10年”收益率列，避开中国国债或利差列
                 rate_col = next((c for c in df.columns if "美国" in c and "10年" in c and "收益率" in c and "-" not in c), None)
                 if not rate_col:
-                    # 备选匹配：英文环境或其它命名习惯
                     rate_col = next((c for c in df.columns if "US" in c and "10" in c and "Yield" in c), None)
                 
                 if rate_col:
-                    # 寻找最后一个非空值
                     valid_data = df[df[rate_col].notna()]
                     if not valid_data.empty:
                         last_row = valid_data.iloc[-1]
-                        current = float(last_row[rate_col])
+                        current = safe_float(last_row[rate_col])
                         
-                        # 获取前一天的值计算涨跌
                         prev_close = current
                         if len(valid_data) > 1:
-                            prev_close = float(valid_data.iloc[-2][rate_col])
+                            prev_close = safe_float(valid_data.iloc[-2][rate_col])
                         
+                        change = current - prev_close
+                        change_pct = ((current - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
+
                         return {
                             "symbol": "US10Y",
                             "name": "美债 10Y",
                             "price": round(current, 3),
-                            "change": round(current - prev_close, 3),
-                            "changePercent": round(((current - prev_close) / prev_close * 100) if prev_close > 0 else 0.0, 2),
+                            "change": round(change, 3),
+                            "changePercent": round(change_pct, 2),
                             "high_24h": None,
                             "low_24h": None,
                             "open": prev_close,
@@ -530,7 +540,7 @@ class MarketTerminalService:
             "low_24h": None,
             "open": None,
             "previous_close": None,
-            "timestamp": None,
+            "timestamp": format_iso8601(datetime.now()),
         }
 
 

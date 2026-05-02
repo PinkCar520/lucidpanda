@@ -228,7 +228,7 @@ async def get_market_pulse(
     pulse_data = await _calculate_market_pulse(db)
     
     set_cached(_CACHE_KEY, pulse_data, _CACHE_TTL)
-    return pulse_data
+    return v1_prepare_json(pulse_data)
 
 
 @router.get("/market/pulse/timechain", response_model=dict[str, Any])
