@@ -468,7 +468,7 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
 
 @router.get("/gold/prediction", response_model=dict[str, Any])
 async def get_gold_prediction(
-    granularity: str = Query("1h", pattern="^(1h|4h|1d)$"),
+    granularity: str = Query("1h", pattern="^(1h|30m|1d)$"),
     force_refresh: bool = Query(False, description="Bypass cache and force AI re-evaluation"),
     limit: int = 20,
     db: Session = Depends(get_session),
@@ -686,8 +686,12 @@ async def _generate_gold_forecast_intl(
     intel_context = "\n".join(intel_briefs) if intel_briefs else "无重大情报"
 
     # 5. 构建深度分析提示词
-    unit = "天" if granularity == "1d" else "小时"
-    count = 5 if granularity == "1d" else 12
+    if granularity == "1d":
+        unit, count = "天", 5
+    elif granularity == "30m":
+        unit, count = "分钟", 12 # 预测未来 6 小时 (12个30m点)
+    else:
+        unit, count = "小时", 12
     
     timechain_theme = timechain_context.get("theme") if timechain_context else "当前市场主线"
     timechain_summary = timechain_context.get("summary") if timechain_context else "暂无深度总结"
@@ -723,7 +727,7 @@ async def _generate_gold_forecast_intl(
     【近期核心情报详情】
     {intel_context}
     
-    请输出未来 {count} 个点（每点间隔 1{unit}）的预测价格。输出格式为 JSON 数组，每个对象包含:
+    请输出未来 {count} 个点（每点间隔 {30 if granularity == '30m' else 1}{unit}）的预测价格。输出格式为 JSON 数组，每个对象包含:
     - "offset": 1 到 {count} 的整数
     - "predicted_price": 预测的价格 (float)
     
@@ -747,6 +751,8 @@ async def _generate_gold_forecast_intl(
                 if offset and price:
                     if granularity == "1d":
                         target_ts = last_ts + timedelta(days=int(offset))
+                    elif granularity == "30m":
+                        target_ts = last_ts + timedelta(minutes=int(offset)*30)
                     else:
                         target_ts = last_ts + timedelta(hours=int(offset))
                         

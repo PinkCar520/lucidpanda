@@ -137,7 +137,7 @@ public struct GoldDeepAnalysisSheet: View {
             VStack(alignment: .trailing, spacing: 8) {
                 Picker("", selection: $viewModel.selectedGranularity) {
                     Text("1H").tag("1h")
-                    Text("4H").tag("4h")
+                    Text("30M").tag("30m")
                     Text("1D").tag("1d")
                 }
                 .pickerStyle(.segmented)
@@ -197,7 +197,7 @@ public struct GoldDeepAnalysisSheet: View {
             if let data = viewModel.predictionData {
                 VStack(spacing: 12) {
                     let granularity = data.granularity ?? "1h"
-                    if data.marketStatus == "CLOSED" && granularity != "1h" {
+                    if data.marketStatus == "CLOSED" && granularity == "1d" {
                         HStack(spacing: 6) {
                             Image(systemName: "moon.stars.fill")
                             Text("market.prediction.mode.opening_anticipation")
@@ -343,6 +343,19 @@ public struct GoldDeepAnalysisSheet: View {
                 }
             }
             
+        case "30m":
+            // --- 30M 逻辑：跨度约 2 天，显示具体时间点 ---
+            AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
+                AxisValueLabel {
+                    if let date = value.as(Date.self) {
+                        Text(formatBeijingTime(date))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            
         case "1d":
             // --- 1D 逻辑：仅显示首尾两个日期 ---
             let allDates = (data.history.map { $0.timestamp } + data.prediction.mid.map { $0.timestamp }).sorted()
@@ -385,8 +398,8 @@ public struct GoldDeepAnalysisSheet: View {
         let granularity = data.granularity ?? "1h"
         let isMarketClosed = data.marketStatus == "CLOSED"
         
-        // 1H 模式下，休市期间不显示预测区域
-        if granularity == "1h" && isMarketClosed {
+        // 1H/4H 模式下，休市期间不显示预测区域
+        if (granularity == "1h" || granularity == "4h") && isMarketClosed {
             // Empty
         } else {
             ForEach(mid.indices, id: \.self) { i in
@@ -410,8 +423,8 @@ public struct GoldDeepAnalysisSheet: View {
         let granularity = data.granularity ?? "1h"
         let isMarketClosed = data.marketStatus == "CLOSED"
         
-        // 1H 模式下，休市期间不显示
-        if granularity == "1h" && isMarketClosed {
+        // 1H/4H 模式下，休市期间不显示
+        if (granularity == "1h" || granularity == "4h") && isMarketClosed {
             // Empty
         } else {
             ForEach(historyAfter) { p in
@@ -460,8 +473,8 @@ public struct GoldDeepAnalysisSheet: View {
         let granularity = data.granularity ?? "1h"
         let isMarketClosed = data.marketStatus == "CLOSED"
         
-        // 1H 模式下，休市期间不显示预测线
-        if granularity == "1h" && isMarketClosed {
+        // 1H/4H 模式下，休市期间不显示预测线
+        if (granularity == "1h" || granularity == "4h") && isMarketClosed {
             // Empty
         } else {
             let futureMid = data.prediction.mid
@@ -501,7 +514,7 @@ public struct GoldDeepAnalysisSheet: View {
         let granularity = data.granularity ?? "1h"
         let isMarketClosed = data.marketStatus == "CLOSED"
         
-        if granularity == "1h" && isMarketClosed {
+        if (granularity == "1h" || granularity == "4h") && isMarketClosed {
             // 休市期间不显示预测发布时刻的点和垂直线
         } else {
             let futureMid = data.prediction.mid.filter { $0.timestamp >= data.prediction.issuedAt }
@@ -541,8 +554,8 @@ public struct GoldDeepAnalysisSheet: View {
             if let closest = allPoints.min(by: { abs($0.timestamp.timeIntervalSince(selectedDate)) < abs($1.timestamp.timeIntervalSince(selectedDate)) }) {
                 let isPredictionPoint = closest.timestamp > data.prediction.issuedAt
                 
-                // 1H 休市期间，如果长按的是预测点，不显示十字准星
-                if granularity == "1h" && isMarketClosed && isPredictionPoint {
+                // 1H/4H 休市期间，如果长按的是预测点，不显示十字准星
+                if (granularity == "1h" || granularity == "4h") && isMarketClosed && isPredictionPoint {
                     // Empty
                 } else {
                     RuleMark(x: .value("Selected Time", closest.timestamp))
@@ -613,7 +626,6 @@ public struct GoldDeepAnalysisSheet: View {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .stroke(colorScheme == .dark ? Color(hex: "#2D2D2D") : Color.Alpha.separator, lineWidth: 1)
         )
-        .shadow(color: colorScheme == .light ? Color.black.opacity(0.05) : Color.clear, radius: 2, y: 1)
         .padding(10)
     }
     

@@ -156,8 +156,8 @@ class MarketTerminalService:
             except Exception as e:
                 logger.error(f"❌ Gold 1h history fetch failed: {e}")
 
-        # --- 4h: 使用 Sina 5MLine (5分钟线) ---
-        elif granularity == "4h":
+        # --- 30m: 使用 Sina 5MLine (5分钟线) ---
+        elif granularity == "30m":
             try:
                 url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFutures5MLine?symbol=XAU"
                 resp = requests.get(url, timeout=10)
@@ -167,7 +167,6 @@ class MarketTerminalService:
                     reconstructed_points = []
                     for day_data in all_days:
                         if not day_data: continue
-                        # 第一个点包含日期: ["2026-04-27", "Price", "06:00", ...]
                         current_date_str = day_data[0][0]
                         for i, p in enumerate(day_data):
                             try:
@@ -175,7 +174,6 @@ class MarketTerminalService:
                                     time_str = p[2]
                                     price = p[1]
                                 else:
-                                    # 后续点格式: ["Time", "Price", "Volume"]
                                     time_str = p[0]
                                     price = p[1]
                                 
@@ -187,17 +185,17 @@ class MarketTerminalService:
                                 })
                             except Exception: continue
                     
-                    # 采样：每 4 小时取一个点
+                    # 采样：每 30 分钟取一个点
                     reconstructed_points.sort(key=lambda x: x["timestamp"])
                     sampled_trend = []
                     if reconstructed_points:
                         last_ts = reconstructed_points[-1]["timestamp"]
-                        # 取最近 5 天，每 4 小时一个点，共 ~30 个点
-                        for i in range(30):
-                            target_ts = last_ts - timedelta(hours=i*4)
+                        # 取最近 48 小时，每 30 分钟一个点，共 ~96 个点
+                        for i in range(96):
+                            target_ts = last_ts - timedelta(minutes=i*30)
                             # 找最接近的点
                             best_match = min(reconstructed_points, key=lambda x: abs((x["timestamp"] - target_ts).total_seconds()))
-                            if abs((best_match["timestamp"] - target_ts).total_seconds()) < 7200:
+                            if abs((best_match["timestamp"] - target_ts).total_seconds()) < 1800:
                                 sampled_trend.insert(0, {
                                     "timestamp": format_iso8601(best_match["timestamp"]),
                                     "price": best_match["price"],
@@ -208,7 +206,7 @@ class MarketTerminalService:
                         self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
                         return sampled_trend
             except Exception as e:
-                logger.error(f"❌ Gold 4h history fetch failed: {e}")
+                logger.error(f"❌ Gold 30m history fetch failed: {e}")
 
         # --- 1d: 使用 Sina DailyKLine (日线) ---
         elif granularity == "1d":
