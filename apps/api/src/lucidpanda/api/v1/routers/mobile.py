@@ -735,7 +735,8 @@ async def _generate_gold_forecast_intl(
     macro_events_text: str = "",
     timechain_context: dict = None,
     market_status: str = "OPEN"
-) -> list[dict]:    """使用 LLM 综合宏观指标、情报及情绪生成伦敦金 (XAU/USD) 价格预测"""
+) -> list[dict]:
+    """使用 LLM 综合宏观指标、情报及情绪生成伦敦金 (XAU/USD) 价格预测"""
     if not history:
         return []
 
