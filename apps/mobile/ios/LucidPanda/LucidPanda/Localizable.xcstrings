@@ -80,6 +80,40 @@
         }
       }
     },
+    "actual_market_beijing_time" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Actual (Beijing Time)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实际行情 (北京时间)"
+          }
+        }
+      }
+    },
+    "ai_prediction_mid" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Prediction Mid"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 预测中枢"
+          }
+        }
+      }
+    },
     "alarm.notification.body %@ %@" : {
       "localizations" : {
         "en" : {
@@ -1626,6 +1660,23 @@
         }
       }
     },
+    "breakout_interval" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Breakout"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "突破区间"
+          }
+        }
+      }
+    },
     "chart.label.sentiment" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2091,6 +2142,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重要"
+          }
+        }
+      }
+    },
+    "confidence_interval" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confidence"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "置信区间"
           }
         }
       }
@@ -5575,6 +5643,23 @@
         }
       }
     },
+    "market.prediction.mode.opening_anticipation" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Market Closed: AI Previewing Opening Gaps"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休市中：AI 正在推演开盘跳空预期"
+          }
+        }
+      }
+    },
     "market.pulse.24h_trend" : {
       "localizations" : {
         "en" : {
@@ -6026,6 +6111,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "估值摘要"
+          }
+        }
+      }
+    },
+    "market.status.closed_label" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CLOSED"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已休市"
           }
         }
       }
