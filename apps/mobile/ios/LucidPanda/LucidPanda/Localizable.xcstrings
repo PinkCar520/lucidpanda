@@ -1,18 +1,11 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "(%@)" : {
+    ": $%@" : {
 
     },
-    "%@: $%@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@: $%2$@"
-          }
-        }
-      }
+    "(%@)" : {
+
     },
     "%@%%" : {
 
@@ -1661,7 +1654,6 @@
       }
     },
     "breakout_interval" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2147,7 +2139,6 @@
       }
     },
     "confidence_interval" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5491,7 +5482,6 @@
       }
     },
     "market.prediction.label.history" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5525,7 +5515,6 @@
       }
     },
     "market.prediction.label.tracking" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5644,7 +5633,6 @@
       }
     },
     "market.prediction.mode.opening_anticipation" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6116,7 +6104,6 @@
       }
     },
     "market.status.closed_label" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

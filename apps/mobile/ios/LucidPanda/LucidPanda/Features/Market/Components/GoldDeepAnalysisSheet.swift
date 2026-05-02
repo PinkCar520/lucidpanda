@@ -77,7 +77,7 @@ public struct GoldDeepAnalysisSheet: View {
                     }
                 }
             }
-            .navigationTitle(String(localized: "gold.prediction.title"))
+            .navigationTitle("gold.prediction.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -117,10 +117,17 @@ public struct GoldDeepAnalysisSheet: View {
                         .contentTransition(.numericText())
                 }
                 
-                Text(isMarketClosed ? String(localized: "market.status.closed_label") : (gold?.formattedChange ?? ""))
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle((gold?.change ?? 0) >= 0 ? Color.Alpha.up : Color.Alpha.down)
-                    .padding(.leading, 12) // Align with price text start (Circle 6 + spacing 6)
+                if isMarketClosed {
+                    Text("market.status.closed_label")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color.Alpha.neutral)
+                        .padding(.leading, 12)
+                } else {
+                    Text(gold?.formattedChange ?? "")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle((gold?.change ?? 0) >= 0 ? Color.Alpha.up : Color.Alpha.down)
+                        .padding(.leading, 12)
+                }
             }
             .onAppear { isTickerAnimating = true }
             
@@ -145,15 +152,15 @@ public struct GoldDeepAnalysisSheet: View {
     
     private var legendView: some View {
         HStack(spacing: 12) {
-            legendItem(name: String(localized: "actual_market_beijing_time"), color: actualLineColor, isDashed: false)
-            legendItem(name: String(localized: "ai_prediction_mid"), color: predictionLineColor, isDashed: true)
+            legendItem(name: "actual_market_beijing_time", color: actualLineColor, isDashed: false)
+            legendItem(name: "ai_prediction_mid", color: predictionLineColor, isDashed: true)
             
             HStack(spacing: 4) {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(predictionLineColor.opacity(0.12))
                     .frame(width: 16, height: 8)
                     .overlay(RoundedRectangle(cornerRadius: 2).stroke(predictionLineColor.opacity(0.3), lineWidth: 0.5))
-                Text(String(localized: "confidence_interval")).font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
+                Text("confidence_interval").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
             
             HStack(spacing: 4) {
@@ -161,7 +168,7 @@ public struct GoldDeepAnalysisSheet: View {
                     .fill(Color.Alpha.up.opacity(0.12))
                     .frame(width: 16, height: 8)
                     .overlay(RoundedRectangle(cornerRadius: 2).stroke(Color.Alpha.up.opacity(0.3), lineWidth: 0.5))
-                Text(String(localized: "breakout_interval")).font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
+                Text("breakout_interval").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -181,7 +188,7 @@ public struct GoldDeepAnalysisSheet: View {
                     .fill(color)
                     .frame(width: 18, height: 2.5)
             }
-            Text(name).font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
+            Text(LocalizedStringKey(name)).font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
         }
     }
 
@@ -192,7 +199,7 @@ public struct GoldDeepAnalysisSheet: View {
                     if data.marketStatus == "CLOSED" {
                         HStack(spacing: 6) {
                             Image(systemName: "moon.stars.fill")
-                            Text(String(localized: "market.prediction.mode.opening_anticipation"))
+                            Text("market.prediction.mode.opening_anticipation")
                         }
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(predictionLineColor)
@@ -527,15 +534,21 @@ public struct GoldDeepAnalysisSheet: View {
             .foregroundStyle(.secondary)
             
             if let a = actual, abs(a.timestamp.timeIntervalSince(date)) < 7200 {
-                Text("\(String(localized: "market.prediction.label.history")): $\(a.price.formatted())")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(actualLineColor)
+                HStack(spacing: 0) {
+                    Text("market.prediction.label.history")
+                    Text(": $\(a.price.formatted())")
+                }
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(actualLineColor)
             }
             
             if let m = mid, abs(m.timestamp.timeIntervalSince(date)) < 7200 {
-                Text("\(String(localized: "market.prediction.label.tracking")): $\(m.price.formatted())")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(predictionLineColor)
+                HStack(spacing: 0) {
+                    Text("market.prediction.label.tracking")
+                    Text(": $\(m.price.formatted())")
+                }
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(predictionLineColor)
             }
         }
         .padding(8)
