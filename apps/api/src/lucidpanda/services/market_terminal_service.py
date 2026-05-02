@@ -17,7 +17,7 @@ class MarketTerminalService:
 
     def __init__(self):
         self._cache = {}
-        self._cache_ttl = 15  # 15 秒缓存
+        self._cache_ttl = 30  # Increase to 30s to reduce backend pressure
 
     def get_market_snapshot(self):
         """
@@ -32,6 +32,18 @@ class MarketTerminalService:
                 return entry["data"]
 
         try:
+            # Parallel fetch or sequential - for now we stick to implementation but with cache protection
+            # Add small random jitter if multiple requests arrive at exact same time with empty cache
+            import time
+            import random
+            time.sleep(random.uniform(0.01, 0.05))
+            
+            # Re-check cache after jitter
+            if "market_snapshot" in self._cache:
+                entry = self._cache["market_snapshot"]
+                if now - entry["timestamp"] < self._cache_ttl:
+                    return entry["data"]
+
             # 并行获取各品种数据
             gold_data = self._fetch_gold()
             gold_cny_data = self._fetch_gold_cny()
@@ -227,14 +239,26 @@ class MarketTerminalService:
         cache_key = f"gold_history_intl_{granularity}"
         if cache_key in self._cache:
             cache_entry = self._cache[cache_key]
-            if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 600:
+            # Increase cache to 15 mins for historical data
+            if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 900:
                 return cache_entry["data"]
+
+        # jitter to avoid synchronized hits
+        import time
+        import random
+        time.sleep(random.uniform(0.1, 0.3))
 
         # --- 优先使用 yfinance：数据更完整，支持 24h 跨天 ---
         try:
-            # 使用 GC=F (COMEX 黄金期货) 或 XAUUSD=X (现货)
-            # 这里的 GC=F 与现有 4h/1d 逻辑保持一致
-            gold = yf.Ticker("GC=F")
+            # Re-check cache after jitter
+            if cache_key in self._cache:
+                cache_entry = self._cache[cache_key]
+                if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 900:
+                    return cache_entry["data"]
+
+            # Alternate between futures and spot to spread out hits if possible
+            ticker_symbol = "GC=F" if random.random() > 0.5 else "XAUUSD=X"
+            gold = yf.Ticker(ticker_symbol)
             
             if granularity == "1h":
                 period, interval = "5d", "1h"

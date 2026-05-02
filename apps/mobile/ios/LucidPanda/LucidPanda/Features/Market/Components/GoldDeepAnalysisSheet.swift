@@ -6,6 +6,7 @@ import Charts
 public struct GoldDeepAnalysisSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) var colorScheme
+    @Environment(AppRootViewModel.self) private var rootViewModel
     @State private var viewModel = GoldDeepAnalysisViewModel()
     @State private var isTickerAnimating = false
     @State private var selectedDate: Date?
@@ -102,6 +103,7 @@ public struct GoldDeepAnalysisSheet: View {
     private var topControlBar: some View {
         HStack(alignment: .bottom) {
             // Left Side: Live Price Data (Vertical Stack)
+            let gold = rootViewModel.marketPulseViewModel.pulseData?.marketSnapshot.gold
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Circle()
@@ -111,14 +113,15 @@ public struct GoldDeepAnalysisSheet: View {
                         .scaleEffect(isTickerAnimating ? 1.1 : 0.8)
                         .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: isTickerAnimating)
                     
-                    Text(viewModel.currentPriceText)
+                    Text(gold != nil ? "$\(String(format: "%.2f", gold!.price))" : "—")
                         .font(.system(size: 20, weight: .bold, design: .monospaced))
                         .foregroundStyle(Color.Alpha.textPrimary)
+                        .contentTransition(.numericText())
                 }
                 
-                Text(viewModel.priceChangeText)
+                Text(gold?.formattedChange ?? "")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(viewModel.isPriceUp ? Color.Alpha.up : Color.Alpha.down)
+                    .foregroundStyle((gold?.change ?? 0) >= 0 ? Color.Alpha.up : Color.Alpha.down)
                     .padding(.leading, 12) // Align with price text start (Circle 6 + spacing 6)
             }
             .onAppear { isTickerAnimating = true }

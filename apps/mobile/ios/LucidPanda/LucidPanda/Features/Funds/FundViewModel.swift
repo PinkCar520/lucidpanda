@@ -223,6 +223,8 @@ class FundViewModel {
     // MARK: - Fetch Data
     
     func fetchWatchlist() async {
+        guard !isLoading else { return }
+        
         // --- 核心优化：Offline-First (离线优先/极速渲染) ---
         // 首次打开或者当内存为空时，立刻提取 SwiftData 进行瞬间渲染（0延迟），之后再等待网络刷新。彻底告别首次启动白屏！
         if self.watchlistItems.isEmpty {

@@ -10,7 +10,6 @@ public class GoldDeepAnalysisViewModel {
     private let apiClient = APIClient.shared
     
     public var predictionData: GoldPredictionResponse?
-    public var marketSnapshot: MarketSnapshot?
     public var isLoading = false
     public var selectedGranularity: String = "1h"
     
@@ -22,32 +21,13 @@ public class GoldDeepAnalysisViewModel {
     public var targetPrice: Double = 0
     public var predictedAtText: String = "—"
     
-    // Header Info
-    public var currentPriceText: String = "—"
-    public var priceChangeText: String = ""
-    public var isPriceUp: Bool = true
-
     // Task Management
     private var predictionFetchTask: Task<Void, Never>?
     
     public init() {}
     
     public func fetchInitialData() async {
-        // Run them in parallel but they are independent
-        async let marketTask: Void = fetchMarketData()
-        async let predictionTask: Void = fetchPrediction(forceRefresh: false)
-        _ = await (marketTask, predictionTask)
-    }
-    
-    public func fetchMarketData() async {
-        do {
-            let snapshot: MarketSnapshot = try await apiClient.fetch(path: "/api/v1/mobile/market/snapshot")
-            self.marketSnapshot = snapshot
-            updateHeader(with: snapshot)
-        } catch {
-            if isCancelledError(error) { return }
-            print("Failed to fetch gold market snapshot: \(error)")
-        }
+        await fetchPrediction(forceRefresh: false)
     }
     
     public func fetchPrediction(forceRefresh: Bool = false) async {
@@ -114,13 +94,6 @@ public class GoldDeepAnalysisViewModel {
         if nsError.domain == NSURLErrorDomain && nsError.code == -999 { return true }
         if nsError.domain == NSURLErrorDomain && nsError.code == URLError.cancelled.rawValue { return true }
         return false
-    }
-    
-    private func updateHeader(with snapshot: MarketSnapshot) {
-        let gold = snapshot.gold
-        self.currentPriceText = "$\(gold.price.formatted())"
-        self.priceChangeText = gold.formattedChange
-        self.isPriceUp = gold.change >= 0
     }
     
     private func calculateMetrics(from data: GoldPredictionResponse) {
