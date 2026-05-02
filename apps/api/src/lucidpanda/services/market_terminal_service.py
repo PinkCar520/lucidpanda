@@ -383,59 +383,74 @@ class MarketTerminalService:
         return None
 
     def _fetch_us10y(self):
-        """获取美债 10 年期收益率数据（AkShare / 新浪财经 TB10Y）"""
+        """获取美债 10 年期收益率数据（使用 Sina globalbd_us10yt 或 AkShare）"""
+        # 1. 尝试新浪 globalbd_us10yt (美国10年期国债收益率 - 高可靠源)
         try:
-            url = "https://hq.sinajs.cn/list=TB10Y"
+            url = "https://hq.sinajs.cn/list=globalbd_us10yt"
             resp = requests.get(
-                url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"}
+                url, timeout=5, headers={"Referer": "https://finance.sina.com.cn/"}
             )
             raw = resp.text
-            if '="' in raw and len(raw.split('"')[1].split(",")) > 5:
-                # 债券格式: ['债券名称', '最新价', '涨跌幅', '昨收', '最高', '最低']
-                parts = raw.split('"')[1].split(",")
-                current = float(parts[1])
-                change_pct = float(parts[2])
-                prev_close = float(parts[3])
-
-                return {
-                    "symbol": "US10Y",
-                    "name": "美债 10Y",
-                    "price": round(current, 3),
-                    "change": round(current - prev_close, 3),
-                    "changePercent": round(change_pct, 2),
-                    "high_24h": float(parts[4]) if float(parts[4]) > 0 else None,
-                    "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
-                    "open": prev_close,
-                    "previous_close": prev_close,
-                    "timestamp": format_iso8601(datetime.now()),
-                }
-        except Exception as e:
-            logger.error(f"Failed to fetch US10Y data from Sina: {e}")
-
-        try:
-            # Fallback to AkShare
-            df = ak.bond_zh_us_rate()
-            if df is not None and not df.empty:
-                rate_col = next((c for c in df.columns if "10" in c), None)
-                if rate_col and len(df) > 1:
-                    current = round(float(df.iloc[-1][rate_col]), 3)
-                    prev_close = round(float(df.iloc[-2][rate_col]), 3)
-                    change = current - prev_close
-                    change_pct = (change / prev_close) * 100 if prev_close > 0 else 0.0
+            if '="' in raw:
+                # 格式: 名称, 最新价, 卖出价, 买入价, 最高, 最低, 涨跌额, 涨跌幅, ..., 日期, 时间, ...
+                content = raw.split('"')[1]
+                parts = content.split(",")
+                if len(parts) >= 14:
+                    current = float(parts[1])
+                    prev_close = float(parts[2])  # 这里的第二项通常是基准价/昨收
+                    
                     return {
                         "symbol": "US10Y",
                         "name": "美债 10Y",
-                        "price": current,
-                        "change": round(change, 3),
-                        "changePercent": round(change_pct, 2),
-                        "high_24h": None,
-                        "low_24h": None,
-                        "open": current,
+                        "price": round(current, 3),
+                        "change": round(current - prev_close, 3),
+                        "changePercent": round(((current - prev_close) / prev_close * 100) if prev_close > 0 else 0.0, 2),
+                        "high_24h": float(parts[4]) if float(parts[4]) > 0 else None,
+                        "low_24h": float(parts[5]) if float(parts[5]) > 0 else None,
+                        "open": prev_close,
                         "previous_close": prev_close,
                         "timestamp": format_iso8601(datetime.now()),
                     }
         except Exception as e:
+            logger.warning(f"Sina globalbd_us10yt failed: {e}")
+
+        # 2. 尝试 AkShare (准确但稍慢)
+        try:
+            df = ak.bond_zh_us_rate()
+            if df is not None and not df.empty:
+                # 核心修复：精准匹配“美国”和“10年”收益率列，避开中国国债或利差列
+                rate_col = next((c for c in df.columns if "美国" in c and "10年" in c and "收益率" in c and "-" not in c), None)
+                if not rate_col:
+                    # 备选匹配：英文环境或其它命名习惯
+                    rate_col = next((c for c in df.columns if "US" in c and "10" in c and "Yield" in c), None)
+                
+                if rate_col:
+                    # 寻找最后一个非空值
+                    valid_data = df[df[rate_col].notna()]
+                    if not valid_data.empty:
+                        last_row = valid_data.iloc[-1]
+                        current = float(last_row[rate_col])
+                        
+                        # 获取前一天的值计算涨跌
+                        prev_close = current
+                        if len(valid_data) > 1:
+                            prev_close = float(valid_data.iloc[-2][rate_col])
+                        
+                        return {
+                            "symbol": "US10Y",
+                            "name": "美债 10Y",
+                            "price": round(current, 3),
+                            "change": round(current - prev_close, 3),
+                            "changePercent": round(((current - prev_close) / prev_close * 100) if prev_close > 0 else 0.0, 2),
+                            "high_24h": None,
+                            "low_24h": None,
+                            "open": prev_close,
+                            "previous_close": prev_close,
+                            "timestamp": format_iso8601(datetime.now()),
+                        }
+        except Exception as e:
             logger.error(f"Failed to fetch US10Y data fallback: {e}")
+            
         return None
 
     def _fetch_shanghai_index(self):
