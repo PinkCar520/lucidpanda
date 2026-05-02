@@ -196,7 +196,8 @@ public struct GoldDeepAnalysisSheet: View {
         Group {
             if let data = viewModel.predictionData {
                 VStack(spacing: 12) {
-                    if data.marketStatus == "CLOSED" {
+                    let granularity = data.granularity ?? "1h"
+                    if data.marketStatus == "CLOSED" && granularity != "1h" {
                         HStack(spacing: 6) {
                             Image(systemName: "moon.stars.fill")
                             Text("market.prediction.mode.opening_anticipation")
@@ -575,38 +576,44 @@ public struct GoldDeepAnalysisSheet: View {
         let unitLabel = granularity == "1d" ? "d" : "h"
         let relativeLabel = offsets == 0 ? String(localized: "market.prediction.label.pivot") : "\(offsets > 0 ? "+" : "")\(offsets)\(unitLabel)"
         
-        return VStack(alignment: .leading, spacing: 4) {
+        return VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(formatBeijingTime(snapDate, useDay: granularity == "1d"))
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                 Text("(\(relativeLabel))")
                     .font(.system(size: 10))
             }
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.Alpha.textSecondary)
             
             if let a = actual, abs(a.timestamp.timeIntervalSince(date)) < 7200 {
-                HStack(spacing: 0) {
+                HStack(spacing: 4) {
                     Text("market.prediction.label.history")
-                    Text(": $\(a.price.formatted())")
+                    Text("$\(a.price.formatted())")
                 }
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 .foregroundStyle(actualLineColor)
             }
             
             if let m = mid, abs(m.timestamp.timeIntervalSince(date)) < 7200 {
-                HStack(spacing: 0) {
+                HStack(spacing: 4) {
                     Text("market.prediction.label.tracking")
-                    Text(": $\(m.price.formatted())")
+                    Text("$\(m.price.formatted())")
                 }
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 .foregroundStyle(predictionLineColor)
             }
         }
-        .padding(8)
-        .background(Color.Alpha.surface.opacity(0.95))
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.Alpha.separator, lineWidth: 1))
-        .shadow(color: .black.opacity(0.15), radius: 4)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.Alpha.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(colorScheme == .dark ? Color(hex: "#2D2D2D") : Color.Alpha.separator, lineWidth: 1)
+        )
+        .shadow(color: colorScheme == .light ? Color.black.opacity(0.05) : Color.clear, radius: 2, y: 1)
         .padding(10)
     }
     
