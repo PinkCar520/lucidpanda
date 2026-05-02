@@ -5852,6 +5852,7 @@
       }
     },
     "market.pulse.trend.actual" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5868,6 +5869,7 @@
       }
     },
     "market.pulse.trend.forecast" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

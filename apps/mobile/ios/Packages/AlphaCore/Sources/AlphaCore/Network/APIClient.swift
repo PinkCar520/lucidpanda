@@ -45,7 +45,7 @@ public actor APIClient {
     private static let defaultBaseURLString = "http://43.139.108.187:8001"
     #endif
 
-    public let baseURL: URL = {
+    nonisolated public var baseURL: URL {
         let envOverride = ProcessInfo.processInfo.environment["LUCIDPANDA_API_BASE_URL"]
             ?? ProcessInfo.processInfo.environment["API_BASE_URL"]
         let plistOverride = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
@@ -56,8 +56,8 @@ public actor APIClient {
             return url
         }
 
-        return URL(string: defaultBaseURLString)!
-    }()
+        return URL(string: Self.defaultBaseURLString)!
+    }
 
     public func authRequest<T: Decodable>(path: String, formData: [String: String]) async throws -> T {
         guard let url = URL(string: path, relativeTo: baseURL) else { throw APIError.invalidURL }

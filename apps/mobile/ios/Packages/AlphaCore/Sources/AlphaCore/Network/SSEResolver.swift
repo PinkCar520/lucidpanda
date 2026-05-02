@@ -24,7 +24,7 @@ public actor SSEResolver {
             config.timeoutIntervalForResource = 3600
             
             let session = URLSession(configuration: config)
-            Task { await self.registerSession(session, for: streamID) }
+            self.registerSession(session, for: streamID)
             
             var request = URLRequest(url: url)
             if let token = token {
@@ -56,11 +56,11 @@ public actor SSEResolver {
                 } catch {
                     if self.isCancelledError(error) {
                         continuation.finish()
-                        await self.stop(streamID: streamID)
+                        self.stop(streamID: streamID)
                         return
                     }
                     logger.error("❌ SSE Stream error: \(error.localizedDescription)")
-                    await self.stop(streamID: streamID)
+                    self.stop(streamID: streamID)
                     continuation.finish(throwing: error)
                 }
             }

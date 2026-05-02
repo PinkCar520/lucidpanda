@@ -50,7 +50,7 @@ public struct GoldDeepAnalysisSheet: View {
     public var body: some View {
         NavigationStack {
             ZStack {
-                Color.Alpha.background.ignoresSafeArea()
+//                Color.Alpha.background.ignoresSafeArea()
                 
                 if viewModel.isLoading && viewModel.predictionData == nil {
                     ProgressView().tint(Color.Alpha.brand)
@@ -563,18 +563,17 @@ public struct GoldDeepAnalysisSheet: View {
     }
     
     private func metricCard(label: String, value: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(LocalizedStringKey(label))
-                .font(.system(size: 11))
-                .foregroundStyle(Color.Alpha.textSecondary)
-            
-            Text(value)
-                .font(.system(size: 20, weight: .bold, design: .monospaced))
-                .foregroundStyle(color)
+        LiquidGlassCard(backgroundColor: Color.primary.opacity(0.03)) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(LocalizedStringKey(label))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+                
+                Text(value)
+                    .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(color)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(Color.Alpha.surfaceContainerLow)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

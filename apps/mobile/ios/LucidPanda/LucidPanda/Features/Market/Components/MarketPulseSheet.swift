@@ -167,127 +167,8 @@ struct MarketPulseSheet: View {
             .frame(height: 20)
             .padding(.horizontal, 40)
             
-            // 4. 黄金走势图 (24h + AI 预测)
-            if let trend = data.goldTrend, !trend.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Label("market.pulse.gold_trend_24h_ai", systemImage: "sparkles")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.secondary)
-                        
-                        Spacer()
-                        
-                        HStack(spacing: 12) {
-                            HStack(spacing: 4) {
-                                Circle().fill(Color.Alpha.up).frame(width: 6, height: 6)
-                                Text("market.pulse.trend.actual").font(.system(size: 9)).foregroundStyle(.secondary)
-                            }
-                            HStack(spacing: 4) {
-                                Circle().stroke(Color.Alpha.up, style: StrokeStyle(lineWidth: 1, dash: [2, 2])).frame(width: 6, height: 6)
-                                Text("market.pulse.trend.forecast").font(.system(size: 9)).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    
-                    let prices = trend.map { $0.price }
-                    let minPrice = prices.min() ?? 0
-                    let maxPrice = prices.max() ?? 1000
-                    let priceRange = maxPrice - minPrice
-                    let yMin = minPrice - (priceRange * 0.2)
-                    let yMax = maxPrice + (priceRange * 0.2)
-                    
-                    let actualData = trend.filter { !$0.isForecast }
-                    let forecastData = trend.filter { $0.isForecast }
-                    
-                    // 设计逻辑升级：
-                    // 1. 枢轴点 (Pivot)：AI 开始预测的时间点（即训练数据的终点）。
-                    // 2. 50% 刻度：始终对齐到 Pivot。
-                    // 3. 左侧 (0-50%)：展示 Pivot 之前的历史（纯实线）。
-                    // 4. 右侧 (50-100%)：展示 Pivot 之后的走势（实线+虚线重叠，用于验证 AI）。
-                    
-                    let pivotPoint = forecastData.first ?? trend.last
-                    let pivotTime = pivotPoint?.timestamp ?? Date()
-                    
-                    // X 轴范围：Pivot 往前 12h，往后 12h
-                    let startTime = pivotTime.addingTimeInterval(-12 * 3600)
-                    let endTime = pivotTime.addingTimeInterval(12 * 3600)
-                    
-                    let normalizedTrend: [NormalizedGoldPoint] = trend.compactMap { p in
-                        let x: Double
-                        if p.timestamp <= pivotTime {
-                            let duration = pivotTime.timeIntervalSince(startTime)
-                            guard duration > 0 else { return nil }
-                            x = 0.5 * (p.timestamp.timeIntervalSince(startTime) / duration)
-                        } else {
-                            let duration = endTime.timeIntervalSince(pivotTime)
-                            guard duration > 0 else { return nil }
-                            x = 0.5 + 0.5 * (p.timestamp.timeIntervalSince(pivotTime) / duration)
-                        }
-                        // 过滤掉超出 0.0-1.0 范围的点，保证布局纯净
-                        guard x >= 0 && x <= 1.0 else { return nil }
-                        return NormalizedGoldPoint(id: p.timestamp, price: p.price, x: x, isForecast: p.isForecast)
-                    }
-                    
-                    let normalizedActual = normalizedTrend.filter { !$0.isForecast }
-                    let normalizedForecast = normalizedTrend.filter { $0.isForecast }
-                    
-                    Chart {
-                        // 1. 底层：AI 预测参考线 (影子线，品牌色虚线，从 50% 开始)
-                        ForEach(normalizedForecast) { point in
-                            LineMark(
-                                x: .value("chart.label.time", point.x),
-                                y: .value("chart.label.price", point.price),
-                                series: .value("Type", "Forecast")
-                            )
-                            .interpolationMethod(.catmullRom)
-                            .foregroundStyle(Color.Alpha.brand.opacity(0.45))
-                            .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
-                            
-                            PointMark(
-                                x: .value("chart.label.time", point.x),
-                                y: .value("chart.label.price", point.price)
-                            )
-                            .symbolSize(8)
-                            .foregroundStyle(Color.Alpha.brand.opacity(0.6))
-                        }
-                        
-                        // 2. 顶层：实际价格走势 (加粗实线，贯穿全图/或到当前)
-                        ForEach(normalizedActual) { point in
-                            LineMark(
-                                x: .value("chart.label.time", point.x),
-                                y: .value("chart.label.price", point.price),
-                                series: .value("Type", "Actual")
-                            )
-                            .interpolationMethod(.catmullRom)
-                            .foregroundStyle(Color.Alpha.up)
-                            .lineStyle(StrokeStyle(lineWidth: 2.2))
-                            
-                            AreaMark(
-                                x: .value("chart.label.time", point.x),
-                                y: .value("chart.label.price", point.price),
-                                series: .value("Type", "Actual")
-                            )
-                            .interpolationMethod(.catmullRom)
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [Color.Alpha.up.opacity(0.12), .clear],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                        }
-                    }
-                    .chartXScale(domain: 0.0...1.0)
-                    .chartYScale(domain: yMin...yMax)
-                    .chartXAxis(Visibility.hidden)
-                    .chartYAxis(Visibility.hidden)
-                    .frame(height: 50)
-                    .clipped()
-                }
-                .padding(.horizontal, 30)
-                .padding(.top, 12)
-            } else if let trend = data.sentimentTrend, !trend.isEmpty {
-                // Fallback to sentiment trend if gold trend is unavailable
+            // 4. 情绪走势图 (24h)
+            if let trend = data.sentimentTrend, !trend.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("market.pulse.24h_trend")
                         .font(.system(size: 10, weight: .medium))
@@ -325,11 +206,11 @@ struct MarketPulseSheet: View {
                     .chartYScale(domain: -1.0...1.0)
                     .chartXAxis(Visibility.hidden)
                     .chartYAxis(Visibility.hidden)
-                    .frame(height: 40)
+                    .frame(height: 50)
                     .clipped()
                 }
                 .padding(.horizontal, 30)
-                .padding(.top, 8)
+                .padding(.top, 12)
             }
         }
     }
