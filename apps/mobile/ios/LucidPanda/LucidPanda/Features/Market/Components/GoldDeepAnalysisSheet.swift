@@ -136,7 +136,7 @@ public struct GoldDeepAnalysisSheet: View {
             // Right Side: Action Stack
             VStack(alignment: .trailing, spacing: 8) {
                 Picker("", selection: $viewModel.selectedGranularity) {
-                    Text("1H").tag("1h")
+                    Text("分时").tag("1h")
                     Text("30M").tag("30m")
                     Text("1D").tag("1d")
                 }
