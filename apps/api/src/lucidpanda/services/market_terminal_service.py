@@ -177,49 +177,9 @@ class MarketTerminalService:
                 logger.warning(f"⚠️ Sina Futures gold history failed: {e}")
 
         if not trend:
-            # --- 第三重：yfinance (国际金走势) ---
-            # 在国内休市或数据异常时，这是最可靠的实时源
-            try:
-                import yfinance as yf
-                import time
-                import random
-
-                # 如果之前有过 Rate Limit 报错，这里加一个随机微小延迟避开并发冲突
-                time.sleep(random.uniform(0.1, 0.5))
-
-                gold = yf.Ticker("GC=F")
-                # 再次尝试，增加重试逻辑
-                df = None
-                for attempt in range(2):
-                    try:
-                        df = gold.history(period="3d", interval="1h", timeout=10)
-                        if df is not None and not df.empty:
-                            break
-                    except Exception:
-                        if attempt == 0: time.sleep(1)
-
-                if df is not None and not df.empty:
-                    recent = df.tail(24)
-                    current_spot = self._fetch_gold_cny()
-                    current_price = current_spot.get("price", 0) if current_spot else 0
-
-                    scale_factor = 0.128 
-                    if current_price > 0:
-                        last_intl = float(recent.iloc[-1]["Close"])
-                        if last_intl > 0:
-                            scale_factor = current_price / last_intl
-
-                    raw_trend = []
-                    for ts, row in recent.iterrows():
-                        raw_trend.append({
-                            "timestamp": format_iso8601(ts),
-                            "price": round(float(row["Close"]) * scale_factor, 2),
-                            "is_forecast": False
-                        })
-                    trend = raw_trend
-
-            except Exception as e:
-                logger.error(f"❌ Ultimate gold history fallback failed: {e}")
+            # --- 第三重：Sina 国际金分时数据 ---
+            # 统一使用 get_gold_history_intl_custom("1h") 的结果作为兜底
+            trend = self.get_gold_history_intl_custom("1h")
 
         if trend:
             self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
@@ -228,93 +188,21 @@ class MarketTerminalService:
     def get_gold_history_intl_custom(self, granularity: str = "1h"):
         """
         获取国际金价走势，支持不同粒度的深度定制。
-        1h: 最近 24 小时 (优先 yfinance 以覆盖跨天数据)
-        4h: 最近 4-5 天 (yfinance)
-        1d: 最近一周 (yfinance)
+        1h: 最近 24 小时 (Sina MinLine)
+        4h: 最近 4-5 天 (Sina 5MLine)
+        1d: 最近几周 (Sina DailyKLine)
         """
         import requests
         from zoneinfo import ZoneInfo
-        import yfinance as yf
+        from datetime import datetime, timedelta
         
         cache_key = f"gold_history_intl_{granularity}"
         if cache_key in self._cache:
             cache_entry = self._cache[cache_key]
-            # Increase cache to 15 mins for historical data
             if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 900:
                 return cache_entry["data"]
 
-        # jitter to avoid synchronized hits
-        import time
-        import random
-        time.sleep(random.uniform(0.1, 0.3))
-
-        # --- 优先使用 yfinance：数据更完整，支持 24h 跨天 ---
-        try:
-            # Re-check cache after jitter
-            if cache_key in self._cache:
-                cache_entry = self._cache[cache_key]
-                if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 900:
-                    return cache_entry["data"]
-
-            # Alternate between futures and spot to spread out hits if possible
-            ticker_symbol = "GC=F" if random.random() > 0.5 else "XAUUSD=X"
-            gold = yf.Ticker(ticker_symbol)
-            
-            if granularity == "1h":
-                period, interval = "5d", "1h"
-            elif granularity == "4h":
-                period, interval = "1mo", "1h"
-            else: # 1d
-                period, interval = "1mo", "1d"
-            
-            df = gold.history(period=period, interval=interval, timeout=10)
-            if df is not None and not df.empty:
-                # 计算与现货的价差偏移量 (Offset)
-                # 伦敦金现货与期货 GC=F 存在几美金的价差，我们需要平移历史线以对齐当前现货价
-                current_spot = self._fetch_gold()
-                current_spot_price = current_spot.get("price", 0) if current_spot else 0
-                
-                price_offset = 0.0
-                if current_spot_price > 0:
-                    last_yf_price = float(df.iloc[-1]["Close"])
-                    price_offset = current_spot_price - last_yf_price
-
-                trend = []
-                if granularity == "1h":
-                    # 直接取最后 24 个点
-                    recent = df.tail(24)
-                    for ts, row in recent.iterrows():
-                        trend.append({
-                            "timestamp": format_iso8601(ts),
-                            "price": round(float(row["Close"]) + price_offset, 2),
-                            "is_forecast": False
-                        })
-                elif granularity == "4h":
-                    # 采样：每 4 小时取一个点，共取 24 个
-                    raw_data = df.tail(100)
-                    for i in range(len(raw_data) - 1, max(-1, len(raw_data) - 1 - (24 * 4)), -4):
-                        row = raw_data.iloc[i]
-                        trend.insert(0, {
-                            "timestamp": format_iso8601(raw_data.index[i]),
-                            "price": round(float(row["Close"]) + price_offset, 2),
-                            "is_forecast": False
-                        })
-                else: # 1d
-                    recent_week = df.tail(10)
-                    for ts, row in recent_week.iterrows():
-                        trend.append({
-                            "timestamp": format_iso8601(ts),
-                            "price": round(float(row["Close"]) + price_offset, 2),
-                            "is_forecast": False
-                        })
-                
-                if trend:
-                    self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
-                    return trend
-        except Exception as e:
-            logger.warning(f"⚠️ yfinance failed for gold history {granularity}: {e}, falling back to Sina...")
-
-        # --- Fallback: Sina 仅支持 1h 且仅限今日数据 ---
+        # --- 1h: 使用 Sina MinLine (1分钟线) ---
         if granularity == "1h":
             try:
                 url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
@@ -330,7 +218,6 @@ class MarketTerminalService:
                             price = p[1]
                             if ts_str and price:
                                 try:
-                                    # 显式使用 Asia/Shanghai，format_iso8601 会将其转为 UTC
                                     ts_obj = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
                                     point_map[ts_obj] = round(float(price), 2)
                                 except Exception: continue
@@ -361,7 +248,81 @@ class MarketTerminalService:
                             self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
                             return sampled_trend
             except Exception as e:
-                logger.error(f"❌ All gold history sources failed: {e}")
+                logger.error(f"❌ Gold 1h history fetch failed: {e}")
+
+        # --- 4h: 使用 Sina 5MLine (5分钟线) ---
+        elif granularity == "4h":
+            try:
+                url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFutures5MLine?symbol=XAU"
+                resp = requests.get(url, timeout=10)
+                data = resp.json()
+                if data and "XAU" in data:
+                    all_days = data["XAU"]
+                    reconstructed_points = []
+                    for day_data in all_days:
+                        if not day_data: continue
+                        current_date_str = day_data[0][0]
+                        for i, p in enumerate(day_data):
+                            try:
+                                if i == 0:
+                                    time_str = p[2]
+                                    price = p[1]
+                                else:
+                                    time_str = p[0]
+                                    price = p[1]
+                                
+                                full_ts_str = f"{current_date_str} {time_str}:00"
+                                ts_obj = datetime.strptime(full_ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                                reconstructed_points.append({
+                                    "timestamp": ts_obj,
+                                    "price": round(float(price), 2)
+                                })
+                            except Exception: continue
+                    
+                    reconstructed_points.sort(key=lambda x: x["timestamp"])
+                    sampled_trend = []
+                    if reconstructed_points:
+                        last_ts = reconstructed_points[-1]["timestamp"]
+                        for i in range(30):
+                            target_ts = last_ts - timedelta(hours=i*4)
+                            best_match = min(reconstructed_points, key=lambda x: abs((x["timestamp"] - target_ts).total_seconds()))
+                            if abs((best_match["timestamp"] - target_ts).total_seconds()) < 7200:
+                                sampled_trend.insert(0, {
+                                    "timestamp": format_iso8601(best_match["timestamp"]),
+                                    "price": best_match["price"],
+                                    "is_forecast": False
+                                })
+                    
+                    if sampled_trend:
+                        self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
+                        return sampled_trend
+            except Exception as e:
+                logger.error(f"❌ Gold 4h history fetch failed: {e}")
+
+        # --- 1d: 使用 Sina DailyKLine (日线) ---
+        elif granularity == "1d":
+            try:
+                url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=XAU"
+                resp = requests.get(url, timeout=10)
+                data = resp.json()
+                if data and isinstance(data, list):
+                    recent = data[-30:]
+                    trend = []
+                    for item in recent:
+                        try:
+                            ts_obj = datetime.strptime(item["date"], "%Y-%m-%d").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                            trend.append({
+                                "timestamp": format_iso8601(ts_obj),
+                                "price": round(float(item["close"]), 2),
+                                "is_forecast": False
+                            })
+                        except Exception: continue
+                    
+                    if trend:
+                        self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
+                        return trend
+            except Exception as e:
+                logger.error(f"❌ Gold 1d history fetch failed: {e}")
 
         return []
 

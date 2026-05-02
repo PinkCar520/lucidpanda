@@ -66,10 +66,7 @@ public struct GoldDeepAnalysisSheet: View {
                             // 3. Main Chart
                             mainChartSection
                             
-                            // 4. Timeline Markers
-                            timelineLabels
-                            
-                            // 5. Metric Cards
+                            // 4. Metric Cards
                             metricCardsGrid
                             
                             Spacer(minLength: 40)
@@ -552,18 +549,6 @@ public struct GoldDeepAnalysisSheet: View {
         .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.Alpha.separator, lineWidth: 1))
         .shadow(color: .black.opacity(0.15), radius: 4)
         .padding(10)
-    }
-    
-    private var timelineLabels: some View {
-        HStack {
-            Text(LocalizedStringKey("market.prediction.label.history"))
-            Spacer()
-            Text(LocalizedStringKey("market.prediction.label.pivot"))
-            Spacer()
-            Text(LocalizedStringKey("market.prediction.label.tracking"))
-        }
-        .font(.system(size: 11))
-        .foregroundStyle(Color.Alpha.textSecondary.opacity(0.6))
     }
     
     private var metricCardsGrid: some View {
