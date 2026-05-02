@@ -252,12 +252,11 @@ public struct GoldDeepAnalysisSheet: View {
                         // 交易日终点 (次日 05:00)
                         let end = calendar.date(byAdding: .hour, value: 23, to: start)!
                         
-                        let allDates = data.history.map { $0.timestamp } + data.prediction.mid.map { $0.timestamp }
-                        let minDate = allDates.min() ?? start
-                        let maxDate = allDates.max() ?? end
+                        let historyDates = data.history.map { $0.timestamp }
+                        let minDate = historyDates.min() ?? start
                         
-                        // 允许 Domain 略微超出 end 以显示完整的预测尾部，但保持 end 作为主要参考
-                        return min(start, minDate)...max(end, maxDate)
+                        // 锁定 Domain：从开始节点到 23 小时后的结束节点，确保图表比例一致且不溢出
+                        return min(start, minDate)...end
                     }
                     return (data.history.first?.timestamp ?? .distantPast)...(data.prediction.mid.last?.timestamp ?? .distantFuture)
                 }())
@@ -284,6 +283,7 @@ public struct GoldDeepAnalysisSheet: View {
                     }
                 }
                 .frame(height: 300)
+                .clipped()
             }
         }
     }

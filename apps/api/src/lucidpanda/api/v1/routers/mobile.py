@@ -590,7 +590,7 @@ async def get_gold_prediction(
         })
 
     # 2. Determine Pivot (IssuedAt)
-    # 我们需要至少 1 个历史点位作为基准价。
+    # 我们以历史数据的最后一个点作为预测的起点（枢轴点），确保预测紧跟实时行情。
     if not history_full:
         return v1_prepare_json({
             "history": [],
@@ -598,9 +598,8 @@ async def get_gold_prediction(
             "generatedAt": format_iso8601(datetime.now(UTC))
         })
 
-    # 尽量取倒数第 10 个点作为切分点，如果历史不足 10 个点，就取第 1 个点
-    issued_index = max(0, len(history_full) - 10)
-    history_training = history_full[:issued_index]
+    issued_index = len(history_full) - 1
+    history_training = history_full
     issued_at = history_full[issued_index]["timestamp"]
     base_price = history_full[issued_index]["price"] # 确定真实的基准价格
 
