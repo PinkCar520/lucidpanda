@@ -74,112 +74,19 @@ class MarketTerminalService:
     def get_gold_history_24h(self):
         """
         获取金价走势（24h 小时线）。
-        采用三重保障方案：东方财富原生现货 -> 国内期货锚定 -> 国际金汇率换算。
-        利用 MarketCalendar 智能判断数据时效性。
+        统一以国际伦敦金 (XAU) 为基准，确保与顶部报价一致。
         """
-        from src.lucidpanda.utils.market_calendar import get_market_status
-        from zoneinfo import ZoneInfo
-
-        now_utc = datetime.now().astimezone(ZoneInfo("UTC"))
         cache_key = "gold_history_24h"
 
-        # 1. 检查有效缓存 (30秒 - 确保与快照同步)
+        # 1. 检查有效缓存 (30秒 - 紧跟实时报价)
         if cache_key in self._cache:
             cache_entry = self._cache[cache_key]
             if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 30:
                 return cache_entry["data"]
 
-        # 获取当前各市场状态
-        cn_status = get_market_status("CN")
-        gold_status = get_market_status("GOLD")
-
-        # 定义时区
-        tz_sh = ZoneInfo("Asia/Shanghai")
-
-        trend = []
-
-        # --- 第一重：东方财富 (原生上海金现货) ---
-        # 仅在 A 股/上海金交易时段或刚收盘时作为首选
-        try:
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                "Referer": "https://quote.eastmoney.com/center/gridlist.html"
-            }
-            url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=118.AU9999&ut=fa5fd1943c7b386f172d6893dbf24410&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56&klt=60&fqt=1&end=20500101&lmt=48"
-            resp = requests.get(url, headers=headers, timeout=5)
-            data = resp.json()
-
-            if data and data.get("data") and "klines" in data["data"]:
-                klines = data["data"]["klines"]
-                raw_trend = []
-                for item in klines:
-                    parts = item.split(",")
-                    if len(parts) >= 6:
-                        try:
-                            # 东方财富返回的是北京时间
-                            ts_local = datetime.strptime(parts[0], "%Y-%m-%d %H:%M").replace(tzinfo=tz_sh)
-                            raw_trend.append({
-                                "timestamp": format_iso8601(ts_local),
-                                "price": round(float(parts[2]), 2),
-                                "is_forecast": False
-                            })
-                        except Exception: continue
-
-                if raw_trend:
-                    last_ts_utc = ts_local.astimezone(ZoneInfo("UTC"))
-                    # 动态阈值：开市要求 1.5h 内，休市要求 7天 内（覆盖周末和长假）
-                    threshold = 5400 if cn_status != "CLOSED" else 7 * 86400
-                    if (now_utc - last_ts_utc).total_seconds() < threshold:
-                        logger.info(f"✅ Gold history fetched via EastMoney (Market: {cn_status})")
-                        trend = raw_trend[-24:]
-                    else:
-                        logger.warning(f"⚠️ EastMoney data too old: {last_ts_utc.isoformat()}, fallback...")
-        except Exception as e:
-            logger.warning(f"⚠️ EastMoney gold history failed: {e}")
-
-        if not trend:
-            # --- 第二重：国内黄金期货 (au0) 形状锚定 ---
-            try:
-                df = ak.futures_zh_minute_sina(symbol="au0", period="60")
-                if df is not None and not df.empty:
-                    recent = df.tail(24)
-                    current_spot = self._fetch_gold_cny()
-                    current_spot_price = current_spot.get("price", 0) if current_spot else 0
-
-                    price_offset = 0.0
-                    if current_spot_price > 0:
-                        last_futures_price = float(recent.iloc[-1]["close"])
-                        price_offset = current_spot_price - last_futures_price
-
-                    raw_trend = []
-                    for _, row in recent.iterrows():
-                        try:
-                            ts_val = row["datetime"]
-                            # 新浪期货分钟线通常也是北京时间
-                            ts_obj = datetime.strptime(ts_val, "%Y-%m-%d %H:%M:%S") if isinstance(ts_val, str) else ts_val
-                            ts_local = ts_obj.replace(tzinfo=tz_sh)
-                            raw_trend.append({
-                                "timestamp": format_iso8601(ts_local),
-                                "price": round(float(row["close"]) + price_offset, 2),
-                                "is_forecast": False
-                            })
-                        except Exception: continue
-
-                    if raw_trend:
-                        last_ts_utc = ts_local.astimezone(ZoneInfo("UTC"))
-                        threshold = 5400 if cn_status != "CLOSED" else 7 * 86400
-                        if (now_utc - last_ts_utc).total_seconds() < threshold:
-                            logger.info(f"✅ Gold history fetched via Sina Futures (Market: {cn_status})")
-                            trend = raw_trend
-                        else:
-                            logger.warning(f"⚠️ Sina Futures data too old: {last_ts_utc.isoformat()}, fallback...")
-            except Exception as e:
-                logger.warning(f"⚠️ Sina Futures gold history failed: {e}")
-
-        if not trend:
-            # --- 第三重：Sina 国际金分时数据 ---
-            # 统一使用 get_gold_history_intl_custom("1h") 的结果作为兜底
-            trend = self.get_gold_history_intl_custom("1h")
+        # 统一使用 get_gold_history_intl_custom("1h") 的结果
+        # 这保证了：顶部数字(hf_XAU) == 走势图末端(Sina XAU) == 2倍国际金价
+        trend = self.get_gold_history_intl_custom("1h")
 
         if trend:
             self._cache[cache_key] = {"data": trend, "timestamp": datetime.now()}
@@ -205,6 +112,7 @@ class MarketTerminalService:
         # --- 1h: 使用 Sina MinLine (1分钟线) ---
         if granularity == "1h":
             try:
+                # Sina 国际金 5 分钟线
                 url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
                 resp = requests.get(url, timeout=10)
                 data = resp.json()
@@ -218,6 +126,7 @@ class MarketTerminalService:
                             price = p[1]
                             if ts_str and price:
                                 try:
+                                    # 显式使用 Asia/Shanghai，format_iso8601 会将其转为 UTC
                                     ts_obj = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
                                     point_map[ts_obj] = round(float(price), 2)
                                 except Exception: continue
@@ -228,6 +137,7 @@ class MarketTerminalService:
                             last_time = sorted_times[-1]
                             for i in range(24):
                                 target_time = last_time - timedelta(hours=i)
+                                # 寻找最接近 target_time 的点
                                 best_match = None
                                 min_diff = 3600
                                 for t in reversed(sorted_times):
@@ -255,12 +165,13 @@ class MarketTerminalService:
             try:
                 url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFutures5MLine?symbol=XAU"
                 resp = requests.get(url, timeout=10)
-                data = resp.json()
+                data = resp.json() # 格式: {"XAU": [ [day1_points], [day2_points] ]}
                 if data and "XAU" in data:
                     all_days = data["XAU"]
                     reconstructed_points = []
                     for day_data in all_days:
                         if not day_data: continue
+                        # 第一个点包含日期: ["2026-04-27", "Price", "06:00", ...]
                         current_date_str = day_data[0][0]
                         for i, p in enumerate(day_data):
                             try:
@@ -268,6 +179,7 @@ class MarketTerminalService:
                                     time_str = p[2]
                                     price = p[1]
                                 else:
+                                    # 后续点格式: ["Time", "Price", "Volume"]
                                     time_str = p[0]
                                     price = p[1]
                                 
@@ -279,12 +191,15 @@ class MarketTerminalService:
                                 })
                             except Exception: continue
                     
+                    # 采样：每 4 小时取一个点
                     reconstructed_points.sort(key=lambda x: x["timestamp"])
                     sampled_trend = []
                     if reconstructed_points:
                         last_ts = reconstructed_points[-1]["timestamp"]
+                        # 取最近 5 天，每 4 小时一个点，共 ~30 个点
                         for i in range(30):
                             target_ts = last_ts - timedelta(hours=i*4)
+                            # 找最接近的点
                             best_match = min(reconstructed_points, key=lambda x: abs((x["timestamp"] - target_ts).total_seconds()))
                             if abs((best_match["timestamp"] - target_ts).total_seconds()) < 7200:
                                 sampled_trend.insert(0, {
@@ -304,12 +219,14 @@ class MarketTerminalService:
             try:
                 url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=XAU"
                 resp = requests.get(url, timeout=10)
-                data = resp.json()
+                data = resp.json() # 格式: [ {"date":"YYYY-MM-DD", "close":"..."}, ... ]
                 if data and isinstance(data, list):
+                    # 取最后 30 天
                     recent = data[-30:]
                     trend = []
                     for item in recent:
                         try:
+                            # 日线通常只有日期，设为 00:00:00
                             ts_obj = datetime.strptime(item["date"], "%Y-%m-%d").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
                             trend.append({
                                 "timestamp": format_iso8601(ts_obj),
