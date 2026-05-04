@@ -483,9 +483,21 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
         })
 
     # 4.5 黄金价格走势 (仅返回真实历史数据，不再在 SSE 流中执行 AI 预测)
-    # get_gold_history_24h returns {"history": [...], "pre_close": float} — extract the list
+    # get_gold_history_24h returns {"history": [...], "pre_close": float} or a raw list
     history_full = await run_in_threadpool(market_terminal_service.get_gold_history_24h)
-    gold_trend = history_full.get("history", []) if isinstance(history_full, dict) else (history_full or [])
+    
+    if isinstance(history_full, dict):
+        gold_trend = history_full.get("history", [])
+    elif isinstance(history_full, list):
+        gold_trend = history_full
+    else:
+        gold_trend = []
+
+    # 确保 gold_trend 里的每一项都是 clean 的字典，且包含必需字段
+    gold_trend = [
+        p for p in gold_trend 
+        if isinstance(p, dict) and "price" in p and "timestamp" in p
+    ]
 
     # 5. 未来 48h 宏观事件
     until_dt = now_dt + timedelta(hours=48)
