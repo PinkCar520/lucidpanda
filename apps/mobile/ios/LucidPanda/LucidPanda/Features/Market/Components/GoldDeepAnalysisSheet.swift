@@ -289,35 +289,47 @@ struct ProfessionalGoldChart: View {
     let breakoutFillColor: Color
     let pivotLineColor: Color
 
-    // MARK: - Pre-computed Data to fix Compiler Timeout
+    // MARK: - Pre-computed Logic for X-Axis Bounds
 
-    private var points: [Date] {
-        let historyTs = data.history.map { $0.timestamp }
-        let predictionTs = data.prediction.mid.map { $0.timestamp }
-        return (historyTs + predictionTs).sorted()
+    private var sessionBounds: (start: Date, end: Date) {
+        let cal = beijingCalendar
+        let firstDate = data.history.first?.timestamp ?? Date()
+        
+        // 伦敦金北京时间 06:00 开盘，05:00 次日收盘
+        var comps = cal.dateComponents([.year, .month, .day], from: firstDate)
+        if cal.component(.hour, from: firstDate) < 6 {
+            let yesterday = cal.date(byAdding: .day, value: -1, to: firstDate)!
+            comps = cal.dateComponents([.year, .month, .day], from: yesterday)
+        }
+        
+        comps.hour = 6
+        comps.minute = 0
+        let start = cal.date(from: comps)!
+        let end = cal.date(byAdding: .hour, value: 23, to: start)! // 即次日 05:00
+        return (start, end)
     }
 
-    private func index(for date: Date) -> Int? {
-        points.firstIndex { abs($0.timeIntervalSince(date)) < 1 }
-    }
-
-    private var labelIndices: [Int] {
-        let granularity = data.granularity ?? "1m"
-        let allPoints = points
-        if granularity == "1m" {
-            var indices: [Int] = []
-            for i in 0..<allPoints.count {
-                let date = allPoints[i]
-                let h = beijingCalendar.component(.hour, from: date)
-                let m = beijingCalendar.component(.minute, from: date)
-                // 严格匹配 06:00, 17:30, 05:00
-                if (h == 6 && m == 0) || (h == 17 && m == 30) || (h == 5 && m == 0) {
-                    indices.append(i)
-                }
-            }
-            return indices.sorted()
+    private var xDomain: ClosedRange<Date> {
+        if (data.granularity ?? "1m") == "1m" {
+            let b = sessionBounds
+            return b.start...b.end
         } else {
-            return calculateLabelIndices(for: allPoints, granularity: granularity)
+            let allPoints = (data.history.map { $0.timestamp } + data.prediction.mid.map { $0.timestamp }).sorted()
+            let start = allPoints.first ?? Date()
+            let end = allPoints.last ?? Date()
+            return (min(start, end))...(max(start, end))
+        }
+    }
+
+    private var labelDates: [Date] {
+        let granularity = data.granularity ?? "1m"
+        if granularity == "1m" {
+            let bounds = sessionBounds
+            let mid = beijingCalendar.date(byAdding: .minute, value: 11 * 60 + 30, to: bounds.start)! // 17:30
+            return [bounds.start, mid, bounds.end]
+        } else {
+            let allPoints = (data.history.map { $0.timestamp } + data.prediction.mid.map { $0.timestamp }).sorted()
+            return calculateLabelDates(for: allPoints, granularity: granularity)
         }
     }
 
@@ -361,8 +373,8 @@ struct ProfessionalGoldChart: View {
     // MARK: - Body
 
     var body: some View {
-        let allPoints = points
-        let xAxisIndices = labelIndices
+        let currentDomain = xDomain
+        let is1m = (data.granularity ?? "1m") == "1m"
         
         Chart {
             previousCloseMark
@@ -373,15 +385,13 @@ struct ProfessionalGoldChart: View {
             pivotMark
             crosshairMark
         }
-        .chartXScale(domain: 0...(allPoints.count - 1))
+        .chartXScale(domain: currentDomain)
         .chartYScale(domain: yDomain)
         .chartXAxis {
-            AxisMarks(values: xAxisIndices) { value in
-                if let idx = value.as(Int.self), idx < allPoints.count {
-                    let date = allPoints[idx]
-                    let is1m = (data.granularity ?? "1m") == "1m"
+            AxisMarks(values: labelDates) { value in
+                if let date = value.as(Date.self) {
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
-                    AxisValueLabel(anchor: idx == 0 ? .topLeading : (idx == allPoints.count - 1 ? .topTrailing : .top)) {
+                    AxisValueLabel(anchor: date == currentDomain.lowerBound ? .topLeading : (date == currentDomain.upperBound ? .topTrailing : .top)) {
                         if is1m {
                             Text(Self.timeFormatter.string(from: date)).font(.system(size: 10, weight: .bold, design: .monospaced))
                         } else {
@@ -409,8 +419,8 @@ struct ProfessionalGoldChart: View {
             GeometryReader { geometry in
                 Rectangle().fill(.clear).contentShape(Rectangle())
                     .gesture(DragGesture().onChanged { value in
-                        if let idx: Int = proxy.value(atX: value.location.x), idx >= 0 && idx < allPoints.count {
-                            selectedDate = points[idx]
+                        if let date: Date = proxy.value(atX: value.location.x) {
+                            selectedDate = date
                         }
                     }.onEnded { _ in selectedDate = nil })
             }
@@ -439,10 +449,10 @@ struct ProfessionalGoldChart: View {
         }
     }
 
-    private func calculateLabelIndices(for points: [Date], granularity: String) -> [Int] {
-        var indices: [Int] = []
+    private func calculateLabelDates(for points: [Date], granularity: String) -> [Date] {
+        var dates: [Date] = []
         var lastLabelDate: Date?
-        for (i, date) in points.enumerated() {
+        for date in points {
             let hour = beijingCalendar.component(.hour, from: date)
             let minute = beijingCalendar.component(.minute, from: date)
             var shouldLabel = false
@@ -454,24 +464,24 @@ struct ProfessionalGoldChart: View {
             if shouldLabel {
                 if let last = lastLabelDate {
                     if date.timeIntervalSince(last) > 3600 * 4 {
-                        indices.append(i)
+                        dates.append(date)
                         lastLabelDate = date
                     }
                 } else {
-                    indices.append(i)
+                    dates.append(date)
                     lastLabelDate = date
                 }
             }
         }
-        if indices.isEmpty && !points.isEmpty { indices = [0, points.count - 1] }
-        return indices
+        if dates.isEmpty && !points.isEmpty { dates = [points[0], points.last!] }
+        return dates
     }
 
     private static func formattedPrice(_ value: Double) -> String {
         priceFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
     }
 
-    // MARK: - Sub-Chart Components (To fix compiler timeout)
+    // MARK: - Sub-Chart Components
 
     @ChartContentBuilder
     private var previousCloseMark: some ChartContent {
@@ -486,10 +496,9 @@ struct ProfessionalGoldChart: View {
     private var confidenceAreaMark: some ChartContent {
         ForEach(data.prediction.mid) { p in
             if p.timestamp >= data.prediction.issuedAt,
-               let idx = index(for: p.timestamp),
                let lowPoint = data.prediction.lower.first(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 60 }),
                let upPoint = data.prediction.upper.first(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 60 }) {
-                AreaMark(x: .value("T", idx), yStart: .value("L", lowPoint.price), yEnd: .value("U", upPoint.price))
+                AreaMark(x: .value("T", p.timestamp), yStart: .value("L", lowPoint.price), yEnd: .value("U", upPoint.price))
                     .foregroundStyle(confidenceFillColor)
             }
         }
@@ -498,14 +507,14 @@ struct ProfessionalGoldChart: View {
     @ChartContentBuilder
     private var breakoutAreaMark: some ChartContent {
         ForEach(data.history) { p in
-            if p.timestamp >= data.prediction.issuedAt, let idx = index(for: p.timestamp) {
+            if p.timestamp >= data.prediction.issuedAt {
                 if let i = data.prediction.mid.firstIndex(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 1800 }) {
                     let up = data.prediction.upper[i].price
                     let lo = data.prediction.lower[i].price
                     if p.price > up { 
-                        AreaMark(x: .value("T", idx), yStart: .value("B", up), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
+                        AreaMark(x: .value("T", p.timestamp), yStart: .value("B", up), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
                     } else if p.price < lo { 
-                        AreaMark(x: .value("T", idx), yStart: .value("B", lo), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
+                        AreaMark(x: .value("T", p.timestamp), yStart: .value("B", lo), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
                     }
                 }
             }
@@ -514,33 +523,30 @@ struct ProfessionalGoldChart: View {
 
     @ChartContentBuilder
     private var historyPriceMark: some ChartContent {
-        if data.granularity == "1m" {
+        if (data.granularity ?? "1m") == "1m" {
             let preClose = data.previousClose ?? (data.history.first?.price ?? 0)
-            let currentPrice = data.history.last?.price ?? preClose
-            let trendColor = currentPrice >= preClose ? upColor : downColor
+            let trendColor = (data.history.last?.price ?? preClose) >= preClose ? upColor : downColor
             ForEach(data.history) { p in
-                if let idx = index(for: p.timestamp) {
-                    LineMark(x: .value("T", idx), y: .value("P", p.price))
-                        .foregroundStyle(trendColor)
-                        .lineStyle(StrokeStyle(lineWidth: 2))
-                }
+                LineMark(x: .value("T", p.timestamp), y: .value("P", p.price))
+                    .foregroundStyle(trendColor)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
             }
         } else {
             ForEach(data.history) { p in
-                if let open = p.open, let high = p.high, let low = p.low, let idx = index(for: p.timestamp) {
+                if let open = p.open, let high = p.high, let low = p.low {
                     let candleColor = p.price >= open ? upColor : downColor
-                    RectangleMark(x: .value("T", idx), yStart: .value("L", low), yEnd: .value("H", high), width: 1).foregroundStyle(candleColor)
-                    RectangleMark(x: .value("T", idx), yStart: .value("O", min(open, p.price)), yEnd: .value("C", max(open, p.price)), width: .fixed(8)).foregroundStyle(candleColor)
+                    RectangleMark(x: .value("T", p.timestamp), yStart: .value("L", low), yEnd: .value("H", high), width: 1).foregroundStyle(candleColor)
+                    RectangleMark(x: .value("T", p.timestamp), yStart: .value("O", min(open, p.price)), yEnd: .value("C", max(open, p.price)), width: .fixed(8)).foregroundStyle(candleColor)
                 }
             }
         }
     }
-
+    
     @ChartContentBuilder
     private var predictionLineMark: some ChartContent {
         ForEach(data.prediction.mid) { p in
-            if p.timestamp >= data.prediction.issuedAt, let idx = index(for: p.timestamp) {
-                LineMark(x: .value("T", idx), y: .value("P", p.price), series: .value("S", "P"))
+            if p.timestamp >= data.prediction.issuedAt {
+                LineMark(x: .value("T", p.timestamp), y: .value("P", p.price), series: .value("S", "P"))
                     .foregroundStyle(predictionLineColor)
                     .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
             }
@@ -549,11 +555,9 @@ struct ProfessionalGoldChart: View {
 
     @ChartContentBuilder
     private var pivotMark: some ChartContent {
-        if let pivotIdx = index(for: data.prediction.issuedAt) {
-            RuleMark(x: .value("X", pivotIdx))
-                .foregroundStyle(pivotLineColor)
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-        }
+        RuleMark(x: .value("X", data.prediction.issuedAt))
+            .foregroundStyle(pivotLineColor)
+            .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
     }
 
     @ChartContentBuilder
@@ -561,11 +565,10 @@ struct ProfessionalGoldChart: View {
         if let date = selectedDate {
             let historyPoints = data.history.map { GoldPricePoint(timestamp: $0.timestamp, price: $0.price) }
             let all = historyPoints + data.prediction.mid
-            if let c = all.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) }),
-               let idx = index(for: c.timestamp) {
-                RuleMark(x: .value("T", idx)).foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
+            if let c = all.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) }) {
+                RuleMark(x: .value("T", c.timestamp)).foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
                 RuleMark(y: .value("P", c.price)).foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
-                PointMark(x: .value("T", idx), y: .value("P", c.price))
+                PointMark(x: .value("T", c.timestamp), y: .value("P", c.price))
                     .foregroundStyle(c.timestamp > (data.history.last?.timestamp ?? Date()) ? predictionLineColor : upColor)
                     .symbolSize(60)
             }
