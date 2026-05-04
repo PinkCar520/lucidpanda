@@ -108,8 +108,37 @@ def get_market_status(region="CN", target_dt=None):
     else:
         local_dt = target_dt.astimezone(tz)
 
+    if region_upper == "GOLD":
+        # CME Globex Gold (XAU/USD) 23/5 Schedule in ET:
+        # Standard: Sun 18:00 - Fri 17:00 ET, with daily 1-hour break 17:00-18:00.
+        
+        weekday = local_dt.weekday() # 0=Mon, 4=Fri, 5=Sat, 6=Sun
+        hour = local_dt.hour
+        
+        # 1. Weekend: Saturday is always closed.
+        if weekday == 5:
+            return "CLOSED"
+            
+        # 2. Weekend: Sunday is closed until 18:00 ET (Monday morning session start).
+        if weekday == 6:
+            if hour < 18:
+                return "CLOSED"
+            return "OPEN"
+            
+        # 3. Friday: Closes at 17:00 ET for the weekend.
+        if weekday == 4:
+            if hour >= 17:
+                return "CLOSED"
+            return "OPEN"
+            
+        # 4. Monday - Thursday: Daily settlement break 17:00 - 18:00 ET.
+        if hour == 17:
+            return "CLOSED"
+            
+        return "OPEN"
+
+    # Default logic for other markets
     target_day = local_dt.date()
-    # 这里的 is_market_open (is_trading_day) 已经处理了节假日逻辑
     if not is_market_open(region_upper, target_day):
         return "CLOSED"
 
@@ -130,34 +159,5 @@ def get_market_status(region="CN", target_dt=None):
         if 9 * 60 + 30 <= minute_of_day < 16 * 60:
             return "OPEN"
         return "CLOSED"
-
-    if region_upper == "GOLD":
-        # CME Globex Gold (XAU/USD) Standard Trading Hours (ET):
-        # Sunday: 18:00 - 23:59 (Open)
-        # Monday - Thursday: 00:00 - 17:00 (Open), 17:00 - 18:00 (Closed), 18:00 - 23:59 (Open)
-        # Friday: 00:00 - 17:00 (Open), 17:00 - 23:59 (Closed)
-        # Saturday: 00:00 - 23:59 (Closed)
-        
-        weekday = local_dt.weekday() # Monday=0, Sunday=6
-        
-        if weekday == 5: # Saturday
-            return "CLOSED"
-        
-        if weekday == 6: # Sunday
-            # Sunday opens at 18:00 ET
-            if minute_of_day < 18 * 60:
-                return "CLOSED"
-            return "OPEN"
-        
-        if weekday == 4: # Friday
-            # Friday closes at 17:00 ET
-            if minute_of_day >= 17 * 60:
-                return "CLOSED"
-            return "OPEN"
-            
-        # Monday - Thursday: 23-hour trading with a break from 17:00 to 18:00
-        if 17 * 60 <= minute_of_day < 18 * 60:
-            return "CLOSED"
-        return "OPEN"
 
     return "CLOSED"
