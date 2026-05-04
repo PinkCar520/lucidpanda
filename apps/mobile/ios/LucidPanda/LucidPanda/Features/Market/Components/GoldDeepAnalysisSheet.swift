@@ -60,13 +60,21 @@ public struct GoldDeepAnalysisSheet: View {
                         .padding(.top)
                     }
                     .refreshable {
-                        await viewModel.fetchPrediction(forceRefresh: true)
+                        await viewModel.fetchPrediction(forceRefresh: false)
                     }
                 }
             }
-            .navigationTitle("gold.prediction.title")
+            .navigationTitle("gold.prediction.short_title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { isLandscape = true } label: {
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.Alpha.textSecondary)
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
@@ -100,7 +108,7 @@ public struct GoldDeepAnalysisSheet: View {
             let isMarketClosed = viewModel.predictionData?.marketStatus == "CLOSED"
             
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
+                HStack(alignment: .center, spacing: 6) {
                     Circle()
                         .fill(isMarketClosed ? Color.Alpha.neutral : Color.Alpha.brand)
                         .frame(width: 6, height: 6)
@@ -111,6 +119,25 @@ public struct GoldDeepAnalysisSheet: View {
                     Text(gold != nil ? "$\(String(format: "%.2f", gold!.price))" : "—")
                         .font(.system(size: 22, weight: .bold, design: .monospaced))
                         .foregroundStyle(Color.Alpha.textPrimary)
+                    
+                    Button {
+                        Task { await viewModel.fetchPrediction(forceRefresh: true) }
+                    } label: {
+                        Group {
+                            if viewModel.isLoading {
+                                ProgressView().tint(Color.Alpha.brand).scaleEffect(0.9)
+                            } else {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 22, weight: .semibold))
+                                    .foregroundStyle(Color.Alpha.brand)
+                            }
+                        }
+                        .frame(width: 32, height: 32)
+                        .background(Color.Alpha.separator.opacity(0.3))
+                        .clipShape(Circle())
+                    }
+                    .disabled(viewModel.isLoading)
+                    .padding(.leading, 2)
                 }
                 
                 Text(isMarketClosed ? String(localized: "market.status.closed_label") : (gold?.formattedChange ?? ""))
@@ -122,26 +149,15 @@ public struct GoldDeepAnalysisSheet: View {
             
             Spacer()
             
-            HStack(spacing: 10) {
-                Button { isLandscape = true } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color.Alpha.textSecondary)
-                        .padding(8)
-                        .background(Color.Alpha.separator.opacity(0.3))
-                        .clipShape(Circle())
-                }
-                
-                Picker("", selection: $viewModel.selectedGranularity) {
-                    Text("分时").tag("1m")
-                    Text("15M").tag("15m")
-                    Text("1D").tag("1d")
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 190)
-                .onChange(of: viewModel.selectedGranularity) {
-                    Task { await viewModel.fetchPrediction(forceRefresh: false) }
-                }
+            Picker("", selection: $viewModel.selectedGranularity) {
+                Text("分时").tag("1m")
+                Text("15M").tag("15m")
+                Text("1D").tag("1d")
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 190)
+            .onChange(of: viewModel.selectedGranularity) {
+                Task { await viewModel.fetchPrediction(forceRefresh: false) }
             }
         }
         .padding(.bottom, 4)
@@ -312,14 +328,23 @@ struct ProfessionalGoldChart: View {
         let historyCount = data.history.count
         
         Chart {
-            // 2. Prediction Confidence Area (Blue - Start from Prediction Issued Time)
-            ForEach(data.prediction.mid.indices, id: \.self) { i in
-                let p = data.prediction.mid[i]
-                if p.timestamp >= data.prediction.issuedAt, let idx = index(for: p.timestamp) {
+            // 1. Previous Close Reference Line
+            if let preClose = data.previousClose {
+                RuleMark(y: .value("Previous Close", preClose))
+                    .foregroundStyle(Color.Alpha.brand.opacity(0.6))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            }
+
+            // 2. Prediction Confidence Area (Blue - Band around prediction)
+            ForEach(data.prediction.mid) { p in
+                if p.timestamp >= data.prediction.issuedAt,
+                   let idx = index(for: p.timestamp),
+                   let lowPoint = data.prediction.lower.first(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 60 }),
+                   let upPoint = data.prediction.upper.first(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 60 }) {
                     AreaMark(
                         x: .value("T", idx),
-                        yStart: .value("L", data.prediction.lower[i].price),
-                        yEnd: .value("U", data.prediction.upper[i].price)
+                        yStart: .value("L", lowPoint.price),
+                        yEnd: .value("U", upPoint.price)
                     )
                     .foregroundStyle(confidenceFillColor)
                 }
@@ -569,7 +594,7 @@ struct LandscapeChartView: View {
                     VStack(spacing: 0) {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("gold.prediction.title").font(.headline).foregroundStyle(Color.Alpha.textPrimary)
+                                Text("gold.prediction.short_title").font(.headline).foregroundStyle(Color.Alpha.textPrimary)
                                 Text(data.granularity?.uppercased() ?? "").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
                             }
                             Spacer()

@@ -4805,7 +4805,24 @@
         }
       }
     },
+    "gold.prediction.short_title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "London Gold AI Prediction"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伦敦金 AI 预测"
+          }
+        }
+      }
+    },
     "gold.prediction.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
