@@ -366,11 +366,21 @@ public struct GoldPricePoint: Codable, Identifiable, Hashable {
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid Sina-style array for GoldPricePoint")
             }
             
+            // Try multiple date formats for robustness
+            let formats = ["yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd'T'HH:mm:ss.SSSZ", "yyyy-MM-dd'T'HH:mm:ssZ"]
             let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
             formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
             
-            guard let date = formatter.date(from: tsStr) else {
+            var decodedDate: Date?
+            for format in formats {
+                formatter.dateFormat = format
+                if let date = formatter.date(from: tsStr) {
+                    decodedDate = date
+                    break
+                }
+            }
+            
+            guard let date = decodedDate else {
                 throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid date format in Sina-style array: \(tsStr)")
             }
             

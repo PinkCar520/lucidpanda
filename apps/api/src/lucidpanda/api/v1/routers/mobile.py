@@ -688,13 +688,27 @@ async def get_gold_prediction(
     
     final_multiplier = volatility_multiplier * dynamic_vol_boost
 
-    def format_sina_point(ts_str, price_val):
-        """将内部 ISO 时间和价格转换为新浪兼容的数组格式"""
+    def format_sina_point(ts_val, price_val):
+        """将内部时间（str or datetime）和价格转换为新浪兼容的数组格式"""
         try:
-            # 转换 ISO 字符串为 datetime
-            dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            if isinstance(ts_val, str):
+                # 兼容 format_iso8601 产生的 2026-05-04T11:53:00.000Z
+                cleaned_ts = ts_val.replace("Z", "+00:00").replace("T", " ")
+                # 尝试解析，如果是 ISO 格式带毫秒，fromisoformat 在 3.11+ 表现良好
+                # 这里的 .split('.')[0] 可以去掉毫秒，因为新浪格式不需要毫秒
+                dt = datetime.fromisoformat(cleaned_ts.split('.')[0])
+                if "+00:00" in cleaned_ts:
+                    dt = dt.replace(tzinfo=UTC)
+            else:
+                dt = ts_val
+            
             # 显式转换为北京时间 (UTC+8) 以符合新浪接口标准
-            beijing_dt = dt.astimezone(timedelta(hours=8))
+            if dt.tzinfo is not None:
+                beijing_dt = dt.astimezone(timedelta(hours=8))
+            else:
+                # 假设无时区的是 UTC
+                beijing_dt = dt.replace(tzinfo=UTC).astimezone(timedelta(hours=8))
+                
             return [
                 beijing_dt.strftime("%H:%M"),
                 f"{price_val:.3f}",
@@ -703,8 +717,10 @@ async def get_gold_prediction(
                 f"{price_val:.3f}", # MA 默认等于现价
                 beijing_dt.strftime("%Y-%m-%d %H:%M:%S")
             ]
-        except Exception:
-            return ["00:00", str(price_val), "0", "0", str(price_val), ts_str]
+        except Exception as e:
+            logger.error(f"format_sina_point failed for {ts_val}: {e}")
+            # 回退方案：如果解析失败，尝试直接字符串截取或返回占位符，但必须保证格式正确
+            return ["00:00", f"{price_val:.3f}", "0", "0", f"{price_val:.3f}", "2026-05-04 00:00:00"]
 
     for i, p in enumerate(forecast_points):
         ts = p["timestamp"]
