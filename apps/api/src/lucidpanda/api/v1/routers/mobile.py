@@ -688,17 +688,39 @@ async def get_gold_prediction(
     
     final_multiplier = volatility_multiplier * dynamic_vol_boost
 
+    def format_sina_point(ts_str, price_val):
+        """将内部 ISO 时间和价格转换为新浪兼容的数组格式"""
+        try:
+            # 转换 ISO 字符串为 datetime
+            dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            # 显式转换为北京时间 (UTC+8) 以符合新浪接口标准
+            beijing_dt = dt.astimezone(timedelta(hours=8))
+            return [
+                beijing_dt.strftime("%H:%M"),
+                f"{price_val:.3f}",
+                "0",
+                "0",
+                f"{price_val:.3f}", # MA 默认等于现价
+                beijing_dt.strftime("%Y-%m-%d %H:%M:%S")
+            ]
+        except Exception:
+            return ["00:00", str(price_val), "0", "0", str(price_val), ts_str]
+
     for i, p in enumerate(forecast_points):
         ts = p["timestamp"]
         price = p["price"]
-        mid_points.append({"timestamp": ts, "price": price})
         
         # Volatility grows with time. 
         vol_base = (0.010 if granularity == "1d" else 0.001) * final_multiplier
         vol_step = (0.002 if granularity == "1d" else 0.0005) * final_multiplier
         vol = vol_base + (vol_step * i) 
-        upper_points.append({"timestamp": ts, "price": round(price * (1 + vol), 2)})
-        lower_points.append({"timestamp": ts, "price": round(price * (1 - vol), 2)})
+        
+        upper_price = round(price * (1 + vol), 2)
+        lower_price = round(price * (1 - vol), 2)
+
+        mid_points.append(format_sina_point(ts, price))
+        upper_points.append(format_sina_point(ts, upper_price))
+        lower_points.append(format_sina_point(ts, lower_price))
 
     prediction_result = {
         "issuedAt": issued_at,
@@ -786,19 +808,19 @@ async def _generate_gold_forecast_intl(
 
     # 5. 构建深度分析提示词
     if granularity == "1d":
-        unit, count = "天", 5
+        unit, count = "天", 30 # 预测未来 30 天
         interval_min = 1440
     elif granularity == "30m":
-        unit, count = "分钟", 12 # 预测未来 6 小时 (12个30m点)
+        unit, count = "分钟", 48 # 预测未来 24 小时 (48个30m点)
         interval_min = 30
     elif granularity == "15m":
-        unit, count = "分钟", 16 # 预测未来 4 小时 (16个15m点)
+        unit, count = "分钟", 48 # 预测未来 12 小时 (48个15m点)
         interval_min = 15
     elif granularity == "1m":
-        unit, count = "分钟", 16 # 预测未来 4 小时 (16个15m点作为锚点)
+        unit, count = "分钟", 32 # 预测未来 8 小时 (32个15m点作为趋势锚点)
         interval_min = 15
     else:
-        unit, count = "小时", 12
+        unit, count = "小时", 72 # 预测未来 3 天
         interval_min = 60
     
     timechain_theme = timechain_context.get("theme") if timechain_context else "当前市场主线"

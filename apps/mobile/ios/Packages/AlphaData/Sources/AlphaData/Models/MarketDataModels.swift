@@ -354,6 +354,45 @@ public struct GoldPricePoint: Codable, Identifiable, Hashable {
         self.timestamp = timestamp
         self.price = price
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        
+        // Attempt to decode from Sina-style array: ["HH:mm", "Price", "0", "0", "MA", "YYYY-MM-DD HH:mm:ss"]
+        if let array = try? container.decode([String].self) {
+            guard array.count >= 2,
+                  let priceVal = Double(array[1]),
+                  let tsStr = array.last else {
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid Sina-style array for GoldPricePoint")
+            }
+            
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
+            
+            guard let date = formatter.date(from: tsStr) else {
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid date format in Sina-style array: \(tsStr)")
+            }
+            
+            self.timestamp = date
+            self.price = priceVal
+        } else {
+            // Standard object decoding
+            let objContainer = try decoder.container(keyedBy: CodingKeys.self)
+            self.timestamp = try objContainer.decode(Date.self, forKey: .timestamp)
+            self.price = try objContainer.decode(Double.self, forKey: .price)
+        }
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case timestamp, price
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(timestamp, forKey: .timestamp)
+        try container.encode(price, forKey: .price)
+    }
 }
 
 public struct GoldPredictionResponse: Codable {
