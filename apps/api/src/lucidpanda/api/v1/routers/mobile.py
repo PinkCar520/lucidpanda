@@ -483,8 +483,9 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
         })
 
     # 4.5 黄金价格走势 (仅返回真实历史数据，不再在 SSE 流中执行 AI 预测)
+    # get_gold_history_24h returns {"history": [...], "pre_close": float} — extract the list
     history_full = await run_in_threadpool(market_terminal_service.get_gold_history_24h)
-    gold_trend = history_full
+    gold_trend = history_full.get("history", []) if isinstance(history_full, dict) else (history_full or [])
 
     # 5. 未来 48h 宏观事件
     until_dt = now_dt + timedelta(hours=48)

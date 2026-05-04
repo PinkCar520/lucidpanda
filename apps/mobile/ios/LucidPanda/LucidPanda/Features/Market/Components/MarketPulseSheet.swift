@@ -212,6 +212,25 @@ struct MarketPulseSheet: View {
                 .padding(.horizontal, 30)
                 .padding(.top, 12)
             }
+        
+        // 节假日 / 休市提示横幅
+        if let note = data.marketNote {
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.orange)
+                Text(note)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.orange.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal, 24)
+            .padding(.top, 8)
+        }
         }
     }
     
