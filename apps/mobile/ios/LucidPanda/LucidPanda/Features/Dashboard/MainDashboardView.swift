@@ -206,7 +206,7 @@ struct MainDashboardView: View {
         .sheet(isPresented: $isSettingsPresented) {
             SettingsView(showCloseButton: true)
                 .environment(rootViewModel) // 🚀 关键修复：显式注入环境对象防止 Sheet 内崩溃
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.fraction(0.9)])
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $isPulseSheetPresented) {

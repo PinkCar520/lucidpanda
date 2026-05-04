@@ -26,13 +26,6 @@ public struct GoldDeepAnalysisSheet: View {
         return cal
     }
 
-    private static let beijingTimeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
-        formatter.dateFormat = "HH:mm"
-        return formatter
-    }()
-
     public init() {}
 
     public var body: some View {
@@ -158,7 +151,7 @@ public struct GoldDeepAnalysisSheet: View {
     private var legendView: some View {
         HStack(spacing: 12) {
             HStack(spacing: 4) {
-                // 实时行情：改为上下两个横条
+                // 恢复实际行情标签：改为上下两个横条
                 VStack(spacing: 1.5) {
                     Rectangle().fill(actualUpColor).frame(width: 12, height: 1.5)
                     Rectangle().fill(actualDownColor).frame(width: 12, height: 1.5)
@@ -309,9 +302,11 @@ struct ProfessionalGoldChart: View {
             }
             
             // 2. Prediction Confidence Area (Blue - Future ONLY)
-            let futureMid = data.prediction.mid.filter { $0.timestamp >= data.prediction.issuedAt }
-            let futureUpper = data.prediction.upper.filter { $0.timestamp >= data.prediction.issuedAt }
-            let futureLower = data.prediction.lower.filter { $0.timestamp >= data.prediction.issuedAt }
+            // ⚠️ 修复重叠：强制仅在历史数据点之后显示蓝色背景
+            let lastHistoryTs = data.history.last?.timestamp ?? data.prediction.issuedAt
+            let futureMid = data.prediction.mid.filter { $0.timestamp > lastHistoryTs }
+            let futureUpper = data.prediction.upper.filter { $0.timestamp > lastHistoryTs }
+            let futureLower = data.prediction.lower.filter { $0.timestamp > lastHistoryTs }
             
             ForEach(futureMid.indices, id: \.self) { i in
                 AreaMark(
@@ -322,7 +317,7 @@ struct ProfessionalGoldChart: View {
                 .foregroundStyle(confidenceFillColor)
             }
             
-            // 3. Breakout Area (Gold - Past/Overlap ONLY)
+            // 3. Breakout Area (Gold - Overlap with History ONLY)
             let historyAfter = data.history.filter { $0.timestamp >= data.prediction.issuedAt }
             ForEach(historyAfter) { p in
                 if let i = data.prediction.mid.firstIndex(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 1800 }) {
@@ -341,7 +336,6 @@ struct ProfessionalGoldChart: View {
                 let preClose = data.previousClose ?? (data.history.first?.price ?? 0)
                 
                 // History Area Fill (Dynamic Red/Green based on baseline)
-                // ⚠️ 修复：移除之前错误的蓝色逻辑，严格按红/绿渲染
                 ForEach(data.history) { p in
                     let isUp = p.price >= preClose
                     AreaMark(
@@ -358,7 +352,7 @@ struct ProfessionalGoldChart: View {
                     )
                 }
                 
-                // Line Series (Must use 'series' for connected dashed/solid lines)
+                // Line Series (Split into UP and DOWN to force color segments)
                 ForEach(data.history) { p in
                     LineMark(
                         x: .value("T", p.timestamp),
@@ -418,7 +412,7 @@ struct ProfessionalGoldChart: View {
                     RuleMark(y: .value("P", c.price)).foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
                     PointMark(x: .value("T", c.timestamp), y: .value("P", c.price))
                         .foregroundStyle({
-                            if c.timestamp > data.prediction.issuedAt {
+                            if c.timestamp > data.history.last?.timestamp ?? data.prediction.issuedAt {
                                 return predictionLineColor
                             } else {
                                 let histPoint = data.history.first(where: { abs($0.timestamp.timeIntervalSince(c.timestamp)) < 1 })

@@ -115,7 +115,9 @@ class MarketTerminalService:
             daily_resp = requests.get(daily_url, timeout=5)
             daily_data = daily_resp.json()
             if daily_data and len(daily_data) >= 2:
-                pre_close = float(daily_data[-2]["close"])
+                raw_pre_close = float(daily_data[-2]["close"])
+                # 归一化基准价，确保与 MinLine 比例尺一致
+                pre_close = round(raw_pre_close * 2 if raw_pre_close < 3000 else raw_pre_close, 2)
         except Exception: pass
         result["pre_close"] = pre_close
 
