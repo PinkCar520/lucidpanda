@@ -132,10 +132,30 @@ def get_market_status(region="CN", target_dt=None):
         return "CLOSED"
 
     if region_upper == "GOLD":
-        # CME Globex Gold:
-        # Sunday - Friday 6:00 p.m. – 5:00 p.m. ET
-        # (18:00 - 17:00 next day)
-        # Daily break: 17:00 - 18:00 ET
+        # CME Globex Gold (XAU/USD) Standard Trading Hours (ET):
+        # Sunday: 18:00 - 23:59 (Open)
+        # Monday - Thursday: 00:00 - 17:00 (Open), 17:00 - 18:00 (Closed), 18:00 - 23:59 (Open)
+        # Friday: 00:00 - 17:00 (Open), 17:00 - 23:59 (Closed)
+        # Saturday: 00:00 - 23:59 (Closed)
+        
+        weekday = local_dt.weekday() # Monday=0, Sunday=6
+        
+        if weekday == 5: # Saturday
+            return "CLOSED"
+        
+        if weekday == 6: # Sunday
+            # Sunday opens at 18:00 ET
+            if minute_of_day < 18 * 60:
+                return "CLOSED"
+            return "OPEN"
+        
+        if weekday == 4: # Friday
+            # Friday closes at 17:00 ET
+            if minute_of_day >= 17 * 60:
+                return "CLOSED"
+            return "OPEN"
+            
+        # Monday - Thursday: 23-hour trading with a break from 17:00 to 18:00
         if 17 * 60 <= minute_of_day < 18 * 60:
             return "CLOSED"
         return "OPEN"
