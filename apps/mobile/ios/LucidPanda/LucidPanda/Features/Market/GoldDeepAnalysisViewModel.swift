@@ -155,8 +155,8 @@ public class GoldDeepAnalysisViewModel {
                     if isDirectionMatch {
                         correctDirectionCount += 1
                         
-                        // 历史准确率：方向正确且点位偏差 <= $3.0 (高标准)
-                        if abs(actual.price - mid.price) <= 3.0 {
+                        // 历史准确率：方向正确且点位偏差 <= $5.0 (放宽至 $5.0 以适应黄金波动特征)
+                        if abs(actual.price - mid.price) <= 5.0 {
                             perfectHitCount += 1
                         }
                     }

@@ -446,9 +446,25 @@ struct ProfessionalGoldChart: View {
         .chartXAxis {
             let granularity = data.granularity ?? "1m"
             if granularity == "1m" {
-                // 分时依然使用简单的三点标注，直接映射索引
-                let indices = [0, points.count / 2, points.count - 1]
-                AxisMarks(values: indices) { value in
+                // 分时改回固定时间点标注，寻找最接近 06:00 和 18:00 的索引
+                let labelIndices: [Int] = {
+                    var indices: [Int] = [0] // 默认包含起点 (通常是 06:00)
+                    
+                    // 寻找 18:00 (或 17:30) 的点
+                    if let midIdx = points.firstIndex(where: { 
+                        let h = beijingCalendar.component(.hour, from: $0)
+                        let m = beijingCalendar.component(.minute, from: $0)
+                        return (h == 17 && m >= 30) || (h == 18 && m == 0)
+                    }) {
+                        indices.append(midIdx)
+                    }
+                    
+                    // 始终包含终点
+                    indices.append(points.count - 1)
+                    return Array(Set(indices)).sorted()
+                }()
+
+                AxisMarks(values: labelIndices) { value in
                     if let idx = value.as(Int.self), idx < points.count {
                         let date = points[idx]
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))

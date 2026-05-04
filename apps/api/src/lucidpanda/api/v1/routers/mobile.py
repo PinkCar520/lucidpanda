@@ -642,8 +642,21 @@ async def get_gold_prediction(
         "summary": timechain_data.get("ai_summary") if timechain_data else "核心逻辑围绕美元走势与地缘政治溢价。"
     }
 
+    # --- 增强：计算最近一轮预测的偏差 (Error Injection) ---
+    last_prediction_bias = 0.0
+    if not force_refresh:
+        cached_data = get_cached(CACHE_KEY)
+        if cached_data and "prediction" in cached_data:
+            last_mid = cached_data["prediction"]["mid"]
+            if last_mid:
+                # 找到最近的一个历史点与预测点的对比
+                actual_now = history_full[-1]["price"]
+                # 寻找时间最接近当前历史点的预测点
+                closest_pred = min(last_mid, key=lambda x: abs(datetime.fromisoformat(x["timestamp"]).timestamp() - datetime.fromisoformat(history_full[-1]["timestamp"]).timestamp()))
+                last_prediction_bias = actual_now - closest_pred["price"]
+
     # Call AI Forecast
-    forecast_points = await _generate_gold_forecast_intl(
+    forecast_res = await _generate_gold_forecast_intl(
         history_training, 
         top_alerts, 
         snapshot, 
@@ -651,27 +664,38 @@ async def get_gold_prediction(
         granularity=granularity,
         macro_events_text=macro_events_text,
         timechain_context=timechain_context,
-        market_status=market_status
+        market_status=market_status,
+        last_prediction_bias=last_prediction_bias
     )
     
+    forecast_points = forecast_res.get("points", [])
+    volatility_multiplier = forecast_res.get("volatility_multiplier", 1.0)
+
     if not forecast_points:
         # 如果 AI 失败或返回为空，不再生成模拟走势，直接返回空预测
         pass
 
     # Construct complete prediction object with upper/lower bands
-    # For now, use a simple fixed volatility band
     mid_points = []
     upper_points = []
     lower_points = []
     
+    # 根据市场紧急度调整基础波动率
+    urgency_level = max([a.get("urgency_score", 0) for a in top_alerts_raw] + [0])
+    dynamic_vol_boost = 1.0
+    if urgency_level >= 8:
+        dynamic_vol_boost = 2.0  # 紧急度高时，阴影带基础宽度翻倍
+    
+    final_multiplier = volatility_multiplier * dynamic_vol_boost
+
     for i, p in enumerate(forecast_points):
         ts = p["timestamp"]
         price = p["price"]
         mid_points.append({"timestamp": ts, "price": price})
         
-        # Volatility grows with time. For 1D, we use larger spread.
-        vol_base = 0.010 if granularity == "1d" else 0.001 # 紧凑的起始区间
-        vol_step = 0.002 if granularity == "1d" else 0.0005 # 极缓的扩散
+        # Volatility grows with time. 
+        vol_base = (0.010 if granularity == "1d" else 0.001) * final_multiplier
+        vol_step = (0.002 if granularity == "1d" else 0.0005) * final_multiplier
         vol = vol_base + (vol_step * i) 
         upper_points.append({"timestamp": ts, "price": round(price * (1 + vol), 2)})
         lower_points.append({"timestamp": ts, "price": round(price * (1 - vol), 2)})
@@ -706,11 +730,12 @@ async def _generate_gold_forecast_intl(
     granularity: str = "1h",
     macro_events_text: str = "",
     timechain_context: dict = None,
-    market_status: str = "OPEN"
-) -> list[dict]:
+    market_status: str = "OPEN",
+    last_prediction_bias: float = 0.0
+) -> dict[str, Any]:
     """使用 LLM 综合宏观指标、情报及情绪生成伦敦金 (XAU/USD) 价格预测"""
     if not history:
-        return []
+        return {"points": [], "volatility_multiplier": 1.0}
 
     # ... (基础数据准备) ...
     last_point = history[-1]
@@ -785,9 +810,15 @@ async def _generate_gold_forecast_intl(
     else:
         status_note = "【当前市场交易中】请根据实时动态预测后续走势。"
 
+    bias_note = ""
+    if abs(last_prediction_bias) > 2.0:
+        direction = "高估" if last_prediction_bias < 0 else "低估"
+        bias_note = f"【模型反馈】在上一轮预测中，你的结果比实际价格{direction}了约 ${abs(last_prediction_bias):.2f}。请分析是否存在未识别的宏观压力或支撑，并在本轮预测中进行自我修正。"
+
     prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来伦敦金 (XAU/USD) 的价格演进趋势。
     
     {status_note}
+    {bias_note}
     
     【当前基准】
     价格: {last_price} USD/oz
@@ -810,21 +841,26 @@ async def _generate_gold_forecast_intl(
     【近期核心情报详情】
     {intel_context}
     
-    请输出未来 {count} 个点（每点间隔 {interval_min} 分钟）的预测价格。输出格式为 JSON 数组，每个对象包含:
-    - "offset": 1 到 {count} 的整数
-    - "predicted_price": 预测的价格 (float)
+    请输出未来 {count} 个点（每点间隔 {interval_min} 分钟）的预测。输出格式为 JSON 对象，包含:
+    - "volatility_multiplier": 波动率乘数 (float, 0.5 到 3.0)，反映你对当前市场不确定性的评估。常规行情为 1.0，剧震或重大事件前夕应提高。
+    - "forecast": 数组，每个对象包含:
+        - "offset": 1 到 {count} 的整数
+        - "predicted_price": 预测的价格 (float)
     
     要求：
     1. 必须综合考虑宏观背景（如美元走强压制金价）和核心情报的“逻辑演进”。
     2. 预测曲线必须体现对“预定事件”时刻的波动预期。
-    3. 预测应体现出对近期情报情绪的反应，特别是多个情报指向同一逻辑时。
+    3. 预测应体现出对近期情报情绪的反应。
     4. 波动应符合伦敦金市场的真实特征（小时线波动 0.1%-0.5%，日线波动 0.5%-2%）。
-    5. 只输出 JSON 数组，不要包含多余文字。
+    5. 只输出 JSON 对象，不要包含多余文字。
     """
     
     try:
         llm = DeepSeekLLM()
-        forecast_raw = await llm.generate_json_async(prompt)
+        forecast_res = await llm.generate_json_async(prompt)
+        
+        vol_multiplier = float(forecast_res.get("volatility_multiplier", 1.0))
+        forecast_raw = forecast_res.get("forecast", [])
         
         anchor_points = []
         if isinstance(forecast_raw, list):
@@ -840,7 +876,7 @@ async def _generate_gold_forecast_intl(
                     })
         
         if not anchor_points:
-            return []
+            return {"points": [], "volatility_multiplier": 1.0}
 
         # 插值平滑：如果是 1m 粒度，将 15min 锚点插值为 1min 点
         if granularity == "1m":
@@ -867,18 +903,21 @@ async def _generate_gold_forecast_intl(
                 
                 current_base_ts = target_ts
                 current_base_price = target_price
-            return forecast_points
+            return {"points": forecast_points, "volatility_multiplier": vol_multiplier}
         else:
             # 其他粒度保持原样格式返回
-            return [{
-                "timestamp": format_iso8601(p["timestamp"]),
-                "price": p["price"],
-                "is_forecast": True
-            } for p in anchor_points]
+            return {
+                "points": [{
+                    "timestamp": format_iso8601(p["timestamp"]),
+                    "price": p["price"],
+                    "is_forecast": True
+                } for p in anchor_points],
+                "volatility_multiplier": vol_multiplier
+            }
 
     except Exception as e:
         logger.error(f"Gold forecast failed: {e}")
-        return []
+        return {"points": [], "volatility_multiplier": 1.0}
 
 
 
