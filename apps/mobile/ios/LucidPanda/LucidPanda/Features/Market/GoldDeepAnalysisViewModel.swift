@@ -175,15 +175,24 @@ public class GoldDeepAnalysisViewModel {
             self.historicalAccuracy = nil
         }
         
-        // 4. Current Deviation
-        if let lastActual = history.last,
-           let lastMid = prediction.mid.first(where: { abs($0.timestamp.timeIntervalSince(lastActual.timestamp)) < 1800 }) {
-            self.currentDeviation = lastActual.price - lastMid.price
+        // 4. Current Deviation & Dynamic Target
+        if let lastActual = history.last {
+            // 在预测序列中寻找与当前实际行情时间最接近的点
+            let closestPrediction = prediction.mid.min(by: { 
+                abs($0.timestamp.timeIntervalSince(lastActual.timestamp)) < abs($1.timestamp.timeIntervalSince(lastActual.timestamp))
+            })
+            
+            if let target = closestPrediction {
+                self.targetPrice = target.price
+                self.currentDeviation = lastActual.price - target.price
+            } else {
+                // 如果当前时间已经超出了预测范围，显示最终目标价
+                self.targetPrice = prediction.mid.last?.price ?? 0
+                self.currentDeviation = nil
+            }
         } else {
             self.currentDeviation = nil
+            self.targetPrice = prediction.mid.last?.price ?? 0
         }
-        
-        // 5. Target Price
-        self.targetPrice = prediction.mid.last?.price ?? 0
     }
 }
