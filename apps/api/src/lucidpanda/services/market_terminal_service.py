@@ -102,7 +102,7 @@ class MarketTerminalService:
 
         cache_key = f"gold_history_intl_{granularity}"
         # 按粒度分级缓存 TTL：粒度越细，缓存越短，避免走势图"冻结"
-        _ttl_map = {"1m": 30, "1h": 30, "15m": 60, "30m": 60, "4h": 300, "1d": 600}
+        _ttl_map = {"1m": 30, "1h": 30, "15m": 60, "30m": 60, "1d": 600}
         _cache_ttl = _ttl_map.get(granularity, 60)
         if not force_refresh and cache_key in self._cache:
             cache_entry = self._cache[cache_key]
@@ -270,63 +270,6 @@ class MarketTerminalService:
                         return result
             except Exception as e:
                 logger.error(f"❌ Gold 30m history fetch failed: {e}")
-
-        # --- 4h: 使用 Sina 60MLine (60分钟线) 采样 ---
-        elif granularity == "4h":
-            try:
-                url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFuturesMiniKLine60m?symbol=XAU"
-                resp = requests.get(url, timeout=10)
-                data = resp.json() 
-                if data and isinstance(data, list):
-                    points = []
-                    for item in data:
-                        try:
-                            ts_obj = datetime.strptime(item[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-                            def normalize(v):
-                                val = float(v)
-                                return round(val * 2 if val < 3000 else val, 2)
-
-                            points.append({
-                                "timestamp": ts_obj,
-                                "open": normalize(item[1]),
-                                "high": normalize(item[2]),
-                                "low": normalize(item[3]),
-                                "price": normalize(item[4]) # Close price
-                            })
-                        except Exception: continue
-
-                    # 采样：每 4 小时取一个点 (00:00, 04:00, 08:00...)
-                    points.sort(key=lambda x: x["timestamp"])
-                    sampled_trend = []
-                    if points:
-                        for p in points:
-                            if p["timestamp"].hour % 4 == 0:
-                                sampled_trend.append({
-                                    "timestamp": format_iso8601(p["timestamp"]),
-                                    "open": p["open"],
-                                    "high": p["high"],
-                                    "low": p["low"],
-                                    "price": p["price"],
-                                    "is_forecast": False
-                                })
-
-                        last_real_ts = points[-1]["timestamp"]
-                        if sampled_trend and sampled_trend[-1]["timestamp"] != format_iso8601(last_real_ts):
-                            sampled_trend.append({
-                                "timestamp": format_iso8601(last_real_ts),
-                                "open": points[-1]["open"],
-                                "high": points[-1]["high"],
-                                "low": points[-1]["low"],
-                                "price": points[-1]["price"],
-                                "is_forecast": False
-                            })
-
-                    if sampled_trend:
-                        result["history"] = sampled_trend[-180:]
-                        self._cache[cache_key] = {"data": result, "timestamp": datetime.now()}
-                        return result
-            except Exception as e:
-                logger.error(f"❌ Gold 4h history fetch failed: {e}")
 
         # --- 1d: 使用 Sina DailyKLine (日线) ---
         elif granularity == "1d":

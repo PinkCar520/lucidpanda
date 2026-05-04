@@ -135,7 +135,6 @@ public struct GoldDeepAnalysisSheet: View {
                 Picker("", selection: $viewModel.selectedGranularity) {
                     Text("分时").tag("1m")
                     Text("15M").tag("15m")
-                    Text("4H").tag("4h")
                     Text("1D").tag("1d")
                 }
                 .pickerStyle(.segmented)
@@ -275,6 +274,18 @@ struct ProfessionalGoldChart: View {
     let breakoutFillColor: Color
     let pivotLineColor: Color
 
+    // 计算索引映射，消除停盘空洞
+    private var allPoints: [Date] {
+        let historyTs = data.history.map { $0.timestamp }
+        let predictionTs = data.prediction.mid.map { $0.timestamp }
+        // 确保时间连续且去重
+        return (historyTs + predictionTs).sorted()
+    }
+
+    private func index(for date: Date) -> Int? {
+        allPoints.firstIndex { abs($0.timeIntervalSince(date)) < 1 }
+    }
+
     private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.timeZone = TimeZone(identifier: "Asia/Shanghai")
@@ -298,119 +309,107 @@ struct ProfessionalGoldChart: View {
     }()
 
     var body: some View {
+        let points = allPoints
+        let historyCount = data.history.count
+        
         Chart {
-            // 1. Prediction zone background removed (keep chart clean)
-            
             // 2. Prediction Confidence Area (Blue - Future ONLY)
             let lastHistoryTs = data.history.last?.timestamp ?? data.prediction.issuedAt
-            let futureMid = data.prediction.mid.filter { $0.timestamp > lastHistoryTs }
-            let futureUpper = data.prediction.upper.filter { $0.timestamp > lastHistoryTs }
-            let futureLower = data.prediction.lower.filter { $0.timestamp > lastHistoryTs }
-            
-            ForEach(futureMid.indices, id: \.self) { i in
-                AreaMark(
-                    x: .value("T", futureMid[i].timestamp),
-                    yStart: .value("L", futureLower[i].price),
-                    yEnd: .value("U", futureUpper[i].price)
-                )
-                .foregroundStyle(confidenceFillColor)
+            ForEach(data.prediction.mid.indices, id: \.self) { i in
+                let p = data.prediction.mid[i]
+                if p.timestamp > lastHistoryTs, let idx = index(for: p.timestamp) {
+                    AreaMark(
+                        x: .value("T", idx),
+                        yStart: .value("L", data.prediction.lower[i].price),
+                        yEnd: .value("U", data.prediction.upper[i].price)
+                    )
+                    .foregroundStyle(confidenceFillColor)
+                }
             }
             
             // 3. Breakout Area (Gold - Overlap with History ONLY)
-            let historyAfter = data.history.filter { $0.timestamp >= data.prediction.issuedAt }
-            ForEach(historyAfter) { p in
-                if let i = data.prediction.mid.firstIndex(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 1800 }) {
-                    let up = data.prediction.upper[i].price
-                    let lo = data.prediction.lower[i].price
-                    if p.price > up { 
-                        AreaMark(x: .value("T", p.timestamp), yStart: .value("B", up), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
-                    } else if p.price < lo { 
-                        AreaMark(x: .value("T", p.timestamp), yStart: .value("B", lo), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
+            ForEach(data.history) { p in
+                if p.timestamp >= data.prediction.issuedAt, let idx = index(for: p.timestamp) {
+                    if let i = data.prediction.mid.firstIndex(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 1800 }) {
+                        let up = data.prediction.upper[i].price
+                        let lo = data.prediction.lower[i].price
+                        if p.price > up { 
+                            AreaMark(x: .value("T", idx), yStart: .value("B", up), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
+                        } else if p.price < lo { 
+                            AreaMark(x: .value("T", idx), yStart: .value("B", lo), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
+                        }
                     }
                 }
             }
             
-            // 4. Main History (Intraday Line vs Candlesticks)
+            // 4. Main History
             if data.granularity == "1m" {
                 let preClose = data.previousClose ?? (data.history.first?.price ?? 0)
-                
-                // Line Series (Segmented to force color changes)
                 ForEach(data.history.indices, id: \.self) { i in
                     let p = data.history[i]
-                    let compare = i > 0 ? data.history[i - 1].price : preClose
-                    let isUp = p.price >= compare
-                    LineMark(
-                        x: .value("T", p.timestamp),
-                        y: .value("P", p.price),
-                        series: .value("Series", isUp ? "ActualUp" : "ActualDown")
-                    )
-                    .foregroundStyle(isUp ? upColor : downColor)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    if let idx = index(for: p.timestamp) {
+                        let compare = i > 0 ? data.history[i - 1].price : preClose
+                        let isUp = p.price >= compare
+                        LineMark(
+                            x: .value("T", idx),
+                            y: .value("P", p.price),
+                            series: .value("Series", isUp ? "ActualUp" : "ActualDown")
+                        )
+                        .foregroundStyle(isUp ? upColor : downColor)
+                        .lineStyle(StrokeStyle(lineWidth: 2))
+                    }
                 }
-                
-                // PreClose Baseline
-                RuleMark(y: .value("Baseline", preClose))
-                    .foregroundStyle(.gray.opacity(0.3))
-                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             } else {
                 ForEach(data.history) { p in
-                    if let open = p.open, let high = p.high, let low = p.low {
+                    if let open = p.open, let high = p.high, let low = p.low, let idx = index(for: p.timestamp) {
                         let candleColor: Color = {
-                            if p.price > open { return upColor }      // 涨：红（国内）
-                            if p.price < open { return downColor }    // 跌：绿（国内）
-                            return Color.Alpha.neutral                // 平：中性
+                            if p.price > open { return upColor }
+                            if p.price < open { return downColor }
+                            return Color.Alpha.neutral
                         }()
-                        RectangleMark(x: .value("T", p.timestamp), yStart: .value("L", low), yEnd: .value("H", high), width: 1).foregroundStyle(candleColor)
-                        RectangleMark(x: .value("T", p.timestamp), yStart: .value("O", min(open, p.price)), yEnd: .value("C", max(open, p.price)), width: .fixed(8)).foregroundStyle(candleColor)
+                        RectangleMark(x: .value("T", idx), yStart: .value("L", low), yEnd: .value("H", high), width: 1).foregroundStyle(candleColor)
+                        RectangleMark(x: .value("T", idx), yStart: .value("O", min(open, p.price)), yEnd: .value("C", max(open, p.price)), width: .fixed(8)).foregroundStyle(candleColor)
                     }
                 }
             }
             
-            // 5. AI Prediction Curve (Dashed Line Series)
+            // 5. AI Prediction Curve
             ForEach(data.prediction.mid) { p in
-                LineMark(
-                    x: .value("T", p.timestamp),
-                    y: .value("P", p.price),
-                    series: .value("Series", "Prediction")
-                )
-                .foregroundStyle(predictionLineColor)
-                .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                if let idx = index(for: p.timestamp) {
+                    LineMark(
+                        x: .value("T", idx),
+                        y: .value("P", p.price),
+                        series: .value("Series", "Prediction")
+                    )
+                    .foregroundStyle(predictionLineColor)
+                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                }
             }
 
-            // 6. Pivot Marker (IssuedAt Dot & Vertical Line)
-            RuleMark(x: .value("Pivot", data.prediction.issuedAt))
-                .foregroundStyle(pivotLineColor)
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-
-            if let pivotPoint = data.history.last(where: { $0.timestamp <= data.prediction.issuedAt }) ?? 
-                data.prediction.mid.first.map({ GoldTrendPoint(timestamp: $0.timestamp, price: $0.price, isForecast: true) }) {
-                PointMark(
-                    x: .value("T", pivotPoint.timestamp),
-                    y: .value("P", pivotPoint.price)
-                )
-                .symbolSize(60)
-                .foregroundStyle(predictionLineColor)
+            // 6. Pivot Marker
+            if let pivotIdx = index(for: data.prediction.issuedAt) {
+                RuleMark(x: .value("Pivot", pivotIdx))
+                    .foregroundStyle(pivotLineColor)
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             }
 
-            
-            // 7. Crosshair
+            // 7. Crosshair (Index based)
             if let date = selectedDate {
                 let all = data.history.map { GoldPricePoint(timestamp: $0.timestamp, price: $0.price) } + data.prediction.mid
-                if let c = all.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) }) {
-                    RuleMark(x: .value("T", c.timestamp)).foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
+                if let c = all.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) }),
+                   let idx = index(for: c.timestamp) {
+                    RuleMark(x: .value("T", idx)).foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
                     RuleMark(y: .value("P", c.price)).foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
-                    PointMark(x: .value("T", c.timestamp), y: .value("P", c.price))
+                    PointMark(x: .value("T", idx), y: .value("P", c.price))
                         .foregroundStyle({
                             if c.timestamp > data.history.last?.timestamp ?? data.prediction.issuedAt {
                                 return predictionLineColor
                             } else {
-                                guard let idx = data.history.firstIndex(where: { abs($0.timestamp.timeIntervalSince(c.timestamp)) < 1 }) else {
+                                guard let hIdx = data.history.firstIndex(where: { abs($0.timestamp.timeIntervalSince(c.timestamp)) < 1 }) else {
                                     return upColor
                                 }
-                                let current = data.history[idx].price
-                                let compare = idx > 0
-                                    ? data.history[idx - 1].price
-                                    : (data.previousClose ?? data.history.first?.price ?? current)
+                                let current = data.history[hIdx].price
+                                let compare = hIdx > 0 ? data.history[hIdx - 1].price : (data.previousClose ?? current)
                                 return current >= compare ? upColor : downColor
                             }
                         }())
@@ -418,9 +417,49 @@ struct ProfessionalGoldChart: View {
                 }
             }
         }
-        .chartXScale(domain: xDomain)
+        .chartXScale(domain: 0...(points.count - 1))
         .chartYScale(domain: yDomain)
-        .chartXAxis { xAxisContent }
+        .chartXAxis {
+            let granularity = data.granularity ?? "1m"
+            if granularity == "1m" {
+                // 分时依然使用简单的三点标注，直接映射索引
+                let indices = [0, points.count / 2, points.count - 1]
+                AxisMarks(values: indices) { value in
+                    if let idx = value.as(Int.self), idx < points.count {
+                        let date = points[idx]
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
+                        AxisValueLabel(anchor: idx == 0 ? .topLeading : (idx == points.count - 1 ? .topTrailing : .top)) {
+                            Text(Self.timeFormatter.string(from: date))
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        }
+                    }
+                }
+            } else {
+                // 15m/4h/1d: 根据时间逻辑动态生成刻度索引
+                let labelIndices = calculateLabelIndices(for: points, granularity: granularity)
+                AxisMarks(values: labelIndices) { value in
+                    if let idx = value.as(Int.self), idx < points.count {
+                        let date = points[idx]
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
+                        AxisValueLabel {
+                            let hour = beijingCalendar.component(.hour, from: date)
+                            if granularity == "15m" {
+                                if hour == 0 {
+                                    Text(Self.dayFormatter.string(from: date)).font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundStyle(Color.Alpha.textPrimary)
+                                } else {
+                                    Text(Self.timeFormatter.string(from: date)).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary)
+                                }
+                            } else {
+                                // 1D 只显示日期
+                                Text(Self.dayFormatter.string(from: date))
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
         .chartYAxis {
             AxisMarks(position: .leading, values: .stride(by: 10.0)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
@@ -428,9 +467,7 @@ struct ProfessionalGoldChart: View {
             if let preClose = data.previousClose ?? data.history.first?.price {
                 AxisMarks(position: .leading, values: [preClose]) { _ in
                     AxisValueLabel {
-                        Text(Self.formattedPrice(preClose))
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Color.Alpha.brand)
+                        Text(Self.formattedPrice(preClose)).font(.system(size: 10, weight: .bold, design: .monospaced)).foregroundStyle(Color.Alpha.brand)
                     }
                 }
             }
@@ -439,7 +476,9 @@ struct ProfessionalGoldChart: View {
             GeometryReader { geometry in
                 Rectangle().fill(.clear).contentShape(Rectangle())
                     .gesture(DragGesture().onChanged { value in
-                        if let date: Date = proxy.value(atX: value.location.x) { selectedDate = date }
+                        if let idx: Int = proxy.value(atX: value.location.x), idx >= 0 && idx < points.count {
+                            selectedDate = points[idx]
+                        }
                     }.onEnded { _ in selectedDate = nil })
             }
         }
@@ -452,16 +491,45 @@ struct ProfessionalGoldChart: View {
         .clipped()
     }
 
-    private var xDomain: ClosedRange<Date> {
-        let granularity = data.granularity ?? "1m"
-        if granularity == "1m" {
-            let start = {
-                let base = beijingCalendar.date(bySettingHour: 6, minute: 0, second: 0, of: data.prediction.issuedAt)!
-                return base > data.prediction.issuedAt ? beijingCalendar.date(byAdding: .day, value: -1, to: base)! : base
-            }()
-            return start...beijingCalendar.date(byAdding: .hour, value: 23, to: start)!
+    private func calculateLabelIndices(for points: [Date], granularity: String) -> [Int] {
+        var indices: [Int] = []
+        var lastLabelDate: Date?
+        
+        for (i, date) in points.enumerated() {
+            let hour = beijingCalendar.component(.hour, from: date)
+            let minute = beijingCalendar.component(.minute, from: date)
+            
+            var shouldLabel = false
+            if granularity == "15m" {
+                // 每 12 小时 (00:00, 12:00) 且分钟为 0
+                if minute == 0 && (hour == 0 || hour == 12) {
+                    shouldLabel = true
+                }
+            } else if granularity == "1d" {
+                // 每周一
+                if beijingCalendar.component(.weekday, from: date) == 2 { shouldLabel = true }
+            }
+            
+            if shouldLabel {
+                if let last = lastLabelDate {
+                    // 避免刻度过密 (至少间隔 4 小时以上的数据点)
+                    if date.timeIntervalSince(last) > 3600 * 4 {
+                        indices.append(i)
+                        lastLabelDate = date
+                    }
+                } else {
+                    indices.append(i)
+                    lastLabelDate = date
+                }
+            }
         }
-        return (data.history.first?.timestamp ?? .distantPast)...(data.prediction.mid.last?.timestamp ?? .distantFuture)
+        
+        // 确保至少有首尾标注（如果没匹配到逻辑）
+        if indices.isEmpty && !points.isEmpty {
+            indices = [0, points.count - 1]
+        }
+        
+        return indices
     }
 
     private var yDomain: ClosedRange<Double> {
@@ -478,38 +546,6 @@ struct ProfessionalGoldChart: View {
     
     private static func formattedPrice(_ value: Double) -> String {
         priceFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
-    }
-
-    @AxisContentBuilder
-    private var xAxisContent: some AxisContent {
-        let granularity = data.granularity ?? "1m"
-        if granularity == "1m" {
-            let start = xDomain.lowerBound
-            let mid = beijingCalendar.date(bySettingHour: 17, minute: 30, second: 0, of: start)!
-            let end = xDomain.upperBound
-            AxisMarks(values: [start, mid, end]) { value in
-                if let date = value.as(Date.self) {
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
-                    AxisValueLabel(anchor: date == start ? .topLeading : (date == end ? .topTrailing : .top)) {
-                        Text(Self.timeFormatter.string(from: date))
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        } else {
-            AxisMarks(values: .automatic(desiredCount: 5)) { value in
-                if let date = value.as(Date.self) {
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
-                    AxisValueLabel {
-                        VStack(spacing: 0) {
-                            if granularity == "4h" || granularity == "1d" { Text(Self.dayFormatter.string(from: date)).font(.system(size: 8)) }
-                            Text(Self.timeFormatter.string(from: date)).font(.system(size: 10, design: .monospaced))
-                        }.foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
     }
 }
 

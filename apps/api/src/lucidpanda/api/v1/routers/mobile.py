@@ -721,8 +721,8 @@ async def _generate_gold_forecast_intl(
         raw_ts = datetime.now(UTC)
     
     # 周期对齐逻辑：预测点应从下一个标准时间边界开始
-    if granularity in ["15m", "30m", "1h", "4h"]:
-        m_interval = {"15m": 15, "30m": 30, "1h": 60, "4h": 240}.get(granularity, 60)
+    if granularity in ["15m", "30m", "1h"]:
+        m_interval = {"15m": 15, "30m": 30, "1h": 60}.get(granularity, 60)
         # 向上取整到最近的间隔
         total_minutes = raw_ts.hour * 60 + raw_ts.minute
         next_boundary_minutes = ((total_minutes // m_interval) + 1) * m_interval
@@ -763,9 +763,6 @@ async def _generate_gold_forecast_intl(
     if granularity == "1d":
         unit, count = "天", 5
         interval_min = 1440
-    elif granularity == "4h":
-        unit, count = "小时", 12 # 预测未来 2 天 (12个4h点)
-        interval_min = 240
     elif granularity == "30m":
         unit, count = "分钟", 12 # 预测未来 6 小时 (12个30m点)
         interval_min = 30
