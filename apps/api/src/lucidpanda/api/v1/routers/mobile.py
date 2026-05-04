@@ -580,19 +580,8 @@ async def get_gold_prediction(
     )
     
     if not forecast_points:
-        # 如果 AI 失败，且我们需要兜底逻辑
-        # 只有当历史点位足够时才生成模拟走势，否则保持为空
-        if len(history_full) >= 2:
-            current_price = base_price
-            now_dt_issued = datetime.fromisoformat(issued_at.replace("Z", "+00:00"))
-            for i in range(1, 13):
-                # 基于真实基准价进行极其微小的随机扰动，而不是凭空捏造价格
-                current_price += (random.random() - 0.45) * 0.5 
-                forecast_points.append({
-                    "timestamp": format_iso8601(now_dt_issued + timedelta(hours=i)),
-                    "price": round(current_price, 2),
-                    "is_forecast": True
-                })
+        # 如果 AI 失败或返回为空，不再生成模拟走势，直接返回空预测
+        pass
 
     # Construct complete prediction object with upper/lower bands
     # For now, use a simple fixed volatility band
@@ -687,10 +676,16 @@ async def _generate_gold_forecast_intl(
     # 5. 构建深度分析提示词
     if granularity == "1d":
         unit, count = "天", 5
+        interval_min = 1440
     elif granularity == "30m":
         unit, count = "分钟", 12 # 预测未来 6 小时 (12个30m点)
+        interval_min = 30
+    elif granularity == "1m":
+        unit, count = "分钟", 16 # 预测未来 4 小时 (16个15m点作为锚点)
+        interval_min = 15
     else:
         unit, count = "小时", 12
+        interval_min = 60
     
     timechain_theme = timechain_context.get("theme") if timechain_context else "当前市场主线"
     timechain_summary = timechain_context.get("summary") if timechain_context else "暂无深度总结"
@@ -701,7 +696,7 @@ async def _generate_gold_forecast_intl(
     else:
         status_note = "【当前市场交易中】请根据实时动态预测后续走势。"
 
-    prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来 {count} {unit}伦敦金 (XAU/USD) 的价格演进趋势。
+    prompt = f"""你是一个顶级的黄金宏观策略分析师。请预测未来伦敦金 (XAU/USD) 的价格演进趋势。
     
     {status_note}
     
@@ -726,7 +721,7 @@ async def _generate_gold_forecast_intl(
     【近期核心情报详情】
     {intel_context}
     
-    请输出未来 {count} 个点（每点间隔 {30 if granularity == '30m' else 1}{unit}）的预测价格。输出格式为 JSON 数组，每个对象包含:
+    请输出未来 {count} 个点（每点间隔 {interval_min} 分钟）的预测价格。输出格式为 JSON 数组，每个对象包含:
     - "offset": 1 到 {count} 的整数
     - "predicted_price": 预测的价格 (float)
     
@@ -742,25 +737,55 @@ async def _generate_gold_forecast_intl(
         llm = DeepSeekLLM()
         forecast_raw = await llm.generate_json_async(prompt)
         
-        forecast_points = []
+        anchor_points = []
         if isinstance(forecast_raw, list):
             for item in forecast_raw:
                 offset = item.get("offset")
                 price = item.get("predicted_price")
                 if offset and price:
-                    if granularity == "1d":
-                        target_ts = last_ts + timedelta(days=int(offset))
-                    elif granularity == "30m":
-                        target_ts = last_ts + timedelta(minutes=int(offset)*30)
-                    else:
-                        target_ts = last_ts + timedelta(hours=int(offset))
-                        
-                    forecast_points.append({
-                        "timestamp": format_iso8601(target_ts),
-                        "price": round(float(price), 2),
-                        "is_forecast": True
+                    target_ts = last_ts + timedelta(minutes=int(offset) * interval_min)
+                    anchor_points.append({
+                        "timestamp": target_ts,
+                        "price": round(float(price), 2)
                     })
-        return forecast_points
+        
+        if not anchor_points:
+            return []
+
+        # 插值平滑：如果是 1m 粒度，将 15min 锚点插值为 1min 点
+        if granularity == "1m":
+            forecast_points = []
+            current_base_ts = last_ts
+            current_base_price = last_price
+            
+            for anchor in anchor_points:
+                target_ts = anchor["timestamp"]
+                target_price = anchor["price"]
+                
+                # 计算总分钟数
+                total_mins = int(round((target_ts - current_base_ts).total_seconds() / 60))
+                if total_mins > 0:
+                    price_step = (target_price - current_base_price) / total_mins
+                    for m in range(1, total_mins + 1):
+                        step_ts = current_base_ts + timedelta(minutes=m)
+                        step_price = current_base_price + (price_step * m)
+                        forecast_points.append({
+                            "timestamp": format_iso8601(step_ts),
+                            "price": round(step_price, 2),
+                            "is_forecast": True
+                        })
+                
+                current_base_ts = target_ts
+                current_base_price = target_price
+            return forecast_points
+        else:
+            # 其他粒度保持原样格式返回
+            return [{
+                "timestamp": format_iso8601(p["timestamp"]),
+                "price": p["price"],
+                "is_forecast": True
+            } for p in anchor_points]
+
     except Exception as e:
         logger.error(f"Gold forecast failed: {e}")
         return []

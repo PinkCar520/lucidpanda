@@ -136,7 +136,7 @@ public struct GoldDeepAnalysisSheet: View {
             // Right Side: Action Stack
             VStack(alignment: .trailing, spacing: 8) {
                 Picker("", selection: $viewModel.selectedGranularity) {
-                    Text("分时").tag("1h")
+                    Text("分时").tag("1m")
                     Text("30M").tag("30m")
                     Text("1D").tag("1d")
                 }
@@ -243,8 +243,8 @@ public struct GoldDeepAnalysisSheet: View {
                         }
                     }
                     .chartXScale(domain: {
-                        let granularity = data.granularity ?? "1h"
-                        if granularity == "1h" {
+                        let granularity = data.granularity ?? "1m"
+                        if granularity == "1m" || granularity == "1h" {
                             let calendar = beijingCalendar
                             let issuedAt = data.prediction.issuedAt
                             
@@ -260,7 +260,7 @@ public struct GoldDeepAnalysisSheet: View {
                             // 交易日终点 (次日 05:00)
                             let end = calendar.date(byAdding: .hour, value: 23, to: start)!
                             
-                            // 锁定 Domain：严格从 06:00 到 05:00，确保 17:30 居中
+                            // 锁定 Domain：严格从 06:00 到 05:00
                             return start...end
                         }
                         return (data.history.first?.timestamp ?? .distantPast)...(data.prediction.mid.last?.timestamp ?? .distantFuture)
@@ -296,10 +296,10 @@ public struct GoldDeepAnalysisSheet: View {
 
     @AxisContentBuilder
     private func xAxisContent(_ data: GoldPredictionResponse) -> some AxisContent {
-        let granularity = data.granularity ?? "1h"
+        let granularity = data.granularity ?? "1m"
         
         switch granularity {
-        case "1h":
+        case "1m", "1h":
             let calendar = beijingCalendar
             let issuedAt = data.prediction.issuedAt
             
@@ -584,9 +584,17 @@ public struct GoldDeepAnalysisSheet: View {
         let diff = snapDate.timeIntervalSince(data.prediction.issuedAt)
         let granularity = data.granularity ?? "1h"
         
-        let timeUnit: Double = granularity == "1d" ? 86400 : 3600
+        let timeUnit: Double = {
+            if granularity == "1d" { return 86400 }
+            if granularity == "1m" { return 60 } // 秒/分钟
+            return 3600 // 小时
+        }()
         let offsets = Int(round(diff / timeUnit))
-        let unitLabel = granularity == "1d" ? "d" : "h"
+        let unitLabel: String = {
+            if granularity == "1d" { return "d" }
+            if granularity == "1m" { return "m" }
+            return "h"
+        }()
         let relativeLabel = offsets == 0 ? String(localized: "market.prediction.label.pivot") : "\(offsets > 0 ? "+" : "")\(offsets)\(unitLabel)"
         
         return VStack(alignment: .leading, spacing: 6) {

@@ -105,10 +105,10 @@ class MarketTerminalService:
             if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 900:
                 return cache_entry["data"]
 
-        # --- 1h: 使用 Sina MinLine (1分钟线) ---
-        if granularity == "1h":
+        # --- 1m/1h: 使用 Sina MinLine (1分钟线) ---
+        if granularity in ["1m", "1h"]:
             try:
-                # Sina 国际金 5 分钟线
+                # Sina 国际金 1 分钟线 (当日)
                 url = "https://stock.finance.sina.com.cn/futures/api/json_v2.php/GlobalFuturesService.getGlobalFuturesMinLine?symbol=XAU"
                 resp = requests.get(url, timeout=10)
                 data = resp.json()
@@ -126,8 +126,23 @@ class MarketTerminalService:
                                     ts_obj = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
                                     point_map[ts_obj] = round(float(price), 2)
                                 except Exception: continue
-                        
+
                         sorted_times = sorted(point_map.keys())
+
+                        # 如果是 1m，返回全量点 (不采样)
+                        if granularity == "1m":
+                            full_trend = []
+                            for t in sorted_times:
+                                full_trend.append({
+                                    "timestamp": format_iso8601(t),
+                                    "price": point_map[t],
+                                    "is_forecast": False
+                                })
+                            if full_trend:
+                                self._cache[cache_key] = {"data": full_trend, "timestamp": datetime.now()}
+                                return full_trend
+
+                        # 如果是 1h，采样为 24 个点
                         sampled_trend = []
                         if sorted_times:
                             last_time = sorted_times[-1]
@@ -142,20 +157,19 @@ class MarketTerminalService:
                                         min_diff = diff
                                         best_match = t
                                     if diff > 7200: break
-                                
+
                                 if best_match:
                                     sampled_trend.insert(0, {
                                         "timestamp": format_iso8601(best_match),
                                         "price": point_map[best_match],
                                         "is_forecast": False
                                     })
-                        
+
                         if sampled_trend:
                             self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
                             return sampled_trend
             except Exception as e:
-                logger.error(f"❌ Gold 1h history fetch failed: {e}")
-
+                logger.error(f"❌ Gold 1m/1h history fetch failed: {e}")
         # --- 30m: 使用 Sina 5MLine (5分钟线) ---
         elif granularity == "30m":
             try:
