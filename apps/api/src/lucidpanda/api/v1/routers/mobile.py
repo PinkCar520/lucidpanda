@@ -304,24 +304,84 @@ async def market_pulse_stream(
 ):
     """
     SSE 流：实时推送市场脉搏数据 (用于 iOS 极速跳动)。
+    带指数退避重试，任何单次异常不会终止推送流。
     """
     from sse_starlette.sse import EventSourceResponse
     import asyncio
 
     async def event_generator():
+        consecutive_errors = 0
+        MAX_BACKOFF = 30  # 最长退避 30s
+
         while True:
             try:
                 pulse_data = await _calculate_market_pulse(db)
                 yield {
                     "data": json.dumps(v1_prepare_json(pulse_data))
                 }
-                # 每 10 秒推送一次，平衡性能与实时性
-                await asyncio.sleep(10)
+                # 成功推送后重置错误计数，每 5 秒推送一次
+                consecutive_errors = 0
+                await asyncio.sleep(5)
             except Exception as e:
-                logger.error(f"Market SSE Error: {e}")
-                break
+                consecutive_errors += 1
+                # 指数退避：2^n 秒，上限 MAX_BACKOFF
+                backoff = min(2 ** consecutive_errors, MAX_BACKOFF)
+                logger.error(
+                    f"Market SSE Error (attempt {consecutive_errors}, retry in {backoff}s): {e}"
+                )
+                await asyncio.sleep(backoff)
+                # 注意：不 break，继续下一轮循环重试
 
     return EventSourceResponse(event_generator())
+
+
+def _is_cn_public_holiday(target_date=None) -> bool:
+    """
+    判断给定日期是否为中国法定假日（含调休休息日）。
+    数据与 iOS 端 MarketSessionStatusResolver.swift 保持同步。
+    """
+    from datetime import date as date_type
+    d = target_date or date.today()
+    if isinstance(d, datetime):
+        d = d.date()
+
+    key = d.year * 10000 + d.month * 100 + d.day
+
+    # 调休补班（自然周末但实际开市）
+    cn_makeup_trading_days: set[int] = {
+        20250126, 20250208, 20250427, 20250928, 20251011,
+        20260104, 20260215, 20260228,
+    }
+    if key in cn_makeup_trading_days:
+        return False  # 虽是周末，但属于补班交易日
+
+    # 法定节假日（含调休休息日）
+    cn_public_holidays: set[int] = {
+        # 2025
+        20250101,
+        20250128, 20250129, 20250130, 20250131,
+        20250201, 20250202, 20250203, 20250204,
+        20250404, 20250405, 20250406,
+        20250501, 20250502, 20250503, 20250504, 20250505,
+        20250531, 20250601, 20250602,
+        20251001, 20251002, 20251003, 20251004,
+        20251005, 20251006, 20251007, 20251008,
+        # 2026
+        20260101, 20260102, 20260103,
+        20260217, 20260218, 20260219, 20260220,
+        20260221, 20260222, 20260223, 20260224,
+        20260405, 20260406,
+        20260501, 20260502, 20260503, 20260504, 20260505,
+        20260619, 20260620, 20260621,
+        20260925, 20260926, 20260927,
+        20261001, 20261002, 20261003, 20261004,
+        20261005, 20261006, 20261007,
+    }
+    if key in cn_public_holidays:
+        return True
+
+    # 自然周末
+    return d.weekday() >= 5
 
 
 async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
@@ -452,6 +512,11 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
         "previous": event.previous_value,
     } for event in upcoming_events_raw]
 
+    # 检测境内法定假日，注入 market_note 提示
+    market_note: str | None = None
+    if _is_cn_public_holiday(now_dt):
+        market_note = "中国法定假日，境内行情服务暂停更新，价格数据为上一交易日收盘水平，国际黄金市场仍正常交易。"
+
     return {
         "market_snapshot": snapshot,
         "top_alerts": top_alerts,
@@ -462,6 +527,7 @@ async def _calculate_market_pulse(db: Session) -> dict[str, Any]:
         "sentiment_trend": sentiment_trend,
         "gold_trend": gold_trend,
         "alert_count_24h": alert_count,
+        "market_note": market_note,
         "generated_at": format_iso8601(datetime.now(UTC))
     }
 

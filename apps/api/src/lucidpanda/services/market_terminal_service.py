@@ -101,9 +101,12 @@ class MarketTerminalService:
         from datetime import datetime, timedelta
 
         cache_key = f"gold_history_intl_{granularity}"
+        # 按粒度分级缓存 TTL：粒度越细，缓存越短，避免走势图"冻结"
+        _ttl_map = {"1m": 30, "1h": 30, "15m": 60, "30m": 60, "4h": 300, "1d": 600}
+        _cache_ttl = _ttl_map.get(granularity, 60)
         if not force_refresh and cache_key in self._cache:
             cache_entry = self._cache[cache_key]
-            if (datetime.now() - cache_entry["timestamp"]).total_seconds() < 900:
+            if (datetime.now() - cache_entry["timestamp"]).total_seconds() < _cache_ttl:
                 return cache_entry["data"]
 
         result = {"history": [], "pre_close": None}

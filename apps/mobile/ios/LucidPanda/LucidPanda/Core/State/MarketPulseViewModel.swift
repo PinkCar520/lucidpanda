@@ -16,7 +16,7 @@ public class MarketPulseViewModel {
     public var isTimechainLoading = false
     public var lastUpdated: Date?
     
-    private let refreshInterval: TimeInterval = 60 // 1 minute refresh
+    private let refreshInterval: TimeInterval = 10 // 10s fallback refresh
     private var refreshTimer: Timer?
     private var sseTask: Task<Void, Never>?
     

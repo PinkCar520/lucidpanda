@@ -240,6 +240,8 @@ public struct MarketPulseResponse: Codable {
     public let goldTrend: [GoldTrendPoint]?
     public let alertCount24h: Int
     public let generatedAt: Date
+    /// 境内法定假日或异常状态下的提示文案，正常交易日为 nil
+    public let marketNote: String?
 
     enum CodingKeys: String, CodingKey {
         case marketSnapshot = "market_snapshot"
@@ -252,6 +254,7 @@ public struct MarketPulseResponse: Codable {
         case goldTrend = "gold_trend"
         case alertCount24h = "alert_count_24h"
         case generatedAt = "generated_at"
+        case marketNote = "market_note"
     }
 }
 
