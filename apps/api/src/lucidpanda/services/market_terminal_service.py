@@ -192,35 +192,52 @@ class MarketTerminalService:
             except Exception as e:
                 logger.error(f"❌ Gold 1m/1h history fetch failed: {e}")
 
-        # --- 15m/30m: 使用 Sina MiniKLine15m (15分钟线) / 5MLine (采样) ---
+        # --- 15m: 使用 Sina 现代 K线接口 (https://gu.sina.cn/ft/api/jsonp.php/...) ---
         elif granularity == "15m":
             try:
-                url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFuturesMiniKLine15m?symbol=XAU"
-                resp = requests.get(url, timeout=10)
-                data = resp.json() 
-                if data and isinstance(data, list):
-                    points = []
-                    for item in data:
-                        try:
-                            ts_obj = datetime.strptime(item[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-                            # 归一化：如果价格是标准价 (~2300)，乘以 2 匹配 Sina MinLine 规模
-                            def normalize(v):
-                                val = float(v)
-                                return round(val * 2 if val < 3000 else val, 2)
+                # 使用用户提供的验证过的 JSONP 接口
+                url = "https://gu.sina.cn/ft/api/jsonp.php/var%20_XAU_15_1=/GlobalService.getMink?symbol=XAU&type=15"
+                headers = {
+                    "Referer": "https://finance.sina.com.cn/futures/quotes/XAU.shtml",
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+                }
+                resp = requests.get(url, headers=headers, timeout=10)
+                resp.encoding = 'gbk'
+                
+                # 提取 JSON 部分: var ...=([...]);
+                match = re.search(r'=\((.*)\);', resp.text)
+                if not match:
+                    match = re.search(r'=(.*);', resp.text)
+                
+                if match:
+                    data = json.loads(match.group(1))
+                    if data and isinstance(data, list):
+                        points = []
+                        for item in data:
+                            try:
+                                # 数据格式: {"d":"2024-05-04 15:15:00","o":"2301.50",...}
+                                ts_obj = datetime.strptime(item["d"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                                
+                                # 归一化：如果价格是标准价 (~2300)，乘以 2 匹配 Sina MinLine 规模
+                                def normalize(v):
+                                    val = float(v)
+                                    return round(val * 2 if val < 3000 else val, 2)
 
-                            points.append({
-                                "timestamp": format_iso8601(ts_obj),
-                                "open": normalize(item[1]),
-                                "high": normalize(item[2]),
-                                "low": normalize(item[3]),
-                                "price": normalize(item[4]), # Close
-                                "is_forecast": False
-                            })
-                        except Exception: continue
-                    if points:
-                        result["history"] = points[-96:] # 最近 24 小时
-                        self._cache[cache_key] = {"data": result, "timestamp": datetime.now()}
-                        return result
+                                points.append({
+                                    "timestamp": format_iso8601(ts_obj),
+                                    "open": normalize(item["o"]),
+                                    "high": normalize(item["h"]),
+                                    "low": normalize(item["l"]),
+                                    "price": normalize(item["c"]), # Close
+                                    "is_forecast": False
+                                })
+                            except Exception: continue
+                        if points:
+                            result["history"] = points[-96:] # 最近 24 小时
+                            self._cache[cache_key] = {"data": result, "timestamp": datetime.now()}
+                            return result
+                else:
+                    logger.error("❌ Gold 15m: Could not find JSON in Sina response")
             except Exception as e:
                 logger.error(f"❌ Gold 15m history fetch failed: {e}")
 
