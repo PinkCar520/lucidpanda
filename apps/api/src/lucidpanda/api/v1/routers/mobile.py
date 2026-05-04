@@ -640,9 +640,19 @@ async def _generate_gold_forecast_intl(
     last_point = history[-1]
     last_price = last_point["price"]
     try:
-        last_ts = datetime.fromisoformat(last_point["timestamp"].replace("Z", "+00:00"))
+        raw_ts = datetime.fromisoformat(last_point["timestamp"].replace("Z", "+00:00"))
     except Exception:
-        last_ts = datetime.now(UTC)
+        raw_ts = datetime.now(UTC)
+    
+    # 周期对齐逻辑：预测点应从下一个标准时间边界开始
+    if granularity in ["15m", "30m", "1h", "4h"]:
+        m_interval = {"15m": 15, "30m": 30, "1h": 60, "4h": 240}.get(granularity, 60)
+        # 向上取整到最近的间隔
+        total_minutes = raw_ts.hour * 60 + raw_ts.minute
+        next_boundary_minutes = ((total_minutes // m_interval) + 1) * m_interval
+        last_ts = raw_ts.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(minutes=next_boundary_minutes)
+    else:
+        last_ts = raw_ts
     
     recent_prices = [p["price"] for p in history[-6:]]
     trend_desc = "震荡"
@@ -749,7 +759,8 @@ async def _generate_gold_forecast_intl(
                 offset = item.get("offset")
                 price = item.get("predicted_price")
                 if offset and price:
-                    target_ts = last_ts + timedelta(minutes=int(offset) * interval_min)
+                    # 使用 (int(offset) - 1) 确保第一个预测点落在对齐后的 last_ts 上
+                    target_ts = last_ts + timedelta(minutes=(int(offset) - 1) * interval_min)
                     anchor_points.append({
                         "timestamp": target_ts,
                         "price": round(float(price), 2)

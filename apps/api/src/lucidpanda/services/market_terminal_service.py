@@ -205,9 +205,14 @@ class MarketTerminalService:
                     if reconstructed_points:
                         last_ts = reconstructed_points[-1]["timestamp"]
                         interval = 15 if granularity == "15m" else 30
+                        
+                        # 向下对齐到标准的分钟边界 (例如 11:03 对齐到 11:00)
+                        aligned_minute = (last_ts.minute // interval) * interval
+                        aligned_ts = last_ts.replace(minute=aligned_minute, second=0, microsecond=0)
+                        
                         # 采样 96 个点
                         for i in range(96):
-                            target_ts = last_ts - timedelta(minutes=i*interval)
+                            target_ts = aligned_ts - timedelta(minutes=i*interval)
                             # 找最接近的点
                             best_match = min(reconstructed_points, key=lambda x: abs((x["timestamp"] - target_ts).total_seconds()))
                             if abs((best_match["timestamp"] - target_ts).total_seconds()) < interval * 60:
@@ -216,6 +221,14 @@ class MarketTerminalService:
                                     "price": best_match["price"],
                                     "is_forecast": False
                                 })
+                        
+                        # 把最新的实时点位（即使未收线）追加到末尾，保证价格是最新的
+                        if sampled_trend and sampled_trend[-1]["timestamp"] != format_iso8601(last_ts):
+                            sampled_trend.append({
+                                "timestamp": format_iso8601(last_ts),
+                                "price": reconstructed_points[-1]["price"],
+                                "is_forecast": False
+                            })
                     
                     if sampled_trend:
                         self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
@@ -254,6 +267,15 @@ class MarketTerminalService:
                                     "price": p["price"],
                                     "is_forecast": False
                                 })
+                        
+                        # 补上最新的实时点位
+                        last_real_ts = points[-1]["timestamp"]
+                        if sampled_trend and sampled_trend[-1]["timestamp"] != format_iso8601(last_real_ts):
+                            sampled_trend.append({
+                                "timestamp": format_iso8601(last_real_ts),
+                                "price": points[-1]["price"],
+                                "is_forecast": False
+                            })
                     
                     if sampled_trend:
                         # 仅保留最近 120 个点 (约 20 天)
