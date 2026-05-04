@@ -47,7 +47,7 @@ struct IntelligenceItemCard: View {
         })
         .sheet(isPresented: $showPeek) {
             IntelligencePeekSheet(item: item)
-                .presentationDetents([.medium])
+                .presentationDetents([.fraction(0.6)])
                 .presentationDragIndicator(.visible)
         }
     }

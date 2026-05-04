@@ -1646,7 +1646,6 @@
       }
     },
     "breakout_interval" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -512,7 +512,7 @@ async def get_gold_prediction(
     CACHE_KEY = f"mobile:gold_forecast:intl:v2:{granularity}"
     if not force_refresh:
         cached_data = get_cached(CACHE_KEY)
-        if cached_data and "generatedAt" in cached_data:
+        if cached_data and "generated_at" in cached_data:
             cached_data["market_status"] = market_status
             cached_data["previous_close"] = pre_close
             return v1_prepare_json(cached_data)
@@ -591,8 +591,8 @@ async def get_gold_prediction(
         mid_points.append({"timestamp": ts, "price": price})
         
         # Volatility grows with time. For 1D, we use larger spread.
-        vol_base = 0.015 if granularity == "1d" else 0.005
-        vol_step = 0.005 if granularity == "1d" else 0.002
+        vol_base = 0.010 if granularity == "1d" else 0.001 # 紧凑的起始区间
+        vol_step = 0.002 if granularity == "1d" else 0.0005 # 极缓的扩散
         vol = vol_base + (vol_step * i) 
         upper_points.append({"timestamp": ts, "price": round(price * (1 + vol), 2)})
         lower_points.append({"timestamp": ts, "price": round(price * (1 - vol), 2)})
@@ -607,7 +607,7 @@ async def get_gold_prediction(
     final_response = {
         "history": history_full,
         "prediction": prediction_result,
-        "generatedAt": format_iso8601(datetime.now(UTC)),
+        "generated_at": format_iso8601(datetime.now(UTC)),
         "granularity": granularity, # Include granularity for frontend logic
         "market_status": market_status,
         "previous_close": pre_close

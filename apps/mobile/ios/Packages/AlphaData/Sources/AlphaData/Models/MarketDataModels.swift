@@ -407,26 +407,17 @@ public struct SinaGoldMinLineResponse: Codable {
         var points: [GoldTrendPoint] = []
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai") // 新浪数据通常为北京时间
+        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai") 
 
-        for (index, rawArray) in minLine1d.enumerated() {
-            // 第一个元素有 10 个字段，后续有 6 个字段
-            // 最后一个字段都是完整的时间戳 "yyyy-MM-dd HH:mm:ss"
-            guard let lastString = rawArray.last,
-                  let date = formatter.date(from: lastString) else {
-                continue
-            }
+        for rawArray in minLine1d {
+            guard let tsStr = rawArray.last, let date = formatter.date(from: tsStr) else { continue }
             
-            // 价格字段：第一个元素在 index 5，后续在 index 1
-            // ⚠️ 核心修正：新浪 XAU 原始数据是标准金价的 2 倍 (双倍合约价格)，此处需归一化
-            let priceIndex = (index == 0) ? 5 : 1
-            guard rawArray.count > priceIndex,
-                  let rawPrice = Double(rawArray[priceIndex]) else {
-                continue
-            }
+            // 统一使用 index 1 作为现价，这是新浪 MinLine 的标准
+            // 如果 index 1 不存在，则跳过，防止引入 0 或 错误数据
+            guard rawArray.count > 1, let rawPrice = Double(rawArray[1]) else { continue }
             
-            let normalizedPrice = rawPrice
-            points.append(GoldTrendPoint(timestamp: date, price: normalizedPrice, isForecast: false))
+            // 保持原始规模 (约为 4600)，确保与后端 AI 预测基准对齐
+            points.append(GoldTrendPoint(timestamp: date, price: rawPrice, isForecast: false))
         }
         return points
     }

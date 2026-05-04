@@ -211,7 +211,7 @@ struct MainDashboardView: View {
         }
         .sheet(isPresented: $isPulseSheetPresented) {
             MarketPulseSheet(viewModel: rootViewModel.marketPulseViewModel)
-                .presentationDetents([PresentationDetent.fraction(0.7)])
+                .presentationDetents([PresentationDetent.fraction(0.95)])
                 .presentationDragIndicator(Visibility.visible)
         }
         .sheet(isPresented: $isDeepAnalysisPresented) {

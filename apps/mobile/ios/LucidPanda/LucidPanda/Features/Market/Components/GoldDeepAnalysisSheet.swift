@@ -17,6 +17,7 @@ public struct GoldDeepAnalysisSheet: View {
     private let actualDownColor = Color.Alpha.down
     private let predictionLineColor = Color(hex: "#007AFF")
     private let confidenceFillColor = Color(hex: "#007AFF").opacity(0.08)
+    private let breakoutFillColor = Color.Alpha.up.opacity(0.12)
     private let pivotLineColor = Color.Alpha.taupe.opacity(0.4)
 
     private var beijingCalendar: Calendar {
@@ -24,6 +25,13 @@ public struct GoldDeepAnalysisSheet: View {
         cal.timeZone = TimeZone(identifier: "Asia/Shanghai")!
         return cal
     }
+
+    private static let beijingTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "Asia/Shanghai")
+        formatter.dateFormat = "HH:mm"
+        return formatter
+    }()
 
     public init() {}
 
@@ -47,6 +55,7 @@ public struct GoldDeepAnalysisSheet: View {
                                     downColor: actualDownColor,
                                     predictionLineColor: predictionLineColor,
                                     confidenceFillColor: confidenceFillColor,
+                                    breakoutFillColor: breakoutFillColor,
                                     pivotLineColor: pivotLineColor
                                 )
                                 .frame(height: 300)
@@ -83,6 +92,7 @@ public struct GoldDeepAnalysisSheet: View {
                     downColor: actualDownColor,
                     predictionLineColor: predictionLineColor,
                     confidenceFillColor: confidenceFillColor,
+                    breakoutFillColor: breakoutFillColor,
                     pivotLineColor: pivotLineColor
                 )
             }
@@ -146,18 +156,32 @@ public struct GoldDeepAnalysisSheet: View {
     }
     
     private var legendView: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             HStack(spacing: 4) {
-                Rectangle().fill(actualUpColor).frame(width: 12, height: 2.5)
+                // 实时行情：改为上下两个横条
+                VStack(spacing: 1.5) {
+                    Rectangle().fill(actualUpColor).frame(width: 12, height: 1.5)
+                    Rectangle().fill(actualDownColor).frame(width: 12, height: 1.5)
+                }
                 Text("actual_market_beijing_time").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
             HStack(spacing: 4) {
-                Rectangle().fill(predictionLineColor).frame(width: 12, height: 1)
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: 4))
+                    path.addLine(to: CGPoint(x: 14, y: 4))
+                }
+                .stroke(predictionLineColor, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2]))
+                .frame(width: 14, height: 8)
+                
                 Text("ai_prediction_mid").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
             HStack(spacing: 4) {
                 RoundedRectangle(cornerRadius: 1).fill(predictionLineColor.opacity(0.15)).frame(width: 12, height: 8)
                 Text("confidence_interval").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
+            }
+            HStack(spacing: 4) {
+                RoundedRectangle(cornerRadius: 1).fill(breakoutFillColor).frame(width: 12, height: 8)
+                Text("breakout_interval").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
         }
     }
@@ -167,6 +191,8 @@ public struct GoldDeepAnalysisSheet: View {
             metricCard(label: "market.prediction.metric.issued_at", value: viewModel.predictedAtText, color: Color.Alpha.textPrimary)
             metricCard(label: "market.prediction.metric.target", value: String(format: "$%.1f", viewModel.targetPrice), color: predictionLineColor)
             metricCard(label: "market.prediction.metric.direction_accuracy", value: viewModel.directionAccuracy.map { String(format: "%.0f%%", $0) } ?? "--", color: Color.Alpha.brand)
+            metricCard(label: "market.prediction.metric.historical_accuracy", value: viewModel.historicalAccuracy.map { String(format: "%.0f%%", $0) } ?? "--", color: actualUpColor)
+            metricCard(label: "market.prediction.metric.hit_rate", value: viewModel.hitRate.map { String(format: "%.0f%%", $0) } ?? "--", color: actualDownColor)
             metricCard(label: "market.prediction.metric.deviation", value: String(format: "%@$%.1f", (viewModel.currentDeviation ?? 0) >= 0 ? "+" : "-", abs(viewModel.currentDeviation ?? 0)), color: (viewModel.currentDeviation ?? 0) >= 0 ? actualDownColor : actualUpColor)
         }
     }
@@ -254,6 +280,7 @@ struct ProfessionalGoldChart: View {
     let downColor: Color
     let predictionLineColor: Color
     let confidenceFillColor: Color
+    let breakoutFillColor: Color
     let pivotLineColor: Color
 
     private static let timeFormatter: DateFormatter = {
@@ -272,27 +299,80 @@ struct ProfessionalGoldChart: View {
 
     var body: some View {
         Chart {
-            // 1. Prediction Confidence Area
-            ForEach(data.prediction.mid.indices, id: \.self) { i in
+            // 1. Prediction Zone Background (Light Grey Stripe)
+            if let lastTime = data.prediction.mid.last?.timestamp {
+                RectangleMark(
+                    xStart: .value("Start", data.prediction.issuedAt),
+                    xEnd: .value("End", lastTime)
+                )
+                .foregroundStyle(Color(hex: "#888780").opacity(0.06))
+            }
+            
+            // 2. Prediction Confidence Area (Blue - Future ONLY)
+            let futureMid = data.prediction.mid.filter { $0.timestamp >= data.prediction.issuedAt }
+            let futureUpper = data.prediction.upper.filter { $0.timestamp >= data.prediction.issuedAt }
+            let futureLower = data.prediction.lower.filter { $0.timestamp >= data.prediction.issuedAt }
+            
+            ForEach(futureMid.indices, id: \.self) { i in
                 AreaMark(
-                    x: .value("T", data.prediction.mid[i].timestamp),
-                    yStart: .value("L", data.prediction.lower[i].price),
-                    yEnd: .value("U", data.prediction.upper[i].price)
+                    x: .value("T", futureMid[i].timestamp),
+                    yStart: .value("L", futureLower[i].price),
+                    yEnd: .value("U", futureUpper[i].price)
                 )
                 .foregroundStyle(confidenceFillColor)
             }
             
-            // 2. Main History (Intraday Line vs Candlesticks)
+            // 3. Breakout Area (Gold - Past/Overlap ONLY)
+            let historyAfter = data.history.filter { $0.timestamp >= data.prediction.issuedAt }
+            ForEach(historyAfter) { p in
+                if let i = data.prediction.mid.firstIndex(where: { abs($0.timestamp.timeIntervalSince(p.timestamp)) < 1800 }) {
+                    let up = data.prediction.upper[i].price
+                    let lo = data.prediction.lower[i].price
+                    if p.price > up { 
+                        AreaMark(x: .value("T", p.timestamp), yStart: .value("B", up), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
+                    } else if p.price < lo { 
+                        AreaMark(x: .value("T", p.timestamp), yStart: .value("B", lo), yEnd: .value("V", p.price)).foregroundStyle(breakoutFillColor) 
+                    }
+                }
+            }
+            
+            // 4. Main History (Intraday Line vs Candlesticks)
             if data.granularity == "1m" {
                 let preClose = data.previousClose ?? (data.history.first?.price ?? 0)
+                
+                // History Area Fill (Dynamic Red/Green based on baseline)
+                // ⚠️ 修复：移除之前错误的蓝色逻辑，严格按红/绿渲染
                 ForEach(data.history) { p in
-                    AreaMark(x: .value("T", p.timestamp), yStart: .value("B", preClose), yEnd: .value("P", p.price))
-                        .foregroundStyle(LinearGradient(colors: [(p.price >= preClose ? upColor : downColor).opacity(0.12), .clear], startPoint: .top, endPoint: .bottom))
-                    LineMark(x: .value("T", p.timestamp), y: .value("P", p.price))
-                        .foregroundStyle(p.price >= preClose ? upColor : downColor)
-                        .lineStyle(StrokeStyle(lineWidth: 2))
+                    let isUp = p.price >= preClose
+                    AreaMark(
+                        x: .value("T", p.timestamp),
+                        yStart: .value("B", preClose),
+                        yEnd: .value("P", p.price)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [(isUp ? upColor : downColor).opacity(0.12), .clear], 
+                            startPoint: .top, 
+                            endPoint: .bottom
+                        )
+                    )
                 }
-                RuleMark(y: .value("Baseline", preClose)).foregroundStyle(.gray.opacity(0.3)).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                
+                // Line Series (Must use 'series' for connected dashed/solid lines)
+                ForEach(data.history) { p in
+                    LineMark(
+                        x: .value("T", p.timestamp),
+                        y: .value("P", p.price),
+                        series: .value("Series", "Actual")
+                    )
+                    .foregroundStyle(p.price >= preClose ? upColor : downColor)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                }
+                
+                // PreClose Baseline
+                RuleMark(y: .value("Baseline", preClose))
+                    .foregroundStyle(.gray.opacity(0.3))
+                    .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
             } else {
                 ForEach(data.history) { p in
                     if let open = p.open, let high = p.high, let low = p.low {
@@ -303,23 +383,49 @@ struct ProfessionalGoldChart: View {
                 }
             }
             
-            // 3. AI Prediction Curve
+            // 5. AI Prediction Curve (Dashed Line Series)
             ForEach(data.prediction.mid) { p in
-                LineMark(x: .value("T", p.timestamp), y: .value("P", p.price))
-                    .foregroundStyle(predictionLineColor)
-                    .lineStyle(StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                LineMark(
+                    x: .value("T", p.timestamp),
+                    y: .value("P", p.price),
+                    series: .value("Series", "Prediction")
+                )
+                .foregroundStyle(predictionLineColor)
+                .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
             }
+
+            // 6. Pivot Marker (IssuedAt Dot & Vertical Line)
+            RuleMark(x: .value("Pivot", data.prediction.issuedAt))
+                .foregroundStyle(pivotLineColor)
+                .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+            if let pivotPoint = data.history.last(where: { $0.timestamp <= data.prediction.issuedAt }) ?? 
+                data.prediction.mid.first.map({ GoldTrendPoint(timestamp: $0.timestamp, price: $0.price, isForecast: true) }) {
+                PointMark(
+                    x: .value("T", pivotPoint.timestamp),
+                    y: .value("P", pivotPoint.price)
+                )
+                .symbolSize(60)
+                .foregroundStyle(predictionLineColor)
+            }
+
             
-            // 4. Pivot Marker
-            RuleMark(x: .value("Pivot", data.prediction.issuedAt)).foregroundStyle(pivotLineColor).lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-            
-            // 5. Crosshair
+            // 7. Crosshair
             if let date = selectedDate {
                 let all = data.history.map { GoldPricePoint(timestamp: $0.timestamp, price: $0.price) } + data.prediction.mid
                 if let c = all.min(by: { abs($0.timestamp.timeIntervalSince(date)) < abs($1.timestamp.timeIntervalSince(date)) }) {
                     RuleMark(x: .value("T", c.timestamp)).foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
                     RuleMark(y: .value("P", c.price)).foregroundStyle(Color.Alpha.textPrimary.opacity(0.15))
-                    PointMark(x: .value("T", c.timestamp), y: .value("P", c.price)).foregroundStyle(predictionLineColor).symbolSize(60)
+                    PointMark(x: .value("T", c.timestamp), y: .value("P", c.price))
+                        .foregroundStyle({
+                            if c.timestamp > data.prediction.issuedAt {
+                                return predictionLineColor
+                            } else {
+                                let histPoint = data.history.first(where: { abs($0.timestamp.timeIntervalSince(c.timestamp)) < 1 })
+                                return (histPoint?.price ?? 0) >= (histPoint?.open ?? histPoint?.price ?? 0) ? upColor : downColor
+                            }
+                        }())
+                        .symbolSize(60)
                 }
             }
         }
@@ -330,7 +436,7 @@ struct ProfessionalGoldChart: View {
             AxisMarks(position: .leading) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
                 if let price = value.as(Double.self) {
-                    AxisValueLabel { Text("$\(Int(price))").font(.system(size: 10)).foregroundStyle(.secondary) }
+                    AxisValueLabel { Text("$\(Int(price))").font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary) }
                 }
             }
         }
@@ -365,10 +471,13 @@ struct ProfessionalGoldChart: View {
 
     private var yDomain: ClosedRange<Double> {
         let historyPrices = data.history.flatMap { [$0.price, $0.open ?? $0.price, $0.high ?? $0.price, $0.low ?? $0.price] }
-        let predictionPrices = data.prediction.mid.map { $0.price } + data.prediction.upper.map { $0.price } + data.prediction.lower.map { $0.price }
+        let predictionPrices = data.prediction.mid.map { $0.price }
         let allPrices = (historyPrices + predictionPrices).filter { $0 > 0 }
-        guard let min = allPrices.min(), let max = allPrices.max(), min < max else { return 2300...2500 }
-        let padding = (max - min) * 0.15
+        
+        guard let min = allPrices.min(), let max = allPrices.max(), min < max else { return 4500...4700 }
+        
+        let range = max - min
+        let padding = range * 0.05
         return (min - padding)...(max + padding)
     }
 
@@ -381,9 +490,11 @@ struct ProfessionalGoldChart: View {
             let end = xDomain.upperBound
             AxisMarks(values: [start, mid, end]) { value in
                 if let date = value.as(Date.self) {
-                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [2, 2])).foregroundStyle(.gray.opacity(0.15))
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
                     AxisValueLabel(anchor: date == start ? .topLeading : (date == end ? .topTrailing : .top)) {
-                        Text(Self.timeFormatter.string(from: date)).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                        Text(Self.timeFormatter.string(from: date))
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -394,7 +505,7 @@ struct ProfessionalGoldChart: View {
                     AxisValueLabel {
                         VStack(spacing: 0) {
                             if granularity == "4h" || granularity == "1d" { Text(Self.dayFormatter.string(from: date)).font(.system(size: 8)) }
-                            Text(Self.timeFormatter.string(from: date)).font(.system(size: 10))
+                            Text(Self.timeFormatter.string(from: date)).font(.system(size: 10, design: .monospaced))
                         }.foregroundStyle(.secondary)
                     }
                 }
@@ -414,6 +525,7 @@ struct LandscapeChartView: View {
     let downColor: Color
     let predictionLineColor: Color
     let confidenceFillColor: Color
+    let breakoutFillColor: Color
     let pivotLineColor: Color
 
     var body: some View {
@@ -439,6 +551,7 @@ struct LandscapeChartView: View {
                             downColor: downColor,
                             predictionLineColor: predictionLineColor,
                             confidenceFillColor: confidenceFillColor,
+                            breakoutFillColor: breakoutFillColor,
                             pivotLineColor: pivotLineColor
                         )
                         .padding(.horizontal, 20).padding(.bottom, 20)

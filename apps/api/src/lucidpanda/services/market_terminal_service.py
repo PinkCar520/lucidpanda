@@ -198,12 +198,17 @@ class MarketTerminalService:
                     for item in data:
                         try:
                             ts_obj = datetime.strptime(item[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                            # 归一化：如果价格是标准价 (~2300)，乘以 2 匹配 Sina MinLine 规模
+                            def normalize(v):
+                                val = float(v)
+                                return round(val * 2 if val < 3000 else val, 2)
+
                             points.append({
                                 "timestamp": format_iso8601(ts_obj),
-                                "open": round(float(item[1]), 2),
-                                "high": round(float(item[2]), 2),
-                                "low": round(float(item[3]), 2),
-                                "price": round(float(item[4]), 2), # Close
+                                "open": normalize(item[1]),
+                                "high": normalize(item[2]),
+                                "low": normalize(item[3]),
+                                "price": normalize(item[4]), # Close
                                 "is_forecast": False
                             })
                         except Exception: continue
@@ -224,12 +229,16 @@ class MarketTerminalService:
                     for item in data:
                         try:
                             ts_obj = datetime.strptime(item[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                            def normalize(v):
+                                val = float(v)
+                                return round(val * 2 if val < 3000 else val, 2)
+
                             points.append({
                                 "timestamp": format_iso8601(ts_obj),
-                                "open": round(float(item[1]), 2),
-                                "high": round(float(item[2]), 2),
-                                "low": round(float(item[3]), 2),
-                                "price": round(float(item[4]), 2), # Close
+                                "open": normalize(item[1]),
+                                "high": normalize(item[2]),
+                                "low": normalize(item[3]),
+                                "price": normalize(item[4]), # Close
                                 "is_forecast": False
                             })
                         except Exception: continue
@@ -247,18 +256,20 @@ class MarketTerminalService:
                 resp = requests.get(url, timeout=10)
                 data = resp.json() 
                 if data and isinstance(data, list):
-                    # 数据格式通常为 [ [date, open, high, low, close, volume], ... ]
                     points = []
                     for item in data:
                         try:
-                            # Sina 60m 接口日期格式通常为 "YYYY-MM-DD HH:MM:SS"
                             ts_obj = datetime.strptime(item[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                            def normalize(v):
+                                val = float(v)
+                                return round(val * 2 if val < 3000 else val, 2)
+
                             points.append({
                                 "timestamp": ts_obj,
-                                "open": round(float(item[1]), 2),
-                                "high": round(float(item[2]), 2),
-                                "low": round(float(item[3]), 2),
-                                "price": round(float(item[4]), 2) # Close price
+                                "open": normalize(item[1]),
+                                "high": normalize(item[2]),
+                                "low": normalize(item[3]),
+                                "price": normalize(item[4]) # Close price
                             })
                         except Exception: continue
 
@@ -266,7 +277,6 @@ class MarketTerminalService:
                     points.sort(key=lambda x: x["timestamp"])
                     sampled_trend = []
                     if points:
-                        # 简单逻辑：如果小时数能被 4 整除，则保留
                         for p in points:
                             if p["timestamp"].hour % 4 == 0:
                                 sampled_trend.append({
@@ -278,11 +288,8 @@ class MarketTerminalService:
                                     "is_forecast": False
                                 })
 
-                        # 补上最新的实时点位
                         last_real_ts = points[-1]["timestamp"]
                         if sampled_trend and sampled_trend[-1]["timestamp"] != format_iso8601(last_real_ts):
-                            # 计算当前 4H 的 OHLC
-                            # 简化处理：由于实时点可能就在 4H 周期内，暂时只放最后一点
                             sampled_trend.append({
                                 "timestamp": format_iso8601(last_real_ts),
                                 "open": points[-1]["open"],
@@ -293,7 +300,6 @@ class MarketTerminalService:
                             })
 
                     if sampled_trend:
-                        # 仅保留最近 180 个点 (约 30 天，4h * 6 = 1天，180/6 = 30天)
                         result["history"] = sampled_trend[-180:]
                         self._cache[cache_key] = {"data": result, "timestamp": datetime.now()}
                         return result
@@ -305,21 +311,24 @@ class MarketTerminalService:
             try:
                 url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFuturesDailyKLine?symbol=XAU"
                 resp = requests.get(url, timeout=10)
-                data = resp.json() # 格式: [ {"date":"YYYY-MM-DD", "open":..., "high":..., "low":..., "close":"..."}, ... ]
+                data = resp.json() 
                 if data and isinstance(data, list):
-                    # 过滤逻辑：保留最近 60 个自然日的数据
                     limit_dt = datetime.now() - timedelta(days=60)
                     trend = []
                     for item in data:
                         try:
                             ts_obj = datetime.strptime(item["date"], "%Y-%m-%d").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
                             if ts_obj >= limit_dt.replace(tzinfo=ZoneInfo("Asia/Shanghai")):
+                                def normalize(v):
+                                    val = float(v)
+                                    return round(val * 2 if val < 3000 else val, 2)
+
                                 trend.append({
                                     "timestamp": format_iso8601(ts_obj),
-                                    "open": round(float(item["open"]), 2),
-                                    "high": round(float(item["high"]), 2),
-                                    "low": round(float(item["low"]), 2),
-                                    "price": round(float(item["close"]), 2),
+                                    "open": normalize(item["open"]),
+                                    "high": normalize(item["high"]),
+                                    "low": normalize(item["low"]),
+                                    "price": normalize(item["close"]),
                                     "is_forecast": False
                                 })
                         except Exception: continue
@@ -328,6 +337,7 @@ class MarketTerminalService:
                         result["history"] = trend
                         self._cache[cache_key] = {"data": result, "timestamp": datetime.now()}
                         return result
+
             except Exception as e:
                 logger.error(f"❌ Gold 1d history fetch failed: {e}")
 
