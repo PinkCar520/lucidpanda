@@ -137,11 +137,12 @@ public struct GoldDeepAnalysisSheet: View {
             VStack(alignment: .trailing, spacing: 8) {
                 Picker("", selection: $viewModel.selectedGranularity) {
                     Text("分时").tag("1m")
-                    Text("30M").tag("30m")
+                    Text("15M").tag("15m")
+                    Text("4H").tag("4h")
                     Text("1D").tag("1d")
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 140)
+                .frame(width: 220)
                 .onChange(of: viewModel.selectedGranularity) {
                     Task { await viewModel.fetchPrediction(forceRefresh: false) }
                 }
@@ -343,8 +344,8 @@ public struct GoldDeepAnalysisSheet: View {
                 }
             }
             
-        case "30m":
-            // --- 30M 逻辑：跨度约 2 天，显示具体时间点 ---
+        case "15m", "30m":
+            // --- 15M/30M 逻辑：显示具体时间点 ---
             AxisMarks(values: .automatic(desiredCount: 5)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
                 AxisValueLabel {
@@ -356,27 +357,36 @@ public struct GoldDeepAnalysisSheet: View {
                 }
             }
             
-        case "1d":
-            // --- 1D 逻辑：仅显示首尾两个日期 ---
-            let allDates = (data.history.map { $0.timestamp } + data.prediction.mid.map { $0.timestamp }).sorted()
-            if let start = allDates.first, let end = allDates.last {
-                AxisMarks(position: .bottom, values: [start, end]) { value in
+        case "4h":
+            // --- 4H 逻辑：显示日期 + 时间 ---
+            AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
+                AxisValueLabel {
                     if let date = value.as(Date.self) {
-                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                            .foregroundStyle(Color.gray.opacity(0.1))
-                        
-                        let isStart = abs(date.timeIntervalSince(start)) < 60
-                        AxisValueLabel(anchor: isStart ? .topLeading : .topTrailing) {
-                            Text(formatBeijingTime(date, useDay: true))
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.secondary)
+                        VStack(spacing: 0) {
+                            Text(formatBeijingTime(date, useDay: true).suffix(5))
+                            Text(formatBeijingTime(date))
                         }
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            
+        case "1d":
+            // --- 1D 逻辑：显示简短日期 ---
+            AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
+                AxisValueLabel {
+                    if let date = value.as(Date.self) {
+                        Text(formatBeijingTime(date, useDay: true).suffix(5))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
             
         default:
-            // 默认逻辑
             AxisMarks(values: .automatic(desiredCount: 5)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(Color.gray.opacity(0.1))
                 AxisValueLabel {
@@ -586,13 +596,15 @@ public struct GoldDeepAnalysisSheet: View {
         
         let timeUnit: Double = {
             if granularity == "1d" { return 86400 }
-            if granularity == "1m" { return 60 } // 秒/分钟
-            return 3600 // 小时
+            if granularity == "4h" { return 3600 } // 使用小时显示相对偏移
+            if granularity == "1m" || granularity == "15m" { return 60 } // 使用分钟
+            return 3600 
         }()
         let offsets = Int(round(diff / timeUnit))
         let unitLabel: String = {
             if granularity == "1d" { return "d" }
-            if granularity == "1m" { return "m" }
+            if granularity == "4h" || granularity == "1h" { return "h" }
+            if granularity == "1m" || granularity == "15m" { return "m" }
             return "h"
         }()
         let relativeLabel = offsets == 0 ? String(localized: "market.prediction.label.pivot") : "\(offsets > 0 ? "+" : "")\(offsets)\(unitLabel)"

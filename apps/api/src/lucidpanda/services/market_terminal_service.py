@@ -170,8 +170,8 @@ class MarketTerminalService:
                             return sampled_trend
             except Exception as e:
                 logger.error(f"❌ Gold 1m/1h history fetch failed: {e}")
-        # --- 30m: 使用 Sina 5MLine (5分钟线) ---
-        elif granularity == "30m":
+        # --- 15m/30m: 使用 Sina 5MLine (5分钟线) ---
+        elif granularity in ["15m", "30m"]:
             try:
                 url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFutures5MLine?symbol=XAU"
                 resp = requests.get(url, timeout=10)
@@ -199,17 +199,18 @@ class MarketTerminalService:
                                 })
                             except Exception: continue
                     
-                    # 采样：每 30 分钟取一个点
+                    # 采样逻辑
                     reconstructed_points.sort(key=lambda x: x["timestamp"])
                     sampled_trend = []
                     if reconstructed_points:
                         last_ts = reconstructed_points[-1]["timestamp"]
-                        # 取最近 48 小时，每 30 分钟一个点，共 ~96 个点
+                        interval = 15 if granularity == "15m" else 30
+                        # 采样 96 个点
                         for i in range(96):
-                            target_ts = last_ts - timedelta(minutes=i*30)
+                            target_ts = last_ts - timedelta(minutes=i*interval)
                             # 找最接近的点
                             best_match = min(reconstructed_points, key=lambda x: abs((x["timestamp"] - target_ts).total_seconds()))
-                            if abs((best_match["timestamp"] - target_ts).total_seconds()) < 1800:
+                            if abs((best_match["timestamp"] - target_ts).total_seconds()) < interval * 60:
                                 sampled_trend.insert(0, {
                                     "timestamp": format_iso8601(best_match["timestamp"]),
                                     "price": best_match["price"],
@@ -220,7 +221,47 @@ class MarketTerminalService:
                         self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
                         return sampled_trend
             except Exception as e:
-                logger.error(f"❌ Gold 30m history fetch failed: {e}")
+                logger.error(f"❌ Gold {granularity} history fetch failed: {e}")
+
+        # --- 4h: 使用 Sina 60MLine (60分钟线) 采样 ---
+        elif granularity == "4h":
+            try:
+                url = "https://stock2.finance.sina.com.cn/futures/api/json.php/GlobalFuturesService.getGlobalFuturesMiniKLine60m?symbol=XAU"
+                resp = requests.get(url, timeout=10)
+                data = resp.json() 
+                if data and isinstance(data, list):
+                    # 数据格式通常为 [ [date, open, high, low, close, volume], ... ]
+                    points = []
+                    for item in data:
+                        try:
+                            # Sina 60m 接口日期格式通常为 "YYYY-MM-DD HH:MM:SS"
+                            ts_obj = datetime.strptime(item[0], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+                            points.append({
+                                "timestamp": ts_obj,
+                                "price": round(float(item[4]), 2) # Close price
+                            })
+                        except Exception: continue
+                    
+                    # 采样：每 4 小时取一个点 (00:00, 04:00, 08:00...)
+                    points.sort(key=lambda x: x["timestamp"])
+                    sampled_trend = []
+                    if points:
+                        # 简单逻辑：如果小时数能被 4 整除，则保留
+                        for p in points:
+                            if p["timestamp"].hour % 4 == 0:
+                                sampled_trend.append({
+                                    "timestamp": format_iso8601(p["timestamp"]),
+                                    "price": p["price"],
+                                    "is_forecast": False
+                                })
+                    
+                    if sampled_trend:
+                        # 仅保留最近 120 个点 (约 20 天)
+                        sampled_trend = sampled_trend[-120:]
+                        self._cache[cache_key] = {"data": sampled_trend, "timestamp": datetime.now()}
+                        return sampled_trend
+            except Exception as e:
+                logger.error(f"❌ Gold 4h history fetch failed: {e}")
 
         # --- 1d: 使用 Sina DailyKLine (日线) ---
         elif granularity == "1d":

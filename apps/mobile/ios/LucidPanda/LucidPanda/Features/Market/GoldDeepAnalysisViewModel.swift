@@ -42,8 +42,8 @@ public class GoldDeepAnalysisViewModel {
                 let path = "/api/v1/mobile/gold/prediction?granularity=\(selectedGranularity)\(forceRefresh ? "&force_refresh=true" : "")"
                 var prediction: GoldPredictionResponse = try await apiClient.fetch(path: path)
                 
-                // 2. Fetch external high-fidelity history from Sina (if granularity is 1m/1h style)
-                if selectedGranularity == "1m" || selectedGranularity == "1h" {
+                // 2. Fetch external high-fidelity history from Sina (if granularity is intraday style)
+                if selectedGranularity != "1d" {
                     let sinaHistory = await fetchSinaHistory()
                     if !sinaHistory.isEmpty {
                         // Use Sina's points as the authoritative history

@@ -677,9 +677,15 @@ async def _generate_gold_forecast_intl(
     if granularity == "1d":
         unit, count = "天", 5
         interval_min = 1440
+    elif granularity == "4h":
+        unit, count = "小时", 12 # 预测未来 2 天 (12个4h点)
+        interval_min = 240
     elif granularity == "30m":
         unit, count = "分钟", 12 # 预测未来 6 小时 (12个30m点)
         interval_min = 30
+    elif granularity == "15m":
+        unit, count = "分钟", 16 # 预测未来 4 小时 (16个15m点)
+        interval_min = 15
     elif granularity == "1m":
         unit, count = "分钟", 16 # 预测未来 4 小时 (16个15m点作为锚点)
         interval_min = 15
