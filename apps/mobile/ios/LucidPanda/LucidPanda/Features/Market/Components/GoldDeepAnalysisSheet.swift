@@ -256,8 +256,7 @@ struct ProfessionalChartTooltip: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color.Alpha.surface))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.Alpha.separator, lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color.Alpha.separator.opacity(0.5)))
     }
 }
 
@@ -313,11 +312,10 @@ struct ProfessionalGoldChart: View {
         let historyCount = data.history.count
         
         Chart {
-            // 2. Prediction Confidence Area (Blue - Future ONLY)
-            let lastHistoryTs = data.history.last?.timestamp ?? data.prediction.issuedAt
+            // 2. Prediction Confidence Area (Blue - Start from Prediction Issued Time)
             ForEach(data.prediction.mid.indices, id: \.self) { i in
                 let p = data.prediction.mid[i]
-                if p.timestamp > lastHistoryTs, let idx = index(for: p.timestamp) {
+                if p.timestamp >= data.prediction.issuedAt, let idx = index(for: p.timestamp) {
                     AreaMark(
                         x: .value("T", idx),
                         yStart: .value("L", data.prediction.lower[i].price),
@@ -348,23 +346,6 @@ struct ProfessionalGoldChart: View {
                 let currentPrice = data.history.last?.price ?? preClose
                 let trendColor = currentPrice >= preClose ? upColor : downColor
                 
-                // Area Shadow for professional look
-                ForEach(data.history.indices, id: \.self) { i in
-                    let p = data.history[i]
-                    if let idx = index(for: p.timestamp) {
-                        AreaMark(
-                            x: .value("T", idx),
-                            yStart: .value("Base", yDomain.lowerBound),
-                            yEnd: .value("P", p.price)
-                        )
-                        .foregroundStyle(LinearGradient(
-                            colors: [trendColor.opacity(0.12), trendColor.opacity(0.01)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ))
-                    }
-                }
-                
                 // Single Price Line
                 ForEach(data.history.indices, id: \.self) { i in
                     let p = data.history[i]
@@ -391,9 +372,9 @@ struct ProfessionalGoldChart: View {
                 }
             }
             
-            // 5. AI Prediction Curve
+            // 5. AI Prediction Curve (Dashed line - Start from Prediction Issued Time)
             ForEach(data.prediction.mid) { p in
-                if let idx = index(for: p.timestamp) {
+                if p.timestamp >= data.prediction.issuedAt, let idx = index(for: p.timestamp) {
                     LineMark(
                         x: .value("T", idx),
                         y: .value("P", p.price),
