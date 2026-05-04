@@ -345,17 +345,35 @@ struct ProfessionalGoldChart: View {
             // 4. Main History
             if data.granularity == "1m" {
                 let preClose = data.previousClose ?? (data.history.first?.price ?? 0)
+                let currentPrice = data.history.last?.price ?? preClose
+                let trendColor = currentPrice >= preClose ? upColor : downColor
+                
+                // Area Shadow for professional look
                 ForEach(data.history.indices, id: \.self) { i in
                     let p = data.history[i]
                     if let idx = index(for: p.timestamp) {
-                        let compare = i > 0 ? data.history[i - 1].price : preClose
-                        let isUp = p.price >= compare
+                        AreaMark(
+                            x: .value("T", idx),
+                            yStart: .value("Base", yDomain.lowerBound),
+                            yEnd: .value("P", p.price)
+                        )
+                        .foregroundStyle(LinearGradient(
+                            colors: [trendColor.opacity(0.12), trendColor.opacity(0.01)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ))
+                    }
+                }
+                
+                // Single Price Line
+                ForEach(data.history.indices, id: \.self) { i in
+                    let p = data.history[i]
+                    if let idx = index(for: p.timestamp) {
                         LineMark(
                             x: .value("T", idx),
-                            y: .value("P", p.price),
-                            series: .value("Series", isUp ? "ActualUp" : "ActualDown")
+                            y: .value("P", p.price)
                         )
-                        .foregroundStyle(isUp ? upColor : downColor)
+                        .foregroundStyle(trendColor)
                         .lineStyle(StrokeStyle(lineWidth: 2))
                     }
                 }
