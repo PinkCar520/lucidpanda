@@ -149,16 +149,9 @@ public struct GoldDeepAnalysisSheet: View {
     }
     
     private var legendView: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 16) {
             HStack(spacing: 4) {
-                // 恢复实际行情标签：改为上下两个横条
-                VStack(spacing: 1.5) {
-                    Rectangle().fill(actualUpColor).frame(width: 12, height: 1.5)
-                    Rectangle().fill(actualDownColor).frame(width: 12, height: 1.5)
-                }
-                Text("actual_market_beijing_time").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
-            }
-            HStack(spacing: 4) {
+                // 预测中枢虚线图例
                 Path { path in
                     path.move(to: CGPoint(x: 0, y: 4))
                     path.addLine(to: CGPoint(x: 14, y: 4))
@@ -177,6 +170,7 @@ public struct GoldDeepAnalysisSheet: View {
                 Text("breakout_interval").font(.system(size: 10)).foregroundStyle(Color.Alpha.textSecondary)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var metricCardsGrid: some View {
@@ -245,7 +239,12 @@ struct ProfessionalChartTooltip: View {
                     }
                 }
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(a.price >= (a.open ?? a.price) ? upColor : downColor)
+                .foregroundStyle({
+                    let open = a.open ?? a.price
+                    if a.price > open { return upColor }
+                    if a.price < open { return downColor }
+                    return Color.Alpha.neutral
+                }())
             }
             
             if isPrediction, let p = predictions.first(where: { abs($0.timestamp.timeIntervalSince(snapDate)) < 1 }) {
@@ -289,6 +288,14 @@ struct ProfessionalGoldChart: View {
         f.dateFormat = "MM-dd"
         return f
     }()
+    
+    private static let priceFormatter: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        return f
+    }()
 
     var body: some View {
         Chart {
@@ -302,7 +309,6 @@ struct ProfessionalGoldChart: View {
             }
             
             // 2. Prediction Confidence Area (Blue - Future ONLY)
-            // ⚠️ 修复重叠：强制仅在历史数据点之后显示蓝色背景
             let lastHistoryTs = data.history.last?.timestamp ?? data.prediction.issuedAt
             let futureMid = data.prediction.mid.filter { $0.timestamp > lastHistoryTs }
             let futureUpper = data.prediction.upper.filter { $0.timestamp > lastHistoryTs }
@@ -336,8 +342,10 @@ struct ProfessionalGoldChart: View {
                 let preClose = data.previousClose ?? (data.history.first?.price ?? 0)
                 
                 // History Area Fill (Dynamic Red/Green based on baseline)
-                ForEach(data.history) { p in
-                    let isUp = p.price >= preClose
+                ForEach(data.history.indices, id: \.self) { i in
+                    let p = data.history[i]
+                    let compare = i > 0 ? data.history[i - 1].price : preClose
+                    let isUp = p.price >= compare
                     AreaMark(
                         x: .value("T", p.timestamp),
                         yStart: .value("B", preClose),
@@ -352,14 +360,17 @@ struct ProfessionalGoldChart: View {
                     )
                 }
                 
-                // Line Series (Split into UP and DOWN to force color segments)
-                ForEach(data.history) { p in
+                // Line Series (Segmented to force color changes)
+                ForEach(data.history.indices, id: \.self) { i in
+                    let p = data.history[i]
+                    let compare = i > 0 ? data.history[i - 1].price : preClose
+                    let isUp = p.price >= compare
                     LineMark(
                         x: .value("T", p.timestamp),
                         y: .value("P", p.price),
-                        series: .value("Series", "Actual")
+                        series: .value("Series", isUp ? "ActualUp" : "ActualDown")
                     )
-                    .foregroundStyle(p.price >= preClose ? upColor : downColor)
+                    .foregroundStyle(isUp ? upColor : downColor)
                     .lineStyle(StrokeStyle(lineWidth: 2))
                 }
                 
@@ -370,7 +381,11 @@ struct ProfessionalGoldChart: View {
             } else {
                 ForEach(data.history) { p in
                     if let open = p.open, let high = p.high, let low = p.low {
-                        let candleColor = p.price >= open ? upColor : downColor
+                        let candleColor: Color = {
+                            if p.price > open { return upColor }      // 涨：红（国内）
+                            if p.price < open { return downColor }    // 跌：绿（国内）
+                            return Color.Alpha.neutral                // 平：中性
+                        }()
                         RectangleMark(x: .value("T", p.timestamp), yStart: .value("L", low), yEnd: .value("H", high), width: 1).foregroundStyle(candleColor)
                         RectangleMark(x: .value("T", p.timestamp), yStart: .value("O", min(open, p.price)), yEnd: .value("C", max(open, p.price)), width: .fixed(8)).foregroundStyle(candleColor)
                     }
@@ -415,8 +430,14 @@ struct ProfessionalGoldChart: View {
                             if c.timestamp > data.history.last?.timestamp ?? data.prediction.issuedAt {
                                 return predictionLineColor
                             } else {
-                                let histPoint = data.history.first(where: { abs($0.timestamp.timeIntervalSince(c.timestamp)) < 1 })
-                                return (histPoint?.price ?? 0) >= (histPoint?.open ?? histPoint?.price ?? 0) ? upColor : downColor
+                                guard let idx = data.history.firstIndex(where: { abs($0.timestamp.timeIntervalSince(c.timestamp)) < 1 }) else {
+                                    return upColor
+                                }
+                                let current = data.history[idx].price
+                                let compare = idx > 0
+                                    ? data.history[idx - 1].price
+                                    : (data.previousClose ?? data.history.first?.price ?? current)
+                                return current >= compare ? upColor : downColor
                             }
                         }())
                         .symbolSize(60)
@@ -427,11 +448,8 @@ struct ProfessionalGoldChart: View {
         .chartYScale(domain: yDomain)
         .chartXAxis { xAxisContent }
         .chartYAxis {
-            AxisMarks(position: .leading) { value in
+            AxisMarks(position: .leading, values: .stride(by: 2.0)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
-                if let price = value.as(Double.self) {
-                    AxisValueLabel { Text("$\(Int(price))").font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary) }
-                }
             }
         }
         .chartOverlay { proxy in
@@ -473,6 +491,10 @@ struct ProfessionalGoldChart: View {
         let range = max - min
         let padding = range * 0.05
         return (min - padding)...(max + padding)
+    }
+    
+    private static func formattedPrice(_ value: Double) -> String {
+        priceFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
     }
 
     @AxisContentBuilder
