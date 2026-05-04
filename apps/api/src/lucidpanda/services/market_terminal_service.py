@@ -383,14 +383,20 @@ class MarketTerminalService:
         """获取黄金数据（统一使用伦敦金期货 XAU 接口 - 2倍报价对齐）"""
         try:
             # 弃用不稳定的 fx_sxauusd，统一改用与走势图相同的 XAU 期货接口
-            url = "https://hq.sinajs.cn/list=hf_XAU"
+            # Use unified Sina quote endpoint with explicit list payload
+            # (London gold + EUR/CNY in one response frame).
+            ts = int(datetime.now().timestamp() * 1000)
+            url = f"https://hq.sinajs.cn/?_={ts}&list=hf_XAU,fx_seurcny"
             resp = requests.get(
                 url, timeout=5, headers={"Referer": "https://finance.sina.com.cn"}
             )
             raw = resp.text
             if '="' in raw:
                 # 格式: var hq_str_hf_XAU="price,?,buy,sell,high,low,time,prev_close,open,?,?...";
-                match = re.search(r'hq_str_hf_XAU="([^"]+)"', raw)
+                # Compatible with both:
+                # var hq_str_hf_XAU="..."
+                # var hq_str_hf_XAU = "..."
+                match = re.search(r'hq_str_hf_XAU\s*=\s*"([^"]+)"', raw)
                 if match:
                     parts = match.group(1).split(",")
                     current = float(parts[0])

@@ -257,7 +257,7 @@ struct ProfessionalChartTooltip: View {
             }
         }
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color.Alpha.surface).shadow(radius: 2))
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color.Alpha.surface))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.Alpha.separator, lineWidth: 0.5))
     }
 }
@@ -299,14 +299,7 @@ struct ProfessionalGoldChart: View {
 
     var body: some View {
         Chart {
-            // 1. Prediction Zone Background (Light Grey Stripe)
-            if let lastTime = data.prediction.mid.last?.timestamp {
-                RectangleMark(
-                    xStart: .value("Start", data.prediction.issuedAt),
-                    xEnd: .value("End", lastTime)
-                )
-                .foregroundStyle(Color(hex: "#888780").opacity(0.06))
-            }
+            // 1. Prediction zone background removed (keep chart clean)
             
             // 2. Prediction Confidence Area (Blue - Future ONLY)
             let lastHistoryTs = data.history.last?.timestamp ?? data.prediction.issuedAt
@@ -340,25 +333,6 @@ struct ProfessionalGoldChart: View {
             // 4. Main History (Intraday Line vs Candlesticks)
             if data.granularity == "1m" {
                 let preClose = data.previousClose ?? (data.history.first?.price ?? 0)
-                
-                // History Area Fill (Dynamic Red/Green based on baseline)
-                ForEach(data.history.indices, id: \.self) { i in
-                    let p = data.history[i]
-                    let compare = i > 0 ? data.history[i - 1].price : preClose
-                    let isUp = p.price >= compare
-                    AreaMark(
-                        x: .value("T", p.timestamp),
-                        yStart: .value("B", preClose),
-                        yEnd: .value("P", p.price)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [(isUp ? upColor : downColor).opacity(0.12), .clear], 
-                            startPoint: .top, 
-                            endPoint: .bottom
-                        )
-                    )
-                }
                 
                 // Line Series (Segmented to force color changes)
                 ForEach(data.history.indices, id: \.self) { i in
@@ -448,8 +422,17 @@ struct ProfessionalGoldChart: View {
         .chartYScale(domain: yDomain)
         .chartXAxis { xAxisContent }
         .chartYAxis {
-            AxisMarks(position: .leading, values: .stride(by: 2.0)) { value in
+            AxisMarks(position: .leading, values: .stride(by: 10.0)) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5)).foregroundStyle(.gray.opacity(0.1))
+            }
+            if let preClose = data.previousClose ?? data.history.first?.price {
+                AxisMarks(position: .leading, values: [preClose]) { _ in
+                    AxisValueLabel {
+                        Text(Self.formattedPrice(preClose))
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color.Alpha.brand)
+                    }
+                }
             }
         }
         .chartOverlay { proxy in
@@ -547,7 +530,6 @@ struct LandscapeChartView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                Color.Alpha.background.ignoresSafeArea()
                 if let data = viewModel.predictionData {
                     VStack(spacing: 0) {
                         HStack {
@@ -556,8 +538,9 @@ struct LandscapeChartView: View {
                                 Text(data.granularity?.uppercased() ?? "").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Button { isPresented = false } label: { Image(systemName: "xmark.circle.fill").font(.title).foregroundStyle(Color.Alpha.textSecondary.opacity(0.5)) }
-                        }.padding(.horizontal, 24).padding(.top, 16)
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 16)
                         
                         ProfessionalGoldChart(
                             data: data,
@@ -570,14 +553,29 @@ struct LandscapeChartView: View {
                             breakoutFillColor: breakoutFillColor,
                             pivotLineColor: pivotLineColor
                         )
-                        .padding(.horizontal, 20).padding(.bottom, 20)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 20)
                     }
                 }
             }
             .rotationEffect(.degrees(90))
             .frame(width: geo.size.height, height: geo.size.width)
             .position(x: geo.size.width/2, y: geo.size.height/2)
+            .safeAreaInset(edge: .trailing) {
+                VStack {
+                    Spacer()
+                    Button { isPresented = false } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.Alpha.textPrimary)
+                            .padding(8)
+                            .background(Color.Alpha.separator.opacity(0.3))
+                            .clipShape(Circle())
+                    }
+                }
+                .padding(.trailing, 10)
+                .padding(.bottom, 12)
+            }
         }
-        .ignoresSafeArea()
     }
 }

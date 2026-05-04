@@ -93,7 +93,7 @@ actor FundValuationSSECenter {
         let sortedCodes = codes.sorted()
         guard !sortedCodes.isEmpty else { return }
 
-        let baseURL = await APIClient.shared.baseURL
+        let baseURL = APIClient.shared.baseURL
         var components = URLComponents(url: baseURL.appendingPathComponent("api/v1/web/funds/stream"), resolvingAgainstBaseURL: false)
         components?.queryItems = [URLQueryItem(name: "codes", value: sortedCodes.joined(separator: ","))]
         guard let url = components?.url else { throw APIError.invalidURL }
