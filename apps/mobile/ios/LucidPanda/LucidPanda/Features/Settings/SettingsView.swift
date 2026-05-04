@@ -33,8 +33,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.Alpha.background
-                    .ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 28) {
                         profileHeader()

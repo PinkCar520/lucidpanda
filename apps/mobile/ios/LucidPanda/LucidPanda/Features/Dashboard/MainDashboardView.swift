@@ -216,7 +216,7 @@ struct MainDashboardView: View {
         }
         .sheet(isPresented: $isDeepAnalysisPresented) {
             GoldDeepAnalysisSheet()
-                .presentationDetents([.fraction(0.9)])
+                .presentationDetents([.fraction(0.95)])
                 .presentationDragIndicator(Visibility.visible)
         }
     }

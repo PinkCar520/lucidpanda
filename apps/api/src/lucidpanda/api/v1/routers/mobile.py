@@ -478,10 +478,13 @@ async def get_gold_prediction(
     """
     # 1. Fetch History (International Gold / London Gold) with custom depth
     try:
-        history_full = await run_in_threadpool(market_terminal_service.get_gold_history_intl_custom, granularity, force_refresh)
+        history_resp = await run_in_threadpool(market_terminal_service.get_gold_history_intl_custom, granularity, force_refresh)
+        history_full = history_resp.get("history", [])
+        pre_close = history_resp.get("pre_close")
     except Exception as e:
         logger.error(f"Error fetching gold history: {e}")
         history_full = []
+        pre_close = None
 
     if not history_full:
         # Return a shell response instead of 503 to prevent App crash/error loops
@@ -493,16 +496,8 @@ async def get_gold_prediction(
                 "upper": [],
                 "lower": []
             },
-            "generatedAt": format_iso8601(datetime.now(UTC))
-        })
-
-    # 2. Determine Pivot (IssuedAt)
-    # 我们以历史数据的最后一个点作为预测的起点（枢轴点），确保预测紧跟实时行情。
-    if not history_full:
-        return v1_prepare_json({
-            "history": [],
-            "prediction": {"issuedAt": format_iso8601(datetime.now(UTC)), "mid": [], "upper": [], "lower": []},
-            "generatedAt": format_iso8601(datetime.now(UTC))
+            "generatedAt": format_iso8601(datetime.now(UTC)),
+            "previous_close": pre_close
         })
 
     from src.lucidpanda.utils.market_calendar import get_market_status
@@ -519,6 +514,7 @@ async def get_gold_prediction(
         cached_data = get_cached(CACHE_KEY)
         if cached_data and "generatedAt" in cached_data:
             cached_data["market_status"] = market_status
+            cached_data["previous_close"] = pre_close
             return v1_prepare_json(cached_data)
 
     # Fetch snapshot and top alerts for AI context
@@ -613,7 +609,8 @@ async def get_gold_prediction(
         "prediction": prediction_result,
         "generatedAt": format_iso8601(datetime.now(UTC)),
         "granularity": granularity, # Include granularity for frontend logic
-        "market_status": market_status
+        "market_status": market_status,
+        "previous_close": pre_close
     }
     
     # Cache the FULL response object, not just prediction_result

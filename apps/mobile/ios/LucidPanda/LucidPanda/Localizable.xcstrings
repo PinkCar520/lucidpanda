@@ -1,9 +1,6 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "(%@)" : {
-
-    },
     "%@%%" : {
 
     },
@@ -71,7 +68,6 @@
       }
     },
     "actual_market_beijing_time" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -88,7 +84,6 @@
       }
     },
     "ai_prediction_mid" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1651,6 +1646,7 @@
       }
     },
     "breakout_interval" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4813,7 +4809,6 @@
       }
     },
     "gold.prediction.title" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5630,6 +5625,7 @@
       }
     },
     "market.prediction.mode.opening_anticipation" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6101,6 +6097,7 @@
       }
     },
     "market.status.closed_label" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6180,6 +6177,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "最新季报披露"
+          }
+        }
+      }
+    },
+    "O:$%@ H:$%@ L:$%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "O:$%1$@ H:$%2$@ L:$%3$@"
           }
         }
       }

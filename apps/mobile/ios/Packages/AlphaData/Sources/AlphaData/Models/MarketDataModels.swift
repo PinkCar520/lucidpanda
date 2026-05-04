@@ -255,21 +255,27 @@ public struct MarketPulseResponse: Codable {
     }
 }
 
-/// 黄金走势数据点（包含 AI 预测）
+/// 黄金走势数据点（包含 AI 预测，支持 K 线所需之 OHLC）
 public struct GoldTrendPoint: Codable, Identifiable {
     public var id: Date { timestamp }
     public let timestamp: Date
     public let price: Double
+    public let open: Double?
+    public let high: Double?
+    public let low: Double?
     public let isForecast: Bool
 
-    public init(timestamp: Date, price: Double, isForecast: Bool) {
+    public init(timestamp: Date, price: Double, open: Double? = nil, high: Double? = nil, low: Double? = nil, isForecast: Bool) {
         self.timestamp = timestamp
         self.price = price
+        self.open = open
+        self.high = high
+        self.low = low
         self.isForecast = isForecast
     }
 
     enum CodingKeys: String, CodingKey {
-        case timestamp, price
+        case timestamp, price, open, high, low
         case isForecast = "is_forecast"
     }
 }
@@ -353,19 +359,22 @@ public struct GoldPredictionResponse: Codable {
     public let generatedAt: Date?
     public let granularity: String?
     public let marketStatus: String?
+    public let previousClose: Double?
     
-    public init(history: [GoldTrendPoint], prediction: GoldPredictionDetail, generatedAt: Date?, granularity: String?, marketStatus: String?) {
+    public init(history: [GoldTrendPoint], prediction: GoldPredictionDetail, generatedAt: Date?, granularity: String?, marketStatus: String?, previousClose: Double? = nil) {
         self.history = history
         self.prediction = prediction
         self.generatedAt = generatedAt
         self.granularity = granularity
         self.marketStatus = marketStatus
+        self.previousClose = previousClose
     }
 
     enum CodingKeys: String, CodingKey {
         case history, prediction, granularity
         case generatedAt = "generated_at"
         case marketStatus = "market_status"
+        case previousClose = "previous_close"
     }
 }
 
